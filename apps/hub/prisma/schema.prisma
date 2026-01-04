@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+
+  status    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  firstName     String @default("")
+  lastName      String @default("")
+
+  deactivatedAt       DateTime?
+  isEmailVerified     Boolean               @default(false)
+
+  roles     UserRole[]
+  // plan      UserPlan?
+}
+
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String?
+  description String?
+  status      Boolean   @default(true)
+  users       UserRole[]
+  abilities   RoleAbility[]
+}
+
+model Ability {
+  id          String   @id @default(uuid())
+  action      String   @unique // e.g. "user.read"
+  description String?
+
+  roles       RoleAbility[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model RoleAbility {
+  roleId    String
+  abilityId String
+
+  role    Role    @relation(fields: [roleId], references: [id])
+  ability Ability @relation(fields: [abilityId], references: [id])
+
+  @@id([roleId, abilityId])
+}
+
+
+model ApiKey {
+  id            String   @id @default(uuid())
+  key           String   @unique
+  keyPrefix     String
+  secretHash    String
+  previousSecretHash String?
+
+  name          String
+  description   String?
+
+  ownerType     ApiKeyOwnerType
+  ownerId       String
+
+  environment   ApiKeyEnvironment
+
+  scopes        ApiKeyScope[]
+  usage        ApiKeyUsage[]
+
+  status        ApiKeyStatus @default(ACTIVE)
+  rateLimit     Int?
+
+  rotatedAt     DateTime?
+  lastUsedAt    DateTime?
+  expiresAt     DateTime?
+
+  rotatedFromId String?
+  createdById   String
+  createdAt     DateTime @default(now())
+}
+
+model ApiKeyScope {
+  id        String @id @default(uuid())
+  keyId     String
+  scope     String
+
+  apiKey    ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  @@unique([keyId, scope])
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum ApiKeyOwnerType {
+  USER
+  ORG
+}
+
+enum ApiKeyEnvironment {
+  DEV
+  PROD
+}
+
+model ApiKeyUsage {
+  id        String   @id @default(uuid())
+  apiKeyId String
+
+  scope     String
+  endpoint  String
+  method    String
+
+  count     Int
+  date      DateTime   // bucket (hour/day)
+
+  apiKey    ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([apiKeyId, scope, endpoint, method, date])
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  type      SecurityEventType
+  apiKeyId String?
+  ip        String?
+  reason    String
+
+  createdAt DateTime @default(now())
+}
+
+enum SecurityEventType {
+  INVALID_SIGNATURE
+  REPLAY_ATTACK
+  RATE_LIMIT_EXCEEDED
+  SCOPE_VIOLATION
+  EXPIRED_KEY
+}
+
+
+// model Plan {
+//   id    String @id @default(uuid())
+//   name  String @unique 
+//   price Int?
+//   users UserPlan[]
+// }
+
+// model UserPlan {
+//   userId   String @unique
+//   planId   String
+
+//   startsAt DateTime @default(now())
+//   endsAt   DateTime?
+
+//   user User @relation(fields: [userId], references: [id])
+//   plan Plan @relation(fields: [planId], references: [id])
+// }
