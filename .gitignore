@@ -1,1 +1,15 @@
 node_modules
+generated/
+dist/
+.env
+.DS_Store
+.vscode/
+.idea/
+*.log
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.tsbuildinfo
+apps/hub/prisma/migrations/

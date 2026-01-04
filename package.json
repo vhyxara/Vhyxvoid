@@ -1,0 +1,30 @@
+{
+  "name": "blackserver",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "private": true,
+  "scripts": {
+    "dev:hub": "pnpm --filter hub dev",
+    "dev:agent": "pnpm --filter agent dev",
+    "dev:sdk": "pnpm --filter sdk dev",
+    "dev:demo-backend": "pnpm --filter demo-backend dev",
+    "build": "turbo run build",
+    "dev": "concurrently \"pnpm dev:hub\" \"pnpm dev:agent\" \"pnpm dev:sdk\" \"pnpm dev:demo-backend\"",
+    "test": "turbo run test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.6.2",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "turbo": "^2.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  }
+}
