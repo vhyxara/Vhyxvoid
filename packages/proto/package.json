@@ -1,0 +1,7 @@
+{
+  "name": "proto",
+  "scripts": {
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {}
+}
