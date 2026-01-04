@@ -13,3 +13,4 @@ yarn-error.log*
 .pnpm-debug.log*
 *.tsbuildinfo
 apps/hub/prisma/migrations/
+apps/hub/src/schema
