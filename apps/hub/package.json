@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
-    "build": "tsc -p tsconfig.json && tsc-alias",
+    "build": "npx prisma generate && tsc -p tsconfig.json && tsc-alias",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/index.js",
     "lint": "eslint . --ext .ts",

@@ -98,7 +98,7 @@ export class HubClient {
     });
     this.ws.onopen = () => {
       console.log("WebSocket connected");
-      this.sendFrontendRegisterMessage();
+      // this.sendFrontendRegisterMessage();
     };
 
     this.ws.onmessage = (ev) => {
@@ -157,72 +157,72 @@ export class HubClient {
     };
   }
 
-  sendFrontendRegisterMessage() {
-    if (this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({ type: "frontend_register", apiKey: this.opts.apiKey })
-      );
-    } else {
-      console.error("WebSocket is not open yet. Message not sent.");
-    }
-  }
+  // sendFrontendRegisterMessage() {
+  //   if (this.ws.readyState === WebSocket.OPEN) {
+  //     this.ws.send(
+  //       JSON.stringify({ type: "frontend_register", apiKey: this.opts.apiKey })
+  //     );
+  //   } else {
+  //     console.error("WebSocket is not open yet. Message not sent.");
+  //   }
+  // }
 
-  async fetch(path, opts = {}) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.log("WebSocket is not open yet, waiting for connection...");
-      await new Promise((resolve) => {
-        const checkConnectionInterval = setInterval(() => {
-          if (this.ws?.readyState === WebSocket.OPEN) {
-            clearInterval(checkConnectionInterval);
-            resolve();
-          }
-        }, 100); // Check every 100ms until the WebSocket is open
-      });
-    }
+  // async fetch(path, opts = {}) {
+  //   if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+  //     console.log("WebSocket is not open yet, waiting for connection...");
+  //     await new Promise((resolve) => {
+  //       const checkConnectionInterval = setInterval(() => {
+  //         if (this.ws?.readyState === WebSocket.OPEN) {
+  //           clearInterval(checkConnectionInterval);
+  //           resolve();
+  //         }
+  //       }, 100); // Check every 100ms until the WebSocket is open
+  //     });
+  //   }
 
-    const id = randomUUID();
-    const ts = Date.now();
-    const secret = process.env.BRIDGE_SECRET || "default_secret";
-    const frontendKey = process.env.FRONTEND_KEY || "default_frontend_key";
-    const signature = buildSignature({
-      method: opts.method || "GET",
-      path,
-      body: opts.body ?? null,
-      requestId: id,
-      ts,
-      secret,
-    });
-    const meta = { frontendKey, ts, signature };
-    const payloadWithMeta = { ...opts, requestId: id, meta };
-    const payload = {
-      type: "request",
-      requestId: id,
-      path,
-      method: opts.method || "GET",
-      headers: opts.headers || {},
-      body: opts.body ?? null,
-    };
+  //   const id = randomUUID();
+  //   const ts = Date.now();
+  //   const secret = process.env.BRIDGE_SECRET || "default_secret";
+  //   const frontendKey = process.env.FRONTEND_KEY || "default_frontend_key";
+  //   const signature = buildSignature({
+  //     method: opts.method || "GET",
+  //     path,
+  //     body: opts.body ?? null,
+  //     requestId: id,
+  //     ts,
+  //     secret,
+  //   });
+  //   const meta = { frontendKey, ts, signature };
+  //   const payloadWithMeta = { ...opts, requestId: id, meta };
+  //   const payload = {
+  //     type: "request",
+  //     requestId: id,
+  //     path,
+  //     method: opts.method || "GET",
+  //     headers: opts.headers || {},
+  //     body: opts.body ?? null,
+  //   };
 
-    return new Promise((resolve, reject) => {
-      console.log(`Sending request with id: ${id}`);
-      // Store both resolve and reject functions to handle the promise lifecycle
-      this.pending.set(id, { resolve, reject });
+  //   return new Promise((resolve, reject) => {
+  //     console.log(`Sending request with id: ${id}`);
+  //     // Store both resolve and reject functions to handle the promise lifecycle
+  //     this.pending.set(id, { resolve, reject });
 
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify(payloadWithMeta));
-      } else {
-        reject(new Error("WebSocket is not open"));
-      }
+  //     if (this.ws?.readyState === WebSocket.OPEN) {
+  //       this.ws.send(JSON.stringify(payloadWithMeta));
+  //     } else {
+  //       reject(new Error("WebSocket is not open"));
+  //     }
 
-      // Timeout after 15 seconds
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error("timeout"));
-        }
-      }, 15000); // Timeout after 15 seconds
-    });
-  }
+  //     // Timeout after 15 seconds
+  //     setTimeout(() => {
+  //       if (this.pending.has(id)) {
+  //         this.pending.delete(id);
+  //         reject(new Error("timeout"));
+  //       }
+  //     }, 15000); // Timeout after 15 seconds
+  //   });
+  // }
 }
 
 // export interface HubOptions {
