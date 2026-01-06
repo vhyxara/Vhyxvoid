@@ -22,15 +22,12 @@
 //   }
 // }
 
-// fastify.d.ts or your custom types file
-import { FastifyRequest } from 'fastify';
+// fastify-jwt.d.ts
+import { JwtPayload } from './jwt';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: {
-      userId: string;
-      roles: string[]; // An array of role names
-      abilities: string[]; // An array of abilities
-    };
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: JwtPayload;
+    user: JwtPayload;
   }
 }

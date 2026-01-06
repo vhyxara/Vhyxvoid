@@ -1,5 +1,6 @@
 import { prisma } from '@/config/prisma';
-import { signToken } from '@/utils/auth';
+import { Prisma } from '@/generated/prisma/client';
+// import { signToken } from '@/utils/auth';
 import bcrypt from 'bcryptjs';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -40,6 +41,14 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 
 //   res.send({ id: user.id });
 // }
+
+type UserWithRoles = Prisma.UserGetPayload<{
+  include: {
+    roles: {
+      include: { role: true };
+    };
+  };
+}>;
 export async function register(
   req: FastifyRequest<{ Body: { email: string; username: string; password: string } }>,
   res: FastifyReply,
@@ -78,7 +87,7 @@ export async function register(
       },
     },
   });
-  const createdUser: User = user; // Type assertion to User interface
+  const createdUser: UserWithRoles = user; // Type assertion to User interface
   res.send({ id: createdUser.id });
 }
 

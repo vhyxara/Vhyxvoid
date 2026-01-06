@@ -58,7 +58,7 @@ async function start() {
   server.register(roleRouter, { prefix: '/api/v1/role' });
   server.register(userRouter, { prefix: '/api/v1/user' });
   server.register(keyManagementRouter, { prefix: '/api/v1/key-management' });
-  server.post('/bridge', proxyController);
+  server.post('/hub', proxyController);
 
   // Role-based access control (applies to all routes)
   // addRoleBasedAccessControl(server, ['USER', 'ADMIN']); // Only USER and ADMIN can access the routes

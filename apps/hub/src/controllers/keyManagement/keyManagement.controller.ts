@@ -1,5 +1,6 @@
 import { prisma } from '@/config/prisma';
 import { createApiKey } from '@/services/keyManagement.service';
+import { JwtPayload } from '@/types/jwt';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 export async function createApiKeyController(
@@ -12,7 +13,7 @@ export async function createApiKeyController(
       rateLimit?: number;
       expiresAt?: Date | null;
     };
-  }>,
+  }> & { user: JwtPayload },
   res: FastifyReply,
 ) {
   const user = req.user!; // injected by auth middleware

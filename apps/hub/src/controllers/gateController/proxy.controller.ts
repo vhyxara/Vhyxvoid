@@ -1,6 +1,6 @@
 // import { routeRequestToAgent } from '@/core/ws';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { routeRequestToAgent } from 'src/core/ws';
+import { routeRequestToAgent } from '@/core/ws';
 
 export const proxyController = async (req: FastifyRequest, res: FastifyReply) => {
   const payload: any = req.body as any;

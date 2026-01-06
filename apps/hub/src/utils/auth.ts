@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import jwt, { SignOptions, JwtPayload } from 'jsonwebtoken';
+// import jwt, { SignOptions, JwtPayload } from 'jsonwebtoken';
 
 export const hashPassword = async (password: string) => {
   return await bcrypt.hash(password, 10);
@@ -10,35 +10,35 @@ export const comparePassword = async (password: string, hash: string) => {
   return await bcrypt.compare(password, hash);
 };
 
-export const signToken = async (app: FastifyInstance, payload: object): Promise<string> => {
-  const secret = process.env.JWT_SECRET as string;
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is missing.');
-  }
-  const expiresIn: string | number = process.env.JWT_EXPIRES_IN || ('1d' as const);
-  if (!expiresIn) {
-    throw new Error('JWT_EXPIRES_IN environment variable is missing.');
-  }
+// export const signToken = async (app: FastifyInstance, payload: object): Promise<string> => {
+//   const secret = process.env.JWT_SECRET as string;
+//   if (!secret) {
+//     throw new Error('JWT_SECRET environment variable is missing.');
+//   }
+//   const expiresIn: string | number = process.env.JWT_EXPIRES_IN || ('1d' as const);
+//   if (!expiresIn) {
+//     throw new Error('JWT_EXPIRES_IN environment variable is missing.');
+//   }
 
-  // const jwtsign = jwt.sign(payload, secret, {
-  //   expiresIn: process.env.JWT_EXPIRES_IN || '1d',
-  // });
-  return await app.jwt.sign(payload);
-};
-export const generateToken = async (
-  app: FastifyInstance,
-  userId: string,
-  role: string,
-): Promise<string> => {
-  const secret = process.env.JWT_SECRET as string;
+//   // const jwtsign = jwt.sign(payload, secret, {
+//   //   expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+//   // });
+//   return await app.jwt.sign(payload);
+// };
+// export const generateToken = async (
+//   app: FastifyInstance,
+//   userId: string,
+//   role: string,
+// ): Promise<string> => {
+//   const secret = process.env.JWT_SECRET as string;
 
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is missing.');
-  }
+//   if (!secret) {
+//     throw new Error('JWT_SECRET environment variable is missing.');
+//   }
 
-  const payload = { id: userId, role };
-  return await app.jwt.sign(payload);
-};
+//   const payload = { id: userId, role };
+//   return await app.jwt.sign(payload);
+// };
 
 export const verifyToken = async (app: FastifyInstance, token: string): Promise<any> => {
   try {

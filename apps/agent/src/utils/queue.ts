@@ -469,7 +469,7 @@ export function peekAll(): QueueItem[] {
 //   }
 // }
 
-const QUEUE_PATH = path.resolve(process.cwd(), "bridge-queue.jsonl");
+const QUEUE_PATH = path.resolve(process.cwd(), "hub-queue.jsonl");
 
 // durable append
 export function pushToDurableQueue(obj: QueueItem) {

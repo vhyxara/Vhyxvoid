@@ -2,7 +2,7 @@ import { getRedis } from '@/core/redis';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/config/prisma';
-import { ApiKey } from 'generated/prisma/client';
+import { ApiKey } from '../generated/prisma/client';
 
 export function generateApiKey(environment: 'DEV' | 'PROD') {
   const prefix = environment === 'PROD' ? 'bksr_live_' : 'bksr_dev_';
