@@ -162,7 +162,7 @@ SDK sends: `signature = { sig: string, canonical: string }`
 
 ---
 
-# 3) **SDK (BridgeClient)**
+# 3) **SDK (HubClient)**
 
 ### 3.1 **Connection**
 
@@ -572,9 +572,9 @@ Add REST endpoints:
 SDK: provide CLI for:
 
 ```
-bridge keys create
-bridge keys rotate
-bridge keys revoke
+hub keys create
+hub keys rotate
+hub keys revoke
 ```
 
 Hub must check database before checking in-memory store.
@@ -643,11 +643,11 @@ Pages:
 Commands:
 
 ```
-bridge dev         # start hub + agent + backend
-bridge key create  # talk to hub API
-bridge key rotate
-bridge key revoke
-bridge agent start
+hub dev         # start hub + agent + backend
+hub key create  # talk to hub API
+hub key rotate
+hub key revoke
+hub agent start
 ```
 
 ---

@@ -123,7 +123,8 @@
 
 // connect();
 
-// const QPATH = path.resolve(process.cwd(), "bridge-queue.jsonl");
+// const QPATH = path.resolve(process.cwd(), "hub-queue.jsonl");
+
 
 // export function pushToQueue(obj: any) {
 //   fs.appendFileSync(QPATH, JSON.stringify(obj) + "\n", { encoding: "utf8" });
@@ -319,7 +320,7 @@
 //   server.get("/health", async () => ({ ok: true, ts: Date.now() }));
 
 //   // optional HTTP proxy endpoint for simple tooling / curl / tests:
-//   server.post("/bridge", async (req, reply) => {
+//   server.post("/hub", async (req, reply) => {
 //     /* expected body:
 //        { method, path, headers?, body?, agentId? }
 //     */
@@ -771,7 +772,7 @@
 //   return { sig, ts, canonical };
 // }
 
-// const client = new BridgeClient({
+// const client = new HubClient({
 //   hubUrl: process.env.HUB_URL || "ws://localhost:9000/ws",
 //   apiKey: "front-demo",
 // });
@@ -801,7 +802,7 @@
 //   }
 // }, 800);
 
-// export class BridgeClient {
+// export class HubClient {
 //   ws = null;
 //   pending = new Map();
 //   opts;
