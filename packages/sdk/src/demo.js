@@ -1,5 +1,5 @@
-// import { BridgeClient } from "./blackserver-client";
-// const client = new BridgeClient({
+// import { HubClient } from "./blackserver-client";
+// const client = new HubClient({
 //   hubUrl: process.env.HUB_URL || "ws://localhost:9000/ws",
 //   apiKey: "front-demo",
 // });
@@ -17,9 +17,9 @@
 //     process.exit(1);
 //   }
 // }, 800);
-import { BridgeClient } from "./blackserver-client.js";
+import { HubClient } from "./blackserver-client.js";
 
-const client = new BridgeClient({
+const client = new HubClient({
   hubUrl: process.env.HUB_URL || "ws://localhost:9000/ws",
   apiKey: "front-demo",
 });

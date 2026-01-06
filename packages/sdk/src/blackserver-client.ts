@@ -3,7 +3,7 @@ import WebSocket from "ws";
 import { randomUUID } from "crypto";
 import { buildSignature } from "./sign";
 
-// export class BridgeClient {
+// export class HubClient {
 //   constructor({ hubUrl, apiKey }) {
 //     this.hubUrl = hubUrl;
 //     this.apiKey = apiKey;
@@ -65,21 +65,37 @@ import { buildSignature } from "./sign";
 //   }
 // }
 
-export class BridgeClient {
-  ws = null;
-  pending = new Map();
-  opts;
+export class HubClient {
+  private ws?: WebSocket;
+  private pending = new Map<
+    string,
+    { resolve: Function; reject: Function; timeout: NodeJS.Timeout }
+  >();
+  constructor(
+    private opts: {
+      hubUrl: string;
+      apiKey: string;
+      apiSecret: string;
+      timeoutMs?: number;
+    }
+  ) {}
   retries = 5; // Max retries
   retryInterval = 2000; // Retry interval (2 seconds)
 
-  constructor(opts) {
-    this.opts = opts;
-    this.connect();
-  }
+  // constructor(opts) {
+  //   this.opts = opts;
+  //   this.connect();
+  // }
 
-  connect(retryCount = 0) {
+  async connect(retryCount = 0) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
+
     this.ws = new WebSocket(this.opts.hubUrl);
 
+    await new Promise<void>((resolve, reject) => {
+      this.ws!.once("open", resolve);
+      this.ws!.once("error", reject);
+    });
     this.ws.onopen = () => {
       console.log("WebSocket connected");
       this.sendFrontendRegisterMessage();
@@ -87,12 +103,16 @@ export class BridgeClient {
 
     this.ws.onmessage = (ev) => {
       try {
-        const msg = JSON.parse(ev.data);
+        const msg = JSON.parse(ev.data.toString());
         console.log("Received message:", msg);
 
         if (msg.type === "response" && msg.requestId) {
           const pendingRequest = this.pending.get(msg.requestId);
-
+          if (!pendingRequest) {
+            return console.error(
+              `No pending request found for requestId: ${msg.requestId}`
+            );
+          }
           if (pendingRequest) {
             const { resolve, reject } = pendingRequest;
 
@@ -110,6 +130,9 @@ export class BridgeClient {
               `No pending request found for requestId: ${msg.requestId}`
             );
           }
+          clearTimeout(pendingRequest.timeout); // Clear the timeout
+          this.pending.delete(msg.requestId); // Remove from pending map
+          pendingRequest.resolve(msg);
         }
       } catch (err) {
         console.error("Error parsing message:", err);
@@ -202,17 +225,17 @@ export class BridgeClient {
   }
 }
 
-// export interface BridgeOptions {
+// export interface HubOptions {
 //   apiKey: string;
 //   hubUrl: string; // wss://hub-url/ws
 // }
 
-// export class BridgeClient {
+// export class HubClient {
 //   private ws: WebSocket | null = null;
 //   private pending = new Map<string, (data: any) => void>();
-//   private opts: BridgeOptions;
+//   private opts: HubOptions;
 
-//   constructor(opts: BridgeOptions) {
+//   constructor(opts: HubOptions) {
 //     this.opts = opts;
 //     this.connect();
 //   }
