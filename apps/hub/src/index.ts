@@ -53,6 +53,9 @@ async function start() {
   //   return body;
   // });
   // server.addHook('onRequest', authenticate);
+
+server.get('/', async () => ({ message:"Welcome to black server api", ok: true, ts: Date.now() }));
+
   // Define routes
   server.register(authRouter, { prefix: '/api/v1/auth' });
   server.register(roleRouter, { prefix: '/api/v1/role' });
