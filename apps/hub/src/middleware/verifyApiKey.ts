@@ -41,8 +41,8 @@ export async function verifyApiKey(msg: any) {
   const seen = await redis.get(replayKey);
   if (seen) throw new Error('replay_detected');
 
-  await redis.set(replayKey, '1', 'PX', SIGNATURE_WINDOW_MS);
-
+  // await redis.set(replayKey, '1', 'PX', SIGNATURE_WINDOW_MS);
+  await redis.set(replayKey, '1', { px: SIGNATURE_WINDOW_MS });
   // 4️⃣ Reconstruct canonical string
   const body = msg.body ? Buffer.from(msg.body, 'base64').toString() : '';
 
