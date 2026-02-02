@@ -1,5 +1,6 @@
 import { prisma } from '@/config/prisma';
 import { Prisma } from '@/generated/prisma/client';
+import { errorResponse, successResponse } from '@/utils/response';
 // import { signToken } from '@/utils/auth';
 import bcrypt from 'bcryptjs';
 import { FastifyReply, FastifyRequest } from 'fastify';
@@ -95,48 +96,80 @@ export async function login(
   req: FastifyRequest<{ Body: { email: string; password: string } }>,
   res: FastifyReply,
 ) {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: {
-      roles: {
-        include: {
-          role: {
-            include: {
-              abilities: { include: { ability: true } },
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                abilities: { include: { ability: true } },
+              },
             },
           },
         },
+        //   plan: { include: { plan: true } },
       },
-      //   plan: { include: { plan: true } },
-    },
-  });
+    });
 
-  if (!user) return res.status(401).send({ error: 'Invalid credentials' });
+    // if (!user) return res.status(401).send({ error: 'Invalid credentials' });
+    if (!user) {
+      return errorResponse(res, 'Invalid credentials', 401);
+    }
+    const ok = await bcrypt.compare(password, user.password);
+    // if (!ok) return res.status(401).send({ error: 'Invalid credentials' });
+    if (!ok) {
+      return errorResponse(res, 'Invalid password', 401);
+    }
+    const abilities = user.roles.flatMap((r) => r.role.abilities.map((a) => a.ability.action));
 
-  const ok = await bcrypt.compare(password, user.password);
-  if (!ok) return res.status(401).send({ error: 'Invalid credentials' });
+    const token = await res.jwtSign(
+      {
+        userId: user.id,
+        roles: user.roles.map((r) => r.role.name),
+        abilities,
+      },
 
-  const abilities = user.roles.flatMap((r) => r.role.abilities.map((a) => a.ability.action));
+      { expiresIn: '7d' },
+    );
 
-  const token = await res.jwtSign(
-    {
-      userId: user.id,
-      roles: user.roles.map((r) => r.role.name),
-      abilities,
-    },
-
-    { expiresIn: '7d' },
-  );
-
-  // const payload = { userId: user.id, roles: user.roles.map((r) => r.role.name), abilities };
-  // const token2 = await signToken( ,payload);
-  res.send({ token });
+    // const payload = { userId: user.id, roles: user.roles.map((r) => r.role.name), abilities };
+    // const token2 = await signToken( ,payload);
+    // res.send({ token });
+    res.setCookie('access_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+    });
+    return successResponse(res, 'Login successful', 200, {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        roles: user.roles.map((r) => r.role.name),
+        abilities,
+      },
+    });
+  } catch (err) {
+    req.log.error(err);
+    return errorResponse(res, 'Login failed', 500);
+  }
 }
 
 export async function logout(req: FastifyRequest, res: FastifyReply) {
   // In a real-world scenario, you might want to invalidate the token on the client side
   // or store it in a blacklist for a certain period of time.
-  res.send({ success: true });
+  try {
+    res.clearCookie('access_token', { path: '/' });
+  } catch (err) {
+    req.log.error(err);
+    return errorResponse(res, 'Logout failed', 500);
+  }
+
+  return successResponse(res, 'Logout successful', 200);
 }

@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import crypto from 'crypto';
 // import jwt, { SignOptions, JwtPayload } from 'jsonwebtoken';
+import { getRedis } from '@/core/redis';
 
 export const hashPassword = async (password: string) => {
   return await bcrypt.hash(password, 10);
@@ -66,3 +68,149 @@ export function requireAbility(ability: string) {
     return res.status(403).send({ error: 'Forbidden' });
   };
 }
+
+const redis = getRedis();
+
+const SIGNATURE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CLOCK_SKEW_MS = 30 * 1000; // 30 seconds
+
+/* -------------------- TYPES -------------------- */
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+type ClientSecrets = Record<string, string | undefined>;
+
+/* -------------------- CANONICALIZATION -------------------- */
+
+function normalizePayload(payload: JsonValue): JsonValue {
+  if (Array.isArray(payload)) {
+    return payload.map(normalizePayload);
+  }
+
+  if (payload && typeof payload === 'object') {
+    return Object.keys(payload)
+      .sort()
+      .reduce<Record<string, JsonValue>>((acc, key) => {
+        acc[key] = normalizePayload((payload as Record<string, JsonValue>)[key]);
+        return acc;
+      }, {});
+  }
+
+  return payload;
+}
+
+/* -------------------- CONSTANT-TIME COMPARE -------------------- */
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'hex');
+  const bufB = Buffer.from(b, 'hex');
+
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/* -------------------- CLIENT SECRET LOOKUP -------------------- */
+
+async function getClientSecret(apiKey: string): Promise<string | undefined> {
+  // Example: DB / Secrets Manager / Env-based lookup
+  const clients: ClientSecrets = {
+    client_123: process.env.CLIENT_123_SECRET,
+  };
+
+  return clients[apiKey];
+}
+
+/* -------------------- MIDDLEWARE -------------------- */
+
+export async function signatureVerification(
+  req: FastifyRequest,
+  res: FastifyReply,
+  next: Function,
+): Promise<void> {
+  const apiKey = process.env.apiKey;
+  try {
+    const {
+      'x-api-key': apiKey,
+      'x-signature': signature,
+      'x-nonce': nonce,
+      'x-timestamp': timestamp,
+    } = req.headers;
+
+    if (
+      typeof apiKey !== 'string' ||
+      typeof signature !== 'string' ||
+      typeof nonce !== 'string' ||
+      typeof timestamp !== 'string'
+    ) {
+      res.status(400).send({ error: 'Missing authentication headers' });
+      return;
+    }
+
+    /* ---- REQUIRED HEADERS ---- */
+    if (!apiKey || !signature || !nonce || !timestamp) {
+      res.status(400).send({ error: 'Missing authentication headers' });
+      return;
+    }
+
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts)) {
+      res.status(400).send({ error: 'Invalid timestamp' });
+      return;
+    }
+
+    const now = Date.now();
+
+    /* ---- TIMESTAMP VALIDATION ---- */
+    if (Math.abs(now - ts) > SIGNATURE_TTL_MS + CLOCK_SKEW_MS) {
+      res.status(403).send({ error: 'Request expired or too far in future' });
+      return;
+    }
+
+    /* ---- NONCE REPLAY PROTECTION ---- */
+    const nonceKey = `nonce:${apiKey}:${nonce}`;
+    const exists = await redis.get(nonceKey);
+
+    if (exists) {
+      res.status(403).send({ error: 'Replay attack detected' });
+      return;
+    }
+
+    await redis.set(nonceKey, '1', {
+      px: SIGNATURE_TTL_MS,
+    });
+
+    /* ---- CLIENT SECRET ---- */
+    const secret = await getClientSecret(apiKey);
+    if (!secret) {
+      res.status(403).send({ error: 'Invalid API key' });
+      return;
+    }
+
+    /* ---- CANONICAL PAYLOAD ---- */
+    const normalizedBody = normalizePayload((req.body ?? {}) as JsonValue);
+
+    const bodyString = JSON.stringify(normalizedBody);
+
+    const signingString = [bodyString, nonce, timestamp, apiKey].join('|');
+
+    /* ---- SIGNATURE CALCULATION ---- */
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(signingString)
+      .digest('hex');
+
+    /* ---- CONSTANT-TIME VALIDATION ---- */
+    if (!safeCompare(expectedSignature, signature)) {
+      res.status(403).send({ error: 'Invalid signature' });
+      return;
+    }
+
+    /* ---- SUCCESS ---- */
+    next();
+  } catch (err) {
+    console.error('Signature verification failed:', err);
+    res.status(500).send({ error: 'Internal authentication error' });
+  }
+}
+
+export default signatureVerification;

@@ -2,9 +2,9 @@ import { FastifyReply } from 'fastify';
 
 export const successResponse = (
   res: FastifyReply,
-  data: unknown,
   message: string = 'Success',
   statusCode: number = 200,
+  data?: unknown,
 ) => {
   return res.status(statusCode).send({ success: true, message, data });
 };
