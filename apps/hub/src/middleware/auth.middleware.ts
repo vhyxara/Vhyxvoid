@@ -49,23 +49,35 @@ import { JwtPayload } from '@/types/jwt';
 //   fastify.addHook('preHandler', authenticate);
 // };
 
-export const authenticate = async (req: FastifyRequest, res: FastifyReply): Promise<void> => {
+export const authenticate = async (
+  req: FastifyRequest,
+  res: FastifyReply,
+): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).send({ error: 'Unauthorized' });
-      return;
-    }
-
-    // const token = authHeader.split(' ')[1];
-    const decoded = await req.jwtVerify<JwtPayload>();
-    console.log('authenticate middleware - decoded token:', decoded);
-    // (req as any).user = decoded;
-    req.user = decoded;
+    await req.jwtVerify<JwtPayload>();
+    // req.user is now populated
   } catch (err) {
-    res.status(401).send({ error: 'Invalid or expired token' });
+    res.status(401).send({ error: 'Unauthorized' });
   }
 };
+
+// export const authenticate = async (req: FastifyRequest, res: FastifyReply): Promise<void> => {
+//   try {
+//     const authHeader = req.headers.authorization;
+//     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+//       res.status(401).send({ error: 'Unauthorized' });
+//       return;
+//     }
+
+//     // const token = authHeader.split(' ')[1];
+//     const decoded = await req.jwtVerify<JwtPayload>();
+//     console.log('authenticate middleware - decoded token:', decoded);
+//     // (req as any).user = decoded;
+//     req.user = decoded;
+//   } catch (err) {
+//     res.status(401).send({ error: 'Invalid or expired token' });
+//   }
+// };
 
 export const requireRole = (role: string[]) => {
   return async (req: FastifyRequest, res: FastifyReply) => {

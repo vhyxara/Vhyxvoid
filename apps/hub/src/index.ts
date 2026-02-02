@@ -21,6 +21,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { connectDB } from "./config/db";
 import { authRouter } from "./routes/v1/auth/auth.routes";
 import { roleRouter } from "./routes/v1/role/role.routes";
+import fastifyCookie from "@fastify/cookie";
 import { fastifyJwt } from "@fastify/jwt";
 import { keyManagementRouter } from "./routes/v1/keyManagement/keyManagement.routes";
 // import { authenticate } from './middleware/auth.middleware';
@@ -34,31 +35,40 @@ const PORT = Number(process.env.PORT || 9000);
 async function start() {
   // Registering plugins for security, CORS, compression, and rate limiting
   await server.register(fastifyHelmet); // Security headers
-  await server.register(fastifyCors, {
-    origin: true, // Allow any origin for CORS or configure it further
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  });
-
   // await server.register(fastifyCors, {
-  //   origin: (origin, cb) => {
-  //     if (!origin || allowedOrigins.includes(origin)) {
-  //       cb(null, true);
-  //     } else {
-  //       cb(new Error("Not allowed by CORS"), false);
-  //     }
-  //   },
-  //   credentials: true,
+  //   origin: true, // Allow any origin for CORS or configure it further
+  //   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   // });
+
+  await server.register(fastifyCors, {
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Not allowed by CORS"), false);
+      }
+    },
+    credentials: true,
+  });
 
   await server.register(fastifyCompress); // GZIP compression
   await server.register(fastifyRateLimit, {
     max: 100, // Max requests per time window
     timeWindow: "1 minute", // Time window for the rate limiting
   });
-  server.register(fastifyJwt, {
-    secret: process.env.JWT_SECRET || "your-secret-key",
-    sign: { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
-  });
+
+  await server.register(fastifyCookie);
+await server.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET!,
+  cookie: {
+    cookieName: "access_token",
+    signed: false,
+  },
+});
+  // server.register(fastifyJwt, {
+  //   secret: process.env.JWT_SECRET,
+  //   sign: { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
+  // });
   // await initRedis(process.env.REDIS_URL || "redis://localhost:6379");
   await initRedis();
 

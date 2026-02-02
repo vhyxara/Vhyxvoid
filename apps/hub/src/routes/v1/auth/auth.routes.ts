@@ -5,7 +5,11 @@ import { FastifyInstance } from 'fastify/types/instance';
 // import { Role } from 'generated/prisma/enums';
 
 export async function authRouter(fastify: FastifyInstance) {
-  fastify.post('/register', register);
+  fastify.post<{ Body: { email: string; username: string; password: string } }>(
+    '/register',
+    { preHandler: [authenticate] },
+    register,
+  );
   fastify.post('/login', login);
   fastify.post('/logout', logout);
   // fastify.get('/me', { preHandler: [authenticate, requireRole([Role.ADMIN])] }, getUser);
