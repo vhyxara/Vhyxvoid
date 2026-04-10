@@ -14,3 +14,4 @@ yarn-error.log*
 *.tsbuildinfo
 apps/hub/prisma/migrations/
 apps/hub/src/schema
+archived
