@@ -1,0 +1,908 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../packages/shared/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================
+// ENUMS
+// ==========================
+
+enum AccountType {
+  PERSONAL
+  ORGANIZATION
+}
+
+enum AccountStatus {
+  ACTIVE
+  PAST_DUE
+  RESTRICTED
+  SUSPENDED
+  CANCELED
+  DELETED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELED
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+  PAUSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  UNCOLLECTIBLE
+  VOID
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ApiKeyEnvironment {
+  DEV
+  PROD
+}
+
+enum SecurityEventType {
+  INVALID_SIGNATURE
+  REPLAY_ATTACK
+  RATE_LIMIT_EXCEEDED
+  SCOPE_VIOLATION
+  EXPIRED_KEY
+}
+
+enum NotificationType {
+  EMAIL_VERIFICATION
+  ACCOUNT_INVITATION
+  MEMBER_JOINED
+  MEMBER_REMOVED
+  ROLE_CHANGED
+  PAYMENT_FAILED
+  PAYMENT_SUCCEEDED
+  SUBSCRIPTION_CANCELED
+  TRIAL_ENDING
+  TUNNEL_DISCONNECTED
+  SYSTEM_ALERT
+  PASSWORD_RESET
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+// ==========================
+// 1 User (Identity Only)
+// ==========================
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  // username        String   @unique
+  password String
+
+  firstName String @default("")
+  lastName  String @default("")
+
+  isEmailVerified     Boolean   @default(false)
+  status              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  tokenVersion        Int       @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  sessions           Session[]
+  oauthAccounts      OAuthAccount[]
+  verificationTokens EmailVerificationToken[]
+
+  accounts            AccountMember[]
+  createdAccounts     Account[]            @relation("AccountCreator")
+  // createdApiKeys  ApiKey[]         @relation("UserCreatedApiKeys")
+  auditLogs           AuditLog[]
+  accountInvitations  AccountInvitation[]
+  createdApiKeys      ApiKey[]             @relation("UserCreatedApiKeys")
+  revokedApiKeys      ApiKey[]             @relation("UserRevokedApiKeys")
+  notifications       Notification[]
+  // @@index([username])
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([email])
+  @@index([status])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // ← hashed version of the raw token
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  ipAddress String
+  userAgent String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // FIX [7]: missing index — queries by userId were full table scans
+  @@index([tokenHash])
+}
+
+model OAuthAccount {
+  id         String @id @default(cuid())
+  userId     String
+  provider   String
+  providerId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ==========================
+// 2 Account (Multi-Tenant Core)
+// ==========================
+model Account {
+  id          String        @id @default(uuid())
+  name        String
+  type        AccountType
+  status      AccountStatus @default(ACTIVE)
+  createdById String
+
+  createdBy User @relation("AccountCreator", fields: [createdById], references: [id])
+
+  // Relations
+  roles           Role[]
+  members         AccountMember[]
+  // subscription  Subscription?
+  // apiKeys       ApiKey[]
+  usageAggregates UsageAggregate[]
+  auditLogs       AuditLog[]
+
+  graceEndsAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
+
+  accountInvitations AccountInvitation[]
+  // securityEvents SecurityEvent[]
+  apiKeys            ApiKey[]
+  securityEvents     SecurityEvent[]
+  tunnelSessions     TunnelSession[]
+  tunnelRequests     TunnelRequest[]
+  stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
+  subscriptions      Subscription[]
+  invoices           Invoice[]
+
+  @@index([type])
+  @@index([status])
+  @@index([createdById])
+}
+
+// ==========================
+// 3 AccountMember (User ↔ Account)
+// ==========================
+model AccountMember {
+  userId    String
+  accountId String
+  roleId    String
+  roleLevel Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  @@id([userId, accountId]) // FIX: composite PK — no phantom id column
+  @@index([accountId])
+  @@index([roleId])
+  @@index([roleLevel]) // fast: WHERE roleLevel = 100 (count owners, etc.)
+}
+
+model AccountInvitation {
+  id          String           @id @default(uuid())
+  accountId   String
+  email       String
+  roleId      String
+  roleLevel   Int
+  invitedById String
+  status      InvitationStatus @default(PENDING)
+
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  canceledAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  role      Role    @relation(fields: [roleId], references: [id])
+  invitedBy User    @relation(fields: [invitedById], references: [id])
+
+  @@index([accountId])
+  @@index([email])
+  @@index([status])
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  accountId   String
+  name        String
+  description String?
+  level       Int
+  isSystem    Boolean @default(false)
+  isActive    Boolean @default(true) // FIX [6]: soft-deactivate custom roles
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account            Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  abilities          RoleAbility[]
+  members            AccountMember[]
+  accountInvitations AccountInvitation[]
+
+  @@unique([accountId, name])
+  @@index([accountId])
+  @@index([level])
+}
+
+// ==========================
+// 5 Ability
+// ==========================
+model Ability {
+  id          String  @id @default(uuid())
+  action      String  @unique
+  description String?
+  category    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  roles RoleAbility[]
+
+  @@index([category])
+}
+
+// ==========================
+// 6 Role ↔ Ability
+// ==========================
+model RoleAbility {
+  roleId    String
+  abilityId String
+
+  assignedAt DateTime @default(now())
+
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  ability Ability @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, abilityId])
+  @@index([roleId])
+}
+
+// ==========================
+// 7 Plan (Feature + Limits Layer)
+// ==========================
+// model Plan {
+//   id              String   @id @default(uuid())
+//   name            String   @unique
+//   description     String?
+//   priceMonthly    Int      // in cents
+//   priceYearly     Int?
+//   maxApiKeys      Int
+//   maxMembers      Int
+//   maxTunnels      Int
+//   rateLimitPerMin Int
+//   isCustom        Boolean  @default(false)
+
+//   createdAt       DateTime @default(now())
+//   updatedAt       DateTime @default(now()) @updatedAt
+
+//   subscriptions   Subscription[]
+// }
+
+// ==========================
+// 8 Subscription (Stripe Integrated)
+// ==========================
+// model Subscription {
+//   id                    String              @id @default(uuid())
+//   accountId             String              @unique
+//   planId                String
+//   stripeCustomerId      String?
+//   stripeSubscriptionId  String?
+//   status                SubscriptionStatus
+//   currentPeriodStart    DateTime?
+//   currentPeriodEnd      DateTime?
+//   cancelAtPeriodEnd     Boolean             @default(false)
+//   lastPaymentFailedAt   DateTime?
+
+//   // Relations
+//   account               Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+//   plan                  Plan                @relation(fields: [planId], references: [id])
+
+//   createdAt             DateTime            @default(now())
+//   updatedAt             DateTime            @default(now()) @updatedAt
+
+//   @@index([status])
+// }
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  accountId            String
+  stripeCustomerId     String
+  stripeSubscriptionId String             @unique
+  stripePriceId        String
+  stripeProductId      String
+  plan                 Plan               @default(FREE)
+  status               SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  canceledAt           DateTime?
+  trialStartsAt        DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+model Invoice {
+  id                   String        @id @default(uuid())
+  accountId            String
+  stripeInvoiceId      String        @unique
+  stripeCustomerId     String
+  stripeSubscriptionId String?
+  amountDue            Int // cents
+  amountPaid           Int // cents
+  currency             String        @default("usd")
+  status               InvoiceStatus
+  description          String?
+  invoicePdfUrl        String?
+  hostedInvoiceUrl     String?
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  paidAt               DateTime?
+  dueDate              DateTime?
+  createdAt            DateTime      @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([stripeCustomerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==========================
+// 9 API Key
+// ==========================
+// model ApiKey {
+//   id                 String   @id @default(uuid())
+//   accountId          String
+//   createdById        String
+//   key                String   @unique
+//   keyPrefix          String
+//   secretHash         String
+//   previousSecretHash String?
+//   name               String
+//   description        String?
+//   environment        ApiKeyEnvironment
+//   status             ApiKeyStatus @default(ACTIVE)
+//   rateLimitOverride  Int?
+//   rotatedAt          DateTime?
+//   lastUsedAt         DateTime?
+//   expiresAt          DateTime?
+
+//   // Relations
+//   account            Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+//   createdBy          User     @relation("UserCreatedApiKeys", fields: [createdById], references: [id])
+//   scopes             ApiKeyScope[]
+//   usage              ApiKeyUsage[]
+//   securityEvents     SecurityEvent[]
+
+//   createdAt          DateTime @default(now())
+
+//   @@index([accountId])
+//   @@index([status])
+// }
+
+model ApiKey {
+  id          String @id @default(uuid())
+  accountId   String
+  createdById String
+
+  // Public identifier — what clients send in requests.
+  // Prefixed: bksr_dev_ or bksr_live_
+  // Never used as primary DB key.
+  keyId String @unique
+
+  name        String
+  description String?
+  environment ApiKeyEnvironment
+
+  // Secret hashes — NEVER returned in API responses
+  secretHash          String
+  previousSecretHash  String? // kept during rotation grace window
+  rotationGraceEndsAt DateTime? // old secret valid until this timestamp
+
+  status      ApiKeyStatus @default(ACTIVE)
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  revokedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("UserCreatedApiKeys", fields: [createdById], references: [id])
+  revokedBy User?   @relation("UserRevokedApiKeys", fields: [revokedById], references: [id])
+
+  scopes          ApiKeyScope[]
+  usageAggregates UsageAggregate[]
+  securityEvents  SecurityEvent[]
+  tunnelSessions  TunnelSession[]
+  tunnelRequests  TunnelRequest[]
+
+  @@index([accountId])
+  @@index([keyId])
+  @@index([status])
+  @@index([accountId, status]) // plan limit count query
+  @@index([expiresAt]) // expiry worker
+  @@index([rotationGraceEndsAt]) // grace cleanup worker
+}
+
+model UsageAggregate {
+  id          String   @id @default(uuid())
+  accountId   String
+  apiKeyId    String? // null = account-level rollup
+  metric      String // 'requests' | 'bandwidth_bytes' | 'tunnel_minutes'
+  periodStart DateTime
+  periodEnd   DateTime
+  quantity    BigInt
+
+  reportedToStripe    Boolean   @default(false)
+  stripeUsageRecordId String?
+  lockedAt            DateTime? // set after invoice finalization — immutable after this
+
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  apiKey  ApiKey? @relation(fields: [apiKeyId], references: [id])
+
+  // Natural unique key — prevents double-counting on flush worker retry
+  @@unique([accountId, apiKeyId, metric, periodStart])
+  @@index([accountId])
+  @@index([apiKeyId])
+  @@index([reportedToStripe])
+  @@index([periodStart])
+  @@index([lockedAt])
+}
+
+// ==========================
+// 10 API Key Scope
+// ==========================
+model ApiKeyScope {
+  keyId     String
+  scope     String
+  grantedAt DateTime @default(now())
+
+  apiKey ApiKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
+
+  @@id([keyId, scope])
+  @@index([keyId])
+}
+
+// ==========================
+// 11 API Key Usage
+// ==========================
+// model ApiKeyUsage {
+//   id        String   @id @default(uuid())
+//   apiKeyId  String
+//   scope     String
+//   endpoint  String
+//   method    String
+//   count     Int
+//   date      DateTime
+
+//   apiKey    ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+//   @@unique([apiKeyId, scope, endpoint, method, date])
+// }
+
+// ==========================
+// 12 Security Events
+// ==========================
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  apiKeyId  String?
+  accountId String?
+  type      String // SecurityEventType enum value
+  ip        String?
+  reason    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Append-only — no updatedAt
+  apiKey  ApiKey?  @relation(fields: [apiKeyId], references: [id])
+  account Account? @relation(fields: [accountId], references: [id])
+
+  @@index([apiKeyId])
+  @@index([accountId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ==========================
+// 13 Audit Logs
+// ==========================
+model AuditLog {
+  id           String   @id @default(uuid())
+  accountId    String?
+  userId       String?
+  targetUserId String? // affected user
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  account Account? @relation(fields: [accountId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([accountId])
+  @@index([userId])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ==========================
+// 14 Usage Aggregate (Metered)
+// ==========================
+// model UsageAggregate {
+//   id          String   @id @default(uuid())
+//   accountId   String
+//   metric      String   // e.g., "bandwidth_bytes"
+//   periodStart DateTime
+//   periodEnd   DateTime
+//   total       BigInt
+
+//   account     Account  @relation(fields: [accountId], references: [id])
+//   usageReports UsageReport[]
+
+//   @@unique([accountId, metric, periodStart])
+// }
+
+// ==========================
+// 15 Usage Report (Stripe Reporting)
+// ==========================
+// model UsageReport {
+//   id                  String @id @default(uuid())
+//   usageAggregateId    String
+//   stripeUsageRecordId String?
+//   reportedAt          DateTime?
+//   status              String
+
+//   usageAggregate      UsageAggregate @relation(fields: [usageAggregateId], references: [id])
+// }
+
+// ==========================
+// 16 Stripe Events (Webhook Tracking)
+// ==========================
+model StripeEvent {
+  id            String   @id @default(uuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime
+}
+
+// ============================================
+// 2. ADMIN SYSTEM (Separate from User)
+// ============================================
+
+// ========== Admin User ==========
+model AdminUser {
+  id           String @id @default(uuid())
+  email        String @unique
+  passwordHash String
+
+  firstName String
+  lastName  String
+
+  status Boolean @default(true)
+
+  // Super Admin Protection (immutable once set to true)
+  isSuperAdmin Boolean @default(false)
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // ← soft delete
+
+  // Relations
+  roles                 AdminUserRole[]
+  sessions              AdminSession[]
+  auditLogs             AdminAuditLog[]
+  createdAuditLogs      AdminAuditLog[]        @relation("CreatedBy")
+  roleAssignments       AdminUserRoleHistory[]
+  assignedRolesByOthers AdminUserRoleHistory[] @relation("AssignedBy")
+
+  @@index([email])
+  @@index([status])
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  adminId   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime? // ← allow token revocation
+  createdAt DateTime  @default(now())
+  ipAddress String
+  userAgent String
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([tokenHash])
+}
+
+// ========== Admin Role ==========
+model AdminRole {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  // System roles: Super Admin, Admin, Moderator (cannot be deleted)
+  isSystem Boolean @default(false)
+  isActive Boolean @default(true) // ← soft delete
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  abilities AdminRoleAbility[]
+  users     AdminUserRole[]
+  history   AdminUserRoleHistory[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+// ========== Admin Ability (Granular Permissions) ==========
+model AdminAbility {
+  id          String  @id @default(uuid())
+  action      String // e.g., "user.create", "user.read", "user.update", "user.delete"
+  category    String // e.g., "users", "roles", "settings", "audit_logs"
+  description String?
+
+  // System abilities: cannot be modified
+  isSystem Boolean @default(true)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  roles AdminRoleAbility[]
+
+  @@unique([category, action])
+  @@index([category])
+  @@index([action])
+}
+
+// ========== Admin Role → Ability Mapping ==========
+model AdminRoleAbility {
+  roleId    String
+  abilityId String
+
+  role    AdminRole    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  ability AdminAbility @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, abilityId])
+  @@index([roleId])
+  @@index([abilityId])
+}
+
+// ========== Admin User → Role Mapping ==========
+model AdminUserRole {
+  adminId String
+  roleId  String
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  role  AdminRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([adminId, roleId])
+  @@index([adminId])
+  @@index([roleId])
+}
+
+// ========== Admin Audit Log (IMMUTABLE) ==========
+// 🔒 Append-only audit trail. No updates allowed.
+model AdminAuditLog {
+  id         String  @id @default(uuid())
+  adminId    String?
+  action     String // e.g., "user.created", "role.assigned", "settings.updated"
+  targetType String // e.g., "User", "AdminRole", "AdminAbility"
+  targetId   String?
+
+  // Track what changed
+  changes Json? // { before: {...}, after: {...} }
+
+  // Metadata for audit trail
+  metadata Json? // { ipAddress, userAgent, statusCode, reason }
+
+  createdAt DateTime @default(now()) // ← NO updatedAt (immutable)
+
+  admin          AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull, map: "AdminAuditLog_adminId_fkey")
+  createdByAdmin AdminUser? @relation("CreatedBy", fields: [adminId], references: [id], onDelete: SetNull, map: "AdminAuditLog_createdByAdminId_fkey")
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([targetType])
+  @@index([targetId])
+}
+
+// ========== Admin User Role History (Track Assignments) ==========
+model AdminUserRoleHistory {
+  id         String  @id @default(uuid())
+  adminId    String // ← the admin whose role changed
+  roleId     String // ← the role being assigned/revoked
+  assignedBy String? // ← which admin made the change
+  action     String // "assigned" | "revoked"
+  reason     String? // why was the role changed?
+
+  createdAt DateTime @default(now())
+
+  admin           AdminUser  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  assignedByAdmin AdminUser? @relation("AssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+  role            AdminRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([roleId])
+  @@index([assignedBy])
+  @@index([createdAt])
+}
+
+// Two new models added to your existing schema.prisma
+
+// Tracks active and historical agent connections
+// Used by dashboard: "which tunnels are currently online"
+model TunnelSession {
+  id             String              @id @default(uuid())
+  accountId      String
+  apiKeyId       String
+  agentId        String              @unique // hub-assigned, one per connection
+  label          String // tunnel name
+  status         TunnelSessionStatus @default(CONNECTED)
+  connectedAt    DateTime            @default(now())
+  disconnectedAt DateTime?
+  hubInstanceId  String? // which hub process owns this session
+  metadata       Json? // { agentVersion, ip }
+
+  account        Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  apiKey         ApiKey          @relation(fields: [apiKeyId], references: [id])
+  tunnelRequests TunnelRequest[]
+
+  @@index([accountId])
+  @@index([accountId, status]) // dashboard query: active tunnels for account
+  @@index([apiKeyId])
+  @@index([connectedAt])
+  @@index([hubInstanceId]) // hub startup: evict stale sessions for this instance
+  @@map("tunnel_sessions")
+}
+
+enum TunnelSessionStatus {
+  CONNECTED
+  DISCONNECTED
+  EVICTED // kicked for missing heartbeats
+}
+
+// Audit trail of every proxied request
+// Append-only — used for analytics, debugging, billing
+model TunnelRequest {
+  id         String   @id @default(uuid())
+  accountId  String
+  apiKeyId   String
+  sessionId  String // FK to TunnelSession
+  requestId  String   @unique // the requestId from the protocol
+  method     String
+  path       String
+  status     Int? // HTTP response status (null if agent never responded)
+  durationMs Int?
+  errorCode  String?
+  createdAt  DateTime @default(now())
+
+  account Account       @relation(fields: [accountId], references: [id])
+  apiKey  ApiKey        @relation(fields: [apiKeyId], references: [id])
+  session TunnelSession @relation(fields: [sessionId], references: [id])
+
+  @@index([accountId])
+  @@index([sessionId])
+  @@index([requestId])
+  @@index([createdAt])
+  @@index([accountId, createdAt]) // usage analytics time-series query
+  @@index([apiKeyId, createdAt]) // per-key analytics
+  @@map("tunnel_requests")
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  accountId String?
+  type      NotificationType
+  title     String
+  body      String
+  actionUrl String?
+  metadata  Json?
+  status    NotificationStatus @default(SENT)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

@@ -1,7 +1,0 @@
-{
-  "name": "common",
-  "scripts": {
-    "dev": "ts-node src/index.ts"
-  },
-  "dependencies": {}
-}
