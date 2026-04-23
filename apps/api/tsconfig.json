@@ -1,0 +1,46 @@
+// {
+//   "compilerOptions": {
+//     "target": "ES2020",
+//     "module": "commonjs",
+//     "noImplicitAny": true,
+//     "strictNullChecks": true,
+//     "allowJs": true,
+//     "moduleResolution": "node",
+//     "outDir": "dist",
+//     "rootDir": "./src",
+//     "resolveJsonModule": true,
+//     "isolatedModules": true,
+//     "incremental": true,
+//     "types": ["node"],
+//     "esModuleInterop": true,
+//     "strict": true,
+//     "skipLibCheck": true,
+//     "forceConsistentCasingInFileNames": true,
+//     "baseUrl": ".",
+//     "paths": {
+//       "@/*": ["src/*"],
+//       "@/generated/prisma": ["../../packages/shared/generated/prisma"]
+//     }
+//   },
+//   // "include": ["./src", "**/*.ts", "**/*.tsx", "src/**/*", "apps/**/*", "types/**/*.d.ts"],
+//   "include": ["src/**/*.ts"],
+//   "exclude": ["node_modules", "dist", "generated", "prisma", "**/*.test.ts"]
+// }
+
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/generated/prisma": ["../../packages/shared/generated/prisma"],
+      "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],
+      "@platform/shared": ["../../packages/shared/src"],
+      "@platform/protocol": ["../../packages/protocol/src"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "generated", "prisma", "**/*.test.ts"]
+}

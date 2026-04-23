@@ -15,3 +15,8 @@ yarn-error.log*
 apps/hub/prisma/migrations/
 apps/hub/src/schema
 archived
+.turbo/*
+apps/api/prisma/migrations/*
+apps/api/src/files/*
+apps/api/prismas.configs.ts
+apps/demo-backend/*
