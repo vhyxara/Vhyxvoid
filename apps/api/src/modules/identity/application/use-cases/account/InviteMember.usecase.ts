@@ -8,7 +8,7 @@ import { RoleLevel } from "@/core/constant/account.constant";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
-import { AccountInvitation } from "@/modules/identity/domain/entities/account/AccountInvitation";
+import { AccountInvitation } from "@/modules/identity/domain/entities/account/AccountInvitation.entities";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 
 export class InviteMemberUseCase {

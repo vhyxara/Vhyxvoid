@@ -5,7 +5,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "@/core/errors/error.format";
-import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember";
+import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { NotificationService } from "@/modules/notification/application/use-cases";
