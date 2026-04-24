@@ -10,6 +10,8 @@ import { IEmailService } from "@/modules/notification/domain/services/IEmailServ
 import {
   accountInvitation,
   emailVerification,
+  passwordResetRequest,
+  passwordResetSuccess,
   paymentFailed,
   paymentSucceeded,
   subscriptionCanceled,
@@ -270,6 +272,35 @@ export class GetNotificationsUseCase {
   }
 }
 
+// Add this use case class
+export class SendPasswordResetEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: {
+    to: string;
+    firstName: string;
+    rawToken: string;
+  }): Promise<void> {
+    const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(params.rawToken)}`;
+    const { subject, html, text } = passwordResetRequest({
+      firstName: params.firstName,
+      resetUrl,
+      expiresInHours: 1,
+    });
+    await this.emailService.send({ to: params.to, subject, html, text });
+  }
+}
+
+export class SendPasswordResetSuccessEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: { to: string; firstName: string }): Promise<void> {
+    const { subject, html, text } = passwordResetSuccess({
+      firstName: params.firstName,
+    });
+    await this.emailService.send({ to: params.to, subject, html, text });
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationService — convenience wrapper used by other modules
 // Single class that other modules inject to send any notification without
@@ -283,6 +314,8 @@ export class NotificationService {
   readonly sendPaymentSucceeded: SendPaymentSucceededEmailUseCase;
   readonly sendSubscriptionCanceled: SendSubscriptionCanceledEmailUseCase;
   readonly sendTrialEnding: SendTrialEndingEmailUseCase;
+  readonly sendPasswordReset: SendPasswordResetEmailUseCase; // ← add
+  readonly sendPasswordResetSuccess: SendPasswordResetSuccessEmailUseCase;
   readonly createInApp: CreateInAppNotificationUseCase;
   readonly markRead: MarkNotificationReadUseCase;
   readonly markAllRead: MarkAllNotificationsReadUseCase;
@@ -302,6 +335,10 @@ export class NotificationService {
       emailService,
     );
     this.sendTrialEnding = new SendTrialEndingEmailUseCase(emailService);
+    this.sendPasswordReset = new SendPasswordResetEmailUseCase(emailService); // ← add
+    this.sendPasswordResetSuccess = new SendPasswordResetSuccessEmailUseCase(
+      emailService,
+    );
     this.createInApp = new CreateInAppNotificationUseCase(notificationRepo);
     this.markRead = new MarkNotificationReadUseCase(notificationRepo);
     this.markAllRead = new MarkAllNotificationsReadUseCase(notificationRepo);

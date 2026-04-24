@@ -90,6 +90,7 @@ export function registerIdentityUseCases(container: Container) {
       new ResetPasswordUseCase(
         c.resolve(PrismaUnitOfWork),
         c.resolve(BcryptPasswordHasher),
+        c.resolve(NotificationService),
       ),
   );
 }

@@ -345,3 +345,65 @@ export function memberJoined(params: {
 
   return { subject, html, text };
 }
+
+/**
+ * Password reset request email
+ */
+export function passwordResetRequest(params: {
+  firstName: string;
+  resetUrl: string;
+  expiresInHours?: number;
+}): EmailContent {
+  const subject = `Reset your ${APP_NAME} password`;
+  const html = layout(
+    heading("Reset your password") +
+      para(`Hi ${params.firstName || "there"},`) +
+      para(
+        `We received a request to reset your password. Click the button below to choose a new one.`,
+      ) +
+      button("Reset Password", params.resetUrl) +
+      smallNote(
+        `This link expires in ${params.expiresInHours ?? 1} hour. ` +
+          `If you didn't request a password reset, you can safely ignore this email — your password won't change.`,
+      ),
+    "Reset your password",
+  );
+  const text =
+    `Hi ${params.firstName || "there"},\n\n` +
+    `We received a request to reset your password.\n\n` +
+    `Reset your password by visiting:\n${params.resetUrl}\n\n` +
+    `This link expires in ${params.expiresInHours ?? 1} hour.\n\n` +
+    `If you didn't request this, ignore this email.\n\n` +
+    `— ${APP_NAME}`;
+
+  return { subject, html, text };
+}
+
+/**
+ * Password reset success confirmation
+ */
+export function passwordResetSuccess(params: {
+  firstName: string;
+}): EmailContent {
+  const subject = `Your ${APP_NAME} password has been changed`;
+  const html = layout(
+    heading("Password changed successfully") +
+      para(`Hi ${params.firstName || "there"},`) +
+      para(
+        `Your password has been changed successfully. You've been logged out of all devices for security.`,
+      ) +
+      para(
+        "If you did not make this change, please contact support immediately.",
+      ) +
+      button("Contact Support", `mailto:${SUPPORT_EMAIL}`) +
+      smallNote(`This is an automated security notification from ${APP_NAME}.`),
+    "Your password was changed",
+  );
+  const text =
+    `Hi ${params.firstName || "there"},\n\n` +
+    `Your password has been changed successfully.\n\n` +
+    `If you did not make this change, contact support immediately: ${SUPPORT_EMAIL}\n\n` +
+    `— ${APP_NAME}`;
+
+  return { subject, html, text };
+}

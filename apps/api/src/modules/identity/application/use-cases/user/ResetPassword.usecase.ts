@@ -12,11 +12,13 @@ import { NotFoundError } from "@/core/errors/error.format";
 import { PasswordHasher } from "@/modules/identity/domain/services/PasswordHasher";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
+import { NotificationService } from "@/modules/notification/application/use-cases";
 
 export class ResetPasswordUseCase {
   constructor(
     private uow: PrismaUnitOfWork,
     private passwordHasher: PasswordHasher,
+    private notificationService?: NotificationService, // ← add
   ) {}
 
   async execute(params: {
@@ -69,6 +71,24 @@ export class ResetPasswordUseCase {
           ipAddress: params.ipAddress,
           userAgent: params.userAgent,
         });
+        // ResetPassword.usecase.ts — add after audit log
+        if (this.notificationService) {
+          console.log(
+            "[ResetPasswordUseCase] Sending password reset success notification to user:",
+            {
+              email: user.email,
+              firstName: user.firstName,
+            },
+          );
+          this.notificationService.sendPasswordResetSuccess
+            .execute({ to: user.email, firstName: user.firstName })
+            .catch((err) =>
+              console.error(
+                "[notifications] sendPasswordResetSuccess failed",
+                err,
+              ),
+            );
+        }
 
         return {
           message:

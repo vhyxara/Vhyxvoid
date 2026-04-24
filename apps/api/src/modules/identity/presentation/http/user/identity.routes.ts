@@ -22,6 +22,7 @@ import {
 } from "@/core/utils/auth.util";
 import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
+import { NotFoundError, ValidationError } from "@/core/errors/error.format";
 
 export async function identityRoutes(fastify: FastifyInstance) {
   /**
@@ -97,9 +98,10 @@ export async function identityRoutes(fastify: FastifyInstance) {
     const refreshToken = getRefreshCookie(request);
 
     if (!refreshToken) {
-      return reply
-        .status(401)
-        .send({ success: false, message: "No refresh token" });
+      // return reply
+      //   .status(401)
+      //   .send({ success: false, message: "No refresh token" });
+      throw new ValidationError("No refresh token");
     }
 
     const result = await fastify.refreshTokenUseCase.execute(refreshToken);
@@ -238,7 +240,13 @@ export async function identityRoutes(fastify: FastifyInstance) {
         userAgent: request.headers["user-agent"] ?? "unknown",
       });
 
-      return reply.send(result);
+      // return reply.send(result);
+      return successResponse(
+        reply,
+        "Password reset successful. Please log in with your new password.",
+        200,
+        result,
+      );
     },
   );
 
@@ -262,18 +270,18 @@ export async function identityRoutes(fastify: FastifyInstance) {
       const passwordHasher = fastify.container.resolve(BcryptPasswordHasher);
       console.log("passwordHasher", passwordHasher);
       const user = await uow.userRepository.findById(userId);
-      if (!user) return reply.code(404).send({ error: "User not found" });
-      console.log("user", user);
+      if (!user) {
+        throw new NotFoundError("User not found");
+      }
       // Verify current password — must match before allowing change
       const isValid = await passwordHasher.compare(
         currentPassword,
         user.passwordHash,
       );
-      console.log("isValid", isValid);
-      if (!isValid) {
-        return reply.code(400).send({ error: "Current password is incorrect" });
-      }
 
+      if (!isValid) {
+        throw new ValidationError("Current password is incorrect");
+      }
       // Reject if new password is the same as current
       const isSame = await passwordHasher.compare(
         newPassword,
@@ -281,9 +289,9 @@ export async function identityRoutes(fastify: FastifyInstance) {
       );
       console.log("isSame", isSame);
       if (isSame) {
-        return reply.code(400).send({
-          error: "New password must be different from current password",
-        });
+        throw new ValidationError(
+          "New password must be different from current password",
+        );
       }
 
       const newHash = await passwordHasher.hash(newPassword);
@@ -313,9 +321,12 @@ export async function identityRoutes(fastify: FastifyInstance) {
         },
       );
 
-      return reply.send({
-        message: "Password changed successfully. Please log in again.",
-      });
+      return successResponse(
+        reply,
+        "Password changed successfully. Please log in again.",
+        200,
+        null,
+      );
     },
   );
 }

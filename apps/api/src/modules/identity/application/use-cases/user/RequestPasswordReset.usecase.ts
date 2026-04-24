@@ -62,7 +62,7 @@ export class RequestPasswordResetUseCase {
           ttlMs: 1000 * 60 * 60, // 1 hour
         });
 
-        await passwordResetTokenRepository.save(token.toPersistence());
+        await passwordResetTokenRepository.save(token);
 
         await auditLogRepository.create({
           userId: user.id,
@@ -87,6 +87,19 @@ export class RequestPasswordResetUseCase {
         // } else {
         //   console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
         // }
+        if (this.notificationService) {
+          this.notificationService.sendPasswordReset
+            .execute({
+              to: user.email,
+              firstName: user.firstName,
+              rawToken,
+            })
+            .catch((err) =>
+              console.error("[notifications] sendPasswordReset failed", err),
+            );
+        } else {
+          console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
+        }
         console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
       },
     );

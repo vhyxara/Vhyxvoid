@@ -50,8 +50,8 @@ import { CreateRoleUseCase } from "@/modules/identity/application/use-cases/admi
 import { AssignRoleToAdminUseCase } from "@/modules/identity/application/use-cases/admin/AssignRoleToAdmin.usecase";
 import { RevokeRoleFromAdminUseCase } from "@/modules/identity/application/use-cases/admin/RevokeRoleFromAdmin.usecase";
 import { GetAccountMembersUseCase } from "@/modules/identity/application/use-cases/user/GetAccountMembers.usecase";
-import { ResetPasswordUseCase } from "@/modules/identity/application/use-cases/user/ResetPassword.usecase";
 import { RequestPasswordResetUseCase } from "@/modules/identity/application/use-cases/user/RequestPasswordReset.usecase";
+import { ResetPasswordUseCase } from "@/modules/identity/application/use-cases/user/ResetPassword.usecase";
 // import { NotificationService } from "@/modules/notification/application/use-cases";
 
 declare module "fastify" {
