@@ -1,4 +1,4 @@
-import type { CachedApiKeyData } from "@/core/types/api-key.types/cacheService";
+import type { CachedApiKeyData } from "@/core/types/api-key/cacheservice.type";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 
 // ─────────────────────────────────────────────────────────────────────────────

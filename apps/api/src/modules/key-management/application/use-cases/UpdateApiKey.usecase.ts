@@ -2,10 +2,10 @@
 // UPDATE API KEY (name / description / scopes)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { API_KEY_PERMISSIONS } from "@/core/constant/apikey.constant";
+import { API_KEY_PERMISSIONS, ApiScope } from "@/core/constant/apikey.constant";
 import { ForbiddenError, NotFoundError } from "@/core/errors/error.format";
-import { ApiScope } from "@/core/types/api-key.types/apiKeys";
-import { ApiKey, ApiKeyDeps } from "@/core/types/api-key.types/sharedApiKeys";
+// import { ApiScope } from "@/core/types/api-key/apiKeys.type";
+import { ApiKey, ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 
 export class UpdateApiKeyUseCase {
   constructor(

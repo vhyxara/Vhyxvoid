@@ -2,12 +2,12 @@
 
 import crypto from "crypto";
 import { ForbiddenError } from "@/core/errors/error.format";
+import { ApiKeyProps } from "@/core/types/api-key/apiKeys.type";
 import {
-  ApiKeyStatus,
   ApiKeyEnvironment,
+  ApiKeyStatus,
   ApiScope,
-  ApiKeyProps,
-} from "@/core/types/api-key.types/apiKeys";
+} from "@/core/constant/apikey.constant";
 import { KEY_PREFIX, ROTATION_GRACE_MS } from "@/core/constant/apikey.constant";
 
 // ─────────────────────────────────────────────────────────────────────────────

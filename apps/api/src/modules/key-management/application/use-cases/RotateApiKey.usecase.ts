@@ -4,7 +4,7 @@
 
 import { API_KEY_PERMISSIONS } from "@/core/constant/apikey.constant";
 import { ForbiddenError, NotFoundError } from "@/core/errors/error.format";
-import { ApiKeyDeps } from "@/core/types/api-key.types/sharedApiKeys";
+import { ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 
 export class RotateApiKeyUseCase {
   constructor(

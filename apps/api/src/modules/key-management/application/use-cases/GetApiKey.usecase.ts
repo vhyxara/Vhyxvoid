@@ -4,10 +4,7 @@
 
 import { API_KEY_PERMISSIONS } from "@/core/constant/apikey.constant";
 import { ForbiddenError, NotFoundError } from "@/core/errors/error.format";
-import {
-  type ApiKey,
-  ApiKeyDeps,
-} from "@/core/types/api-key.types/sharedApiKeys";
+import { type ApiKey, ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 // import { ApiKey } from '@/generated/prisma/client';
 
 export class GetApiKeyUseCase {

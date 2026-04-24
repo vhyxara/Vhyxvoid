@@ -2,7 +2,7 @@
 // PLAN LIMIT SERVICE — hardcoded now, Stripe-ready interface
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PlanLimitService } from "@/core/types/api-key.types/plans";
+import { PlanLimitService } from "@/core/types/api-key/plans.type";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { PLAN_LIMITS, PlanLimits } from "@/modules/billing/domain/enums";
 

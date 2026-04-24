@@ -3,11 +3,11 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
-import {
-  ApiKeyEnvironment,
-  ApiKeyStatus,
-  ApiScope,
-} from "@/core/types/api-key.types/apiKeys";
+// import {
+//   ApiKeyEnvironment,
+//   ApiKeyStatus,
+//   ApiScope,
+// } from "@/core/types/api-key/apiKeys.type";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { buildPlanLimitGuard } from "@/modules/billing/infrastructure/middleware/planLimitGuard.middleware";
 import { successResponse, tableResponse } from "@/core/utils/response.util";
@@ -16,6 +16,11 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/core/errors/error.format";
+import {
+  ApiScope,
+  ApiKeyEnvironment,
+  ApiKeyStatus,
+} from "@/core/constant/apikey.constant";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SCHEMAS

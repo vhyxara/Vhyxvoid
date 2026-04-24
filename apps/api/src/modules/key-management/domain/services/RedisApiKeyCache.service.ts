@@ -5,7 +5,7 @@ import {
 import {
   ApiKeyCacheService,
   CachedApiKeyData,
-} from "@/core/types/api-key.types/cacheService";
+} from "@/core/types/api-key/cacheservice.type";
 import { Redis } from "@upstash/redis";
 // import type { Redis } from 'ioredis';
 

@@ -4,11 +4,15 @@
 
 import { API_KEY_PERMISSIONS } from "@/core/constant/apikey.constant";
 import { ForbiddenError } from "@/core/errors/error.format";
+// import {
+//   ApiKeyStatus,
+//   ApiKeyEnvironment,
+// } from "@/core/types/api-key/apiKeys.type";
 import {
-  ApiKeyStatus,
   ApiKeyEnvironment,
-} from "@/core/types/api-key.types/apiKeys";
-import { ApiKeyDeps } from "@/core/types/api-key.types/sharedApiKeys";
+  ApiKeyStatus,
+} from "@/core/constant/apikey.constant";
+import { ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 
 // export class ListApiKeysUseCase {

@@ -1,5 +1,5 @@
-import { ApiKeyRepository } from "@/core/types/api-key.types/apiKeyRepository";
-import { ApiKeyCacheService } from "@/core/types/api-key.types/cacheService";
+import { ApiKeyRepository } from "@/core/types/api-key/apiKeys.type";
+import { ApiKeyCacheService } from "@/core/types/api-key/cacheservice.type";
 
 /**
  * Expire rotation grace windows after they end.

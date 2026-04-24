@@ -1,5 +1,6 @@
-import { SecurityEventType } from "@/core/types/api-key.types/apiKeys";
-import { SecurityEventProps } from "@/core/types/api-key.types/securityEvent";
+// import { SecurityEventType } from "@/core/types/api-key/securityEvent.type";
+import { SecurityEventType } from "@/core/constant/apikey.constant";
+import { SecurityEventProps } from "@/core/types/api-key/securityEvent.type";
 
 export class SecurityEvent {
   private constructor(private props: SecurityEventProps) {}

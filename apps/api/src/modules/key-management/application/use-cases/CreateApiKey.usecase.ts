@@ -4,11 +4,8 @@
 
 import { RoleLevel } from "@/core/constant/account.constant";
 import { ForbiddenError } from "@/core/errors/error.format";
-import {
-  ApiKeyEnvironment,
-  ApiScope,
-} from "@/core/types/api-key.types/apiKeys";
-import { ApiKeyDeps } from "@/core/types/api-key.types/sharedApiKeys";
+import { ApiKeyEnvironment, ApiScope } from "@/core/constant/apikey.constant";
+import { ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 // import { ApiKey } from '@/generated/prisma/client';
 import { MembershipRepository } from "@/modules/identity/domain/repositories/account/Account.repositories";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";

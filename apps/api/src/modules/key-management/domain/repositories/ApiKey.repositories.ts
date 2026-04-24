@@ -2,17 +2,21 @@
 // API KEY REPOSITORY
 // ─────────────────────────────────────────────────────────────────────────────
 
+// import {
+//   ApiKeyEnvironment,
+//   ApiKeyStatus,
+// } from "@/core/types/api-key/apiKeys.type";
 import {
   ApiKeyEnvironment,
   ApiKeyStatus,
-} from "@/core/types/api-key.types/apiKeys";
+} from "@/core/constant/apikey.constant";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { Prisma } from "@/generated/prisma";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 import type {
   ApiKeyFilters,
   ApiKeyRepository,
-} from "@/core/types/api-key.types/apiKeyRepository";
+} from "@/core/types/api-key/apiKeys.type";
 
 export class PrismaApiKeyRepository implements ApiKeyRepository {
   constructor(private prisma: PrismaTransactionalClient) {}

@@ -7,7 +7,7 @@
 import {
   UsageAggregateProps,
   UsageMetric,
-} from "@/core/types/api-key.types/usage";
+} from "@/core/types/api-key/usage.type";
 
 export class UsageAggregate {
   private constructor(private props: UsageAggregateProps) {}

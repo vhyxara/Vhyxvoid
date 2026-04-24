@@ -1,14 +1,11 @@
-import { ApiKeyRepository } from "@/core/types/api-key.types/apiKeyRepository";
-import {
-  ApiScope,
-  SecurityEventType,
-} from "@/core/types/api-key.types/apiKeys";
-import { ApiKeyCacheService } from "@/core/types/api-key.types/cacheService";
+import { ApiKeyRepository } from "@/core/types/api-key/apiKeys.type";
+import { ApiScope, SecurityEventType } from "@/core/constant/apikey.constant";
+import { ApiKeyCacheService } from "@/core/types/api-key/cacheservice.type";
 import {
   GatewayValidationResult,
   GatewayValidationError,
-} from "@/core/types/api-key.types/gateway";
-import { SecurityEventRepository } from "@/core/types/api-key.types/securityEventRepository";
+} from "@/core/types/api-key/gateway.type";
+import { SecurityEventRepository } from "@/core/types/api-key/securityEvent.type";
 import { ApiKeyStatus } from "@/generated/prisma";
 import { SecurityEvent } from "@/modules/key-management/domain/entities/security.entities";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";

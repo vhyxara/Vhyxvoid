@@ -9,7 +9,7 @@
 //   HardcodedPlanLimitService: import from '@/modules/billing/domain/enums'
 // Then delete: src/core/types/api-key/planLimits.ts
 
-import { ApiKeyEnvironment } from "@/core/types/api-key.types/apiKeys";
+import { ApiKeyEnvironment } from "@/core/constant/apikey.constant";
 
 // ── Plan ──────────────────────────────────────────────────────────────────────
 

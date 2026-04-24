@@ -5,13 +5,13 @@
 import {
   UsageAggregateProps,
   UsageMetric,
-} from "@/core/types/api-key.types/usage";
+} from "@/core/types/api-key/usage.type";
 import { UsageAggregate } from "@/modules/key-management/domain/entities/usage.entities";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import {
   UsageAggregateRepository,
   UsagePeriod,
-} from "@/core/types/api-key.types/usageRepository";
+} from "@/core/types/api-key/usage.type";
 
 export class PrismaUsageAggregateRepository implements UsageAggregateRepository {
   constructor(private prisma: PrismaTransactionalClient) {}

@@ -4,8 +4,8 @@
 
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { SecurityEvent } from "@/modules/key-management/domain/entities/security.entities";
-import { SecurityEventProps } from "@/core/types/api-key.types/securityEvent";
-import { SecurityEventRepository } from "@/core/types/api-key.types/securityEventRepository";
+import { SecurityEventProps } from "@/core/types/api-key/securityEvent.type";
+import { SecurityEventRepository } from "@/core/types/api-key/securityEvent.type";
 
 export class PrismaSecurityEventRepository implements SecurityEventRepository {
   constructor(private prisma: PrismaTransactionalClient) {}

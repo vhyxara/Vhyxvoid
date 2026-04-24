@@ -4,11 +4,11 @@
 
 import { API_KEY_PERMISSIONS } from "@/core/constant/apikey.constant";
 import { ForbiddenError, NotFoundError } from "@/core/errors/error.format";
-import { ApiKeyDeps } from "@/core/types/api-key.types/sharedApiKeys";
+import { ApiKeyDeps } from "@/core/types/api-key/apiKeys.type";
 import {
   UsageAggregateRepository,
   UsagePeriod,
-} from "@/core/types/api-key.types/usageRepository";
+} from "@/core/types/api-key/usage.type";
 import { toUsageDTO } from "@/modules/key-management/application/helpers/keymanagement.utils";
 
 export class GetApiKeyUsageUseCase {
