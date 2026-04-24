@@ -101,12 +101,6 @@ export function getRefreshCookie(request: FastifyRequest): string | undefined {
   return request.cookies[REFRESH_COOKIE_NAME];
 }
 
-const redis = getRedis();
-
-if (!redis) {
-  throw new Error("Redis client is not initialized");
-}
-
 /* -------------------- TYPES -------------------- */
 
 type JsonValue =
@@ -169,6 +163,7 @@ export async function signatureVerification(
   next: Function,
 ): Promise<void> {
   // const apiKey = process.env.apiKey;
+
   try {
     const {
       "x-api-key": apiKey,
@@ -206,6 +201,8 @@ export async function signatureVerification(
       res.status(403).send({ error: "Request expired or too far in future" });
       return;
     }
+
+    const redis = getRedis();
 
     if (!redis) {
       throw new Error("Redis client is not initialized");
