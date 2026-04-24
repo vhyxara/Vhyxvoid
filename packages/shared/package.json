@@ -1,0 +1,31 @@
+{
+  "name": "@platform/shared",
+  "version": "1.0.0",
+  "description": "Shared infrastructure — ValidateApiKeyUseCase, Prisma client, Redis client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./generated/prisma/client": {
+      "require": "./generated/prisma/client.js",
+      "types": "./generated/prisma/client.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.36.0",
+    "@prisma/client": "^6.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "prisma": "^6.7.0"
+  }
+}

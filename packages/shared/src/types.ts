@@ -1,0 +1,72 @@
+// packages/shared/src/types.ts
+// All types the Hub imports from the identity module.
+// Hub only imports from @platform/shared — never from identity internals.
+// NO Prisma imports here — Prisma lives in the app, not in shared packages.
+
+// ── DB abstraction ────────────────────────────────────────────────────────────
+// Instead of importing PrismaClient (which is app-specific),
+// shared defines what data it needs from the DB. The caller provides
+// an implementation using their own Prisma instance.
+// This is the Dependency Inversion Principle applied to packages.
+
+export interface ApiKeyRow {
+  keyId: string;
+  secretHash: string;
+  previousSecretHash: string | null;
+  rotationGraceEndsAt: Date | null;
+  status: string;
+  accountId: string;
+  accountStatus: string;
+  scopes: string[];
+  expiresAt: Date | null;
+}
+
+/**
+ * The only DB operation shared/validateApiKey.ts needs.
+ * Caller implements this using their own Prisma instance.
+ *
+ * In apps/api  → uses PrismaClient from '@/generated/prisma'
+ * In apps/hub  → uses PrismaClient from '@/generated/prisma' (same DB, same generated client)
+ */
+export type DbApiKeyLoader = (keyId: string) => Promise<ApiKeyRow | null>;
+
+// ── Validation result types ───────────────────────────────────────────────────
+
+export interface GatewayValidationSuccess {
+  valid: true;
+  apiKeyId: string;
+  accountId: string;
+  scopes: string[];
+  rateLimitPerMinute: number; // -1 means unlimited
+}
+
+export interface GatewayValidationFailure {
+  valid: false;
+  code: string;
+  reason: string;
+}
+
+export type GatewayValidationResult =
+  | GatewayValidationSuccess
+  | GatewayValidationFailure;
+
+// ── Use case interface ─────────────────────────────────────────────────────────
+
+export interface ValidateApiKeyParams {
+  keyId: string;
+  signature: string;
+  method: string;
+  path: string;
+  body: string; // raw body string, empty string if none
+  requestId: string;
+  timestamp: number; // unix ms
+  requiredScope: string;
+  ip: string;
+}
+
+export interface IValidateApiKeyUseCase {
+  execute(params: ValidateApiKeyParams): Promise<GatewayValidationResult>;
+}
+
+// Alias — hub imports as ValidateApiKeyUseCase
+export type ValidateApiKeyUseCase = IValidateApiKeyUseCase;

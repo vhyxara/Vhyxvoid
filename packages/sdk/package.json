@@ -1,17 +1,40 @@
 {
-  "name": "sdk",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
+  "name": "@platform/sdk",
+  "version": "1.0.0",
+  "description": "Frontend TypeScript SDK — connect to your backend through the platform tunnel",
+  "keywords": [
+    "tunnel",
+    "websocket",
+    "sdk",
+    "typescript"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
-    "dev": "node src/demo.js"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@platform/protocol": "workspace:*",
     "crypto": "^1.0.1",
+    "isomorphic-ws": "^5.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@types/ws": "^8.18.1"
+    "@types/node": "^24.10.1"
   }
 }
