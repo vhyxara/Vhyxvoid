@@ -4,9 +4,9 @@ import { accountRoutes } from "@/modules/identity/presentation/http/user/account
 
 import { adminRoutes } from "@/modules/identity/presentation/http/admin/admin.routes";
 import { tunnelRoutes } from "@/modules/identity/presentation/http/user/tunnel.routes";
-import { billingRoutes } from "@/modules/billing/presentation/http/billingRoutes";
-import { stripeWebhookRoutes } from "@/modules/billing/presentation/http/webhookRoutes";
-import { notificationRoutes } from "@/modules/notification/presentation/http/notificationRoutes";
+import { billingRoutes } from "@/modules/billing/presentation/http/billing.routes";
+import { stripeWebhookRoutes } from "@/modules/billing/presentation/http/webhook.routes";
+import { notificationRoutes } from "@/modules/notification/presentation/http/notification.routes";
 
 const registerRoutes = async (server: FastifyInstance) => {
   await server.register(identityRoutes, { prefix: "/api/v1/auth" });

@@ -9,7 +9,7 @@ import {
   ApiScope,
 } from "@/core/types/api-key.types/apiKeys";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
-import { buildPlanLimitGuard } from "@/modules/billing/infrastructure/middleware/planLimitGuard";
+import { buildPlanLimitGuard } from "@/modules/billing/infrastructure/middleware/planLimitGuard.middleware";
 import { successResponse, tableResponse } from "@/core/utils/response.util";
 import {
   ForbiddenError,

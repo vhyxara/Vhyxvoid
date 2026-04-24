@@ -2,7 +2,7 @@
 // ROTATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { ApiKeyEnvironment } from "@/core/types/api-key/apiKeys";
+import { ApiKeyEnvironment } from "@/core/types/api-key.types/apiKeys";
 import { RoleLevel } from "@/core/constant/account.constant";
 
 // import { ApiKeyEnvironment } from '../types/api-key/apiKeys';
