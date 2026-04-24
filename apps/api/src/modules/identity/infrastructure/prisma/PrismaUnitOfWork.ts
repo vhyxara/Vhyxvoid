@@ -18,7 +18,7 @@ import { PrismaAccountBillingRepository } from "@/modules/billing/domain/reposit
 import { PrismaInvoiceRepository } from "@/modules/billing/domain/repositories/PrismaInvoiceRepository";
 import { PrismaSubscriptionRepository } from "@/modules/billing/domain/repositories/PrismaSubscriptionRepository";
 import { PrismaNotificationRepository } from "@/modules/notification/infrastructure/prisma/PrismaNotificationRepository";
-import { PasswordResetTokenRepository } from "@/modules/identity/domain/repositories/user/PasswordResetToken.repositories";
+// import { PasswordResetTokenRepository } from "@/modules/identity/domain/repositories/user/PasswordResetToken.repositories";
 import { PrismaPasswordResetTokenRepository } from "@/modules/identity/infrastructure/prisma/user/PrismaPasswordResetTokenRepository";
 
 // import { PrismaAdminAbilityRepository, PrismaAdminAuditLogRepository, PrismaAdminRoleRepository, PrismaAdminSessionRepository, PrismaAdminUserRepository } from './admin/PrismaAdminRepositories';
@@ -53,7 +53,7 @@ export class PrismaUnitOfWork {
   // In the UoW constructor, add alongside the other repositories:
 
   // In the UoW interface / execute() params, add:
-  public readonly passwordResetTokenRepository: PasswordResetTokenRepository;
+  public readonly passwordResetTokenRepository: PrismaPasswordResetTokenRepository;
 
   constructor(private prismaOrTx: PrismaClient | Prisma.TransactionClient) {
     this.prisma = prismaOrTx as PrismaClient;
