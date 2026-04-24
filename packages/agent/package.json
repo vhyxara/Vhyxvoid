@@ -1,0 +1,40 @@
+{
+  "name": "@platform/agent",
+  "version": "1.0.0",
+  "description": "Platform tunnel agent — connect your local server to the platform",
+  "keywords": [
+    "tunnel",
+    "proxy",
+    "websocket",
+    "ngrok-alternative"
+  ],
+  "bin": {
+    "bksr-agent": "dist/cli.js",
+    "@platform/agent": "dist/cli.js"
+  },
+  "main": "dist/AgentClient.js",
+  "types": "dist/AgentClient.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@platform/protocol": "workspace:*",
+    "axios": "^1.13.2",
+    "better-sqlite3": "^12.8.0",
+    "commander": "^14.0.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/commander": "^2.12.5",
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.1"
+  }
+}

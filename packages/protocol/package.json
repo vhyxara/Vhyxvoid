@@ -1,0 +1,20 @@
+{
+  "name": "@platform/protocol",
+  "version": "1.0.0",
+  "description": "Shared WebSocket message types and canonical string builder for the tunnel system",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.4.0"
+  }
+}
