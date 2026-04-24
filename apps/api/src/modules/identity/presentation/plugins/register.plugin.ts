@@ -16,8 +16,8 @@ import containerPlugin from "@/core/container/container.plugin";
 import { registerModules } from "./module.module";
 import corePlugin from "@/modules/identity/presentation/plugins/infrastructure/core.plugin";
 import { ApiKeyPlugins } from "@/modules/key-management/presentation/plugins/usecases/api-plugins";
-import { billingPlugin } from "@/modules/billing/presentation/plugins/billingPlugin";
-import { notificationPlugin } from "@/modules/notification/presentation/plugins/notificationPlugin";
+import { billingPlugin } from "@/modules/billing/presentation/plugins/billing.plugin";
+import { notificationPlugin } from "@/modules/notification/presentation/plugins/notification.plugin";
 // import prismaPlugin from "./prisma.plugin";
 // import servicesPlugin from "./services.plugin";
 
