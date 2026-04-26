@@ -2,7 +2,7 @@
 // Frontend TypeScript SDK. Manages WS connection to hub.
 // Supports local agent discovery (bypasses hub for local-to-local calls).
 
-import WebSocket from "isomorphic-ws"; // works in browser and Node.js
+import WebSocket, { MessageEvent } from "isomorphic-ws"; // works in browser and Node.js
 import { randomUUID, createHmac } from "crypto";
 import {
   parseMessage,
@@ -75,13 +75,19 @@ export class TunnelClient {
         ws.send(serialize(msg));
       };
 
-      ws.onmessage = (event: { data: string | Buffer }) => {
+      ws.onmessage = (event: MessageEvent) => {
         try {
-          const msg = parseMessage(
+          const data =
             typeof event.data === "string"
               ? event.data
-              : Buffer.from(event.data),
-          );
+              : Buffer.from(event.data as ArrayBuffer);
+
+          const msg = parseMessage(data);
+          // const msg = parseMessage(
+          //   typeof event.data === "string"
+          //     ? event.data
+          //     : Buffer.from(event.data),
+          // );
 
           if (msg.type === "sdk:registered") {
             this.sessionId = (msg as SdkRegisteredMsg).sessionId;
