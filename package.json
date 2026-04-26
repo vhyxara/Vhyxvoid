@@ -34,7 +34,8 @@
     "db:studio": "pnpm --filter @platform/api db:studio",
     "db:seed": "pnpm --filter @platform/api db:seed",
     "seed:reset": "pnpm --filter @platform/api seed:reset",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "rebuild": "turbo run build --force"
   },
   "keywords": [],
   "author": "",

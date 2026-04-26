@@ -28,7 +28,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "packages/*/dist/**", "apps/*/dist/**"]
     },
     "dev": {
       "cache": false,
