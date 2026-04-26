@@ -7,10 +7,9 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "paths": {
-      "@platform/protocol": ["../protocol/src"]
-    }
+    "composite": true
   },
+  "references": [{ "path": "../protocol" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

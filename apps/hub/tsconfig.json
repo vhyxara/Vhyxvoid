@@ -1,3 +1,4 @@
+// hub/tsconfig.json
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
@@ -6,8 +7,6 @@
     "baseUrl": ".",
     "types": ["node"],
     "paths": {
-      // "@platform/protocol": ["../../packages/protocol/src"],
-      // "@platform/shared": ["../../packages/shared/src"],
       "@platform/sdk": ["../../packages/sdk/src"],
       "@/generated/prisma": ["../../packages/shared/generated/prisma"],
       "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],

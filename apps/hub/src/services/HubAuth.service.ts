@@ -154,7 +154,7 @@
 // This is the integration point between the hub and the identity module.
 // No Prisma. No HTTP. Shared code import — fast path (~1ms Redis cache hit).
 
-import { IValidateApiKeyUseCase, ValidateApiKeyParams } from '@platform/shared';
+import { IValidateApiKeyUseCase } from '@platform/shared';
 import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@platform/protocol';
 
 export interface HubAuthResult {

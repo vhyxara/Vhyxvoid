@@ -72,7 +72,7 @@ export class MessageBatcher {
     // WS is up — send
     const serialized =
       messages.length === 1
-        ? serialize(messages[0] as any)
+        ? serialize(messages[0] as BatchableMsg)
         : serialize({ v: "1", type: "agent:batch", messages } as AgentBatchMsg);
 
     this.onFlush(serialized);

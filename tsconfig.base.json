@@ -15,7 +15,6 @@
     "allowJs": true,
     "moduleResolution": "node",
     "outDir": "dist",
-    "rootDir": "src",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "incremental": true,
