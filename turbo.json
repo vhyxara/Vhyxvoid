@@ -28,7 +28,12 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "packages/*/dist/**", "apps/*/dist/**"]
+      "outputs": [
+        "dist/**",
+        "packages/*/dist/**",
+        "tsconfig.tsbuildinfo",
+        "apps/*/dist/**"
+      ]
     },
     "dev": {
       "cache": false,
