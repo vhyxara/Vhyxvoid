@@ -58,7 +58,7 @@ export async function billingRoutes(fastify: FastifyInstance) {
 
       const result = await fastify.createCheckoutSessionUseCase.execute({
         accountId,
-        accountName: account.name ?? user.fullName,
+        accountName: account.name ?? user.email,
         userEmail: user.email,
         priceId: body.priceId,
         successUrl: body.successUrl,

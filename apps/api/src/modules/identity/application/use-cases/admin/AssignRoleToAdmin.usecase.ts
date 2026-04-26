@@ -65,6 +65,7 @@ export class AssignRoleToAdminUseCase {
           targetType: "AdminUserRole",
           targetId: adminId,
           changes: {
+            before: null,
             after: { roleId, assignedAt: new Date() },
           },
           metadata: { reason },

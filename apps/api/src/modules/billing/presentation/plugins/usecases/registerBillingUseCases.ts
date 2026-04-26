@@ -21,15 +21,14 @@ export function registerBillingUseCases(container: Container) {
 
   container.register(StripeService, () => buildStripeService());
 
-  // repositories
   container.register(
     PrismaSubscriptionRepository,
-    (c) => new PrismaSubscriptionRepository(c.resolve(PrismaUnitOfWork)),
+    (c) => new PrismaSubscriptionRepository(c.resolve(PrismaClient)),
   );
 
   container.register(
     PrismaInvoiceRepository,
-    (c) => new PrismaInvoiceRepository(c.resolve(PrismaUnitOfWork)),
+    (c) => new PrismaInvoiceRepository(c.resolve(PrismaClient)),
   );
 
   container.register(

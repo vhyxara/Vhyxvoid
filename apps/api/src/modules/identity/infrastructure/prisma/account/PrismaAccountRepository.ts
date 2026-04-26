@@ -13,7 +13,7 @@ export class PrismaAccountRepository implements AccountRepository {
     await this.prisma.account.upsert({
       where: { id: p.id },
       update: {
-        name: p.name,
+        name: p.name ?? undefined, // null → undefined (Prisma skips undefined fields)
         status: p.status,
         graceEndsAt: p.graceEndsAt, // FIX: was missing — status changes wouldn't persist
         deletedAt: p.deletedAt, // FIX: was missing — soft delete wouldn't persist
@@ -21,7 +21,7 @@ export class PrismaAccountRepository implements AccountRepository {
       },
       create: {
         id: p.id,
-        name: p.name,
+        name: p.name ?? "", // null → empty string for NOT NULL column
         type: p.type,
         status: p.status,
         createdBy: { connect: { id: p.createdById } }, // FIX: was missing — NOT NULL constraint violation

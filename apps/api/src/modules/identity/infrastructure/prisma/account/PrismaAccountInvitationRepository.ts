@@ -71,12 +71,16 @@ export class PrismaAccountInvitationRepository implements InvitationRepository {
 
   async findByAccountId(
     accountId: string,
-    options = {},
+    options: { status?: string; limit?: number } = {},
   ): Promise<AccountInvitation[]> {
     const rows = await this.prisma.accountInvitation.findMany({
+      // where: {
+      //   accountId,
+      //   ...(options.status ? { status: options.status } : {}),
+      // },
       where: {
         accountId,
-        ...(options.status ? { status: options.status } : {}),
+        ...(options.status ? { status: options.status as any } : {}),
       },
       orderBy: { createdAt: "desc" },
       take: options.limit ?? 100,

@@ -54,19 +54,20 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
       take: limit,
       skip: offset,
     });
-
-    return data.map((d) =>
-      AdminAuditLog.rehydrate({
-        id: d.id,
-        adminId: d.adminId,
-        action: d.action,
-        targetType: d.targetType,
-        targetId: d.targetId,
-        changes: d.changes as any,
-        metadata: d.metadata as any,
-        createdAt: d.createdAt,
-      }),
-    );
+    return data
+      .filter((d) => d.adminId !== null)
+      .map((d) =>
+        AdminAuditLog.rehydrate({
+          id: d.id,
+          adminId: d.adminId!,
+          action: d.action,
+          targetType: d.targetType,
+          targetId: d.targetId,
+          changes: d.changes as any,
+          metadata: d.metadata as any,
+          createdAt: d.createdAt,
+        }),
+      );
   }
 
   async findByAction(
@@ -81,18 +82,20 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
       skip: offset,
     });
 
-    return data.map((d) =>
-      AdminAuditLog.rehydrate({
-        id: d.id,
-        adminId: d.adminId,
-        action: d.action,
-        targetType: d.targetType,
-        targetId: d.targetId,
-        changes: d.changes as any,
-        metadata: d.metadata as any,
-        createdAt: d.createdAt,
-      }),
-    );
+    return data
+      .filter((d) => d.adminId !== null)
+      .map((d) =>
+        AdminAuditLog.rehydrate({
+          id: d.id,
+          adminId: d.adminId!,
+          action: d.action,
+          targetType: d.targetType,
+          targetId: d.targetId,
+          changes: d.changes as any,
+          metadata: d.metadata as any,
+          createdAt: d.createdAt,
+        }),
+      );
   }
 
   async findByTargetId(
@@ -107,18 +110,20 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
       skip: offset,
     });
 
-    return data.map((d) =>
-      AdminAuditLog.rehydrate({
-        id: d.id,
-        adminId: d.adminId,
-        action: d.action,
-        targetType: d.targetType,
-        targetId: d.targetId,
-        changes: d.changes as any,
-        metadata: d.metadata as any,
-        createdAt: d.createdAt,
-      }),
-    );
+    return data
+      .filter((d) => d.adminId !== null)
+      .map((d) =>
+        AdminAuditLog.rehydrate({
+          id: d.id,
+          adminId: d.adminId!,
+          action: d.action,
+          targetType: d.targetType,
+          targetId: d.targetId,
+          changes: d.changes as any,
+          metadata: d.metadata as any,
+          createdAt: d.createdAt,
+        }),
+      );
   }
 
   async findAll(limit = 50, offset = 0): Promise<AdminAuditLog[]> {
@@ -128,18 +133,20 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
       skip: offset,
     });
 
-    return data.map((d) =>
-      AdminAuditLog.rehydrate({
-        id: d.id,
-        adminId: d.adminId,
-        action: d.action,
-        targetType: d.targetType,
-        targetId: d.targetId,
-        changes: d.changes as any,
-        metadata: d.metadata as any,
-        createdAt: d.createdAt,
-      }),
-    );
+    return data
+      .filter((d) => d.adminId !== null)
+      .map((d) =>
+        AdminAuditLog.rehydrate({
+          id: d.id,
+          adminId: d.adminId!,
+          action: d.action,
+          targetType: d.targetType,
+          targetId: d.targetId,
+          changes: d.changes as any,
+          metadata: d.metadata as any,
+          createdAt: d.createdAt,
+        }),
+      );
   }
 
   async countByAdminId(adminId: string): Promise<number> {

@@ -40,7 +40,11 @@ export class PrismaNotificationRepository implements INotificationRepository {
         title: p.title,
         body: p.body,
         actionUrl: p.actionUrl,
-        metadata: p.metadata ?? undefined,
+        // metadata: p.metadata ?? undefined,
+        metadata: p.metadata
+          ? JSON.parse(JSON.stringify(p.metadata))
+          : undefined,
+
         status: p.status,
         readAt: p.readAt,
         createdAt: p.createdAt,

@@ -13,7 +13,7 @@ import {
 } from "../../domain/services/Stripe.service";
 
 export class StripeServiceImpl implements IStripeService {
-  private readonly stripe: Stripe;
+  private readonly stripe: ReturnType<typeof Stripe>;
 
   // Price ID → Plan mapping (from environment variables)
   private readonly priceToPlан: Map<string, Plan>;
@@ -27,7 +27,7 @@ export class StripeServiceImpl implements IStripeService {
     },
   ) {
     this.stripe = new Stripe(config.secretKey, {
-      apiVersion: "2024-12-18.acacia",
+      apiVersion: "2026-03-25.dahlia",
       typescript: true,
     });
 

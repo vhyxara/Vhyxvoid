@@ -229,6 +229,25 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
   //   return keys;
   // }
 
+  // private async scanKeys(pattern: string): Promise<string[]> {
+  //   const keys: string[] = [];
+  //   let cursor = 0;
+
+  //   do {
+  //     const res = await this.redis.scan(cursor, {
+  //       match: pattern,
+  //       count: 200,
+  //     });
+
+  //     cursor = res.cursor;
+
+  //     const batch = res.keys.map((k) => (typeof k === "string" ? k : k.key));
+
+  //     keys.push(...batch);
+  //   } while (cursor !== 0);
+
+  //   return keys;
+  // }
   private async scanKeys(pattern: string): Promise<string[]> {
     const keys: string[] = [];
     let cursor = 0;
@@ -239,10 +258,12 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
         count: 200,
       });
 
-      cursor = res.cursor;
-
-      const batch = res.keys.map((k) => (typeof k === "string" ? k : k.key));
-
+      // Upstash returns [nextCursor, keys[]] as a tuple
+      // cursor = res[0] as number;
+      cursor = res[0] as unknown as number;
+      // OR parse it explicitly (more correct):
+      cursor = Number(res[0]);
+      const batch = res[1] as string[];
       keys.push(...batch);
     } while (cursor !== 0);
 

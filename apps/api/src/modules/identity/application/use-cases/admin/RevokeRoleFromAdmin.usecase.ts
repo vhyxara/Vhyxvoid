@@ -51,7 +51,7 @@ export class RevokeRoleFromAdminUseCase {
           action: AuditAction.ROLE_REVOKED,
           targetType: "AdminUserRole",
           targetId: adminId,
-          metadata: { roleId, reason },
+          metadata: { reason: reason ?? `roleId:${roleId}` },
         });
 
         await adminAuditLogRepository.save(auditLog);

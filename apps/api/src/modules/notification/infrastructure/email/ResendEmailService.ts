@@ -28,7 +28,7 @@ export class ResendEmailService implements IEmailService {
       subject: params.subject,
       html: params.html,
       text: params.text,
-      reply_to: params.replyTo,
+      replyTo: params.replyTo,
     });
 
     if (result.error) {

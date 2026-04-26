@@ -45,7 +45,7 @@ export class RevokeAbilityFromRoleUseCase {
           action: AuditAction.ABILITY_REVOKED,
           targetType: "AdminRoleAbility",
           targetId: roleId,
-          metadata: { abilityId },
+          metadata: { reason: `abilityId:${abilityId}` },
         });
 
         await adminAuditLogRepository.save(auditLog);

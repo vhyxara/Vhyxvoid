@@ -95,6 +95,9 @@ export class Account {
     return this.props.deletedAt !== null;
   }
 
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
   // ── Business Logic ─────────────────────────────────────────
 
   rename(name: string, now: Date): void {
