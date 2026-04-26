@@ -8,6 +8,6 @@ export * from "./serializer";
 export * from "./constants";
 export * from "./errors";
 
-// Re-export for consumers that need the constant in canonical.ts
-import { PROTOCOL_VERSION } from "./constants";
-import type { HubErrorCode } from "./errors";
+// // Re-export for consumers that need the constant in canonical.ts
+// import { PROTOCOL_VERSION } from "./constants";
+// import type { HubErrorCode } from "./errors";
