@@ -1,0 +1,55 @@
+FROM node:20-slim AS deps
+
+RUN npm install -g pnpm@10.6.2
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
+
+COPY packages/protocol/package.json ./packages/protocol/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/agent/package.json ./packages/agent/
+COPY apps/api/package.json ./apps/api/
+COPY apps/hub/package.json ./apps/hub/
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm approve-builds --yes || true
+
+FROM deps AS builder
+
+WORKDIR /app
+
+COPY packages/ ./packages/
+COPY apps/hub/ ./apps/hub/
+COPY apps/api/prisma/ ./apps/api/prisma/
+
+COPY tsconfig.hub.json ./
+
+# Add this line ↓
+RUN cd apps/api && npx prisma generate
+
+RUN find . -name "tsconfig.tsbuildinfo" -delete && npx tsc -b tsconfig.hub.json
+RUN cd apps/hub && npx tsc-alias -p tsconfig.json
+
+FROM node:20-slim AS runner
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/protocol/dist ./packages/protocol/dist
+COPY --from=builder /app/packages/protocol/package.json ./packages/protocol/
+COPY --from=builder /app/packages/protocol/node_modules ./packages/protocol/node_modules
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/shared/generated ./packages/shared/generated
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/apps/hub/dist ./apps/hub/dist
+COPY --from=builder /app/apps/hub/package.json ./apps/hub/
+COPY --from=builder /app/apps/hub/node_modules ./apps/hub/node_modules
+WORKDIR /app/apps/hub
+
+EXPOSE 9001
+
+CMD ["node", "dist/main.js"]

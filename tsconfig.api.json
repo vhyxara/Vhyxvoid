@@ -2,10 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/protocol" },
-    { "path": "./packages/sdk" },
-    { "path": "./packages/agent" },
     { "path": "./packages/shared" },
-    { "path": "./apps/hub" },
     { "path": "./apps/api" }
   ]
 }

@@ -1,0 +1,60 @@
+FROM node:20-slim AS deps
+
+RUN npm install -g pnpm@10.6.2
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
+
+COPY packages/protocol/package.json ./packages/protocol/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/agent/package.json ./packages/agent/
+COPY apps/api/package.json ./apps/api/
+COPY apps/hub/package.json ./apps/hub/
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm approve-builds --yes || true
+
+FROM deps AS builder
+
+WORKDIR /app
+
+COPY packages/ ./packages/
+COPY apps/api/ ./apps/api/
+COPY apps/hub/ ./apps/hub/
+COPY apps/api/prisma/ ./apps/api/prisma/
+
+COPY tsconfig.api.json ./
+COPY apps/api/keys/ ./apps/api/keys/
+
+RUN cd apps/api && npx prisma generate
+RUN find . -name "tsconfig.tsbuildinfo" -delete && npx tsc -b tsconfig.api.json
+RUN cd apps/api && npx tsc-alias -p tsconfig.json
+
+FROM node:20-slim AS runner
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/protocol/dist ./packages/protocol/dist
+COPY --from=builder /app/packages/protocol/package.json ./packages/protocol/
+COPY --from=builder /app/packages/protocol/node_modules ./packages/protocol/node_modules
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/shared/generated ./packages/shared/generated
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/apps/api/keys ./apps/api/keys
+COPY apps/api/bootstrap.js ./apps/api/bootstrap.js
+WORKDIR /app/apps/api
+
+EXPOSE 9000
+
+# CMD ["node", "bootstrap.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node bootstrap.js"]
+# This line intentionally left blank

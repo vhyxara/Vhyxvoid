@@ -38,9 +38,9 @@ async function main() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     throw new Error('UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required');
   }
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is required');
-  }
+  // if (!process.env.DATABASE_URL) {
+  //   throw new Error('DATABASE_URL is required');
+  // }
 
   // const redis = new Redis({
   //   url: process.env.UPSTASH_REDIS_REST_URL,

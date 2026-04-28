@@ -22,10 +22,10 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

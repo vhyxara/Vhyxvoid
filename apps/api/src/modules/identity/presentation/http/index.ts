@@ -3,7 +3,7 @@ import { identityRoutes } from "@/modules/identity/presentation/http/user/identi
 import { accountRoutes } from "@/modules/identity/presentation/http/user/account.routes";
 
 import { adminRoutes } from "@/modules/identity/presentation/http/admin/admin.routes";
-import { tunnelRoutes } from "@/modules/identity/presentation/http/user/tunnel.routes";
+// import { tunnelRoutes } from "@/modules/identity/presentation/http/user/tunnel.routes";
 import { billingRoutes } from "@/modules/billing/presentation/http/billing.routes";
 import { stripeWebhookRoutes } from "@/modules/billing/presentation/http/webhook.routes";
 import { notificationRoutes } from "@/modules/notification/presentation/http/notification.routes";
@@ -15,7 +15,7 @@ const registerRoutes = async (server: FastifyInstance) => {
 
   await server.register(adminRoutes, { prefix: "/api/v1/admin/identity" });
 
-  await server.register(tunnelRoutes, { prefix: "/api/v1/tunnel" });
+  // await server.register(tunnelRoutes, { prefix: "/api/v1/tunnel" });
 
   await server.register(billingRoutes, { prefix: "/api/v1/billing" });
 

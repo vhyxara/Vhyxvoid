@@ -98,7 +98,10 @@ export class MessageRouter {
           );
       }
     } catch (err) {
-      console.error({ err, type: msg.type }, '[router] unhandled error in agent message');
+      console.error(
+        { err: err instanceof Error ? err.message : String(err), type: msg.type },
+        '[router] unhandled error in agent message',
+      );
       this.sendToWs(ws, this.buildHubError('INTERNAL_ERROR', 'Internal error', undefined, false));
     }
   }
@@ -140,7 +143,10 @@ export class MessageRouter {
           );
       }
     } catch (err) {
-      console.error({ err, type: msg.type }, '[router] unhandled error in sdk message');
+      console.error(
+        { err: err instanceof Error ? err.message : String(err), type: msg.type },
+        '[router] unhandled error in sdk message',
+      );
       this.sendToWs(ws, this.buildSdkError('INTERNAL_ERROR', 'Internal error', undefined, false));
     }
   }
@@ -240,7 +246,7 @@ export class MessageRouter {
     // hub:agent:{accountId}:{label} → hubInstanceId
     // Other hubs check this to know where to route
     // Fire and forget — registration succeeds regardless
-    import('@upstash/redis').then(({ Redis }) => {}).catch(() => {});
+    // import('@upstash/redis').then(({ Redis }) => {}).catch(() => {});
     // (Redis available via injected instance in HubServer)
 
     // 5. Send registered response immediately — don't wait for DB
@@ -322,7 +328,11 @@ export class MessageRouter {
             break;
         }
       } catch (err) {
-        console.error({ err, type: item.type }, '[router] error in batch item');
+        // console.error({ err, type: item.type }, '[router] error in batch item');
+        console.error(
+          { err: err instanceof Error ? err.message : String(err), type: msg.type },
+          '[router] error in batch item',
+        );
       }
     }
   }

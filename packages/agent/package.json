@@ -18,10 +18,10 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -b",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

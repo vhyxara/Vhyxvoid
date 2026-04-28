@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/.git
+.git
+.gitignore
+*.md
+**/coverage
+**/.env.example
+apps/demo-backend
+archived
+tests
+apps/api/.env
+apps/hub/.env
+**/.env
