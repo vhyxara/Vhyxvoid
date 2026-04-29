@@ -18,7 +18,7 @@ import {
   trialEnding,
 } from "@/modules/notification/infrastructure/email/templates";
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:9000";
+const APP_URL = process.env.APP_URL ?? "https://www.vhyxvoid.com";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SendEmailVerificationUseCase
