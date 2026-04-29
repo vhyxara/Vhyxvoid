@@ -39,7 +39,7 @@ export const buildServer = async () => {
   // Health check
   server.get("/health", async () => ({ ok: true, ts: Date.now() }));
   server.get("/", async () => ({
-    message: "Welcome to black server api",
+    message: "Welcome to VhyxVoid api",
     ok: true,
     ts: Date.now(),
   }));

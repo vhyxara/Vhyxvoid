@@ -10,7 +10,7 @@ export interface EmailContent {
 
 // ── Shared layout ─────────────────────────────────────────────────────────────
 
-const APP_NAME = process.env.APP_NAME ?? "Black Server";
+const APP_NAME = process.env.APP_NAME ?? "VhyxVoid";
 const APP_URL = process.env.APP_URL ?? "https://www.vhyxvoid.com";
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "support@example.com";
 

@@ -1,4 +1,4 @@
-# Black Server
+# VhyxVoid
 
 # The Hub — Complete Design
 ## Hub Internal Architecture
