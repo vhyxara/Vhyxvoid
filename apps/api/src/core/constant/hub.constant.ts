@@ -1,7 +1,6 @@
 export const allowedOrigins = [
-  'http://localhost:4000',
-  'http://192.168.1.111:4000',
-  'https://vigilant-space-fortnight-6x4qp6r479q2r4xx-9000.app.github.dev',
+  "http://localhost:4000",
+  "https://www.vhyxvoid.com",
 ];
 
 // await server.register(fastifyCors, {
