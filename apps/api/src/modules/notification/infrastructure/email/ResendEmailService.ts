@@ -24,7 +24,7 @@ export class ResendEmailService implements IEmailService {
 
     const from = params.from ?? this.defaultFrom;
 
-    if (!from.includes("send.vhyxvoid.com")) {
+    if (!from.includes("vhyxvoid.com")) {
       throw new Error("Invalid FROM domain");
     }
 
