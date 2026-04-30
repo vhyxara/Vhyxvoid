@@ -12,7 +12,7 @@ export interface EmailContent {
 
 const APP_NAME = process.env.APP_NAME ?? "VhyxVoid";
 const APP_URL = process.env.APP_URL ?? "https://www.vhyxvoid.com";
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "support@example.com";
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "support@vhyxvoid.com";
 
 function layout(content: string, preheader = ""): string {
   return `<!DOCTYPE html>
