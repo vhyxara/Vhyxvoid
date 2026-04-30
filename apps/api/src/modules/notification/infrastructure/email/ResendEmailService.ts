@@ -22,8 +22,15 @@ export class ResendEmailService implements IEmailService {
         ? [process.env.DEV_EMAIL ?? "tanveerbranded10@gmail.com"]
         : to;
 
+    const from = params.from ?? this.defaultFrom;
+
+    if (!from.includes("send.vhyxvoid.com")) {
+      throw new Error("Invalid FROM domain");
+    }
+
     const result = await this.client.emails.send({
-      from: params.from ?? this.defaultFrom,
+      // from: params.from ?? this.defaultFrom,
+      from,
       to: recipients,
       subject: params.subject,
       html: params.html,
@@ -37,13 +44,25 @@ export class ResendEmailService implements IEmailService {
       );
     }
 
-    return { id: result.data?.id ?? "" };
+    // return { id: result.data?.id ?? "" };
+    if (!result.data?.id) {
+      throw new Error("Email sent but no ID returned");
+    }
+
+    return { id: result.data.id };
   }
 }
 
 export function buildEmailService(): ResendEmailService {
   const apiKey = process.env.RESEND_API_KEY;
-  const defaultFrom = process.env.EMAIL_FROM ?? "App <noreply@example.com>";
+  // const defaultFrom =
+  //   process.env.EMAIL_FROM ?? "App <no-reply@send.vhyxvoid.com>";
+
+  const defaultFrom = process.env.EMAIL_FROM;
+
+  if (!defaultFrom) {
+    throw new Error("Missing EMAIL_FROM environment variable.");
+  }
 
   if (!apiKey) {
     throw new Error("Missing RESEND_API_KEY environment variable.");
