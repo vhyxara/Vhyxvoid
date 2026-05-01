@@ -14,7 +14,7 @@ COPY packages/agent/package.json ./packages/agent/
 COPY apps/api/package.json ./apps/api/
 COPY apps/hub/package.json ./apps/hub/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 RUN pnpm approve-builds --yes || true
 
 FROM deps AS builder
