@@ -31,3 +31,5 @@ apps/api/.env
 apps/api/.env.*
 apps/hub/.env
 apps/hub/.env.*
+deploy.md
+apps/api/keys/*
