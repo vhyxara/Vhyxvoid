@@ -37,13 +37,16 @@ export const buildServer = async () => {
   // server.register(gatewayRoutes, { prefix: '/gateway/v1' });
 
   // Health check
-  server.get("/health", async () => ({ ok: true, ts: Date.now() }));
+  // server.get("/health", async () => ({ ok: true, ts: Date.now() }));
   server.get("/", async () => ({
     message: "Welcome to VhyxVoid api",
     ok: true,
     ts: Date.now(),
   }));
 
+  server.get("/health", async () => {
+    return { status: "ok" };
+  });
   // 404 handler
   server.setNotFoundHandler(notFoundHandler);
 
