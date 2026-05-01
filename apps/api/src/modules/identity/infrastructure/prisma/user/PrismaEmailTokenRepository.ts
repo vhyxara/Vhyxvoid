@@ -35,4 +35,10 @@ export class PrismaEmailTokenRepository {
       ? EmailVerificationToken.rehydrate(record as EmailVerificationTokenProps)
       : null;
   }
+
+  async deleteAllByUserId(userId: string): Promise<void> {
+    await this.prisma.emailVerificationToken.deleteMany({
+      where: { userId },
+    });
+  }
 }

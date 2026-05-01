@@ -27,13 +27,14 @@ COPY apps/hub/ ./apps/hub/
 COPY apps/api/prisma/ ./apps/api/prisma/
 
 COPY tsconfig.api.json ./
-COPY apps/api/keys/ ./apps/api/keys/
 
 RUN cd apps/api && npx prisma generate
 RUN find . -name "tsconfig.tsbuildinfo" -delete && npx tsc -b tsconfig.api.json
 RUN cd apps/api && npx tsc-alias -p tsconfig.json
 
 FROM node:20-slim AS runner
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -49,7 +50,6 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder /app/apps/api/keys ./apps/api/keys
 COPY apps/api/bootstrap.js ./apps/api/bootstrap.js
 WORKDIR /app/apps/api
 

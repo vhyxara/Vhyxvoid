@@ -52,6 +52,7 @@ import { RevokeRoleFromAdminUseCase } from "@/modules/identity/application/use-c
 import { GetAccountMembersUseCase } from "@/modules/identity/application/use-cases/user/GetAccountMembers.usecase";
 import { RequestPasswordResetUseCase } from "@/modules/identity/application/use-cases/user/RequestPasswordReset.usecase";
 import { ResetPasswordUseCase } from "@/modules/identity/application/use-cases/user/ResetPassword.usecase";
+// import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 // import { NotificationService } from "@/modules/notification/application/use-cases";
 
 declare module "fastify" {
@@ -63,6 +64,7 @@ declare module "fastify" {
     jwtService: RS256JwtService;
     TokenHasher: TokenHasher;
     redis: Redis;
+    // tokenGenerator: CryptoTokenGenerator;
     // uow: PrismaUnitOfWork & {
     //   apiKeyRepository?: any;
     //   securityEventRepository?: any;

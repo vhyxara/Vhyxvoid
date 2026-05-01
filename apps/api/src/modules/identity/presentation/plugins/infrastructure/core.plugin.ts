@@ -5,6 +5,7 @@ import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/Prism
 import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
+import { resolveRsaKey } from "@/core/utils/key.util";
 
 export default fp(async (fastify) => {
   // const privateKeyPath = path.resolve(process.env.PRIVATE_KEY!);
@@ -13,11 +14,16 @@ export default fp(async (fastify) => {
   // // Read the actual key contents
   // const privateKey = fs.readFileSync(privateKeyPath, "utf-8");
   // const publicKey = fs.readFileSync(publicKeyPath, "utf-8");
-  const privateKey = process.env.PRIVATE_KEY!.replace(/\\n/g, "\n");
-  const publicKey = process.env.PUBLIC_KEY!.replace(/\\n/g, "\n");
-  if (!privateKey || !publicKey) {
-    throw new Error("RSA keys not found in environment");
-  }
+  const privateKey = resolveRsaKey(
+    process.env.PRIVATE_KEY,
+    process.env.PRIVATE_KEY_B64,
+    "private",
+  );
+  const publicKey = resolveRsaKey(
+    process.env.PUBLIC_KEY,
+    process.env.PUBLIC_KEY_B64,
+    "public",
+  );
 
   const container = fastify.container;
 

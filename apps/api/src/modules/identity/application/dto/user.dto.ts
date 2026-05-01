@@ -55,6 +55,11 @@ export const changePasswordSchema = z.object({
     ),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+export type ResendVerificationDTO = z.infer<typeof resendVerificationSchema>;
 export type ChangePasswordDTO = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordDTO = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordDTO = z.infer<typeof resetPasswordSchema>;

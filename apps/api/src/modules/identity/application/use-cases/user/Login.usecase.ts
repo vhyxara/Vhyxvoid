@@ -102,11 +102,21 @@ export class LoginUseCase {
     userAgent: string,
   ) {
     const now = new Date();
-
+    console.log(
+      "now",
+      now,
+      this.jwtService,
+      this.tokenGenerator,
+      this.passwordHasher,
+      email,
+      password,
+      ipAddress,
+      userAgent,
+    );
     // 1️⃣ Find user OUTSIDE transaction
     const user = await this.uow.userRepository.findByEmail(email);
     if (!user) throw new UnauthorizedError("Invalid credentials");
-
+    console.log("USER FOUND:", user);
     user.ensureCanLogin(now);
 
     // 2️⃣ Verify password OUTSIDE transaction
@@ -114,7 +124,7 @@ export class LoginUseCase {
       password,
       user.passwordHash,
     );
-
+    console.log("PASSWORD VALID:", isValid);
     if (!isValid) {
       // ✅ Save failure directly — no transaction, no rollback
       user.recordFailedLoginAttempt(now);
@@ -134,14 +144,14 @@ export class LoginUseCase {
         user.id,
         now,
       );
-
+      console.log("ACTIVE SESSIONS:", activeSessions);
       if (activeSessions >= MAX_SESSIONS) {
         await sessionRepository.revokeOldestActiveSession(user.id, now);
       }
 
       const rawRefreshToken = this.tokenGenerator.generate(64);
       const tokenHash = TokenHasher.hash(rawRefreshToken);
-
+      console.log("RAW REFRESH TOKEN:", rawRefreshToken, "HASHED:", tokenHash);
       const session = Session.create({
         userId: user.id,
         tokenHash,
@@ -149,7 +159,7 @@ export class LoginUseCase {
         ipAddress,
         userAgent,
       });
-
+      console.log("NEW SESSION:", session);
       await sessionRepository.save(session);
 
       const accessToken = this.jwtService.sign(

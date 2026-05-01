@@ -5,9 +5,9 @@ import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/B
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { Email } from "@/modules/identity/domain/value-objects/Email";
 import { User } from "@/modules/identity/domain/entities/user/User.entities";
-import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
-import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
-import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
+// import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
+// import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
+// import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { EmailVerificationToken } from "@/modules/identity/domain/entities/user/EmailVerificationToken.entities";
 import { NotificationService } from "@/modules/notification/application/use-cases";
@@ -34,14 +34,45 @@ export class RegisterUserUseCase {
       async ({
         userRepository,
         emailTokenRepository,
-        accountRepository,
-        roleRepository,
-        membershipRepository,
+        // accountRepository,
+        // roleRepository,
+        // membershipRepository,
       }) => {
         // 1️⃣ Duplicate check
-        const existing = await userRepository.findByEmail(emailVO.value);
-        if (existing) throw new ConflictError("Email already registered");
+        // const existing = await userRepository.findByEmail(emailVO.value);
+        // if (existing) throw new ConflictError("Email already registered");
 
+        // With this:
+        const existing = await userRepository.findByEmail(emailVO.value);
+        if (existing) {
+          if (existing.isEmailVerified) {
+            throw new ConflictError("Email already registered");
+          }
+
+          // Unverified — delete old tokens, generate new one, resend
+          await emailTokenRepository.deleteAllByUserId(existing.id);
+
+          const rawToken = this.tokenGenerator.generate(32);
+          const tokenHash = TokenHasher.hash(rawToken);
+          const verificationToken = EmailVerificationToken.create({
+            userId: existing.id,
+            tokenHash,
+            ttlMs: 1000 * 60 * 60 * 24,
+          });
+          await emailTokenRepository.save(verificationToken);
+
+          this.notificationService.sendEmailVerification
+            .execute({
+              to: existing.email,
+              firstName: existing.firstName,
+              rawToken,
+            })
+            .catch((err) =>
+              console.error("[notifications] resend failed", err),
+            );
+
+          return { email: existing.email, requiresVerification: true };
+        }
         // 2️⃣ Hash password
         const passwordHash = await this.passwordHasher.hash(dto.password);
 
@@ -53,25 +84,6 @@ export class RegisterUserUseCase {
           lastName: dto.lastName,
         });
         await userRepository.save(user);
-
-        // 4. Create personal account — createdById is now properly stored
-        const personalAccount = Account.createPersonal(user.id, dto.firstName);
-        await accountRepository.save(personalAccount);
-
-        // 5. Seed system roles for this account (OWNER, ADMIN, MEMBER)
-        // const [ownerRole, ,] = Role.seedSystemRoles(personalAccount.id);
-        const roles = Role.seedSystemRoles(personalAccount.id);
-        console.log("roles-----", roles);
-        await roleRepository.saveBatch(roles);
-        const ownerRole = roles[0];
-        // 6. Fetch persisted owner role (or use the in-memory one — same id)
-        const ownership = AccountMembership.createOwner(
-          personalAccount.id,
-          user.id,
-          ownerRole,
-        );
-        await membershipRepository.save(ownership);
-
         const rawToken = this.tokenGenerator.generate(32);
         const tokenHash = TokenHasher.hash(rawToken);
 
@@ -80,6 +92,8 @@ export class RegisterUserUseCase {
           tokenHash,
           ttlMs: 1000 * 60 * 60 * 24, // 24h
         });
+        await emailTokenRepository.save(verificationToken);
+
         if (this.notificationService) {
           this.notificationService.sendEmailVerification
             .execute({
@@ -93,34 +107,6 @@ export class RegisterUserUseCase {
         } else {
           console.log("EMAIL VERIFY TOKEN:", rawToken);
         }
-        await emailTokenRepository.save(verificationToken);
-
-        // 4️⃣ Issue access token
-        // const accessToken = this.jwtService.sign(
-        //   { sub: user.id, email: user.email },
-        //   { expiresIn: "15m" }
-        // );
-
-        // 5️⃣ Create session with hashed refresh token
-        // const rawRefreshToken = this.tokenGenerator.generate();
-        // const tokenHash = TokenHasher.hash(rawRefreshToken);
-
-        // const session = Session.create({
-        //   userId: user.id,
-        //   tokenHash,
-        //   ttlMs: this.refreshTokenTTL,
-        // });
-
-        // await sessionRepository.save(session);
-
-        // 7️⃣ Generate Email Verification Token (can be another JWT or crypto string)
-        // const emailVerificationToken = this.tokenGenerator.generate(32);
-
-        // Optionally persist email verification token in a separate table or cache
-
-        // return {
-        //   message: "Registration successful. Please verify your email.",
-        // };
         return {
           email: user.email,
           requiresVerification: true,
@@ -129,3 +115,30 @@ export class RegisterUserUseCase {
     );
   }
 }
+
+// 4️⃣ Issue access token
+// const accessToken = this.jwtService.sign(
+//   { sub: user.id, email: user.email },
+//   { expiresIn: "15m" }
+// );
+
+// 5️⃣ Create session with hashed refresh token
+// const rawRefreshToken = this.tokenGenerator.generate();
+// const tokenHash = TokenHasher.hash(rawRefreshToken);
+
+// const session = Session.create({
+//   userId: user.id,
+//   tokenHash,
+//   ttlMs: this.refreshTokenTTL,
+// });
+
+// await sessionRepository.save(session);
+
+// 7️⃣ Generate Email Verification Token (can be another JWT or crypto string)
+// const emailVerificationToken = this.tokenGenerator.generate(32);
+
+// Optionally persist email verification token in a separate table or cache
+
+// return {
+//   message: "Registration successful. Please verify your email.",
+// };

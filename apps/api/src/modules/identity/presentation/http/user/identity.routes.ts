@@ -13,6 +13,8 @@ import {
   ForgotPasswordDTO,
   changePasswordSchema,
   ChangePasswordDTO,
+  resendVerificationSchema,
+  ResendVerificationDTO,
 } from "@/modules/identity/application/dto/user.dto";
 import { successResponse } from "@/core/utils/response.util";
 import {
@@ -23,6 +25,9 @@ import {
 import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { NotFoundError, ValidationError } from "@/core/errors/error.format";
+import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
+import { EmailVerificationToken } from "@/modules/identity/domain/entities/user/EmailVerificationToken.entities";
+import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 
 export async function identityRoutes(fastify: FastifyInstance) {
   /**
@@ -55,6 +60,70 @@ export async function identityRoutes(fastify: FastifyInstance) {
     },
   );
 
+  /**
+   * POST /auth/resend-verification
+   * Resends the email verification link to an unverified account.
+   * Always returns 200 — never reveals whether the email exists.
+   * No auth required — user cannot log in yet.
+   *
+   * Also handles the case where user tries to register again
+   * with the same unverified email — RegisterUserUseCase already
+   * handles that silently, but this gives the frontend a dedicated
+   * button to trigger a resend without re-registering.
+   */
+  fastify.post<{ Body: ResendVerificationDTO }>(
+    "/resend-verification",
+    async (request, reply) => {
+      const { email } = resendVerificationSchema.parse(request.body);
+
+      const successMessage = {
+        message:
+          "If your account exists and is unverified, a new verification email has been sent.",
+      };
+
+      // Look up user outside transaction — no point locking if user doesn't exist
+      const user = await fastify.uow.userRepository.findByEmail(
+        email.toLowerCase().trim(),
+      );
+
+      // Always return success — never reveal whether email is registered
+      if (!user || user.isEmailVerified) {
+        return reply.send(successMessage);
+      }
+
+      await fastify.uow.execute(async ({ emailTokenRepository }) => {
+        // Delete all existing tokens — only one active at a time
+        await emailTokenRepository.deleteAllByUserId(user.id);
+
+        // const rawToken = fastify.tokenGenerator.generate(32);
+        const rawToken = fastify.container
+          .resolve(CryptoTokenGenerator)
+          .generate(32);
+        const tokenHash = TokenHasher.hash(rawToken);
+
+        const verificationToken = EmailVerificationToken.create({
+          userId: user.id,
+          tokenHash,
+          ttlMs: 1000 * 60 * 60 * 24, // 24h
+        });
+
+        await emailTokenRepository.save(verificationToken);
+
+        // Fire and forget — never block the response on email delivery
+        fastify.notificationService.sendEmailVerification
+          .execute({
+            to: user.email,
+            firstName: user.firstName,
+            rawToken,
+          })
+          .catch((err) =>
+            console.error("[notifications] resend-verification failed", err),
+          );
+      });
+
+      return successResponse(reply, successMessage.message, 200);
+    },
+  );
   /**
    * Login
    * POST /auth/login

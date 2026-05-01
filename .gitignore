@@ -26,3 +26,8 @@ apps/demo-backend/
 apps/hub/prisma/
 packages/agent/run-agent.js
 packages/sdk/test-tunnel
+apps/agentsdead/
+apps/api/.env
+apps/api/.env.*
+apps/hub/.env
+apps/hub/.env.*

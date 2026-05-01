@@ -6,6 +6,7 @@ import { FastifyInstance } from "fastify";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 import { buildEmailService } from "@/modules/notification/infrastructure/email/ResendEmailService";
 import { PrismaNotificationRepository } from "@/modules/notification/infrastructure/prisma/PrismaNotificationRepository";
+import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 
 export const notificationPlugin = fp(
   async (fastify: FastifyInstance) => {
@@ -24,6 +25,8 @@ export const notificationPlugin = fp(
     );
 
     fastify.decorate("notificationService", notificationService);
+    // Should already exist — confirm these decorators are present:
+    // fastify.decorate("tokenGenerator", new CryptoTokenGenerator());
 
     fastify.log.info("[notifications] plugin registered");
   },
