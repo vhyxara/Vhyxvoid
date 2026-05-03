@@ -10,6 +10,7 @@ import { IEmailService } from "@/modules/notification/domain/services/IEmailServ
 import {
   accountInvitation,
   emailVerification,
+  feedbackReceived,
   passwordResetRequest,
   passwordResetSuccess,
   paymentFailed,
@@ -301,6 +302,45 @@ export class SendPasswordResetSuccessEmailUseCase {
     await this.emailService.send({ to: params.to, subject, html, text });
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SendFeedbackReceivedEmailUseCase
+// Called by SubmitFeedbackUseCase after a user submits feedback.
+// Sends to the admin email, not the user.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class SendFeedbackReceivedEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: {
+    adminEmail: string;
+    userName: string;
+    userEmail: string;
+    type: string;
+    title: string;
+    description: string;
+    feedbackId: string;
+  }): Promise<void> {
+    const adminPanelUrl = `${process.env.APP_URL}/admin/feedback/${params.feedbackId}`;
+
+    const { subject, html, text } = feedbackReceived({
+      userName: params.userName,
+      userEmail: params.userEmail,
+      type: params.type,
+      title: params.title,
+      description: params.description,
+      feedbackId: params.feedbackId,
+      adminPanelUrl,
+    });
+
+    await this.emailService.send({
+      to: params.adminEmail,
+      subject,
+      html,
+      text,
+    });
+  }
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationService — convenience wrapper used by other modules
 // Single class that other modules inject to send any notification without
@@ -320,7 +360,7 @@ export class NotificationService {
   readonly markRead: MarkNotificationReadUseCase;
   readonly markAllRead: MarkAllNotificationsReadUseCase;
   readonly getNotifications: GetNotificationsUseCase;
-
+  readonly sendFeedbackReceived: SendFeedbackReceivedEmailUseCase;
   constructor(
     emailService: IEmailService,
     notificationRepo: INotificationRepository,
@@ -343,5 +383,8 @@ export class NotificationService {
     this.markRead = new MarkNotificationReadUseCase(notificationRepo);
     this.markAllRead = new MarkAllNotificationsReadUseCase(notificationRepo);
     this.getNotifications = new GetNotificationsUseCase(notificationRepo);
+    this.sendFeedbackReceived = new SendFeedbackReceivedEmailUseCase(
+      emailService,
+    );
   }
 }

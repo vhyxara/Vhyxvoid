@@ -407,3 +407,71 @@ export function passwordResetSuccess(params: {
 
   return { subject, html, text };
 }
+
+/**
+ * New feedback received — sent to admin when a user submits anything
+ */
+export function feedbackReceived(params: {
+  adminName?: string;
+  userName: string;
+  userEmail: string;
+  type: string;
+  title: string;
+  description: string;
+  feedbackId: string;
+  adminPanelUrl: string;
+}): EmailContent {
+  const typeLabel: Record<string, string> = {
+    BUG_REPORT: "🐛 Bug Report",
+    FEATURE_REQUEST: "💡 Feature Request",
+    GENERAL_FEEDBACK: "💬 General Feedback",
+    UI_ISSUE: "🎨 UI Issue",
+  };
+
+  const label = typeLabel[params.type] ?? params.type;
+
+  const subject = `[${label}] ${params.title}`;
+
+  const html = layout(
+    heading(`New ${label} received`) +
+      para(`Hi ${params.adminName || "there"},`) +
+      para(
+        `<strong>${params.userName}</strong> (${params.userEmail}) submitted a new ${label.toLowerCase()}.`,
+      ) +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+        style="margin:20px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+        <tr>
+          <td style="padding:20px;">
+            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">
+              Title
+            </p>
+            <p style="margin:0 0 16px;font-size:15px;color:#111827;font-weight:600;">
+              ${params.title}
+            </p>
+            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">
+              Description
+            </p>
+            <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;white-space:pre-wrap;">
+              ${params.description.slice(0, 500)}${params.description.length > 500 ? "..." : ""}
+            </p>
+          </td>
+        </tr>
+      </table>` +
+      button("Review in Admin Panel", params.adminPanelUrl) +
+      smallNote(
+        `Feedback ID: ${params.feedbackId} · Submitted by ${params.userEmail}`,
+      ),
+    `New ${label} from ${params.userName}`,
+  );
+
+  const text =
+    `New ${label} received\n\n` +
+    `From: ${params.userName} (${params.userEmail})\n` +
+    `Title: ${params.title}\n\n` +
+    `Description:\n${params.description}\n\n` +
+    `Review it here: ${params.adminPanelUrl}\n\n` +
+    `Feedback ID: ${params.feedbackId}\n\n` +
+    `— ${APP_NAME}`;
+
+  return { subject, html, text };
+}
