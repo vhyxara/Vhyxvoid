@@ -8,6 +8,10 @@ import { billingRoutes } from "@/modules/billing/presentation/http/billing.route
 import { stripeWebhookRoutes } from "@/modules/billing/presentation/http/webhook.routes";
 import { notificationRoutes } from "@/modules/notification/presentation/http/notification.routes";
 import { tunnelRoutes } from "./user/tunnel.routes";
+import {
+  adminFeedbackRoutes,
+  feedbackRoutes,
+} from "@/modules/feedback/presentation/http/feedback.routes";
 
 const registerRoutes = async (server: FastifyInstance) => {
   await server.register(identityRoutes, { prefix: "/api/v1/auth" });
@@ -23,6 +27,14 @@ const registerRoutes = async (server: FastifyInstance) => {
   await server.register(notificationRoutes, { prefix: "/api/v1/notification" });
 
   await server.register(stripeWebhookRoutes);
+
+  // User-facing — authenticated users
+  await server.register(feedbackRoutes, { prefix: "/api/v1/feedback" });
+
+  // Admin panel — admin auth guard
+  await server.register(adminFeedbackRoutes, {
+    prefix: "/api/v1/admin/feedback",
+  });
   // //     fastify.register(stripeWebhookRoutes); // no prefix — /billing/webhooks/stripe
 };
 

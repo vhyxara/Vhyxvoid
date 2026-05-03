@@ -1,8 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../../packages/shared/generated/prisma"
-    binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
-
+  provider      = "prisma-client-js"
+  output        = "../../../packages/shared/generated/prisma"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -100,6 +99,29 @@ enum NotificationStatus {
   READ
 }
 
+enum FeedbackType {
+  BUG_REPORT
+  FEATURE_REQUEST
+  GENERAL_FEEDBACK
+  UI_ISSUE
+}
+
+enum FeedbackStatus {
+  OPEN
+  UNDER_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  WONT_FIX
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 // ==========================
 // 1 User (Identity Only)
 // ==========================
@@ -137,6 +159,7 @@ model User {
   notifications       Notification[]
   // @@index([username])
   passwordResetTokens PasswordResetToken[]
+  feedbacks           Feedback[]
 
   @@index([email])
   @@index([status])
@@ -215,6 +238,7 @@ model Account {
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
   invoices           Invoice[]
+  feedbacks          Feedback[]
 
   @@index([type])
   @@index([status])
@@ -645,6 +669,42 @@ model StripeEvent {
   stripeEventId String   @unique
   type          String
   processedAt   DateTime
+}
+
+model Feedback {
+  id        String  @id @default(uuid())
+  userId    String
+  accountId String?
+
+  type     FeedbackType
+  status   FeedbackStatus   @default(OPEN)
+  priority FeedbackPriority @default(MEDIUM)
+
+  title            String
+  description      String
+  stepsToReproduce String?
+  expectedBehavior String?
+  actualBehavior   String?
+
+  pageUrl    String?
+  userAgent  String?
+  appVersion String?
+
+  attachments String[]  @default([])
+  adminNotes  String?
+  resolvedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([createdAt])
 }
 
 // ============================================
