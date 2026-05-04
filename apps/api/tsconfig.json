@@ -8,8 +8,8 @@
       "@/*": ["src/*"],
       "@/generated/prisma": ["../../packages/shared/generated/prisma"],
       "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],
-      "@platform/shared": ["../../packages/shared/src"],
-      "@platform/protocol": ["../../packages/protocol/src"]
+      "@vhyxvoid/shared": ["../../packages/shared/src"],
+      "@vhyxvoid/protocol": ["../../packages/protocol/src"]
     }
   },
   "include": ["src/**/*.ts"],

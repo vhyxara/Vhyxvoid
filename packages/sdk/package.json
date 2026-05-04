@@ -1,5 +1,5 @@
 {
-  "name": "@platform/sdk",
+  "name": "@vhyxvoid/sdk",
   "version": "1.0.0",
   "description": "Frontend TypeScript SDK — connect to your backend through the platform tunnel",
   "keywords": [
@@ -29,7 +29,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@platform/protocol": "workspace:*",
+    "@vhyxvoid/protocol": "workspace:*",
     "crypto": "^1.0.1",
     "isomorphic-ws": "^5.0.0",
     "ws": "^8.18.3"

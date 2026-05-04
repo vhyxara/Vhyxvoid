@@ -1,5 +1,6 @@
+#!/usr/bin/env node
 // packages/agent/src/cli.ts
-// CLI entry point: npx @platform/agent
+// CLI entry point: npx @vhyxvoid/agent
 
 import { Command } from "commander";
 import { AgentClient } from "./AgentClient";
@@ -10,7 +11,7 @@ import { version } from "../package.json";
 const program = new Command();
 
 program
-  .name("bksr-agent")
+  .name("vhyxvoid")
   .description(
     "Platform tunnel agent.\n" +
       "Connects your local server to the platform so the frontend SDK can reach it.",
@@ -18,28 +19,28 @@ program
   .version(version)
   .option(
     "-k, --key <keyId>",
-    "API key ID (e.g. bksr_dev_abc123). Env: BKSR_API_KEY",
-    process.env.BKSR_API_KEY,
+    "API key ID (e.g. vhyxvoid_dev_abc123). Env: VHYXVOID_API_KEY",
+    process.env.VHYXVOID_API_KEY,
   )
   .option(
     "-s, --secret <secret>",
-    "API key secret (shown once at creation). Env: BKSR_SECRET",
-    process.env.BKSR_SECRET,
+    "API key secret (shown once at creation). Env: VHYXVOID_SECRET",
+    process.env.VHYXVOID_SECRET,
   )
   .option(
     "-p, --port <port>",
-    "Local backend port to tunnel (e.g. 3000). Env: BKSR_PORT",
-    process.env.BKSR_PORT ?? "3000",
+    "Local backend port to tunnel (e.g. 3000). Env: VHYXVOID_PORT",
+    process.env.VHYXVOID_PORT ?? "3000",
   )
   .option(
     "-l, --label <label>",
-    "Tunnel label — identifies this agent if you run multiple. Env: BKSR_LABEL",
-    process.env.BKSR_LABEL ?? "default",
+    "Tunnel label — identifies this agent if you run multiple. Env: VHYXVOID_LABEL",
+    process.env.VHYXVOID_LABEL ?? "default",
   )
   .option(
     "--hub <url>",
-    "Hub WebSocket URL. Env: BKSR_HUB_URL",
-    process.env.BKSR_HUB_URL ?? "wss://hub.yourplatform.com/agent",
+    "Hub WebSocket URL. Env: VHYXVOID_HUB_URL",
+    process.env.VHYXVOID_HUB_URL ?? "wss://hub.yourplatform.com/agent",
   )
   .option(
     "--pepper <pepper>",
@@ -48,8 +49,8 @@ program
   )
   .option(
     "--queue-path <path>",
-    "SQLite queue file path. Default: ~/.bksr/queue.db",
-    process.env.BKSR_QUEUE_PATH,
+    "SQLite queue file path. Default: ~/.vhyxvoid/queue.db",
+    process.env.VHYXVOID_QUEUE_PATH,
   )
   .option("--no-local-discovery", "Disable local discovery server on port 4242")
   .parse(process.argv);
@@ -72,7 +73,7 @@ if (!opts.key) {
     "❌  --key is required. Get your API key from the platform dashboard.",
   );
   console.error(
-    "    Usage: bksr-agent --key bksr_dev_xxx --secret xxx --port 3000",
+    "    Usage: vhyxvoid --key vhyxvoid_dev_xxx --secret xxx --port 3000",
   );
   process.exit(1);
 }
@@ -113,12 +114,12 @@ if (isNaN(port) || port < 1 || port > 65535) {
   process.exit(1);
 }
 
-console.log(`\nbksr-agent v${version}`);
+console.log(`\nvhyxvoid-agent v${version}`);
 console.log(`  Key:    ${opts.key}`);
 console.log(`  Label:  ${opts.label}`);
 console.log(`  Port:   ${port}`);
 console.log(`  Hub:    ${opts.hub}`);
-console.log(`  Queue:  ${opts.queuePath ?? "~/.bksr/queue.db"}`);
+console.log(`  Queue:  ${opts.queuePath ?? "~/.vhyxvoid/queue.db"}`);
 console.log(
   `  Local discovery: ${opts.localDiscovery ? "enabled" : "disabled"}`,
 );

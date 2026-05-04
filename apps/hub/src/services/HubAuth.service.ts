@@ -2,7 +2,7 @@
 // // Connects Hub to the existing ValidateApiKeyUseCase.
 // // No HTTP call — shared code import from packages/shared.
 
-// import { ValidateApiKeyUseCase, SecurityEventType } from '@platform/shared';
+// import { ValidateApiKeyUseCase, SecurityEventType } from '@vhyxvoid/shared';
 // import {
 //   buildCanonical,
 //   verifyCanonical,
@@ -10,7 +10,7 @@
 //   SdkRequestMsg,
 //   SdkRegisterMsg,
 //   TIMING,
-// } from '@platform/protocol';
+// } from '@vhyxvoid/protocol';
 
 // export interface HubAuthResult {
 //   accountId: string;
@@ -154,8 +154,8 @@
 // This is the integration point between the hub and the identity module.
 // No Prisma. No HTTP. Shared code import — fast path (~1ms Redis cache hit).
 
-import { IValidateApiKeyUseCase } from '@platform/shared';
-import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@platform/protocol';
+import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
+import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@vhyxvoid/protocol';
 
 export interface HubAuthResult {
   accountId: string;

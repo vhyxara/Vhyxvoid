@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Redis as RedisU } from '@upstash/redis';
-import type { TunnelForwardMsg } from '@platform/protocol';
+import type { TunnelForwardMsg } from '@vhyxvoid/protocol';
 
 export class HubPubSub {
   constructor(

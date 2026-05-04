@@ -7,7 +7,7 @@ import {
   TunnelForwardMsg,
   TunnelResponseMsg,
   LIMITS,
-} from "@platform/protocol";
+} from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
 
 const HOP_BY_HOP = new Set([
@@ -57,7 +57,7 @@ export class BackendProxy {
     if (cached) {
       return {
         status: cached.status,
-        headers: { ...cached.headers, "x-bksr-cache": "HIT" },
+        headers: { ...cached.headers, "x-vhyxvoid-cache": "HIT" },
         body: cached.body,
         durationMs: 0, // served from memory
       };
@@ -91,7 +91,7 @@ export class BackendProxy {
 
     return {
       status: response.status,
-      headers: { ...headers, "x-bksr-cache": "MISS" },
+      headers: { ...headers, "x-vhyxvoid-cache": "MISS" },
       body: bodyStr,
       durationMs,
     };
@@ -125,7 +125,7 @@ export class BackendProxy {
     for (const [k, v] of Object.entries(headers)) {
       if (!HOP_BY_HOP.has(k.toLowerCase())) clean[k] = v;
     }
-    clean["x-forwarded-by"] = "bksr-agent";
+    clean["x-forwarded-by"] = "vhyxvoid";
     clean["x-forwarded-host"] = `127.0.0.1:${this.port}`;
     return clean;
   }

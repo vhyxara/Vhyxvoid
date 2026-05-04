@@ -1,5 +1,5 @@
-const path = require('path');
-const { register } = require('tsconfig-paths');
+const path = require("path");
+const { register } = require("tsconfig-paths");
 
 register({
   baseUrl: __dirname,
@@ -7,9 +7,9 @@ register({
     "@/*": ["dist/*"],
     "@/generated/prisma": ["../../packages/shared/generated/prisma"],
     "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],
-    "@platform/shared": ["../../packages/shared/dist"],
-    "@platform/protocol": ["../../packages/protocol/dist"]
-  }
+    "@vhyxvoid/shared": ["../../packages/shared/dist"],
+    "@vhyxvoid/protocol": ["../../packages/protocol/dist"],
+  },
 });
 
-require('./dist/server.js');
+require("./dist/server.js");

@@ -20,7 +20,7 @@ import fp from "fastify-plugin";
 
 // apps/api/src/core/config/prisma.plugin.ts
 // import fp from 'fastify-plugin';
-// import { PrismaClient } from '@platform/shared/generated/prisma/client';
+// import { PrismaClient } from '@vhyxvoid/shared/generated/prisma/client';
 
 export default fp(async function (fastify) {
   const prisma = new PrismaClient({

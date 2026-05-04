@@ -22,7 +22,7 @@ import {
   PROTOCOL_VERSION,
   TunnelAgentErrorMsg,
   TunnelResponseMsg,
-} from "@platform/protocol";
+} from "@vhyxvoid/protocol";
 import { DurableQueue } from "./queue/DurableQueue";
 import { BackendProxy } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
@@ -42,7 +42,7 @@ export type AgentState =
 export interface AgentConfig {
   /** Hub WebSocket URL e.g. wss://hub.yourplatform.com/agent */
   hubUrl: string;
-  /** API key public ID e.g. bksr_dev_abc123 */
+  /** API key public ID e.g. vhyxvoid_dev_abc123 */
   keyId: string;
   /**
    * secretHash = HMAC-SHA256(rawSecret, SERVER_HMAC_PEPPER).
@@ -55,7 +55,7 @@ export interface AgentConfig {
   port: number;
   /** npm package version — sent to hub for compatibility checking */
   agentVersion: string;
-  /** SQLite queue file path (default: ~/.bksr/queue.db) */
+  /** SQLite queue file path (default: ~/.vhyxvoid/queue.db) */
   queuePath?: string;
   /** Enable local discovery HTTP server on port 4242 (default: true) */
   localDiscovery?: boolean;
@@ -92,7 +92,7 @@ export class AgentClient {
 
     // Ensure queue directory exists
     const queuePath =
-      config.queuePath ?? path.join(os.homedir(), ".bksr", "queue.db");
+      config.queuePath ?? path.join(os.homedir(), ".vhyxvoid", "queue.db");
     fs.mkdirSync(path.dirname(queuePath), { recursive: true });
 
     this.queue = new DurableQueue(queuePath);
@@ -210,7 +210,10 @@ export class AgentClient {
     } catch (err) {
       if (err instanceof ProtocolError) {
         this.log.warn(
-          { code: err.code, message: err.message },
+          {
+            code: err.code,
+            message: `Local backend on port ${this.config.port} is not responding: ${(err as Error).message}`,
+          }, // ← this is fine, err IS ProtocolError here
           "[agent] protocol error from hub",
         );
       }

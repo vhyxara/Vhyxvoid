@@ -45,7 +45,7 @@ export interface ApiKeyProps {
 
   /**
    * Public identifier — what clients embed in their applications.
-   * Prefixed by environment: bksr_dev_... or bksr_live_...
+   * Prefixed by environment: vhyxvoid_dev_... or vhyxvoid_live_...
    * Used for all gateway lookups. Never used as DB primary key.
    */
   keyId: string;

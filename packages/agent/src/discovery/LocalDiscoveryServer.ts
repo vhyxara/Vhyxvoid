@@ -3,7 +3,7 @@
 // SDK discovers this and bypasses Hub for local-to-local calls (<1ms overhead).
 
 import http from "http";
-import { LIMITS } from "@platform/protocol";
+import { LIMITS } from "@vhyxvoid/protocol";
 
 export interface DiscoveryPayload {
   /** npm package version */
@@ -36,7 +36,7 @@ export class LocalDiscoveryServer {
   start(): void {
     this.server = http.createServer((req, res) => {
       // Only respond to the discovery endpoint
-      if (req.url !== "/bksr-agent" || req.method !== "GET") {
+      if (req.url !== "/vhyxvoid" || req.method !== "GET") {
         res.writeHead(404).end();
         return;
       }

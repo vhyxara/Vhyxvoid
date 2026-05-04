@@ -483,7 +483,7 @@ model ApiKey {
   createdById String
 
   // Public identifier — what clients send in requests.
-  // Prefixed: bksr_dev_ or bksr_live_
+  // Prefixed: vhyxvoid_dev_ or vhyxvoid_live_
   // Never used as primary DB key.
   keyId String @unique
 

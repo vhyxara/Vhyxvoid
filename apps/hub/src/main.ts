@@ -6,7 +6,7 @@ import 'dotenv/config';
 import { HubServer } from '@/HubServer';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { buildValidateApiKeyUseCase, buildDbApiKeyLoader, getRedisClient } from '@platform/shared';
+import { buildValidateApiKeyUseCase, buildDbApiKeyLoader, getRedisClient } from '@vhyxvoid/shared';
 
 // ── App-specific Prisma import ────────────────────────────────────────────────
 // This is the ONLY place in the hub that imports Prisma.
@@ -19,7 +19,7 @@ import { buildValidateApiKeyUseCase, buildDbApiKeyLoader, getRedisClient } from 
 // Since hub is in apps/hub/ with no @/ alias, use relative path:
 // import { PrismaClient } from '../../packages/shared/node_modules/.prisma/client';
 // import { PrismaClient } from '../../../packages/shared/node_modules/@prisma/client';
-import { PrismaClient } from '@platform/shared/generated/prisma/client';
+import { PrismaClient } from '@vhyxvoid/shared/generated/prisma/client';
 // ─── OR if you run `prisma generate` inside apps/hub/, just use:
 // import { PrismaClient } from '@prisma/client';
 // ─── The simplest approach: symlink/copy the generated client into hub.

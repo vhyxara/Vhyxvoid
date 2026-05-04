@@ -9,7 +9,7 @@ import {
   TunnelAgentErrorMsg,
   serialize,
   PROTOCOL_VERSION,
-} from "@platform/protocol";
+} from "@vhyxvoid/protocol";
 type SendFn = (data: string) => void;
 
 export interface ReplayResult {

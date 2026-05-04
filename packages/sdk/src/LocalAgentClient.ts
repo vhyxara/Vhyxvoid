@@ -4,7 +4,7 @@
 
 import http from "http";
 import { TunnelResponse } from "./types";
-import { LIMITS, TIMING } from "@platform/protocol";
+import { LIMITS, TIMING } from "@vhyxvoid/protocol";
 
 export interface LocalForwardParams {
   method: string;
@@ -47,9 +47,7 @@ export class LocalAgentClient {
 
     try {
       const result = (await Promise.race([
-        fetch(
-          `http://127.0.0.1:${LIMITS.LOCAL_AGENT_DISCOVERY_PORT}/bksr-agent`,
-        ),
+        fetch(`http://127.0.0.1:${LIMITS.LOCAL_AGENT_DISCOVERY_PORT}/vhyxvoid`),
         new Promise<null>((_, reject) =>
           setTimeout(() => reject(null), TIMING.LOCAL_DISCOVERY_TIMEOUT_MS),
         ),

@@ -354,6 +354,7 @@ export async function accountRoutes(fastify: FastifyInstance) {
         accounts: memberships.map((m) => {
           const account = accountMap.get(m.accountId);
           return {
+            id: m.accountId,
             accountId: m.accountId,
             accountName: account?.name ?? null,
             accountType: account?.type ?? null,

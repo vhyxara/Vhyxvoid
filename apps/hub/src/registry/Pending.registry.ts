@@ -3,8 +3,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Redis } from '@upstash/redis';
-import type { TunnelResponseMsg, TunnelErrorCode } from '@platform/protocol';
-import { TIMING } from '@platform/protocol';
+import type { TunnelResponseMsg, TunnelErrorCode } from '@vhyxvoid/protocol';
+import { TIMING } from '@vhyxvoid/protocol';
 
 export interface PendingRequest {
   requestId: string;

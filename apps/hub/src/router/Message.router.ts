@@ -23,7 +23,7 @@ import {
   TIMING,
   LIMITS,
   WS_CLOSE_CODES,
-} from '@platform/protocol';
+} from '@vhyxvoid/protocol';
 // import { WebSocket } from 'uWebSockets.js';
 // import { AgentRegistry, AgentSession, SdkRegistry, PendingRegistry } from '../registry';
 // import {
@@ -35,7 +35,7 @@ import {
 // } from '../services';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { PLAN_AGENT_LIMITS } from '@platform/protocol';
+import { PLAN_AGENT_LIMITS } from '@vhyxvoid/protocol';
 import { HeartbeatService } from '@/services/Heartbeat.service';
 import { HubAuthService, HubAuthError } from '@/services/HubAuth.service';
 import { HubPubSub } from '@/services/HubPubSub';
@@ -212,7 +212,7 @@ export class MessageRouter {
     }
 
     // ── Resolve internal apiKey UUID from public keyId ──────────────────────
-    // auth.keyId is the public bksr_live_xxx — look up internal UUID + accountId
+    // auth.keyId is the public vhyxvoid_live_xxx — look up internal UUID + accountId
     // This is the ONLY place in the hub that does this lookup
     // All downstream code uses the internal UUID
     const apiKey = await this.sessionRepo.findApiKeyByPublicId(auth.keyId);
@@ -435,7 +435,7 @@ export class MessageRouter {
   //         'AGENT_NOT_FOUND',
   //         msg.label
   //           ? `No agent with label "${msg.label}" is connected for your account`
-  //           : 'No agent is connected for your account. Run: npx @platform/agent --key YOUR_KEY --port YOUR_PORT',
+  //           : 'No agent is connected for your account. Run: npx @vhyxvoid/agent --key YOUR_KEY --port YOUR_PORT',
   //         msg.requestId,
   //         false,
   //       ),
@@ -512,7 +512,7 @@ export class MessageRouter {
   // Everything else in MessageRouter stays identical.
   //
   // ROOT CAUSE OF FK VIOLATION:
-  //   auth.keyId = 'bksr_live_d67d325...' (public keyId from JWT/cache)
+  //   auth.keyId = 'vhyxvoid_live_d67d325...' (public keyId from JWT/cache)
   //   TunnelRequest.apiKeyId FK → ApiKey.id (internal UUID 'a906bf51-...')
   //   Passing public keyId as apiKeyId = FK violation.
   //
@@ -559,7 +559,7 @@ export class MessageRouter {
           'AGENT_NOT_FOUND',
           msg.label
             ? `No agent with label "${msg.label}" is connected for your account`
-            : 'No agent connected. Run: npx @platform/agent --key YOUR_KEY --port YOUR_PORT',
+            : 'No agent connected. Run: npx @vhyxvoid/agent --key YOUR_KEY --port YOUR_PORT',
           msg.requestId,
           false,
         ),

@@ -1,5 +1,5 @@
 {
-  "name": "@platform/hub",
+  "name": "@vhyxvoid/hub",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -27,8 +27,8 @@
     "@fastify/helmet": "^13.0.2",
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@platform/protocol": "workspace:*",
-    "@platform/shared": "workspace:*",
+    "@vhyxvoid/protocol": "workspace:*",
+    "@vhyxvoid/shared": "workspace:*",
     "@upstash/redis": "^1.36.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",

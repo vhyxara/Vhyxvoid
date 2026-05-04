@@ -1,5 +1,5 @@
 {
-  "name": "@platform/protocol",
+  "name": "@vhyxvoid/protocol",
   "version": "1.0.0",
   "description": "Shared WebSocket message types and canonical string builder for the tunnel system",
   "main": "dist/index.js",

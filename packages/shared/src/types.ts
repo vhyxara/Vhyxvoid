@@ -1,6 +1,6 @@
 // packages/shared/src/types.ts
 // All types the Hub imports from the identity module.
-// Hub only imports from @platform/shared — never from identity internals.
+// Hub only imports from @vhyxvoid/shared — never from identity internals.
 // NO Prisma imports here — Prisma lives in the app, not in shared packages.
 
 // ── DB abstraction ────────────────────────────────────────────────────────────

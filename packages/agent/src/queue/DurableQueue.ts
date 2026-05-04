@@ -9,8 +9,8 @@ import {
   TunnelForwardMsg,
   TunnelResponseMsg,
   TunnelAgentErrorMsg,
-} from "@platform/protocol";
-import { LIMITS } from "@platform/protocol";
+} from "@vhyxvoid/protocol";
+import { LIMITS } from "@vhyxvoid/protocol";
 
 export type QueueDirection = "inbound" | "outbound";
 

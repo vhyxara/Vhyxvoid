@@ -9,7 +9,7 @@ import {
   AgentBatchMsg,
   serialize,
   TIMING,
-} from "@platform/protocol";
+} from "@vhyxvoid/protocol";
 
 export type BatchableMsg =
   | TunnelResponseMsg

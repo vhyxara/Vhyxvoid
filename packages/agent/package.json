@@ -1,6 +1,6 @@
 {
-  "name": "@platform/agent",
-  "version": "1.0.0",
+  "name": "@vhyxvoid/agent",
+  "version": "1.0.3",
   "description": "Platform tunnel agent — connect your local server to the platform",
   "keywords": [
     "tunnel",
@@ -9,8 +9,7 @@
     "ngrok-alternative"
   ],
   "bin": {
-    "bksr-agent": "dist/cli.js",
-    "@platform/agent": "dist/cli.js"
+    "vhyxvoid": "dist/cli.js"
   },
   "main": "dist/AgentClient.js",
   "types": "dist/AgentClient.d.ts",
@@ -18,14 +17,13 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && esbuild dist/cli.js --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --outfile=dist/cli.bundled.js && cp dist/cli.bundled.js dist/cli.js && chmod +x dist/cli.js",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@platform/protocol": "workspace:*",
     "axios": "^1.13.2",
     "better-sqlite3": "^12.8.0",
     "commander": "^14.0.3",
@@ -35,6 +33,8 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/commander": "^2.12.5",
     "@types/node": "^24.10.1",
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "@vhyxvoid/protocol": "workspace:*",
+    "esbuild": "^0.28.0"
   }
 }

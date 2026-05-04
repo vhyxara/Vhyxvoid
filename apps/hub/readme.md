@@ -69,7 +69,7 @@ session TunnelSession @relation(fields: [sessionId], references: [id])
 
 // Root workspace package.json:
 const rootPackageJson = {
-"name": "@platform/root",
+"name": "@vhyxvoid/root",
 "private": true,
 "workspaces": [
 "apps/*",
@@ -91,7 +91,7 @@ const rootPackageJson = {
 
 // packages/protocol/package.json:
 const protocolPackageJson = {
-"name": "@platform/protocol",
+"name": "@vhyxvoid/protocol",
 "version": "1.0.0",
 "main": "dist/index.js",
 "types": "dist/index.d.ts",
@@ -107,10 +107,10 @@ const protocolPackageJson = {
 
 // packages/agent/package.json:
 const agentPackageJson = {
-"name": "@platform/agent",
+"name": "@vhyxvoid/agent",
 "version": "1.0.0",
 "description": "Platform tunnel agent — connect your local server to the platform",
-"bin": { "bksr-agent": "dist/cli.js" },
+"bin": { "vhyxvoid": "dist/cli.js" },
 "main": "dist/AgentClient.js",
 "types": "dist/AgentClient.d.ts",
 "scripts": {
@@ -118,7 +118,7 @@ const agentPackageJson = {
 "dev": "tsx src/cli.ts"
 },
 "dependencies": {
-"@platform/protocol": "workspace:\*",
+"@vhyxvoid/protocol": "workspace:\*",
 "better-sqlite3": "^9.4.0",
 "axios": "^1.6.0",
 "commander": "^12.0.0",
@@ -134,7 +134,7 @@ const agentPackageJson = {
 
 // packages/sdk/package.json:
 const sdkPackageJson = {
-"name": "@platform/sdk",
+"name": "@vhyxvoid/sdk",
 "version": "1.0.0",
 "main": "dist/index.js",
 "types": "dist/index.d.ts",
@@ -143,7 +143,7 @@ const sdkPackageJson = {
 "dev": "tsc --watch"
 },
 "dependencies": {
-"@platform/protocol": "workspace:\*",
+"@vhyxvoid/protocol": "workspace:\*",
 "isomorphic-ws": "^5.0.0"
 },
 "devDependencies": {
@@ -154,7 +154,7 @@ const sdkPackageJson = {
 
 // apps/hub/package.json:
 const hubPackageJson = {
-"name": "@platform/hub",
+"name": "@vhyxvoid/hub",
 "version": "1.0.0",
 "private": true,
 "main": "dist/main.js",
@@ -164,8 +164,8 @@ const hubPackageJson = {
 "start": "node dist/main.js"
 },
 "dependencies": {
-"@platform/protocol": "workspace:_",
-"@platform/shared": "workspace:_",
+"@vhyxvoid/protocol": "workspace:_",
+"@vhyxvoid/shared": "workspace:_",
 "@prisma/client": "^5.0.0",
 "@upstash/redis": "^1.31.0",
 "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.42.0",
@@ -186,26 +186,26 @@ const hubPackageJson = {
 
 // ── Install and run the agent ─────────────────────────────────────────────────
 
-npx @platform/agent \
- --key bksr_dev_abc123456789 \
+npx @vhyxvoid/agent \
+ --key vhyxvoid_dev_abc123456789 \
  --secret your_raw_secret_here \
  --port 3000 \
  --label "payment-service"
 
 // Or with env vars:
-BKSR_API_KEY=bksr_dev_abc \
-BKSR_SECRET=your_secret \
-BKSR_PORT=3000 \
-BKSR_LABEL=payment-service \
-npx @platform/agent
+VHYXVOID_API_KEY=vhyxvoid_dev_abc \
+VHYXVOID_SECRET=your_secret \
+VHYXVOID_PORT=3000 \
+VHYXVOID_LABEL=payment-service \
+npx @vhyxvoid/agent
 
 // ── Frontend SDK usage ────────────────────────────────────────────────────────
 
-import { TunnelClient } from '@platform/sdk';
+import { TunnelClient } from '@vhyxvoid/sdk';
 
 const tunnel = new TunnelClient({
 hubUrl: 'wss://hub.yourplatform.com/sdk',
-keyId: 'bksr_dev_abc123',
+keyId: 'vhyxvoid_dev_abc123',
 secret: 'your_raw_secret',
 label: 'payment-service', // optional — targets specific agent
 });
@@ -242,10 +242,10 @@ tunnel.disconnect();
 // ── Multiple agents (multi-service setup) ─────────────────────────────────────
 
 // Terminal 1: Payment service on port 3001
-npx @platform/agent --key bksr_dev_xxx --secret xxx --port 3001 --label payment
+npx @vhyxvoid/agent --key vhyxvoid_dev_xxx --secret xxx --port 3001 --label payment
 
 // Terminal 2: Auth service on port 3002
-npx @platform/agent --key bksr_dev_xxx --secret xxx --port 3002 --label auth
+npx @vhyxvoid/agent --key vhyxvoid_dev_xxx --secret xxx --port 3002 --label auth
 
 // Frontend: route to specific services
 const paymentRes = await tunnel.post('/charge', data, { label: 'payment' });

@@ -16,7 +16,7 @@ export default [
         {
           patterns: [
             {
-              group: ["@platform/*/src/*"],
+              group: ["@vhyxvoid/*/src/*"],
               message:
                 "❌ Do not import from src. Use public API (package root).",
             },

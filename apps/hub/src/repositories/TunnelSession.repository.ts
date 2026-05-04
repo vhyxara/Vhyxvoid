@@ -12,7 +12,7 @@ export type TunnelSessionStatus = 'CONNECTED' | 'DISCONNECTED' | 'EVICTED';
 export interface UpsertSessionParams {
   agentId: string; // hub-assigned e.g. agt_xxx
   accountId: string; // internal account UUID
-  apiKeyId: string; // internal ApiKey.id UUID (NOT the public bksr_live_xxx)
+  apiKeyId: string; // internal ApiKey.id UUID (NOT the public vhyxvoid_live_xxx)
   label: string;
   status: TunnelSessionStatus;
   hubInstanceId: string;
@@ -127,7 +127,7 @@ export class TunnelSessionRepository {
   }
 
   /**
-   * Resolve public keyId (bksr_live_xxx) → internal { id, accountId }.
+   * Resolve public keyId (vhyxvoid_live_xxx) → internal { id, accountId }.
    * Called ONCE in MessageRouter.handleAgentRegister().
    * Result is stored on AgentSession and reused — never called per-request.
    */

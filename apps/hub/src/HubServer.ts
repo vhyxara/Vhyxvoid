@@ -15,7 +15,7 @@ import { HeartbeatService } from '@/services/Heartbeat.service';
 import { HubUsageService } from '@/services/HubUsage.service';
 import { HubPubSub } from '@/services/HubPubSub';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { IValidateApiKeyUseCase } from '@platform/shared';
+import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 // const uWS = require('uWebSockets.js');
 import { createServer } from 'http';

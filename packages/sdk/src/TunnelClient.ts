@@ -17,7 +17,7 @@ import {
   PROTOCOL_VERSION,
   TIMING,
   LIMITS,
-} from "@platform/protocol";
+} from "@vhyxvoid/protocol";
 import {
   PendingCall,
   RequestOptions,

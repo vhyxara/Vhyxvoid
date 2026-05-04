@@ -1,5 +1,5 @@
 {
-  "name": "@platform/shared",
+  "name": "@vhyxvoid/shared",
   "version": "1.0.0",
   "description": "Shared infrastructure — ValidateApiKeyUseCase, Prisma client, Redis client",
   "main": "dist/index.js",

@@ -2,7 +2,7 @@
 // Single heartbeat loop. Single handler. No duplicates anywhere.
 
 import type { Redis } from '@upstash/redis';
-import { serialize, TIMING } from '@platform/protocol';
+import { serialize, TIMING } from '@vhyxvoid/protocol';
 import type { AgentRegistry } from '@/registry/Agent.registry';
 import type { AgentSession } from '@/registry/Agent.registry';
 import type { PendingRegistry } from '@/registry/Pending.registry';

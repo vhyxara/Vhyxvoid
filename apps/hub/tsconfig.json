@@ -6,9 +6,9 @@
     "baseUrl": ".",
     "types": ["node"],
     "paths": {
-      "@platform/sdk": ["../../packages/sdk/src"],
-      "@platform/shared": ["../../packages/shared/src"],
-      "@platform/protocol": ["../../packages/protocol/src"],
+      "@vhyxvoid/sdk": ["../../packages/sdk/src"],
+      "@vhyxvoid/shared": ["../../packages/shared/src"],
+      "@vhyxvoid/protocol": ["../../packages/protocol/src"],
       "@/generated/prisma": ["../../packages/shared/generated/prisma"],
       "@/generated/prisma/*": ["../../packages/shared/generated/prisma/*"],
       "@/*": ["src/*"]
@@ -16,8 +16,5 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "generated", "prisma", "**/*.test.ts"],
-  "references": [
-    { "path": "../../packages/protocol" },
-    { "path": "../../packages/shared" }
-  ]
+  "references": [{ "path": "../../packages/protocol" }, { "path": "../../packages/shared" }]
 }

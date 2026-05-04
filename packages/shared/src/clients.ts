@@ -48,7 +48,7 @@ export function createRedisClient(): Redis {
 // Usage in apps/hub/src/main.ts:
 //
 //   import { PrismaClient } from '@/generated/prisma';  // your app's generated path
-//   import { buildDbApiKeyLoader } from '@platform/shared';
+//   import { buildDbApiKeyLoader } from '@vhyxvoid/shared';
 //
 //   const prisma  = new PrismaClient();
 //   const loadKey = buildDbApiKeyLoader(prisma);

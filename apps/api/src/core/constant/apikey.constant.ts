@@ -68,8 +68,8 @@ export const USAGE_FLUSH_INTERVAL_MS = 5 * 60 * 1_000; // 5 minutes
 
 /** Key ID prefixes by environment. */
 export const KEY_PREFIX: Record<ApiKeyEnvironment, string> = {
-  [ApiKeyEnvironment.DEV]: "bksr_dev_",
-  [ApiKeyEnvironment.PROD]: "bksr_live_",
+  [ApiKeyEnvironment.DEV]: "vhyxvoid_dev_",
+  [ApiKeyEnvironment.PROD]: "vhyxvoid_live_",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
