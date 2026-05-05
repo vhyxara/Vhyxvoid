@@ -16,7 +16,7 @@ apps/hub/prisma/migrations/
 apps/hub/src/schema
 archived
 .turbo/*
-apps/api/prisma/migrations/*
+# apps/api/prisma/migrations/*
 apps/api/scripts/saveresponse.json
 apps/api/src/files/*
 apps/api/src/keys/*
