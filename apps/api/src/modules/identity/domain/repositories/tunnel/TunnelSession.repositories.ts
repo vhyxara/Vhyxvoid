@@ -1,4 +1,4 @@
-// apps/hub/src/repositories/TunnelSessionRepository.ts
+// apps/api/src/modules/identity/domain/repositories/tunnel/TunnelSessionRepository.ts
 //
 // FIX: Removed the broken double-lookup pattern.
 // The MessageRouter already resolves the internal apiKey UUID before calling upsert().
@@ -59,7 +59,30 @@ export class TunnelSessionRepository {
       data: { status, disconnectedAt: new Date() },
     });
   }
-
+  async findConnectedByAccountAndLabel(
+    accountId: string,
+    label: string,
+  ): Promise<{
+    agentId: string;
+    label: string;
+    status: string;
+    accountId: string;
+  } | null> {
+    const row = await this.prisma.tunnelSession.findFirst({
+      where: {
+        accountId,
+        label,
+        status: "CONNECTED",
+      },
+      select: {
+        agentId: true,
+        label: true,
+        status: true,
+        accountId: true,
+      },
+    });
+    return row ?? null;
+  }
   /**
    * Find active sessions for an account.
    * Returns agentId (hub-assigned), not the internal session UUID.

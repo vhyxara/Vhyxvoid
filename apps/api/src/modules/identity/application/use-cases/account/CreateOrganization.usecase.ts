@@ -1,4 +1,5 @@
 import { ForbiddenError } from "@/core/errors/error.format";
+import { slugify, slugifyWithSuffix } from "@/core/utils/slug.util";
 import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
 import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
@@ -33,6 +34,15 @@ export class CreateOrganizationUseCase {
           name: params.name,
           createdById: params.userId,
         });
+
+        // After building the account, before saving:
+        const baseSlug = slugify(params.name);
+        const existing = await accountRepository.findBySlug(baseSlug);
+        const now = new Date();
+        if (existing) {
+          org.setSlug(slugifyWithSuffix(params.name), now);
+        }
+
         await accountRepository.save(org);
 
         // Seed system roles for this org

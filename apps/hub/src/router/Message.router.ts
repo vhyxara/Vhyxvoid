@@ -43,6 +43,7 @@ import { HubUsageService } from '@/services/HubUsage.service';
 import { AgentRegistry, AgentSession } from '@/registry/Agent.registry';
 import { PendingRegistry } from '@/registry/Pending.registry';
 import { SdkRegistry } from '@/registry/Sdk.registry';
+import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
 
 export class MessageRouter {
   constructor(
@@ -56,12 +57,15 @@ export class MessageRouter {
     private readonly sessionRepo: TunnelSessionRepository,
     private readonly requestRepo: TunnelRequestRepository,
     private readonly hubInstanceId: string,
+    private readonly subdomainRegistry: SubdomainRegistry, // ← ADD
+    private readonly hubDomain: string,
   ) {}
 
   // ── Agent message routing ──────────────────────────────────────────────────
 
   async routeAgentMessage(ws: any, data: Buffer | string, ip: string): Promise<void> {
     let msg: ReturnType<typeof parseMessage>;
+    // (Removed invalid code referencing 'message' which was undefined)
     try {
       msg = parseMessage(data);
     } catch (err) {
@@ -105,7 +109,6 @@ export class MessageRouter {
       this.sendToWs(ws, this.buildHubError('INTERNAL_ERROR', 'Internal error', undefined, false));
     }
   }
-
   // ── SDK message routing ────────────────────────────────────────────────────
 
   async routeSdkMessage(ws: any, data: Buffer | string, ip: string): Promise<void> {
@@ -153,7 +156,7 @@ export class MessageRouter {
 
   // ── Connection close handlers ──────────────────────────────────────────────
 
-  onAgentClose(ws: any): void {
+  async onAgentClose(ws: any): Promise<void> {
     const session = this.agentRegistry.findByWs(ws);
     if (!session) return;
 
@@ -162,7 +165,14 @@ export class MessageRouter {
     const rejected = this.pendingRegistry.rejectAllForAgent(session.accountId, session.label);
 
     this.sessionRepo.markDisconnected(session.agentId, 'DISCONNECTED').catch(() => {});
+    // Unregister subdomain from Redis
+    const accountSlug = await this.sessionRepo.findAccountSlug(session.accountId).catch(() => null);
 
+    if (accountSlug) {
+      await this.subdomainRegistry.unregister(session.label, accountSlug).catch((err: Error) => {
+        console.error({ err: err.message }, '[router] failed to unregister subdomain');
+      });
+    }
     console.info(
       {
         agentId: session.agentId,
@@ -196,7 +206,7 @@ export class MessageRouter {
 
     // 2. Plan limit check
     const agentCount = this.agentRegistry.countByAccount(auth.accountId);
-    const limit = PLAN_AGENT_LIMITS.PRO; // TODO: resolve from plan service
+    const limit = PLAN_AGENT_LIMITS.PRO;
     if (agentCount >= limit) {
       this.sendToWs(
         ws,
@@ -211,27 +221,27 @@ export class MessageRouter {
       return;
     }
 
-    // ── Resolve internal apiKey UUID from public keyId ──────────────────────
-    // auth.keyId is the public vhyxvoid_live_xxx — look up internal UUID + accountId
-    // This is the ONLY place in the hub that does this lookup
-    // All downstream code uses the internal UUID
+    // 3. Resolve internal apiKey UUID
     const apiKey = await this.sessionRepo.findApiKeyByPublicId(auth.keyId);
     if (!apiKey) {
-      console.error(
-        { publicKeyId: auth.keyId },
-        '[router] API key not found by public ID — cannot register agent',
-      );
+      console.error({ publicKeyId: auth.keyId }, '[router] API key not found by public ID');
       this.sendToWs(ws, this.buildHubError('AUTH_FAILED', 'API key not found', undefined, true));
       ws.close();
       return;
     }
 
-    // 3. Register in AgentRegistry
+    // 4. Fetch account slug BEFORE sending registered — needed for tunnelUrl
+    const accountSlug = await this.sessionRepo.findAccountSlug(apiKey.accountId).catch(() => null);
+    const tunnelUrl = accountSlug
+      ? `https://${msg.label}.${accountSlug}.${this.hubDomain}`
+      : undefined;
+
+    // 5. Register in AgentRegistry
     const agentId = `agt_${uuid().replace(/-/g, '')}`;
     const session: AgentSession = {
       agentId,
-      accountId: apiKey.accountId, // ← from DB, never from client
-      keyId: apiKey.id, // ← internal UUID
+      accountId: apiKey.accountId,
+      keyId: apiKey.id,
       label: msg.label,
       ws,
       connectedAt: new Date(),
@@ -242,31 +252,24 @@ export class MessageRouter {
     };
     this.agentRegistry.register(session);
 
-    // 4. Redis presence key (for cross-hub routing lookup)
-    // hub:agent:{accountId}:{label} → hubInstanceId
-    // Other hubs check this to know where to route
-    // Fire and forget — registration succeeds regardless
-    // import('@upstash/redis').then(({ Redis }) => {}).catch(() => {});
-    // (Redis available via injected instance in HubServer)
-
-    // 5. Send registered response immediately — don't wait for DB
-    //    Agent needs this to start accepting forwarded requests
+    // 6. Send registered response with tunnelUrl included
     const registered: HubRegisteredMsg = {
       v: '1',
       type: 'hub:registered',
       agentId,
       accountId: apiKey.accountId,
       replayPending: false,
+      tunnelUrl, // ← now defined
     };
     this.sendToWs(ws, registered);
 
     console.info(
-      { agentId, accountId: apiKey.accountId, label: msg.label },
+      { agentId, accountId: apiKey.accountId, label: msg.label, tunnelUrl },
       '[router] agent registered',
     );
 
-    // 5. Persist TunnelSession to Postgres
-    await this.sessionRepo
+    // 7. Persist session + register subdomain in Redis (fire and forget — don't block agent)
+    this.sessionRepo
       .upsert({
         agentId,
         accountId: apiKey.accountId,
@@ -276,37 +279,28 @@ export class MessageRouter {
         hubInstanceId: this.hubInstanceId,
         metadata: { agentVersion: msg.agentVersion, ip },
       })
-      .then(() => {
+      .then(async () => {
         console.info({ agentId }, '[router] session persisted to DB');
+        if (accountSlug) {
+          await this.subdomainRegistry
+            .register({
+              agentId,
+              accountId: apiKey.accountId,
+              label: msg.label,
+              accountSlug,
+              hubInstanceId: this.hubInstanceId,
+            })
+            .catch((err: Error) => {
+              console.error({ err: err.message }, '[router] failed to register subdomain');
+            });
+        }
       })
       .catch((err) => {
-        // Log clearly — don't crash the agent connection
         console.error(
-          {
-            err: err.message,
-            agentId,
-            accountId: apiKey.accountId,
-            apiKeyId: apiKey.id,
-            label: msg.label,
-          },
+          { err: err.message, agentId, accountId: apiKey.accountId },
           '[router] ❌ session upsert failed — agent works but dashboard will not show it',
         );
-      }); // DB failure must not block registration
-
-    // 6. Respond
-    // const registered: HubRegisteredMsg = {
-    //   v: '1',
-    //   type: 'hub:registered',
-    //   agentId,
-    //   accountId: auth.accountId,
-    //   replayPending: false,
-    // };
-    // this.sendToWs(ws, registered);
-
-    // console.info(
-    //   { agentId, accountId: auth.accountId, label: msg.label },
-    //   '[router] agent registered',
-    // );
+      });
   }
 
   private handleAgentPong(msg: AgentPongMsg): void {

@@ -58,6 +58,7 @@ export interface HubRegisteredMsg {
   agentId: string;
   accountId: string;
   replayPending: boolean;
+  tunnelUrl?: string; // ← ADD — stable public HTTPS URL
 }
 
 export interface HubPingMsg {

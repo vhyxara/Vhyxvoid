@@ -5,6 +5,7 @@
 // import { TokenGenerator } from "../../domain/services/TokenGenerator";
 // import { EmailVerificationToken } from "../../domain/entities/EmailVerificationToken";
 import { NotFoundError } from "@/core/errors/error.format";
+import { slugifyWithSuffix, slugify } from "@/core/utils/slug.util";
 import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
 import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
@@ -47,6 +48,18 @@ export class VerifyEmailUseCase {
             user.id,
             user.firstName,
           );
+
+          const baseSlug =
+            personalAccount.slug ?? slugify(user.firstName ?? "workspace");
+          const existing = await accountRepository.findBySlug(baseSlug);
+
+          if (existing) {
+            // Slug taken — generate one with suffix
+            personalAccount.setSlug(
+              slugifyWithSuffix(user.firstName ?? "workspace"),
+              now,
+            );
+          }
           await accountRepository.save(personalAccount);
 
           const roles = Role.seedSystemRoles(personalAccount.id);

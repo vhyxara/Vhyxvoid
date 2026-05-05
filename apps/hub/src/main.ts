@@ -71,6 +71,7 @@ async function main() {
   // ── Start hub ────────────────────────────────────────────────────────────────
   const hub = new HubServer({
     port,
+    hubDomain: process.env.HUB_DOMAIN ?? 'vhyxvoid.com',
     redis,
     validateKeyUseCase,
     tunnelSessionRepo,

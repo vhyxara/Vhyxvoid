@@ -140,7 +140,9 @@ export class AgentRegistry {
   private readonly accounts = new Map<string, AccountAgents>();
   private readonly byAgentId = new Map<string, AgentSession>();
   private readonly byWs = new Map<any, AgentSession>();
-
+  private getAllSessions(): AgentSession[] {
+    return Array.from(this.byAgentId.values());
+  }
   register(session: AgentSession): void {
     console.debug({ session }, '[AgentRegistry] register');
     let acct = this.accounts.get(session.accountId);
@@ -181,8 +183,19 @@ export class AgentRegistry {
     return acct.values().next().value ?? null;
   }
 
-  findByAgentId(agentId: string): AgentSession | null {
-    return this.byAgentId.get(agentId) ?? null;
+  // findByAgentId(agentId: string): AgentSession | null {
+  //   return this.byAgentId.get(agentId) ?? null;
+  // }
+
+  findByAgentId(agentId: string): AgentSession | undefined {
+    // AgentRegistry stores sessions by accountId+label key
+    // We need to scan for agentId — this is called only on HTTP requests,
+    // not on every WebSocket message, so O(n) is acceptable for now.
+    // Phase 2: add a secondary agentId → session map for O(1) lookup.
+    for (const session of this.getAllSessions()) {
+      if (session.agentId === agentId) return session;
+    }
+    return undefined;
   }
 
   findByWs(ws: any): AgentSession | null {

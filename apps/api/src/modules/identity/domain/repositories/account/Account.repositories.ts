@@ -10,6 +10,7 @@ export interface AccountRepository {
   save(account: Account): Promise<void>;
   findById(id: string): Promise<Account | null>;
   findByUserId(userId: string): Promise<Account[]>;
+  findBySlug(slug: string): Promise<Account | null>;
 }
 
 // ── Role ─────────────────────────────────────────────────────

@@ -20,7 +20,8 @@ export type TunnelErrorCode =
   | "BACKEND_UNAVAILABLE"
   | "BACKEND_ERROR"
   | "PAYLOAD_TOO_LARGE"
-  | "FORBIDDEN_SCOPE";
+  | "FORBIDDEN_SCOPE"
+  | "SEND_FAILED";
 
 /** WS close codes (4000-4999 = application level) */
 export const WS_CLOSE_CODES = {

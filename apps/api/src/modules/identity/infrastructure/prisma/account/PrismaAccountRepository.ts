@@ -15,6 +15,7 @@ export class PrismaAccountRepository implements AccountRepository {
       update: {
         name: p.name ?? undefined, // null → undefined (Prisma skips undefined fields)
         status: p.status,
+        slug: p.slug ?? undefined, // ← ADD
         graceEndsAt: p.graceEndsAt, // FIX: was missing — status changes wouldn't persist
         deletedAt: p.deletedAt, // FIX: was missing — soft delete wouldn't persist
         updatedAt: p.updatedAt,
@@ -24,6 +25,7 @@ export class PrismaAccountRepository implements AccountRepository {
         name: p.name ?? "", // null → empty string for NOT NULL column
         type: p.type,
         status: p.status,
+        slug: p.slug, // ← ADD
         createdBy: { connect: { id: p.createdById } }, // FIX: was missing — NOT NULL constraint violation
         // createdById: p.createdById, // FIX: was missing — NOT NULL constraint violation
         graceEndsAt: p.graceEndsAt,
@@ -35,6 +37,13 @@ export class PrismaAccountRepository implements AccountRepository {
   }
   async findById(id: string): Promise<Account | null> {
     const data = await this.prisma.account.findUnique({ where: { id } });
+    return data ? Account.rehydrate(data as AccountProps) : null;
+  }
+
+  async findBySlug(slug: string): Promise<Account | null> {
+    const data = await this.prisma.account.findUnique({
+      where: { slug },
+    });
     return data ? Account.rehydrate(data as AccountProps) : null;
   }
 

@@ -1,3 +1,4 @@
+import { slugify } from "@/core/utils/slug.util";
 import { AccountStatus, AccountType } from "@/generated/prisma";
 
 export interface AccountProps {
@@ -7,6 +8,7 @@ export interface AccountProps {
   status: AccountStatus;
   createdById: string; // immutable — who originally created this account
   graceEndsAt: Date | null; // set when status transitions to PAST_DUE / RESTRICTED
+  slug: string | null; // ← ADD
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -20,14 +22,16 @@ export class Account {
    */
   static createPersonal(ownerUserId: string, firstName?: string): Account {
     const now = new Date();
+    const name = firstName ? `${firstName}'s Workspace` : "Personal Workspace";
     return new Account({
       id: crypto.randomUUID(),
       // name: null,
-      name: firstName ? `${firstName}'s Workspace` : "Personal Workspace",
+      name: name,
       type: AccountType.PERSONAL,
       status: AccountStatus.ACTIVE,
       createdById: ownerUserId, // ← FIX: was silently dropped before
       graceEndsAt: null,
+      slug: slugify(name), // ← ADD (caller must deduplicate)
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -40,6 +44,7 @@ export class Account {
   static createOrganization(params: {
     name: string;
     createdById: string;
+    slug?: string; // ← ADD (optional — caller can pass pre-deduplicated slug)
   }): Account {
     if (!params.name || params.name.trim().length < 2) {
       throw new Error("Organization name must be at least 2 characters");
@@ -52,6 +57,7 @@ export class Account {
       status: AccountStatus.ACTIVE,
       createdById: params.createdById,
       graceEndsAt: null,
+      slug: params.slug ?? slugify(params.name.trim()), // ← ADD
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -97,6 +103,9 @@ export class Account {
 
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+  get slug(): string | null {
+    return this.props.slug;
   }
   // ── Business Logic ─────────────────────────────────────────
 
@@ -147,5 +156,9 @@ export class Account {
 
   toPersistence(): AccountProps {
     return { ...this.props };
+  }
+  setSlug(slug: string, now: Date): void {
+    this.props.slug = slug;
+    this.props.updatedAt = now;
   }
 }

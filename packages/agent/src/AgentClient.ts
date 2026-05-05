@@ -240,6 +240,20 @@ export class AgentClient {
   private async onRegistered(msg: HubRegisteredMsg): Promise<void> {
     this.agentId = msg.agentId;
     this.setState("CONNECTED");
+    console.log("");
+    console.log("  ✅  Tunnel active");
+    console.log("");
+    if (msg.tunnelUrl) {
+      console.log(`  Local:   http://localhost:${this.config.port}`);
+      console.log(`  Public:  ${msg.tunnelUrl}`);
+      console.log("");
+      console.log("  Share the Public URL — it is stable and never changes.");
+      console.log("  Put it in webhooks, .env files, or share with teammates.");
+    } else {
+      console.log(`  Local:  http://localhost:${this.config.port}`);
+      console.log(`  Label:  ${this.config.label}`);
+    }
+    console.log("");
 
     this.log.info(
       {

@@ -118,7 +118,14 @@ export class TunnelSessionRepository {
       select: { id: true, accountId: true, label: true, status: true },
     }) as any;
   }
-
+  // In TunnelSessionRepository (hub side)
+  async findAccountSlug(accountId: string): Promise<string | null> {
+    const row = await this.prisma.account.findUnique({
+      where: { id: accountId },
+      select: { slug: true },
+    });
+    return row?.slug ?? null;
+  }
   async evictStaleForInstance(hubInstanceId: string): Promise<void> {
     await this.prisma.tunnelSession.updateMany({
       where: { hubInstanceId, status: 'CONNECTED' },
