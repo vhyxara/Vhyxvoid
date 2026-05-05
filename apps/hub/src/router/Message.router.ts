@@ -237,7 +237,7 @@ export class MessageRouter {
     //   : undefined;
     // const tunnelUrl = `https://${msg.label}--${accountSlug}.${this.hubDomain}`;
     const tunnelUrl = accountSlug
-      ? `https://${msg.label}--${accountSlug}.${this.hubDomain}`
+      ? `https://${accountSlug}--${msg.label}.${this.hubDomain}`
       : undefined;
     // 5. Register in AgentRegistry
     const agentId = `agt_${uuid().replace(/-/g, '')}`;

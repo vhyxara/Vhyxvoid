@@ -229,8 +229,8 @@ export class HttpTunnelHandler {
     const separatorIndex = subdomain.indexOf('--');
     if (separatorIndex === -1) return null;
 
-    const label = subdomain.slice(0, separatorIndex);
-    const accountSlug = subdomain.slice(separatorIndex + 2);
+    const accountSlug = subdomain.slice(0, separatorIndex); // ← first part is now slug
+    const label = subdomain.slice(separatorIndex + 2); // ← second part is label
 
     if (!label || !accountSlug) return null;
     return { label, accountSlug };

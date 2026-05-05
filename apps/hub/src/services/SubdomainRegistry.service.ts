@@ -79,6 +79,6 @@ export class SubdomainRegistry {
   // }
   // Change the key format to match:
   private key(label: string, accountSlug: string): string {
-    return `tunnel:sub:${label}--${accountSlug}`;
+    return `tunnel:sub:${accountSlug}--${label}`;
   }
 }
