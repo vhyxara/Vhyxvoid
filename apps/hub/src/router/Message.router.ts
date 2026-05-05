@@ -232,10 +232,13 @@ export class MessageRouter {
 
     // 4. Fetch account slug BEFORE sending registered — needed for tunnelUrl
     const accountSlug = await this.sessionRepo.findAccountSlug(apiKey.accountId).catch(() => null);
+    // const tunnelUrl = accountSlug
+    //   ? `https://${msg.label}.${accountSlug}.${this.hubDomain}`
+    //   : undefined;
+    // const tunnelUrl = `https://${msg.label}--${accountSlug}.${this.hubDomain}`;
     const tunnelUrl = accountSlug
-      ? `https://${msg.label}.${accountSlug}.${this.hubDomain}`
+      ? `https://${msg.label}--${accountSlug}.${this.hubDomain}`
       : undefined;
-
     // 5. Register in AgentRegistry
     const agentId = `agt_${uuid().replace(/-/g, '')}`;
     const session: AgentSession = {

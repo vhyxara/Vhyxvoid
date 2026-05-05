@@ -74,7 +74,11 @@ export class SubdomainRegistry {
     } while (cursor !== 0);
   }
 
+  // private key(label: string, accountSlug: string): string {
+  //   return `${PREFIX}${label}.${accountSlug}`;
+  // }
+  // Change the key format to match:
   private key(label: string, accountSlug: string): string {
-    return `${PREFIX}${label}.${accountSlug}`;
+    return `tunnel:sub:${label}--${accountSlug}`;
   }
 }

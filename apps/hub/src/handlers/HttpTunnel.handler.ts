@@ -25,7 +25,28 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 // Max request body size — 10MB
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
+// Extract label and accountSlug from subdomain
+function parseSubdomain(
+  hostname: string,
+  hubDomain: string,
+): {
+  label: string;
+  accountSlug: string;
+} | null {
+  // Strip the hub domain
+  const subdomain = hostname.slice(0, -(hubDomain.length + 1));
 
+  // Split on double hyphen — first occurrence is the separator
+  const separatorIndex = subdomain.indexOf('--');
+  if (separatorIndex === -1) return null;
+
+  const label = subdomain.slice(0, separatorIndex);
+  const accountSlug = subdomain.slice(separatorIndex + 2);
+
+  if (!label || !accountSlug) return null;
+
+  return { label, accountSlug };
+}
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -58,22 +79,33 @@ export class HttpTunnelHandler {
     const hostname = host.split(':')[0];
 
     // Parse subdomain — format: {label}.{accountSlug}.vhyxvoid.com
-    const subdomain = hostname.slice(0, -(this.hubDomain.length + 1)); // strip .vhyxvoid.com
-    const parts = subdomain.split('.');
+    // const subdomain = hostname.slice(0, -(this.hubDomain.length + 1)); // strip .vhyxvoid.com
+    // const parts = subdomain.split('.');
 
-    if (parts.length < 2) {
-      return this.sendError(
-        res,
-        400,
-        'Invalid tunnel URL format. Expected: label.account.vhyxvoid.com',
-      );
-    }
+    // if (parts.length < 2) {
+    //   return this.sendError(
+    //     res,
+    //     400,
+    //     'Invalid tunnel URL format. Expected: label.account.vhyxvoid.com',
+    //   );
+    // }
 
     // Last segment is accountSlug, everything before is the label
     // This allows labels with dots: "my.app.tanveer.vhyxvoid.com" → label=my.app, slug=tanveer
-    const accountSlug = parts[parts.length - 1];
-    const label = parts.slice(0, -1).join('.');
+    // const accountSlug = parts[parts.length - 1];
+    // const label = parts.slice(0, -1).join('.');
+    const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
+    const parsed = this.parseSubdomain(subdomain);
 
+    if (!parsed) {
+      return this.sendError(
+        res,
+        400,
+        'Invalid tunnel URL. Expected format: label--account.vhyxvoid.com',
+      );
+    }
+
+    const { label, accountSlug } = parsed;
     // Look up agent in Redis subdomain registry
     const entry = await this.subdomainRegistry.resolve(label, accountSlug);
 
@@ -192,6 +224,17 @@ export class HttpTunnelHandler {
   }
 
   // ── Private helpers ───────────────────────────────────────
+
+  private parseSubdomain(subdomain: string): { label: string; accountSlug: string } | null {
+    const separatorIndex = subdomain.indexOf('--');
+    if (separatorIndex === -1) return null;
+
+    const label = subdomain.slice(0, separatorIndex);
+    const accountSlug = subdomain.slice(separatorIndex + 2);
+
+    if (!label || !accountSlug) return null;
+    return { label, accountSlug };
+  }
 
   private writeResponse(res: ServerResponse, response: TunnelResponseMsg): void {
     const headers = response.headers ?? {};
