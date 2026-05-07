@@ -37,6 +37,15 @@ export interface HubServerConfig {
   hubInstanceId?: string;
   redis: Redis;
   hubDomain: string; // ← ADD e.g. "vhyxvoid.com"
+  pepper: string; // ← ADD
+  loadKeyHash: (keyId: string) => Promise<{
+    secretHash: string;
+    accountId: string;
+    scopes: string[];
+    status: string;
+    accountStatus: string;
+  } | null>; // ← ADD
+
   validateKeyUseCase: IValidateApiKeyUseCase;
   tunnelSessionRepo: TunnelSessionRepository;
   tunnelRequestRepo: TunnelRequestRepository;
@@ -64,7 +73,11 @@ export class HubServer {
     this.pendingRegistry = new PendingRegistry(config.redis);
 
     // ── Services ─────────────────────────────────────────────────────────────
-    const authService = new HubAuthService(config.validateKeyUseCase);
+    const authService = new HubAuthService(
+      config.validateKeyUseCase,
+      config.pepper,
+      config.loadKeyHash,
+    );
     this.usageService = new HubUsageService(config.redis);
 
     this.heartbeat = new HeartbeatService(
@@ -271,8 +284,15 @@ export class HubServer {
       });
 
       ws.on('close', () => {
-        if (type === 'agent') this.router.onAgentClose(ws);
-        else this.router.onSdkClose(ws);
+        if (type === 'agent') {
+          this.router
+            .onAgentClose(ws)
+            .catch((err: Error) =>
+              console.error({ err: err.message }, '[hub] error in onAgentClose'),
+            );
+        } else {
+          this.router.onSdkClose(ws);
+        }
       });
     });
 

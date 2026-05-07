@@ -41,6 +41,8 @@ export class SubdomainRegistry {
     const raw = await this.redis.get<string>(this.key(label, accountSlug));
     if (!raw) return null;
     try {
+      // Upstash may return already-parsed object — handle both cases
+      if (typeof raw === 'object') return raw as unknown as SubdomainEntry;
       return JSON.parse(raw) as SubdomainEntry;
     } catch {
       return null;
@@ -62,7 +64,11 @@ export class SubdomainRegistry {
         const raw = await this.redis.get<string>(key);
         if (!raw) continue;
         try {
-          const entry = JSON.parse(raw) as SubdomainEntry;
+          // const entry = JSON.parse(raw) as SubdomainEntry;
+          const entry =
+            typeof raw === 'object'
+              ? (raw as unknown as SubdomainEntry)
+              : (JSON.parse(raw) as SubdomainEntry);
           if (entry.hubInstanceId === hubInstanceId) {
             await this.redis.del(key);
           }
@@ -79,6 +85,6 @@ export class SubdomainRegistry {
   // }
   // Change the key format to match:
   private key(label: string, accountSlug: string): string {
-    return `tunnel:sub:${accountSlug}--${label}`;
+    return `${PREFIX}${accountSlug}--${label}`;
   }
 }

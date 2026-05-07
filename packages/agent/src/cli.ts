@@ -4,7 +4,7 @@
 
 import { Command } from "commander";
 import { AgentClient } from "./AgentClient";
-import crypto from "crypto";
+// import crypto from "crypto";
 
 import { version } from "../package.json";
 
@@ -42,11 +42,11 @@ program
     "Hub WebSocket URL. Env: VHYXVOID_HUB_URL",
     process.env.VHYXVOID_HUB_URL ?? "wss://hub.yourplatform.com/agent",
   )
-  .option(
-    "--pepper <pepper>",
-    "Server HMAC pepper (from platform settings). Env: SERVER_HMAC_PEPPER",
-    process.env.SERVER_HMAC_PEPPER ?? "",
-  )
+  // .option(
+  //   "--pepper <pepper>",
+  //   "Server HMAC pepper (from platform settings). Env: SERVER_HMAC_PEPPER",
+  //   process.env.SERVER_HMAC_PEPPER ?? "",
+  // )
   .option(
     "--queue-path <path>",
     "SQLite queue file path. Default: ~/.vhyxvoid/queue.db",
@@ -61,7 +61,7 @@ const opts = program.opts<{
   port: string;
   label: string;
   hub: string;
-  pepper: string;
+  // pepper: string;
   queuePath?: string;
   localDiscovery: boolean;
 }>();
@@ -94,17 +94,17 @@ if (!opts.secret) {
 // secretHash = HMAC-SHA256(rawSecret, pepper)
 // This matches how the Hub and API key module hash secrets in the database.
 
-const pepper = opts.pepper;
-const secretHash = pepper
-  ? crypto.createHmac("sha256", pepper).update(opts.secret).digest("hex")
-  : crypto.createHmac("sha256", "dev-pepper").update(opts.secret).digest("hex");
+// const pepper = opts.pepper;
+// const secretHash = pepper
+//   ? crypto.createHmac("sha256", pepper).update(opts.secret).digest("hex")
+//   : crypto.createHmac("sha256", "dev-pepper").update(opts.secret).digest("hex");
 
-if (!pepper) {
-  console.warn(
-    "⚠  --pepper not set. Using dev-pepper — this will not work in production.\n" +
-      "   Set SERVER_HMAC_PEPPER to match the value in your hub environment.",
-  );
-}
+// if (!pepper) {
+//   console.warn(
+//     "⚠  --pepper not set. Using dev-pepper — this will not work in production.\n" +
+//       "   Set SERVER_HMAC_PEPPER to match the value in your hub environment.",
+//   );
+// }
 
 // ── Start agent ───────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ console.log("");
 const agent = new AgentClient({
   hubUrl: opts.hub,
   keyId: opts.key,
-  secretHash,
+  secret: opts.secret,
   label: opts.label,
   port,
   agentVersion: version,

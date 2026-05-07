@@ -68,10 +68,49 @@ async function main() {
   const loadKey = buildDbApiKeyLoader(prisma);
   const validateKeyUseCase = buildValidateApiKeyUseCase({ redis, loadKey });
 
+  const loadKeyHash = async (keyId: string) => {
+    // Try Redis cache first
+    const cached = await redis.get<string>(`apikey:data:${keyId}`);
+    if (cached) {
+      const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return {
+        secretHash: parsed.secretHash,
+        accountId: parsed.accountId,
+        scopes: parsed.scopes,
+        status: parsed.status,
+        accountStatus: parsed.accountStatus,
+      };
+    }
+
+    // DB fallback
+    const row = await prisma.apiKey.findUnique({
+      where: { keyId },
+      select: {
+        secretHash: true,
+        accountId: true,
+        scopes: true,
+        status: true,
+        account: { select: { status: true } },
+      },
+    });
+
+    if (!row) return null;
+
+    return {
+      secretHash: row.secretHash,
+      accountId: row.accountId,
+      scopes: row.scopes,
+      status: row.status,
+      accountStatus: row.account.status,
+    };
+  };
+
   // ── Start hub ────────────────────────────────────────────────────────────────
   const hub = new HubServer({
-    port,
+    port: Number(process.env.HUB_PORT ?? 9001),
     hubDomain: process.env.HUB_DOMAIN ?? 'vhyxvoid.com',
+    pepper: process.env.TOKEN_PEPPER!,
+    loadKeyHash, // ← defined here where prisma is in scope
     redis,
     validateKeyUseCase,
     tunnelSessionRepo,

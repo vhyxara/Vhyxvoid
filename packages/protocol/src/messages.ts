@@ -13,9 +13,7 @@ export interface AgentRegisterMsg {
   type: "agent:register";
   keyId: string;
   label: string;
-  requestId: string;
-  ts: number;
-  signature: string;
+  rawSecret: string;
   agentVersion: string;
 }
 

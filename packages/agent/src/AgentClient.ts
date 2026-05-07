@@ -2,7 +2,7 @@
 // Main agent class. State machine with reconnect. Single WS connection.
 
 import WebSocket from "ws";
-import { randomUUID } from "crypto";
+// import { randomUUID } from "crypto";
 import path from "path";
 import os from "os";
 import fs from "fs";
@@ -10,8 +10,8 @@ import {
   parseMessage,
   serialize,
   ProtocolError,
-  buildCanonical,
-  signCanonical,
+  // buildCanonical,
+  // signCanonical,
   HubRegisteredMsg,
   HubPingMsg,
   TunnelForwardMsg,
@@ -48,7 +48,7 @@ export interface AgentConfig {
    * secretHash = HMAC-SHA256(rawSecret, SERVER_HMAC_PEPPER).
    * The CLI hashes the raw secret on startup so it's never kept in memory.
    */
-  secretHash: string;
+  secret: string;
   /** Tunnel label — identifies this agent if an account has multiple agents */
   label: string;
   /** Local backend port to forward requests to */
@@ -173,26 +173,28 @@ export class AgentClient {
     this.setState("AUTHENTICATING");
     this.reconnectDelay = TIMING.RECONNECT_INITIAL_MS; // reset backoff on success
 
-    const now = Date.now();
-    const requestId = randomUUID();
+    // const now = Date.now();
+    // const requestId = randomUUID();
 
-    const canonical = buildCanonical({
-      method: "AGENT_REGISTER",
-      path: "/agent/register",
-      query: "",
-      body: this.config.label,
-      requestId,
-      ts: now,
-    });
+    // const canonical = buildCanonical({
+    //   method: "AGENT_REGISTER",
+    //   path: "/agent/register",
+    //   query: "",
+    //   body: this.config.label,
+    //   requestId,
+    //   ts: now,
+    // });
 
     const msg: AgentRegisterMsg = {
       v: PROTOCOL_VERSION,
       type: "agent:register",
       keyId: this.config.keyId,
       label: this.config.label,
-      requestId,
-      ts: now,
-      signature: signCanonical(canonical, this.config.secretHash),
+
+      // agentVersion: this.config.agentVersion,
+
+      rawSecret: this.config.secret, // ← raw secret, hub applies pepper
+
       agentVersion: this.config.agentVersion,
     };
 

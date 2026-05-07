@@ -25,28 +25,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 
 // Max request body size — 10MB
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
-// Extract label and accountSlug from subdomain
-function parseSubdomain(
-  hostname: string,
-  hubDomain: string,
-): {
-  label: string;
-  accountSlug: string;
-} | null {
-  // Strip the hub domain
-  const subdomain = hostname.slice(0, -(hubDomain.length + 1));
 
-  // Split on double hyphen — first occurrence is the separator
-  const separatorIndex = subdomain.indexOf('--');
-  if (separatorIndex === -1) return null;
-
-  const label = subdomain.slice(0, separatorIndex);
-  const accountSlug = subdomain.slice(separatorIndex + 2);
-
-  if (!label || !accountSlug) return null;
-
-  return { label, accountSlug };
-}
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -77,6 +56,18 @@ export class HttpTunnelHandler {
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const host = req.headers.host ?? '';
     const hostname = host.split(':')[0];
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': req.headers.origin ?? '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers':
+          'Content-Type, Authorization, X-Requested-With, X-API-Key, X-API-Secret',
+        'Access-Control-Max-Age': '86400',
+        'Content-Length': '0',
+      });
+      res.end();
+      return;
+    }
 
     // Parse subdomain — format: {label}.{accountSlug}.vhyxvoid.com
     // const subdomain = hostname.slice(0, -(this.hubDomain.length + 1)); // strip .vhyxvoid.com
@@ -101,7 +92,7 @@ export class HttpTunnelHandler {
       return this.sendError(
         res,
         400,
-        'Invalid tunnel URL. Expected format: label--account.vhyxvoid.com',
+        'Invalid tunnel URL. Expected format: accountslug--label.vhyxvoid.com',
       );
     }
 
@@ -114,8 +105,8 @@ export class HttpTunnelHandler {
         res,
         404,
         [
-          `No tunnel found for ${hostname}.`,
-          `Make sure the agent is running with: vhyxvoid --port YOUR_PORT --label ${label}`,
+          `No active tunnel found for "${hostname}".`,
+          `Start the agent with: vhyxvoid --key YOUR_KEY --secret YOUR_SECRET --port YOUR_PORT --label ${label}`,
         ].join(' '),
       );
     }
@@ -186,18 +177,6 @@ export class HttpTunnelHandler {
 
         resolve: (response: TunnelResponseMsg) => {
           clearTimeout(timer);
-          if (req.method === 'OPTIONS') {
-            res.writeHead(204, {
-              'Access-Control-Allow-Origin': req.headers.origin ?? '*',
-              'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-              'Access-Control-Allow-Headers':
-                'Content-Type, Authorization, X-Requested-With, X-API-Key, X-API-Secret',
-              'Access-Control-Max-Age': '86400', // 24 hours — browser caches preflight
-              'Content-Length': '0',
-            });
-            res.end();
-            return;
-          }
           this.writeResponse(res, response);
           outerResolve();
         },

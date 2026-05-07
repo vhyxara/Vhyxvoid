@@ -156,6 +156,7 @@
 
 import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
 import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@vhyxvoid/protocol';
+import crypto from 'crypto';
 
 export interface HubAuthResult {
   accountId: string;
@@ -175,37 +176,71 @@ export class HubAuthError extends Error {
 }
 
 export class HubAuthService {
-  constructor(private readonly validateKeyUseCase: IValidateApiKeyUseCase) {}
+  constructor(
+    private readonly validateKeyUseCase: IValidateApiKeyUseCase,
+    private readonly pepper: string, // ← ADD
+    private readonly loadKeyHash: (keyId: string) => Promise<{
+      // ← ADD
+      secretHash: string;
+      accountId: string;
+      scopes: string[];
+      status: string;
+      accountStatus: string;
+    } | null>,
+  ) {}
 
   /**
    * Authenticate an agent trying to register.
    * Called once per agent connection — on agent:register message.
    */
   async authenticateAgent(msg: AgentRegisterMsg, ip: string): Promise<HubAuthResult> {
-    this.checkTimestamp(msg.ts);
+    // No timestamp check needed — this is a connection handshake not a request
 
-    const result = await this.validateKeyUseCase.execute({
-      keyId: msg.keyId,
-      signature: msg.signature,
-      method: 'AGENT_REGISTER',
-      path: '/agent/register',
-      body: msg.label, // label is the body for agent auth
-      requestId: msg.requestId,
-      timestamp: msg.ts,
-      requiredScope: 'tunnel:connect',
-      ip,
-    });
+    // Load key from cache/DB
+    const key = await this.loadKeyHash(msg.keyId);
+    if (!key) {
+      throw new HubAuthError('AUTH_FAILED', 'API key not found');
+    }
 
-    if (!result.valid) throw new HubAuthError(result.code, result.reason);
+    if (key.status !== 'ACTIVE') {
+      throw new HubAuthError('AUTH_FAILED', 'API key is not active');
+    }
+
+    if (key.accountStatus !== 'ACTIVE') {
+      throw new HubAuthError('AUTH_FAILED', 'Account is not active');
+    }
+
+    // Verify raw secret — hub applies pepper server-side
+    const expectedHash = crypto
+      .createHmac('sha256', this.pepper)
+      .update(msg.rawSecret)
+      .digest('hex');
+
+    const storedHash = Buffer.from(key.secretHash, 'hex');
+    const computedHash = Buffer.from(expectedHash, 'hex');
+
+    if (storedHash.length !== computedHash.length) {
+      throw new HubAuthError('INVALID_SIGNATURE', 'HMAC signature verification failed');
+    }
+
+    const isValid = crypto.timingSafeEqual(storedHash, computedHash);
+    if (!isValid) {
+      throw new HubAuthError('INVALID_SIGNATURE', 'HMAC signature verification failed');
+    }
+
+    // Check scope
+    const hasScope = key.scopes.includes('*') || key.scopes.includes('tunnel:connect');
+    if (!hasScope) {
+      throw new HubAuthError('SCOPE_MISSING', 'Key missing tunnel:connect scope');
+    }
 
     return {
-      accountId: result.accountId,
+      accountId: key.accountId,
       keyId: msg.keyId,
-      scopes: result.scopes,
-      rateLimitPerMinute: result.rateLimitPerMinute,
+      scopes: key.scopes,
+      rateLimitPerMinute: -1,
     };
   }
-
   /**
    * Authenticate an SDK registration handshake.
    * Called once per SDK connection — on sdk:register message.
