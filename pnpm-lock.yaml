@@ -218,7 +218,7 @@ importers:
         version: 10.1.0
       uWebSockets.js:
         specifier: github:uNetworking/uWebSockets.js
-        version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/3d54fff691cd08c5a6ab8c6ad366b1ad66b6d2c2
+        version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/29a1a0b15b0402a7a6adef9a5f585412ec7785c2
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -271,6 +271,9 @@ importers:
       commander:
         specifier: ^14.0.3
         version: 14.0.3
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -3315,8 +3318,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/3d54fff691cd08c5a6ab8c6ad366b1ad66b6d2c2:
-    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/3d54fff691cd08c5a6ab8c6ad366b1ad66b6d2c2}
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/29a1a0b15b0402a7a6adef9a5f585412ec7785c2:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/29a1a0b15b0402a7a6adef9a5f585412ec7785c2}
     version: 0.0.0
 
   uglify-js@3.19.3:
@@ -6672,7 +6675,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/3d54fff691cd08c5a6ab8c6ad366b1ad66b6d2c2: {}
+  uWebSockets.js@https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/29a1a0b15b0402a7a6adef9a5f585412ec7785c2: {}
 
   uglify-js@3.19.3:
     optional: true

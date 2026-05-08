@@ -1,6 +1,6 @@
 {
   "name": "@vhyxvoid/agent",
-  "version": "1.0.3",
+  "version": "1.0.6",
   "description": "Platform tunnel agent — connect your local server to the platform",
   "keywords": [
     "tunnel",
@@ -27,6 +27,7 @@
     "axios": "^1.13.2",
     "better-sqlite3": "^12.8.0",
     "commander": "^14.0.3",
+    "dotenv": "^17.2.3",
     "ws": "^8.18.3"
   },
   "devDependencies": {

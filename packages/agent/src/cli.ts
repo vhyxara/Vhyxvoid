@@ -7,7 +7,9 @@ import { AgentClient } from "./AgentClient";
 // import crypto from "crypto";
 
 import { version } from "../package.json";
+import { config } from "dotenv";
 
+config();
 const program = new Command();
 
 program
@@ -40,7 +42,7 @@ program
   .option(
     "--hub <url>",
     "Hub WebSocket URL. Env: VHYXVOID_HUB_URL",
-    process.env.VHYXVOID_HUB_URL ?? "wss://hub.yourplatform.com/agent",
+    process.env.VHYXVOID_HUB_URL ?? "wss://hub.vhyxvoid.com/agent",
   )
   // .option(
   //   "--pepper <pepper>",
@@ -87,24 +89,6 @@ if (!opts.secret) {
   );
   process.exit(1);
 }
-
-// ── Hash the secret ───────────────────────────────────────────────────────────
-// The agent hashes the raw secret on startup using the server pepper.
-// After this point, the raw secret is never kept in memory.
-// secretHash = HMAC-SHA256(rawSecret, pepper)
-// This matches how the Hub and API key module hash secrets in the database.
-
-// const pepper = opts.pepper;
-// const secretHash = pepper
-//   ? crypto.createHmac("sha256", pepper).update(opts.secret).digest("hex")
-//   : crypto.createHmac("sha256", "dev-pepper").update(opts.secret).digest("hex");
-
-// if (!pepper) {
-//   console.warn(
-//     "⚠  --pepper not set. Using dev-pepper — this will not work in production.\n" +
-//       "   Set SERVER_HMAC_PEPPER to match the value in your hub environment.",
-//   );
-// }
 
 // ── Start agent ───────────────────────────────────────────────────────────────
 

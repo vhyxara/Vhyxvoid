@@ -10,7 +10,7 @@ import { ApiKeyStatus } from "@/generated/prisma";
 import { SecurityEvent } from "@/modules/key-management/domain/entities/security.entities";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 import { buildCachePayload } from "@/modules/key-management/application/helpers/keymanagement.utils";
-
+import { createHmac, timingSafeEqual } from "crypto";
 export class ValidateApiKeyUseCase {
   constructor(
     private apiKeyRepository: ApiKeyRepository,
@@ -30,7 +30,7 @@ export class ValidateApiKeyUseCase {
     requiredScope: string;
     ip: string;
   }): Promise<GatewayValidationResult | GatewayValidationError> {
-    const now = new Date();
+    // const now = new Date();
 
     // ── 1. Timestamp check ──────────────────────────────────────────────────
     const SIGNATURE_WINDOW_MS = 60_000;
@@ -134,11 +134,10 @@ export class ValidateApiKeyUseCase {
     // We don't rehydrate the full entity — just do the HMAC check directly
     const verifyHash = (hash: string): boolean => {
       try {
-        const expected = require("crypto")
-          .createHmac("sha256", hash)
+        const expected = createHmac("sha256", hash)
           .update(canonical)
           .digest("hex");
-        return require("crypto").timingSafeEqual(
+        return timingSafeEqual(
           Buffer.from(expected, "hex"),
           Buffer.from(params.signature, "hex"),
         );

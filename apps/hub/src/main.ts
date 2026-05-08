@@ -109,7 +109,7 @@ async function main() {
   const hub = new HubServer({
     port: Number(process.env.HUB_PORT ?? 9001),
     hubDomain: process.env.HUB_DOMAIN ?? 'vhyxvoid.com',
-    pepper: process.env.TOKEN_PEPPER!,
+    pepper: process.env.SERVER_HMAC_PEPPER!,
     loadKeyHash, // ← defined here where prisma is in scope
     redis,
     validateKeyUseCase,

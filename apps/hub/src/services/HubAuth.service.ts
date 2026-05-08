@@ -193,8 +193,9 @@ export class HubAuthService {
    * Authenticate an agent trying to register.
    * Called once per agent connection — on agent:register message.
    */
-  async authenticateAgent(msg: AgentRegisterMsg, ip: string): Promise<HubAuthResult> {
+  async authenticateAgent(msg: AgentRegisterMsg, _ip: string): Promise<HubAuthResult> {
     // No timestamp check needed — this is a connection handshake not a request
+    console.log('[hub-auth] received agent register:', JSON.stringify(msg));
 
     // Load key from cache/DB
     const key = await this.loadKeyHash(msg.keyId);
@@ -215,7 +216,9 @@ export class HubAuthService {
       .createHmac('sha256', this.pepper)
       .update(msg.rawSecret)
       .digest('hex');
-
+    console.log('[debug] pepper length:', this.pepper?.length);
+    console.log('[debug] expectedHash:', expectedHash);
+    console.log('[debug] storedHash:  ', key.secretHash);
     const storedHash = Buffer.from(key.secretHash, 'hex');
     const computedHash = Buffer.from(expectedHash, 'hex');
 
