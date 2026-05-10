@@ -57,17 +57,32 @@ export class HttpTunnelHandler {
     const host = req.headers.host ?? '';
     const hostname = host.split(':')[0];
     if (req.method === 'OPTIONS') {
+      const origin = req.headers.origin ?? '*';
       res.writeHead(204, {
-        'Access-Control-Allow-Origin': req.headers.origin ?? '*',
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers':
-          'Content-Type, Authorization, X-Requested-With, X-API-Key, X-API-Secret',
+          'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key',
         'Access-Control-Max-Age': '86400',
+        Vary: 'Origin',
         'Content-Length': '0',
       });
       res.end();
       return;
     }
+    // if (req.method === 'OPTIONS') {
+    //   res.writeHead(204, {
+    //     'Access-Control-Allow-Origin': req.headers.origin ?? '*',
+    //     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    //     'Access-Control-Allow-Headers':
+    //       'Content-Type, Authorization, X-Requested-With, X-API-Key, X-API-Secret',
+    //     'Access-Control-Max-Age': '86400',
+    //     'Content-Length': '0',
+    //   });
+    //   res.end();
+    //   return;
+    // }
 
     // Parse subdomain — format: {label}.{accountSlug}.vhyxvoid.com
     // const subdomain = hostname.slice(0, -(this.hubDomain.length + 1)); // strip .vhyxvoid.com
@@ -177,7 +192,7 @@ export class HttpTunnelHandler {
 
         resolve: (response: TunnelResponseMsg) => {
           clearTimeout(timer);
-          this.writeResponse(res, response);
+          this.writeResponse(res, response, req);
           outerResolve();
         },
 
@@ -215,11 +230,25 @@ export class HttpTunnelHandler {
     return { label, accountSlug };
   }
 
-  private writeResponse(res: ServerResponse, response: TunnelResponseMsg): void {
+  private writeResponse(
+    res: ServerResponse,
+    response: TunnelResponseMsg,
+    req: IncomingMessage,
+  ): void {
     const headers = response.headers ?? {};
+
+    // for (const [key, value] of Object.entries(headers)) {
+    //   if (this.isHopByHop(key)) continue;
+    //   try {
+    //     res.setHeader(key, value);
+    //   } catch {
+    //     // Invalid header — skip
+    //   }
+    // }
 
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
+      if (key.toLowerCase().startsWith('access-control-')) continue; // ← hub owns CORS
       try {
         res.setHeader(key, value);
       } catch {
@@ -228,11 +257,19 @@ export class HttpTunnelHandler {
     }
 
     // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-
-    // Tunnel debug headers
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
+    );
+    res.setHeader('Vary', 'Origin');
     res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
 
     res.writeHead(response.status ?? 200);

@@ -228,9 +228,12 @@ export class MessageRouter {
       ws.close();
       return;
     }
+    console.log('[debug] session persisted, fetching slug for subdomain registration');
 
     // 4. Fetch account slug BEFORE sending registered — needed for tunnelUrl
     const accountSlug = await this.sessionRepo.findAccountSlug(apiKey.accountId).catch(() => null);
+    console.log('[debug] accountSlug for subdomain:', accountSlug);
+
     // const tunnelUrl = accountSlug
     //   ? `https://${msg.label}.${accountSlug}.${this.hubDomain}`
     //   : undefined;
@@ -284,6 +287,13 @@ export class MessageRouter {
       .then(async () => {
         console.info({ agentId }, '[router] session persisted to DB');
         if (accountSlug) {
+          console.log('[debug] calling subdomainRegistry.register with:', {
+            agentId,
+            accountId: apiKey.accountId,
+            label: msg.label,
+            accountSlug,
+            hubInstanceId: this.hubInstanceId,
+          });
           await this.subdomainRegistry
             .register({
               agentId,
@@ -292,9 +302,15 @@ export class MessageRouter {
               accountSlug,
               hubInstanceId: this.hubInstanceId,
             })
+            .then(() => console.log('[debug] subdomain registered in Redis ✅'))
             .catch((err: Error) => {
-              console.error({ err: err.message }, '[router] failed to register subdomain');
+              console.error(
+                { err: err.message, errStack: err.stack },
+                '[router] failed to register subdomain',
+              );
             });
+        } else {
+          console.log('[debug] accountSlug is null — skipping subdomain registration');
         }
       })
       .catch((err) => {

@@ -76,7 +76,7 @@ async function main() {
       return {
         secretHash: parsed.secretHash,
         accountId: parsed.accountId,
-        scopes: parsed.scopes,
+        scopes: parsed.scopes as string[],
         status: parsed.status,
         accountStatus: parsed.accountStatus,
       };
@@ -99,7 +99,7 @@ async function main() {
     return {
       secretHash: row.secretHash,
       accountId: row.accountId,
-      scopes: row.scopes,
+      scopes: row.scopes.map((s: any) => s.scope),
       status: row.status,
       accountStatus: row.account.status,
     };
