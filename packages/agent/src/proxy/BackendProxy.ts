@@ -135,9 +135,33 @@ export class BackendProxy {
   ): Record<string, string> {
     const clean: Record<string, string> = {};
     for (const [k, v] of Object.entries(headers)) {
-      if (!HOP_BY_HOP.has(k.toLowerCase()) && typeof v === "string")
-        clean[k] = v;
+      if (HOP_BY_HOP.has(k.toLowerCase())) continue;
+
+      if (k.toLowerCase() === "set-cookie") {
+        // axios returns set-cookie as string[] — join with \n for transport
+        // hub splits on \n and re-emits as separate Set-Cookie headers
+        if (Array.isArray(v)) {
+          clean[k] = v.join("\n");
+        } else if (typeof v === "string") {
+          clean[k] = v;
+        }
+        continue;
+      }
+
+      if (typeof v === "string") clean[k] = v;
+      else if (Array.isArray(v)) clean[k] = v[0]; // take first for other multi-value headers
     }
     return clean;
   }
+
+  // private sanitizeOutboundHeaders(
+  //   headers: Record<string, any>,
+  // ): Record<string, string> {
+  //   const clean: Record<string, string> = {};
+  //   for (const [k, v] of Object.entries(headers)) {
+  //     if (!HOP_BY_HOP.has(k.toLowerCase()) && typeof v === "string")
+  //       clean[k] = v;
+  //   }
+  //   return clean;
+  // }
 }

@@ -306,12 +306,23 @@ export class HttpTunnelHandler {
   ): void {
     const headers = response.headers ?? {};
 
-    // Forward backend headers — except CORS and hop-by-hop
-    // Hub always owns CORS — backend CORS config is irrelevant for tunneled requests
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
       if (key.toLowerCase().startsWith('access-control-')) continue;
       if (key.toLowerCase() === 'vary') continue;
+
+      // set-cookie must be sent as separate headers — split on \n
+      if (key.toLowerCase() === 'set-cookie') {
+        const cookies = value.split('\n').filter(Boolean);
+        for (const cookie of cookies) {
+          res.setHeader('set-cookie', [
+            ...((res.getHeader('set-cookie') as string[]) ?? []),
+            cookie,
+          ]);
+        }
+        continue;
+      }
+
       try {
         res.setHeader(key, value);
       } catch {
@@ -319,7 +330,7 @@ export class HttpTunnelHandler {
       }
     }
 
-    // Hub owns all CORS headers — always set, always correct
+    // Hub owns CORS
     const origin = req.headers.origin;
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -330,7 +341,6 @@ export class HttpTunnelHandler {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     res.setHeader(
       'Access-Control-Allow-Headers',
-      // Static set of common headers + we'll read what the preflight asked for
       req.headers['access-control-request-headers'] ??
         'Content-Type, Authorization, X-Requested-With, Cookie',
     );
