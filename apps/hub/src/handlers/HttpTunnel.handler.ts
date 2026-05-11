@@ -58,12 +58,14 @@ export class HttpTunnelHandler {
     const hostname = host.split(':')[0];
     if (req.method === 'OPTIONS') {
       const origin = req.headers.origin ?? '*';
+      const requestedHeaders =
+        req.headers['access-control-request-headers'] ?? 'Content-Type, Authorization';
+
       res.writeHead(204, {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers':
-          'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key',
+        'Access-Control-Allow-Headers': requestedHeaders,
         'Access-Control-Max-Age': '86400',
         Vary: 'Origin',
         'Content-Length': '0',
@@ -304,38 +306,38 @@ export class HttpTunnelHandler {
   ): void {
     const headers = response.headers ?? {};
 
-    // Check if backend already sent CORS headers
-    const backendSetCors = Object.keys(headers).some(
-      (k) => k.toLowerCase() === 'access-control-allow-origin',
-    );
-
+    // Forward backend headers — except CORS and hop-by-hop
+    // Hub always owns CORS — backend CORS config is irrelevant for tunneled requests
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
-      if (!backendSetCors && key.toLowerCase().startsWith('access-control-')) continue;
+      if (key.toLowerCase().startsWith('access-control-')) continue;
+      if (key.toLowerCase() === 'vary') continue;
       try {
         res.setHeader(key, value);
       } catch {
-        // Invalid header — skip
+        // Invalid header
       }
     }
 
-    if (!backendSetCors) {
-      const origin = req.headers.origin;
-      if (origin) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-      } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-      }
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      res.setHeader(
-        'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
-      );
-      res.setHeader('Vary', 'Origin');
+    // Hub owns all CORS headers — always set, always correct
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
     }
-
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      // Static set of common headers + we'll read what the preflight asked for
+      req.headers['access-control-request-headers'] ??
+        'Content-Type, Authorization, X-Requested-With, Cookie',
+    );
+    res.setHeader('Access-Control-Expose-Headers', 'X-Tunnel-Duration');
+    res.setHeader('Vary', 'Origin');
     res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
+
     res.writeHead(response.status ?? 200);
 
     if (!response.body) {
