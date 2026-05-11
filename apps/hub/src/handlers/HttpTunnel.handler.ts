@@ -230,6 +230,73 @@ export class HttpTunnelHandler {
     return { label, accountSlug };
   }
 
+  // private writeResponse(
+  //   res: ServerResponse,
+  //   response: TunnelResponseMsg,
+  //   req: IncomingMessage,
+  // ): void {
+  //   const headers = response.headers ?? {};
+
+  //   // for (const [key, value] of Object.entries(headers)) {
+  //   //   if (this.isHopByHop(key)) continue;
+  //   //   try {
+  //   //     res.setHeader(key, value);
+  //   //   } catch {
+  //   //     // Invalid header — skip
+  //   //   }
+  //   // }
+
+  //   for (const [key, value] of Object.entries(headers)) {
+  //     if (this.isHopByHop(key)) continue;
+  //     if (key.toLowerCase().startsWith('access-control-')) continue; // ← hub owns CORS
+  //     try {
+  //       res.setHeader(key, value);
+  //     } catch {
+  //       // Invalid header — skip
+  //     }
+  //   }
+
+  //   // CORS
+  //   const origin = req.headers.origin;
+  //   if (origin) {
+  //     res.setHeader('Access-Control-Allow-Origin', origin);
+  //     res.setHeader('Access-Control-Allow-Credentials', 'true');
+  //   } else {
+  //     res.setHeader('Access-Control-Allow-Origin', '*');
+  //   }
+  //   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  //   res.setHeader(
+  //     'Access-Control-Allow-Headers',
+  //     'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
+  //   );
+  //   res.setHeader('Vary', 'Origin');
+  //   res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
+
+  //   res.writeHead(response.status ?? 200);
+
+  //   // Body can be null (204 No Content), string, or base64-encoded binary
+  //   if (!response.body) {
+  //     res.end();
+  //     return;
+  //   }
+
+  //   // Check if content-type suggests binary
+  //   const contentType = (headers['content-type'] ?? '').toLowerCase();
+  //   const isBinary =
+  //     contentType.includes('image/') ||
+  //     contentType.includes('application/pdf') ||
+  //     contentType.includes('application/octet-stream') ||
+  //     contentType.includes('audio/') ||
+  //     contentType.includes('video/');
+
+  //   if (isBinary) {
+  //     // Agent sends binary as base64 — decode before writing
+  //     res.end(Buffer.from(response.body, 'base64'));
+  //   } else {
+  //     res.end(response.body);
+  //   }
+  // }
+
   private writeResponse(
     res: ServerResponse,
     response: TunnelResponseMsg,
@@ -237,18 +304,14 @@ export class HttpTunnelHandler {
   ): void {
     const headers = response.headers ?? {};
 
-    // for (const [key, value] of Object.entries(headers)) {
-    //   if (this.isHopByHop(key)) continue;
-    //   try {
-    //     res.setHeader(key, value);
-    //   } catch {
-    //     // Invalid header — skip
-    //   }
-    // }
+    // Check if backend already sent CORS headers
+    const backendSetCors = Object.keys(headers).some(
+      (k) => k.toLowerCase() === 'access-control-allow-origin',
+    );
 
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
-      if (key.toLowerCase().startsWith('access-control-')) continue; // ← hub owns CORS
+      if (!backendSetCors && key.toLowerCase().startsWith('access-control-')) continue;
       try {
         res.setHeader(key, value);
       } catch {
@@ -256,31 +319,30 @@ export class HttpTunnelHandler {
       }
     }
 
-    // CORS
-    const origin = req.headers.origin;
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+    if (!backendSetCors) {
+      const origin = req.headers.origin;
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
+      );
+      res.setHeader('Vary', 'Origin');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
-    );
-    res.setHeader('Vary', 'Origin');
-    res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
 
+    res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
     res.writeHead(response.status ?? 200);
 
-    // Body can be null (204 No Content), string, or base64-encoded binary
     if (!response.body) {
       res.end();
       return;
     }
 
-    // Check if content-type suggests binary
     const contentType = (headers['content-type'] ?? '').toLowerCase();
     const isBinary =
       contentType.includes('image/') ||
@@ -290,7 +352,6 @@ export class HttpTunnelHandler {
       contentType.includes('video/');
 
     if (isBinary) {
-      // Agent sends binary as base64 — decode before writing
       res.end(Buffer.from(response.body, 'base64'));
     } else {
       res.end(response.body);
