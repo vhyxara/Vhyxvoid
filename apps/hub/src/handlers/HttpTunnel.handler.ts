@@ -314,7 +314,15 @@ export class HttpTunnelHandler {
       // set-cookie must be sent as separate headers — split on \n
       if (key.toLowerCase() === 'set-cookie') {
         const cookies = value.split('\n').filter(Boolean);
-        for (const cookie of cookies) {
+        const rewritten = cookies.map((cookie) => {
+          // Remove existing Domain attribute if present
+          const withoutDomain = cookie.replace(/;\s*Domain=[^;]*/gi, '');
+          // Remove existing SameSite — we'll set it correctly
+          const withoutSameSite = withoutDomain.replace(/;\s*SameSite=[^;]*/gi, '');
+          // Inject our domain — makes cookie available across all *.vhyxvoid.com
+          return `${withoutSameSite}; Domain=.${this.hubDomain}; SameSite=None; Secure`;
+        });
+        for (const cookie of rewritten) {
           res.setHeader('set-cookie', [
             ...((res.getHeader('set-cookie') as string[]) ?? []),
             cookie,
