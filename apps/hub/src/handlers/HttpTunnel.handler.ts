@@ -219,7 +219,7 @@ export class HttpTunnelHandler {
           agent.ws.readyState,
         );
         agent.ws.send(serialize(forward as any));
-      } catch {
+      } catch (err) {
         console.log('[tunnel] send failed:', err);
 
         clearTimeout(timer);
