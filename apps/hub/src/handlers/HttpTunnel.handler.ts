@@ -42,6 +42,8 @@ export class HttpTunnelHandler {
     const host = req.headers.host ?? '';
     // Strip port if present
     const hostname = host.split(':')[0];
+    console.log('[tunnel] isTunnelRequest check:', hostname, 'domain:', this.hubDomain);
+
     // Must end with our domain and have at least one subdomain segment
     if (!hostname.endsWith(`.${this.hubDomain}`)) return false;
     // Exclude the apex domain itself
@@ -210,8 +212,16 @@ export class HttpTunnelHandler {
 
       // Send to agent
       try {
+        console.log(
+          '[tunnel] sending forward to agent:',
+          agent.agentId,
+          'ws readyState:',
+          agent.ws.readyState,
+        );
         agent.ws.send(serialize(forward as any));
       } catch {
+        console.log('[tunnel] send failed:', err);
+
         clearTimeout(timer);
         this.pendingRegistry.reject(requestId, 'SEND_FAILED', 'Failed to send request to agent');
         outerResolve();
