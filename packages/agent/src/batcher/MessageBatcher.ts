@@ -35,6 +35,8 @@ export class MessageBatcher {
 
   /** Add a message to the batch. Flushes immediately if MAX_BATCH_SIZE reached. */
   add(msg: BatchableMsg): void {
+    console.log("[batcher] add msg type:", msg.type); // ← ADD
+
     this.buffer.push(msg);
 
     if (this.buffer.length >= TIMING.BATCH_MAX_SIZE) {
@@ -51,6 +53,12 @@ export class MessageBatcher {
    */
   flush(): void {
     if (this.buffer.length === 0) return;
+    console.log(
+      "[batcher] flush, connected:",
+      this.isConnected(),
+      "messages:",
+      this.buffer.length,
+    ); // ← ADD
 
     if (this.timer) {
       clearTimeout(this.timer);
@@ -74,6 +82,7 @@ export class MessageBatcher {
       messages.length === 1
         ? serialize(messages[0] as BatchableMsg)
         : serialize({ v: "1", type: "agent:batch", messages } as AgentBatchMsg);
+    console.log("[batcher] sending serialized, length:", serialized.length); // ← ADD
 
     this.onFlush(serialized);
   }
