@@ -118,6 +118,17 @@ export class BackendProxy {
     this.cache.clear();
   }
 
+  // private sanitizeInboundHeaders(
+  //   headers: Record<string, string>,
+  // ): Record<string, string> {
+  //   const clean: Record<string, string> = {};
+  //   for (const [k, v] of Object.entries(headers)) {
+  //     if (!HOP_BY_HOP.has(k.toLowerCase())) clean[k] = v;
+  //   }
+  //   clean["x-forwarded-by"] = "vhyxvoid";
+  //   clean["x-forwarded-host"] = `127.0.0.1:${this.port}`;
+  //   return clean;
+  // }
   private sanitizeInboundHeaders(
     headers: Record<string, string>,
   ): Record<string, string> {
@@ -125,11 +136,12 @@ export class BackendProxy {
     for (const [k, v] of Object.entries(headers)) {
       if (!HOP_BY_HOP.has(k.toLowerCase())) clean[k] = v;
     }
+    // Override host to localhost — backend rejects tunnel domain host headers
+    clean["host"] = `127.0.0.1:${this.port}`;
     clean["x-forwarded-by"] = "vhyxvoid";
     clean["x-forwarded-host"] = `127.0.0.1:${this.port}`;
     return clean;
   }
-
   private sanitizeOutboundHeaders(
     headers: Record<string, any>,
   ): Record<string, string> {
