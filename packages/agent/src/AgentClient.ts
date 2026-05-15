@@ -22,6 +22,10 @@ import {
   PROTOCOL_VERSION,
   TunnelAgentErrorMsg,
   TunnelResponseMsg,
+  TunnelWsOpenMsg,
+  TunnelWsMessageMsg,
+  TunnelWsCloseMsg,
+  TunnelWsErrorMsg,
 } from "@vhyxvoid/protocol";
 import { DurableQueue } from "./queue/DurableQueue";
 import { BackendProxy } from "./proxy/BackendProxy";
@@ -237,6 +241,12 @@ export class AgentClient {
         return this.onHubError(msg as HubErrorMsg);
       case "tunnel:forward":
         return void this.onForward(msg as TunnelForwardMsg);
+      case "tunnel:ws:open":
+        return void this.onWsOpen(msg as TunnelWsOpenMsg);
+      case "tunnel:ws:message":
+        return this.onWsMessage(msg as TunnelWsMessageMsg);
+      case "tunnel:ws:close":
+        return this.onWsClose(msg as TunnelWsCloseMsg);
       default:
         this.log.warn(
           { type: (msg as any).type },
@@ -350,6 +360,57 @@ export class AgentClient {
       // If WS is up, batcher sends it; if down, it goes to durable queue
       this.batcher.add(agentError);
     }
+  }
+
+  private onWsOpen(msg: TunnelWsOpenMsg): void {
+    console.log("[agent] WS open request:", msg.path);
+
+    this.proxy.openWebSocket(
+      msg.connectionId,
+      msg.path,
+      msg.query,
+      msg.headers,
+      // Backend → Hub
+      (data, isBinary) => {
+        const frame: TunnelWsMessageMsg = {
+          v: "1",
+          type: "tunnel:ws:message",
+          connectionId: msg.connectionId,
+          data,
+          isBinary,
+        };
+        this.sendRaw(serialize(frame));
+      },
+      // Backend closed
+      (code, reason) => {
+        const close: TunnelWsCloseMsg = {
+          v: "1",
+          type: "tunnel:ws:close",
+          connectionId: msg.connectionId,
+          code,
+          reason,
+        };
+        this.sendRaw(serialize(close));
+      },
+      // Error
+      (message) => {
+        const err: TunnelWsErrorMsg = {
+          v: "1",
+          type: "tunnel:ws:error",
+          connectionId: msg.connectionId,
+          message,
+        };
+        this.sendRaw(serialize(err));
+      },
+    );
+  }
+
+  private onWsMessage(msg: TunnelWsMessageMsg): void {
+    this.proxy.sendWebSocketMessage(msg.connectionId, msg.data, msg.isBinary);
+  }
+
+  private onWsClose(msg: TunnelWsCloseMsg): void {
+    this.proxy.closeWebSocket(msg.connectionId, msg.code, msg.reason);
   }
 
   private onClose(code: number, reason: string): void {

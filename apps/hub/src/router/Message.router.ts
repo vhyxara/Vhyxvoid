@@ -22,6 +22,8 @@ import {
   TunnelForwardMsg,
   TIMING,
   LIMITS,
+  TunnelWsMessageMsg,
+  TunnelWsCloseMsg,
 } from '@vhyxvoid/protocol';
 // import { WebSocket } from 'uWebSockets.js';
 // import { AgentRegistry, AgentSession, SdkRegistry, PendingRegistry } from '../registry';
@@ -43,6 +45,7 @@ import { AgentRegistry, AgentSession } from '@/registry/Agent.registry';
 import { PendingRegistry } from '@/registry/Pending.registry';
 import { SdkRegistry } from '@/registry/Sdk.registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
+import { HttpTunnelHandler } from '@/handlers/HttpTunnel.handler';
 
 export class MessageRouter {
   constructor(
@@ -58,6 +61,7 @@ export class MessageRouter {
     private readonly hubInstanceId: string,
     private readonly subdomainRegistry: SubdomainRegistry, // ← ADD
     private readonly hubDomain: string,
+    private readonly httpTunnelHandler: HttpTunnelHandler,
   ) {}
 
   // ── Agent message routing ──────────────────────────────────────────────────
@@ -89,6 +93,12 @@ export class MessageRouter {
           return this.handleTunnelResponse(msg as TunnelResponseMsg);
         case 'tunnel:agent-error':
           return this.handleTunnelAgentError(msg as TunnelAgentErrorMsg);
+        case 'tunnel:ws:message':
+          return this.handleAgentWsMessage(msg as TunnelWsMessageMsg);
+        case 'tunnel:ws:close':
+          return this.handleAgentWsClose(msg as TunnelWsCloseMsg);
+        case 'tunnel:ws:error':
+          return this.handleAgentWsError(msg as any);
         default:
           return this.sendToWs(
             ws,
@@ -379,7 +389,15 @@ export class MessageRouter {
       })
       .catch(() => {});
   }
-
+  private handleAgentWsMessage(msg: TunnelWsMessageMsg): void {
+    this.httpTunnelHandler.handleAgentWsMessage(msg);
+  }
+  private handleAgentWsClose(msg: TunnelWsCloseMsg): void {
+    this.httpTunnelHandler.handleAgentWsClose(msg);
+  }
+  private handleAgentWsError(msg: { connectionId: string; message: string }): void {
+    this.httpTunnelHandler.handleAgentWsError(msg);
+  }
   // ── SDK handlers ───────────────────────────────────────────────────────────
 
   private async handleSdkRegister(ws: any, msg: SdkRegisterMsg, ip: string): Promise<void> {
@@ -557,128 +575,3 @@ export class MessageRouter {
     return ['AGENT_DISCONNECTED', 'AGENT_TIMEOUT'].includes(code);
   }
 }
-
-// private async handleSdkRequest(ws: any, msg: SdkRequestMsg, ip: string): Promise<void> {
-//   // 1. Authenticate (Redis cache hit = ~1ms)
-//   let auth: Awaited<ReturnType<HubAuthService['authenticateRequest']>>;
-//   try {
-//     auth = await this.authService.authenticateRequest(msg, ip);
-//   } catch (err) {
-//     if (err instanceof HubAuthError) {
-//       return this.sendToWs(
-//         ws,
-//         this.buildSdkError(err.code as any, err.message, msg.requestId, false),
-//       );
-//     }
-//     throw err;
-//   }
-
-//   // 2. Payload size check
-//   const bodyBytes = msg.body ? Buffer.byteLength(msg.body, 'utf8') : 0;
-//   if (bodyBytes > LIMITS.MAX_PAYLOAD_BYTES) {
-//     return this.sendToWs(
-//       ws,
-//       this.buildSdkError(
-//         'PAYLOAD_TOO_LARGE',
-//         `Payload ${bodyBytes} bytes exceeds limit of ${LIMITS.MAX_PAYLOAD_BYTES} bytes`,
-//         msg.requestId,
-//         false,
-//       ),
-//     );
-//   }
-
-//   // 3. Find agent
-//   // Phase 2: check cross-hub via Redis if not found locally
-//   const agent = this.agentRegistry.find(auth.accountId, msg.label);
-//   if (!agent) {
-//     return this.sendToWs(
-//       ws,
-//       this.buildSdkError(
-//         'AGENT_NOT_FOUND',
-//         msg.label
-//           ? `No agent with label "${msg.label}" is connected for your account`
-//           : 'No agent is connected for your account. Run: npx @vhyxvoid/agent --key YOUR_KEY --port YOUR_PORT',
-//         msg.requestId,
-//         false,
-//       ),
-//     );
-//   }
-
-//   // 4. Enqueue in PendingRegistry
-//   // The resolve/reject callbacks send the response back to the SDK's WebSocket
-//   await this.pendingRegistry.enqueue({
-//     requestId: msg.requestId,
-//     accountId: auth.accountId,
-//     agentLabel: agent.label,
-//     keyId: auth.keyId,
-//     enqueuedAt: Date.now(),
-//     resolve: (response: TunnelResponseMsg) => {
-//       const sdkResponse: SdkResponseMsg = {
-//         v: '1',
-//         type: 'sdk:response',
-//         requestId: msg.requestId,
-//         status: response.status,
-//         headers: response.headers,
-//         body: response.body,
-//         durationMs: response.durationMs,
-//       };
-//       this.sendToWs(ws, sdkResponse);
-//     },
-//     reject: (code, message) => {
-//       this.sendToWs(ws, this.buildSdkError(code, message, msg.requestId, this.isRetryable(code)));
-//     },
-//     timer: setTimeout(() => {
-//       this.pendingRegistry.reject(
-//         msg.requestId,
-//         'AGENT_TIMEOUT',
-//         'Request timed out waiting for agent response',
-//       );
-//     }, TIMING.REQUEST_TIMEOUT_MS),
-//   });
-
-//   // 5. Forward to agent
-//   const forward: TunnelForwardMsg = {
-//     v: '1',
-//     type: 'tunnel:forward',
-//     requestId: msg.requestId,
-//     method: msg.method,
-//     path: msg.path,
-//     query: msg.query,
-//     headers: msg.headers,
-//     body: msg.body,
-//     timeoutMs: TIMING.REQUEST_TIMEOUT_MS - 2000, // 2s buffer for agent to respond
-//   };
-//   this.sendToWs(agent.ws, forward);
-
-//   // 6. Record usage (fire and forget)
-//   this.usageService.increment(auth.accountId, auth.keyId, 'requests', 1);
-
-//   // 7. Audit record (fire and forget)
-//   this.requestRepo
-//     .create({
-//       accountId: auth.accountId,
-//       apiKeyId: auth.keyId,
-//       sessionId: agent.agentId,
-//       requestId: msg.requestId,
-//       method: msg.method,
-//       path: msg.path,
-//     })
-//     .catch(() => {});
-// }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-// apps/hub/src/router/MessageRouter.ts
-// ONLY the handleSdkRequest method needs changing.
-// Replace your current handleSdkRequest with this version.
-// Everything else in MessageRouter stays identical.
-//
-// ROOT CAUSE OF FK VIOLATION:
-//   auth.keyId = 'vhyxvoid_live_d67d325...' (public keyId from JWT/cache)
-//   TunnelRequest.apiKeyId FK → ApiKey.id (internal UUID 'a906bf51-...')
-//   Passing public keyId as apiKeyId = FK violation.
-//
-// FIX:
-//   The AgentSession already has the resolved internal keyId (set in handleAgentRegister).
-//   Use agent.keyId (internal UUID) not auth.keyId (public string).
-//   Same for accountId — use agent.accountId which is verified from DB.

@@ -9,6 +9,7 @@ import {
   LIMITS,
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
+import WebSocket from "ws";
 
 const HOP_BY_HOP = new Set([
   "connection",
@@ -116,19 +117,9 @@ export class BackendProxy {
       this.evictTimer = null;
     }
     this.cache.clear();
+    this.closeAllWebSockets();
   }
 
-  // private sanitizeInboundHeaders(
-  //   headers: Record<string, string>,
-  // ): Record<string, string> {
-  //   const clean: Record<string, string> = {};
-  //   for (const [k, v] of Object.entries(headers)) {
-  //     if (!HOP_BY_HOP.has(k.toLowerCase())) clean[k] = v;
-  //   }
-  //   clean["x-forwarded-by"] = "vhyxvoid";
-  //   clean["x-forwarded-host"] = `127.0.0.1:${this.port}`;
-  //   return clean;
-  // }
   private sanitizeInboundHeaders(
     headers: Record<string, string>,
   ): Record<string, string> {
@@ -166,14 +157,77 @@ export class BackendProxy {
     return clean;
   }
 
-  // private sanitizeOutboundHeaders(
-  //   headers: Record<string, any>,
-  // ): Record<string, string> {
-  //   const clean: Record<string, string> = {};
-  //   for (const [k, v] of Object.entries(headers)) {
-  //     if (!HOP_BY_HOP.has(k.toLowerCase()) && typeof v === "string")
-  //       clean[k] = v;
-  //   }
-  //   return clean;
-  // }
+  private readonly wsConnections = new Map<string, WebSocket>();
+
+  /**
+   * Open a WebSocket connection to the local backend.
+   * onMessage: called when backend sends a message to forward to hub
+   * onClose: called when backend closes the connection
+   */
+  openWebSocket(
+    connectionId: string,
+    path: string,
+    query: string,
+    headers: Record<string, string>,
+    onMessage: (data: string, isBinary: boolean) => void,
+    onClose: (code: number, reason: string) => void,
+    onError: (message: string) => void,
+  ): void {
+    const url = `ws://127.0.0.1:${this.port}${path}${query ? "?" + query : ""}`;
+
+    // Override host header
+    const wsHeaders = { ...headers, host: `127.0.0.1:${this.port}` };
+
+    const ws = new WebSocket(url, { headers: wsHeaders });
+    this.wsConnections.set(connectionId, ws);
+
+    ws.on("open", () => {
+      console.log("[proxy] WS opened to backend:", path);
+    });
+
+    ws.on("message", (data: Buffer, isBinary: boolean) => {
+      const encoded = isBinary
+        ? data.toString("base64")
+        : data.toString("utf8");
+      onMessage(encoded, isBinary);
+    });
+
+    ws.on("close", (code, reason) => {
+      this.wsConnections.delete(connectionId);
+      onClose(code, reason.toString());
+    });
+
+    ws.on("error", (err) => {
+      this.wsConnections.delete(connectionId);
+      onError(err.message);
+    });
+  }
+
+  sendWebSocketMessage(
+    connectionId: string,
+    data: string,
+    isBinary: boolean,
+  ): void {
+    const ws = this.wsConnections.get(connectionId);
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const payload = isBinary ? Buffer.from(data, "base64") : data;
+    ws.send(payload);
+  }
+
+  closeWebSocket(connectionId: string, code: number, reason: string): void {
+    const ws = this.wsConnections.get(connectionId);
+    if (!ws) return;
+    ws.close(code, reason);
+    this.wsConnections.delete(connectionId);
+  }
+
+  closeAllWebSockets(): void {
+    for (const ws of this.wsConnections.values()) {
+      try {
+        ws.close();
+      } catch {}
+    }
+    this.wsConnections.clear();
+  }
 }

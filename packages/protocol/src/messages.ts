@@ -146,13 +146,18 @@ export type AgentToHubMsg =
   | AgentPongMsg
   | TunnelResponseMsg
   | TunnelAgentErrorMsg
-  | AgentBatchMsg;
+  | AgentBatchMsg
+  | TunnelWsMessageMsg
+  | TunnelWsCloseMsg;
 
 export type HubToAgentMsg =
   | HubRegisteredMsg
   | HubPingMsg
   | TunnelForwardMsg
-  | HubErrorMsg;
+  | HubErrorMsg
+  | TunnelWsOpenMsg
+  | TunnelWsMessageMsg
+  | TunnelWsCloseMsg;
 
 export type SdkToHubMsg = SdkRegisterMsg | SdkRequestMsg;
 
@@ -162,4 +167,39 @@ export type AnyHubMsg =
   | AgentToHubMsg
   | HubToAgentMsg
   | SdkToHubMsg
-  | HubToSdkMsg;
+  | HubToSdkMsg
+  | TunnelWsErrorMsg;
+
+// ── WebSocket tunnel messages ─────────────────────────────────────────────
+
+export interface TunnelWsOpenMsg {
+  v: "1";
+  type: "tunnel:ws:open";
+  connectionId: string; // unique per WS connection
+  path: string;
+  query: string;
+  headers: Record<string, string>;
+}
+
+export interface TunnelWsMessageMsg {
+  v: "1";
+  type: "tunnel:ws:message";
+  connectionId: string;
+  data: string; // base64 for binary, raw for text
+  isBinary: boolean;
+}
+
+export interface TunnelWsCloseMsg {
+  v: "1";
+  type: "tunnel:ws:close";
+  connectionId: string;
+  code: number;
+  reason: string;
+}
+
+export interface TunnelWsErrorMsg {
+  v: "1";
+  type: "tunnel:ws:error";
+  connectionId: string;
+  message: string;
+}

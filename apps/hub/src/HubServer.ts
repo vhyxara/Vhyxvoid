@@ -95,6 +95,15 @@ export class HubServer {
     );
 
     this.subdomainRegistry = new SubdomainRegistry(config.redis);
+
+    this.httpTunnelHandler = new HttpTunnelHandler(
+      this.subdomainRegistry,
+      this.agentRegistry,
+      this.pendingRegistry,
+      config.hubDomain,
+      // this.wsRegistry,
+    );
+
     // ── Router ───────────────────────────────────────────────────────────────
     this.router = new MessageRouter(
       this.agentRegistry,
@@ -109,13 +118,7 @@ export class HubServer {
       this.hubInstanceId,
       this.subdomainRegistry, // ← ADD
       config.hubDomain,
-    );
-
-    this.httpTunnelHandler = new HttpTunnelHandler(
-      this.subdomainRegistry,
-      this.agentRegistry,
-      this.pendingRegistry,
-      config.hubDomain,
+      this.httpTunnelHandler,
     );
   }
 
@@ -260,6 +263,14 @@ export class HubServer {
         return;
       }
 
+      if (this.httpTunnelHandler.isTunnelRequest(req)) {
+        this.httpTunnelHandler.handleWebSocket(req, socket as any, head).catch(() => {
+          socket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
+          socket.destroy();
+        });
+        return;
+      }
+
       // ← ADD THIS: if it's a tunnel subdomain trying to upgrade to WebSocket
       // (e.g. someone running socket.io through the tunnel)
       // we need to forward the upgrade too — but that is Phase 2.
@@ -313,147 +324,3 @@ export class HubServer {
     console.info('[hub] server stopped');
   }
 }
-
-// ── SDK WebSocket endpoint ─────────────────────────────────────────
-// .ws('/sdk', {
-//   compression: ws.SHARED_COMPRESSOR,
-//   maxPayloadLength: 10 * 1024 * 1024,
-//   idleTimeout: 300, // 5 min — SDK connections are long-lived
-//   sendPingsAutomatically: false,
-
-//   upgrade: (res: any, req: any, ctx: any) => {
-//     const ip = Buffer.from(res.getRemoteAddressAsText()).toString();
-//     res.upgrade(
-//       { connectedAt: Date.now(), ip, type: 'sdk' },
-//       req.getHeader('sec-websocket-key'),
-//       req.getHeader('sec-websocket-protocol'),
-//       req.getHeader('sec-websocket-extensions'),
-//       ctx,
-//     );
-//   },
-
-//   open: (ws: UWSWebSocket) => {
-//     console.info({ ip: ws.getUserData().ip }, '[hub] sdk connected');
-//   },
-
-//   message: (ws: UWSWebSocket, message: ArrayBuffer) => {
-//     const { ip } = ws.getUserData();
-//     const data = Buffer.from(message);
-//     this.router
-//       .routeSdkMessage(ws as any, data, ip)
-//       .catch((err) => console.error({ err }, '[hub] sdk message error'));
-//   },
-
-//   close: (ws: any) => {
-//     this.router.onSdkClose(ws as any);
-//   },
-// })
-
-// .listen(this.config.port, (token: any) => {
-//   if (!token) {
-//     return reject(new Error(`Failed to listen on port ${this.config.port}`));
-//   }
-//   this.listenSocket = token;
-//   console.info(
-//     {
-//       port: this.config.port,
-//       instanceId: this.hubInstanceId,
-//     },
-//     '[hub] ✅ WebSocket server started',
-//   );
-//   resolve();
-// });
-// ── Agent WebSocket endpoint ───────────────────────────────────────
-// .ws('/agent', {
-//   compression: ws.SHARED_COMPRESSOR, // per-message deflate
-//   maxPayloadLength: 10 * 1024 * 1024, // 10MB
-//   idleTimeout: 120, // 2 min idle — heartbeat keeps alive
-//   sendPingsAutomatically: false, // we manage pings ourselves
-
-//   upgrade: (res: UWSResponse, req: UWSRequest, ctx: any) => {
-//     const ip = Buffer.from(res.getRemoteAddressAsText()).toString();
-//     res.upgrade(
-//       { connectedAt: Date.now(), ip, type: 'agent' },
-//       req.getHeader('sec-websocket-key'),
-//       req.getHeader('sec-websocket-protocol'),
-//       req.getHeader('sec-websocket-extensions'),
-//       ctx,
-//     );
-//   },
-
-//   open: (ws: UWSWebSocket) => {
-//     // const { ip } = ws.getUserData();
-//     const { ip } = ws.getUserData() as WsUserData;
-//     console.info({ ip }, '[hub] agent connected');
-//   },
-
-//   message: (ws: UWSWebSocket, message: ArrayBuffer) => {
-//     // const { ip } = ws.getUserData();
-//     const { ip } = ws.getUserData() as WsUserData;
-//     const data = Buffer.from(message);
-//     this.router
-//       .routeAgentMessage(ws as any, data, ip)
-//       .catch((err) => console.error({ err }, '[hub] agent message error'));
-//   },
-
-//   close: (ws: UWSWebSocket, code: number, message: ArrayBuffer) => {
-//     const reason = Buffer.from(message).toString();
-//     console.info({ code, reason }, '[hub] agent disconnected');
-//     this.router.onAgentClose(ws as any);
-//   },
-// })
-
-// if (this.listenSocket) {
-//   ws.us_listen_socket_close(this.listenSocket);
-//   this.listenSocket = null;
-// }
-// import uWS from 'uWebSockets.js';
-
-// type UWSWebSocket = any;
-// type UWSResponse = any;
-// type UWSRequest = any;
-
-// Per-connection metadata stored in uWS user data slot
-// interface WsUserData {
-//   connectedAt: number;
-//   ip: string;
-//   type: 'agent' | 'sdk';
-// }
-
-// return new Promise((resolve, reject) => {
-//   ws
-//     .App()
-
-// ── Health check ───────────────────────────────────────────────────
-// .get('/health', (res: UWSResponse) => {
-//   const body = JSON.stringify({
-//     status: 'ok',
-//     instanceId: this.hubInstanceId,
-//     uptime: process.uptime(),
-//     agents: this.agentRegistry.totalCount(),
-//     sdks: this.sdkRegistry.totalCount(),
-//     pending: this.pendingRegistry.size(),
-//     memoryMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-//   });
-//   res.writeStatus('200 OK').writeHeader('Content-Type', 'application/json').end(body);
-// })
-
-// ── Prometheus metrics ─────────────────────────────────────────────
-// .get('/metrics', (res: UWSResponse) => {
-//   const lines = [
-//     `# HELP hub_agents_connected Number of currently connected agents`,
-//     `# TYPE hub_agents_connected gauge`,
-//     `hub_agents_connected ${this.agentRegistry.totalCount()}`,
-//     `# HELP hub_sdk_connected Number of currently connected SDK clients`,
-//     `# TYPE hub_sdk_connected gauge`,
-//     `hub_sdk_connected ${this.sdkRegistry.totalCount()}`,
-//     `# HELP hub_pending_requests Number of in-flight tunnel requests`,
-//     `# TYPE hub_pending_requests gauge`,
-//     `hub_pending_requests ${this.pendingRegistry.size()}`,
-//   ].join('\n');
-
-//   res
-//     .writeStatus('200 OK')
-//     .writeHeader('Content-Type', 'text/plain; version=0.0.4')
-//     .end(lines);
-// })

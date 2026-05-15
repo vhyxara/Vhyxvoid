@@ -17,8 +17,17 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID } from 'crypto';
 import { AgentRegistry, PendingRegistry } from '@/registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
-import { TunnelForwardMsg, TunnelResponseMsg } from '@vhyxvoid/protocol';
-import { serialize } from '@vhyxvoid/protocol';
+import {
+  TunnelForwardMsg,
+  TunnelResponseMsg,
+  TunnelWsCloseMsg,
+  TunnelWsMessageMsg,
+  TunnelWsOpenMsg,
+  serialize,
+} from '@vhyxvoid/protocol';
+import type { Socket } from 'net';
+// import { WsConnectionRegistry } from '@/registry/WsConnection.registry';
+import { WebSocketServer, WebSocket } from 'ws';
 
 // How long to wait for the agent to respond before returning 504
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -32,6 +41,7 @@ export class HttpTunnelHandler {
     private readonly agentRegistry: AgentRegistry,
     private readonly pendingRegistry: PendingRegistry,
     private readonly hubDomain: string, // e.g. "vhyxvoid.com"
+    // private readonly wsRegistry: WsConnectionRegistry,
   ) {}
 
   /**
@@ -229,6 +239,88 @@ export class HttpTunnelHandler {
     });
   }
 
+  async handleWebSocket(req: IncomingMessage, socket: Socket, head: Buffer): Promise<void> {
+    const host = req.headers.host ?? '';
+    const hostname = host.split(':')[0];
+    const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
+    const parsed = this.parseSubdomain(subdomain);
+
+    if (!parsed) {
+      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    const { label, accountSlug } = parsed;
+    const entry = await this.subdomainRegistry.resolve(label, accountSlug);
+
+    if (!entry) {
+      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    const agent = this.agentRegistry.findByAgentId(entry.agentId);
+    if (!agent) {
+      socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    // Create a local WSS to handle the browser WebSocket upgrade
+    const wss = new WebSocketServer({ noServer: true });
+
+    wss.handleUpgrade(req, socket, head, (browserWs) => {
+      const connectionId = `ws_${randomUUID().replace(/-/g, '')}`;
+
+      console.log('[tunnel-ws] browser connected:', connectionId, req.url);
+
+      // Tell agent to open WS to local backend
+      const openMsg: TunnelWsOpenMsg = {
+        v: '1',
+        type: 'tunnel:ws:open',
+        connectionId,
+        path: req.url ?? '/',
+        query: '',
+        headers: this.sanitizeHeaders(req.headers as Record<string, string>),
+      };
+      agent.ws.send(serialize(openMsg as any));
+
+      // Browser → Agent → Backend
+      browserWs.on('message', (data: Buffer, isBinary: boolean) => {
+        const msg: TunnelWsMessageMsg = {
+          v: '1',
+          type: 'tunnel:ws:message',
+          connectionId,
+          data: isBinary ? data.toString('base64') : data.toString('utf8'),
+          isBinary,
+        };
+        agent.ws.send(serialize(msg as any));
+      });
+
+      browserWs.on('close', (code, reason) => {
+        const msg: TunnelWsCloseMsg = {
+          v: '1',
+          type: 'tunnel:ws:close',
+          connectionId,
+          code,
+          reason: reason.toString(),
+        };
+        try {
+          agent.ws.send(serialize(msg as any));
+        } catch {
+          // ignore
+        }
+        // this.pendingRegistry['wsConnections']?.delete(connectionId);
+        this.activeBrowserWs.delete(connectionId);
+      });
+
+      // Store browser WS so agent responses can find it
+      // Reuse PendingRegistry pattern — store in a simple map on the handler
+      this.activeBrowserWs.set(connectionId, browserWs);
+    });
+  }
+
   // ── Private helpers ───────────────────────────────────────
 
   private parseSubdomain(subdomain: string): { label: string; accountSlug: string } | null {
@@ -241,73 +333,6 @@ export class HttpTunnelHandler {
     if (!label || !accountSlug) return null;
     return { label, accountSlug };
   }
-
-  // private writeResponse(
-  //   res: ServerResponse,
-  //   response: TunnelResponseMsg,
-  //   req: IncomingMessage,
-  // ): void {
-  //   const headers = response.headers ?? {};
-
-  //   // for (const [key, value] of Object.entries(headers)) {
-  //   //   if (this.isHopByHop(key)) continue;
-  //   //   try {
-  //   //     res.setHeader(key, value);
-  //   //   } catch {
-  //   //     // Invalid header — skip
-  //   //   }
-  //   // }
-
-  //   for (const [key, value] of Object.entries(headers)) {
-  //     if (this.isHopByHop(key)) continue;
-  //     if (key.toLowerCase().startsWith('access-control-')) continue; // ← hub owns CORS
-  //     try {
-  //       res.setHeader(key, value);
-  //     } catch {
-  //       // Invalid header — skip
-  //     }
-  //   }
-
-  //   // CORS
-  //   const origin = req.headers.origin;
-  //   if (origin) {
-  //     res.setHeader('Access-Control-Allow-Origin', origin);
-  //     res.setHeader('Access-Control-Allow-Credentials', 'true');
-  //   } else {
-  //     res.setHeader('Access-Control-Allow-Origin', '*');
-  //   }
-  //   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  //   res.setHeader(
-  //     'Access-Control-Allow-Headers',
-  //     'Content-Type, Authorization, X-Requested-With, Cookie, X-API-Key, nonce, signature, timestamp',
-  //   );
-  //   res.setHeader('Vary', 'Origin');
-  //   res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
-
-  //   res.writeHead(response.status ?? 200);
-
-  //   // Body can be null (204 No Content), string, or base64-encoded binary
-  //   if (!response.body) {
-  //     res.end();
-  //     return;
-  //   }
-
-  //   // Check if content-type suggests binary
-  //   const contentType = (headers['content-type'] ?? '').toLowerCase();
-  //   const isBinary =
-  //     contentType.includes('image/') ||
-  //     contentType.includes('application/pdf') ||
-  //     contentType.includes('application/octet-stream') ||
-  //     contentType.includes('audio/') ||
-  //     contentType.includes('video/');
-
-  //   if (isBinary) {
-  //     // Agent sends binary as base64 — decode before writing
-  //     res.end(Buffer.from(response.body, 'base64'));
-  //   } else {
-  //     res.end(response.body);
-  //   }
-  // }
 
   private writeResponse(
     res: ServerResponse,
@@ -442,5 +467,39 @@ export class HttpTunnelHandler {
       'upgrade',
     ]);
     return hopByHop.has(header.toLowerCase());
+  }
+
+  // Add to class:
+  private readonly activeBrowserWs = new Map<string, WebSocket>();
+
+  // Called by MessageRouter when agent sends tunnel:ws:* messages back
+  handleAgentWsMessage(msg: TunnelWsMessageMsg): void {
+    const ws = this.activeBrowserWs.get(msg.connectionId);
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const payload = msg.isBinary ? Buffer.from(msg.data, 'base64') : msg.data;
+    ws.send(payload);
+  }
+
+  handleAgentWsClose(msg: TunnelWsCloseMsg): void {
+    const ws = this.activeBrowserWs.get(msg.connectionId);
+    if (!ws) return;
+    try {
+      ws.close(msg.code, msg.reason);
+    } catch {
+      // Ignore
+    }
+    this.activeBrowserWs.delete(msg.connectionId);
+  }
+
+  handleAgentWsError(msg: { connectionId: string; message: string }): void {
+    const ws = this.activeBrowserWs.get(msg.connectionId);
+    if (!ws) return;
+    try {
+      ws.close(1011, msg.message);
+    } catch {
+      // Ignore
+    }
+    this.activeBrowserWs.delete(msg.connectionId);
   }
 }
