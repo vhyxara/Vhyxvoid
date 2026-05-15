@@ -218,7 +218,13 @@ export class BackendProxy {
   closeWebSocket(connectionId: string, code: number, reason: string): void {
     const ws = this.wsConnections.get(connectionId);
     if (!ws) return;
-    ws.close(code, reason);
+    // Sanitize close code — ws library only accepts 1000 or 3000-4999
+    const safeCode = code >= 1000 && code <= 4999 ? code : 1000;
+    try {
+      ws.close(safeCode, reason);
+    } catch {
+      ws.terminate();
+    }
     this.wsConnections.delete(connectionId);
   }
 
@@ -226,7 +232,9 @@ export class BackendProxy {
     for (const ws of this.wsConnections.values()) {
       try {
         ws.close();
-      } catch {}
+      } catch {
+        ws.terminate();
+      }
     }
     this.wsConnections.clear();
   }

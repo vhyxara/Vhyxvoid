@@ -268,9 +268,9 @@ export class HttpTunnelHandler {
     }
 
     // Create a local WSS to handle the browser WebSocket upgrade
-    const wss = new WebSocketServer({ noServer: true });
+    // const wss = new WebSocketServer({ noServer: true });
 
-    wss.handleUpgrade(req, socket, head, (browserWs) => {
+    this.tunnelWss.handleUpgrade(req, socket, head, (browserWs) => {
       const connectionId = `ws_${randomUUID().replace(/-/g, '')}`;
 
       console.log('[tunnel-ws] browser connected:', connectionId, req.url);
@@ -471,6 +471,8 @@ export class HttpTunnelHandler {
 
   // Add to class:
   private readonly activeBrowserWs = new Map<string, WebSocket>();
+
+  private readonly tunnelWss = new WebSocketServer({ noServer: true });
 
   // Called by MessageRouter when agent sends tunnel:ws:* messages back
   handleAgentWsMessage(msg: TunnelWsMessageMsg): void {

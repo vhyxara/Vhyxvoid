@@ -410,7 +410,11 @@ export class AgentClient {
   }
 
   private onWsClose(msg: TunnelWsCloseMsg): void {
-    this.proxy.closeWebSocket(msg.connectionId, msg.code, msg.reason);
+    try {
+      this.proxy.closeWebSocket(msg.connectionId, msg.code, msg.reason);
+    } catch (err) {
+      console.error("[agent] onWsClose error:", err);
+    }
   }
 
   private onClose(code: number, reason: string): void {

@@ -272,7 +272,7 @@ export class HubServer {
           socket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
           socket.destroy();
         });
-        return;
+        return; // ← httpTunnelHandler creates its own wss internally, never touches the main wss
       }
 
       // ← ADD THIS: if it's a tunnel subdomain trying to upgrade to WebSocket
