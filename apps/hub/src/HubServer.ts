@@ -245,7 +245,11 @@ export class HubServer {
       res.end();
     });
 
-    const wss = new WebSocketServer({ noServer: true });
+    const wss = new WebSocketServer({
+      // noServer: true,
+      server,
+      maxPayload: 100 * 1024 * 1024,
+    });
 
     server.on('upgrade', (req, socket, head) => {
       const pathname = req.url;

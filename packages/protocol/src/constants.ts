@@ -10,9 +10,9 @@ export const TIMING = {
   /** Buffer over REQUEST_TIMEOUT_MS for hub:pending Redis TTL */
   PENDING_TTL_MS: 32_000,
   /** Hub pings every N ms */
-  HEARTBEAT_INTERVAL_MS: 10_000,
+  HEARTBEAT_INTERVAL_MS: 15_000,
   /** Miss this many pings → agent evicted */
-  MAX_MISSED_PINGS: 3,
+  MAX_MISSED_PINGS: 6,
   /** Redis presence key TTL (must be > HEARTBEAT_INTERVAL_MS) */
   AGENT_PRESENCE_TTL_SEC: 25,
   /** Agent reconnect: initial delay */
