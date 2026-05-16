@@ -246,8 +246,8 @@ export class HubServer {
     });
 
     const wss = new WebSocketServer({
-      // noServer: true,
-      server,
+      noServer: true,
+      // server,
       maxPayload: 100 * 1024 * 1024,
     });
 
