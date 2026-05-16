@@ -9,12 +9,14 @@ import {
   AgentBatchMsg,
   serialize,
   TIMING,
+  TunnelWsMessageMsg,
 } from "@vhyxvoid/protocol";
 
 export type BatchableMsg =
   | TunnelResponseMsg
   | TunnelAgentErrorMsg
-  | AgentPongMsg;
+  | AgentPongMsg
+  | TunnelWsMessageMsg;
 
 type FlushFn = (data: string) => void;
 type QueueFallback = (msg: TunnelResponseMsg | TunnelAgentErrorMsg) => void;

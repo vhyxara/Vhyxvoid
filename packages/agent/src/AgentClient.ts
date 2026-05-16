@@ -379,7 +379,8 @@ export class AgentClient {
           data,
           isBinary,
         };
-        this.sendRaw(serialize(frame));
+        // this.sendRaw(serialize(frame));
+        this.batcher.add(frame);
       },
       // Backend closed
       (code, reason) => {

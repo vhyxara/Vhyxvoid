@@ -223,7 +223,11 @@ export class BackendProxy {
     try {
       ws.close(safeCode, reason);
     } catch {
-      ws.terminate();
+      try {
+        ws.terminate();
+      } catch {
+        // Ignore
+      }
     }
     this.wsConnections.delete(connectionId);
   }
