@@ -65,6 +65,10 @@ export interface AgentConfig {
   localDiscovery?: boolean;
   /** Called whenever the agent state changes */
   onStateChange?: (state: AgentState) => void;
+
+  /** Called once with the public tunnel URL after hub:registered */
+  onTunnelUrl?: (tunnelUrl: string) => void;
+
   /** Called on each log event — defaults to console */
   logger?: {
     info: (obj: object, msg?: string) => void;
@@ -262,6 +266,7 @@ export class AgentClient {
     console.log("  ✅  Tunnel active");
     console.log("");
     if (msg.tunnelUrl) {
+      this.config.onTunnelUrl?.(msg.tunnelUrl);
       console.log(`  Local:   http://localhost:${this.config.port}`);
       console.log(`  Public:  ${msg.tunnelUrl}`);
       console.log("");
