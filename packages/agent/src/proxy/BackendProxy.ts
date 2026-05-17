@@ -72,7 +72,7 @@ export class BackendProxy {
       method: msg.method,
       url,
       headers: this.sanitizeInboundHeaders(msg.headers),
-      data: msg.body ?? undefined,
+      data: msg.body && msg.body.length > 0 ? msg.body : undefined,
     });
 
     const bodyBuffer = response.data as Buffer;

@@ -169,7 +169,8 @@ export class HttpTunnelHandler {
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      body = await this.readBody(req, MAX_BODY_BYTES);
+      const raw = await this.readBody(req, MAX_BODY_BYTES);
+      body = raw.length > 0 ? raw : null; // ← null instead of ""
     }
 
     // Build forward message
