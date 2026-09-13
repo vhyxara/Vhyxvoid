@@ -18,12 +18,15 @@
 // This file is the barrel that npm consumers import from.
 // In your project, create packages/sdk/src/index.ts with these lines uncommented.
 
+// Existing WebSocket SDK (frontend browser use)
 export { TunnelClient } from "./TunnelClient";
-
 export type {
   TunnelClientConfig,
   TunnelResponse,
   RequestOptions,
 } from "./types";
-
 export { TunnelError, TunnelTimeoutError } from "./types";
+
+// HTTP client SDK (server-to-server, Node.js scripts, CI/CD)
+export { createClient, VhyxvoidClient, ClientError } from "./client";
+export type { ClientConfig, ClientResponse } from "./client";
