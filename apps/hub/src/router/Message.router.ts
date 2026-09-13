@@ -487,6 +487,12 @@ export class MessageRouter {
           status: response.status,
           headers: response.headers,
           body: response.body,
+          // Passed through as-is (see context.md risk #21). NOTE: the SDK
+          // client (packages/sdk) does not yet decode base64 bodies on this
+          // path — that's a separate, not-yet-done follow-up. Only the raw
+          // HTTP tunnel path (HttpTunnelHandler.writeResponse) is fully
+          // fixed this session.
+          bodyEncoding: response.bodyEncoding,
           durationMs: response.durationMs,
         };
         this.sendToWs(ws, sdkResponse);

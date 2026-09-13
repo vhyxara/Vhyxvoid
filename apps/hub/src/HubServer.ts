@@ -337,13 +337,22 @@ export class HubServer {
         }
       });
 
-      ws.on('close', () => {
+      ws.on('close', async () => {
         if (type === 'agent') {
-          this.router
-            .onAgentClose(ws)
-            .catch((err: Error) =>
-              console.error({ err: err.message }, '[hub] error in onAgentClose'),
-            );
+          // Awaited so the close handler's own async work (subdomain
+          // unregister, session-disconnect DB write) actually runs to
+          // completion and any rejection surfaces here rather than as an
+          // unhandled promise elsewhere. This does NOT eliminate the
+          // documented register-vs-close race for a rapid reconnect on the
+          // same label (context.md risk #23/#19) — that race is between two
+          // independent WS connections/event-loop turns and isn't fixable
+          // by awaiting inside a single handler. See decision.md,
+          // 2026-09-12, "onAgentClose await".
+          try {
+            await this.router.onAgentClose(ws);
+          } catch (err) {
+            console.error({ err: (err as Error).message }, '[hub] error in onAgentClose');
+          }
         } else {
           this.router.onSdkClose(ws);
         }

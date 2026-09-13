@@ -60,6 +60,7 @@ export class BackendProxy {
         status: cached.status,
         headers: { ...cached.headers, "x-vhyxvoid-cache": "HIT" },
         body: cached.body,
+        bodyEncoding: cached.bodyEncoding,
         durationMs: 0, // served from memory
       };
     }
@@ -76,17 +77,29 @@ export class BackendProxy {
     });
 
     const bodyBuffer = response.data as Buffer;
-    const bodyStr = bodyBuffer.length > 0 ? bodyBuffer.toString("utf8") : null;
     const headers = this.sanitizeOutboundHeaders(
       response.headers as Record<string, any>,
     );
     const durationMs = Date.now() - start;
+
+    // Previously this always did bodyBuffer.toString("utf8") regardless of
+    // content type, which silently corrupts any binary response (images,
+    // PDFs, etc.) — lossy UTF-8 decoding is not reversible, so by the time
+    // the hub's content-type-based sniffing tried to Buffer.from(body,
+    // 'base64') on the way back out, the bytes were already mangled. See
+    // context.md risk #21 and decision.md, 2026-09-12, "tunnel:forward /
+    // tunnel:response bodyEncoding".
+    const isBinary = this.isBinaryContentType(headers["content-type"]);
+    const bodyEncoding: "utf8" | "base64" = isBinary ? "base64" : "utf8";
+    const bodyStr =
+      bodyBuffer.length > 0 ? bodyBuffer.toString(bodyEncoding) : null;
 
     // ── Store in cache if cacheable ───────────────────────────────────────────
     this.cache.set(msg.method, msg.path, msg.query, {
       status: response.status,
       headers,
       body: bodyStr,
+      bodyEncoding,
       durationMs,
     });
 
@@ -94,8 +107,22 @@ export class BackendProxy {
       status: response.status,
       headers: { ...headers, "x-vhyxvoid-cache": "MISS" },
       body: bodyStr,
+      bodyEncoding,
       durationMs,
     };
+  }
+
+  private isBinaryContentType(contentType: string | undefined): boolean {
+    const ct = (contentType ?? "").toLowerCase();
+    return (
+      ct.includes("image/") ||
+      ct.includes("application/pdf") ||
+      ct.includes("application/octet-stream") ||
+      ct.includes("audio/") ||
+      ct.includes("video/") ||
+      ct.includes("font/") ||
+      ct.includes("application/zip")
+    );
   }
 
   /** Invalidate cached GETs related to a mutating request path */

@@ -31,6 +31,13 @@ export interface TunnelResponseMsg {
   status: number;
   headers: Record<string, string>;
   body: string | null;
+  /**
+   * How `body` is encoded. Optional for backward compatibility with an
+   * older agent that never set it — a receiver seeing it undefined should
+   * fall back to the pre-existing content-type-sniffing heuristic, not
+   * assume "utf8". See context.md risk #21.
+   */
+  bodyEncoding?: "utf8" | "base64";
   durationMs: number;
 }
 
@@ -127,6 +134,8 @@ export interface SdkResponseMsg {
   status: number;
   headers: Record<string, string>;
   body: string | null;
+  /** See TunnelResponseMsg.bodyEncoding — same meaning, passed through as-is. */
+  bodyEncoding?: "utf8" | "base64";
   durationMs: number;
 }
 

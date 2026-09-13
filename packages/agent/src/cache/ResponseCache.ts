@@ -4,6 +4,9 @@ export interface CachedResponse {
   status: number;
   headers: Record<string, string>;
   body: string | null;
+  /** See TunnelResponseMsg.bodyEncoding — preserved so a cache HIT for a
+   * binary response doesn't lose its encoding on replay. */
+  bodyEncoding?: "utf8" | "base64";
   durationMs: number;
   cachedAt: number; // unix ms
   expiresAt: number; // unix ms

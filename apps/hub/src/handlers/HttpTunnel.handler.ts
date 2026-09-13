@@ -402,13 +402,21 @@ export class HttpTunnelHandler {
       return;
     }
 
-    const contentType = (headers['content-type'] ?? '').toLowerCase();
-    const isBinary =
-      contentType.includes('image/') ||
-      contentType.includes('application/pdf') ||
-      contentType.includes('application/octet-stream') ||
-      contentType.includes('audio/') ||
-      contentType.includes('video/');
+    // Prefer the explicit bodyEncoding the agent now sets (see
+    // context.md risk #21) over content-type sniffing — sniffing stays as
+    // the fallback for an older agent build that predates this field.
+    let isBinary: boolean;
+    if (response.bodyEncoding) {
+      isBinary = response.bodyEncoding === 'base64';
+    } else {
+      const contentType = (headers['content-type'] ?? '').toLowerCase();
+      isBinary =
+        contentType.includes('image/') ||
+        contentType.includes('application/pdf') ||
+        contentType.includes('application/octet-stream') ||
+        contentType.includes('audio/') ||
+        contentType.includes('video/');
+    }
 
     if (isBinary) {
       res.end(Buffer.from(response.body, 'base64'));
