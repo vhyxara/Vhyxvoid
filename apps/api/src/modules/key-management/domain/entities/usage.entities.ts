@@ -73,11 +73,6 @@ export class UsageAggregate {
     this.props.quantity += amount;
   }
 
-  markReportedToStripe(recordId: string): void {
-    this.props.reportedToStripe = true;
-    this.props.stripeUsageRecordId = recordId;
-  }
-
   lock(now: Date): void {
     this.props.lockedAt = now;
   }

@@ -19,7 +19,7 @@ export enum Plan {
   ENTERPRISE = "ENTERPRISE",
 }
 
-// Backward-compat alias — HardcodedPlanLimitService uses PlanTier,
+// Backward-compat alias — SubscriptionPlanLimitService uses PlanTier,
 // nothing needs to change there.
 export type PlanTier = Plan;
 

@@ -86,15 +86,6 @@ export class PrismaUsageAggregateRepository implements UsageAggregateRepository 
     );
   }
 
-  async findUnreportedToStripe(accountId: string): Promise<UsageAggregate[]> {
-    const data = await this.prisma.usageAggregate.findMany({
-      where: { accountId, reportedToStripe: false, lockedAt: { not: null } },
-    });
-    return data.map((d) =>
-      UsageAggregate.rehydrate(d as unknown as UsageAggregateProps),
-    );
-  }
-
   async upsertQuantity(params: {
     accountId: string;
     apiKeyId: string | null;

@@ -10,7 +10,7 @@
 
 // src/modules/key-management/presentation/plugins/infrastructure/api.ts
 import { PrismaApiKeyRepository } from "@/modules/key-management/domain/repositories/ApiKey.repositories";
-import { HardcodedPlanLimitService } from "@/modules/key-management/domain/repositories/HardcodedPlanLimitService.repositories";
+import { SubscriptionPlanLimitService } from "@/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories";
 import { PrismaSecurityEventRepository } from "@/modules/key-management/domain/repositories/SecurityEvent.repositories";
 import { PrismaUsageAggregateRepository } from "@/modules/key-management/domain/repositories/UsageAggregate.repositories";
 import { RedisApiKeyCacheService } from "@/modules/key-management/domain/services/RedisApiKeyCache.service";
@@ -23,7 +23,7 @@ export function createApiKeyInfrastructure(prisma: PrismaClient, redis: Redis) {
   const apiKeyRepository = new PrismaApiKeyRepository(prisma);
   const usageRepository = new PrismaUsageAggregateRepository(prisma);
   const securityRepository = new PrismaSecurityEventRepository(prisma);
-  const planLimitService = new HardcodedPlanLimitService(prisma);
+  const planLimitService = new SubscriptionPlanLimitService(prisma);
   // console.log('API Key Infrastructure created with Redis and Prisma', cacheService);
   return {
     cacheService,

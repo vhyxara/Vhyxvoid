@@ -39,8 +39,6 @@ export interface UsageAggregateRepository {
     metric?: UsageMetric,
   ): Promise<UsageAggregate[]>;
 
-  findUnreportedToStripe(accountId: string): Promise<UsageAggregate[]>;
-
   /**
    * Upsert a usage aggregate — used by the flush worker.
    * Adds quantity to existing record if it exists for the same period.

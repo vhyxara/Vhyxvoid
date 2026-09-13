@@ -534,6 +534,13 @@ model UsageAggregate {
   periodEnd   DateTime
   quantity    BigInt
 
+  // reportedToStripe/stripeUsageRecordId: vestigial columns for a metered-
+  // billing design that was decided against in favor of flat-rate plans
+  // (see decision.md, 2026-09-13, "Billing model: flat-rate tiers"). Never
+  // set to true by any code path today — kept as inert schema, not
+  // dropped, since removing them would need a real migration this
+  // decision doesn't require; safe to drop whenever this table is next
+  // migrated for an unrelated reason.
   reportedToStripe    Boolean   @default(false)
   stripeUsageRecordId String?
   lockedAt            DateTime? // set after invoice finalization — immutable after this
@@ -633,35 +640,13 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// ==========================
-// 14 Usage Aggregate (Metered)
-// ==========================
-// model UsageAggregate {
-//   id          String   @id @default(uuid())
-//   accountId   String
-//   metric      String   // e.g., "bandwidth_bytes"
-//   periodStart DateTime
-//   periodEnd   DateTime
-//   total       BigInt
-
-//   account     Account  @relation(fields: [accountId], references: [id])
-//   usageReports UsageReport[]
-
-//   @@unique([accountId, metric, periodStart])
-// }
-
-// ==========================
-// 15 Usage Report (Stripe Reporting)
-// ==========================
-// model UsageReport {
-//   id                  String @id @default(uuid())
-//   usageAggregateId    String
-//   stripeUsageRecordId String?
-//   reportedAt          DateTime?
-//   status              String
-
-//   usageAggregate      UsageAggregate @relation(fields: [usageAggregateId], references: [id])
-// }
+// Models 14 (an earlier draft of UsageAggregate) and 15 (UsageReport, a
+// separate table for Stripe usage-reporting status) were an abandoned
+// metered-billing design, superseded by folding reportedToStripe/
+// stripeUsageRecordId directly onto the live UsageAggregate model above.
+// Removed 2026-09-13 as part of formally deciding against metered billing
+// (flat-rate tiers only) — see decision.md, "Billing model: flat-rate
+// tiers". Neither model was ever active (both fully commented out).
 
 // ==========================
 // 16 Stripe Events (Webhook Tracking)
