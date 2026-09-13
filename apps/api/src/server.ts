@@ -9,7 +9,6 @@ import { registerPlugins } from "@/modules/identity/presentation/plugins/registe
 import registerRoutes from "@/modules/identity/presentation/http/index";
 import rawBody from "fastify-raw-body";
 // import { initRedis } from '@/core/redis/RedisClient';
-// import { gatewayRoutes } from './modules/key-management/presentation/http/gatewayRoutes';
 
 dotenv.config();
 
@@ -32,9 +31,6 @@ export const buildServer = async () => {
 
   // Register API routes
   await registerRoutes(server);
-
-  // Gateway validation route (internal — restrict to internal network):
-  // server.register(gatewayRoutes, { prefix: '/gateway/v1' });
 
   // Health check
   // server.get("/health", async () => ({ ok: true, ts: Date.now() }));

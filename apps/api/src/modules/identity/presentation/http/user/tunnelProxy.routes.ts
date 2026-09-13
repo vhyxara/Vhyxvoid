@@ -97,7 +97,15 @@ export async function tunnelProxyRoutes(fastify: FastifyInstance) {
 
         hubResponse = await fetch(`${hubInternalUrl}/internal/proxy`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            // Required by the Hub's internal/proxy auth (apps/hub's
+            // HubServer.ts) — fails closed (503) without it, or 401 if it
+            // doesn't match. This call never sent it until now, so this
+            // route always failed downstream even with a valid API key.
+            // See decision.md, 2026-09-13, "tunnelProxy route dormant-endpoint review".
+            "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "",
+          },
           body: JSON.stringify({
             agentId: session.agentId,
             method: input.method,
