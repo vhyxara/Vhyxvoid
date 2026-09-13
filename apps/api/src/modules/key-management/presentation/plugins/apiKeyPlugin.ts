@@ -16,6 +16,7 @@ import { RevokeApiKeyUseCase } from "@/modules/key-management/application/use-ca
 import { RotateApiKeyUseCase } from "@/modules/key-management/application/use-cases/RotateApiKey.usecase";
 import { UpdateApiKeyUseCase } from "@/modules/key-management/application/use-cases/UpdateApiKey.usecase";
 import { ValidateApiKeyUseCase } from "@/modules/key-management/application/use-cases/ValidateApiKey.usecase";
+import { buildValidateApiKeyUseCase, buildDbApiKeyLoader } from "@vhyxvoid/shared";
 // import { PrismaApiKeyRepository } from '../../domain/repositories/ApiKeyRepository';
 // import { HardcodedPlanLimitService } from '../../domain/repositories/HardcodedPlanLimitService';
 // import { PrismaSecurityEventRepository } from '../../domain/repositories/SecurityEventRepository';
@@ -166,14 +167,23 @@ export default fp(async (fastify: FastifyInstance) => {
     ),
   );
 
+  // The canonical validation logic (timestamp/replay/scope/HMAC/rate-limit)
+  // now lives in packages/shared — the same code the Hub runs on every real
+  // gateway request. This wiring builds the same factory the Hub uses
+  // (buildValidateApiKeyUseCase + buildDbApiKeyLoader against this app's own
+  // Prisma client, which points at the same generated schema/DB as the
+  // Hub's) so both apps run one implementation instead of two. apps/api's
+  // ValidateApiKeyUseCase is now just a thin adapter that maps failures onto
+  // SecurityEventType and writes the audit row. See decision.md, 2026-09-13,
+  // "Unify ValidateApiKeyUseCase".
+  const canonicalValidateKeyUseCase = buildValidateApiKeyUseCase({
+    redis: fastify.redis,
+    loadKey: buildDbApiKeyLoader(fastify.prisma),
+  });
+
   fastify.decorate(
     "validateApiKeyUseCase",
-    new ValidateApiKeyUseCase(
-      apiKeyRepository,
-      cacheService,
-      securityRepository,
-      pepper,
-    ),
+    new ValidateApiKeyUseCase(canonicalValidateKeyUseCase, securityRepository),
   );
 
   fastify.decorate("apiKeyRepository", apiKeyRepository);

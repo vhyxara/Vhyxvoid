@@ -44,6 +44,13 @@ export interface GatewayValidationFailure {
   valid: false;
   code: string;
   reason: string;
+  // Populated whenever the key was successfully loaded before the failure
+  // (i.e. every rejection from status checks onward, not timestamp/replay/
+  // unknown-key rejections). Optional so callers that only need valid/code/
+  // reason (e.g. the Hub) are unaffected; added so callers that want to
+  // attribute a rejection to an account for audit logging (e.g. apps/api's
+  // SecurityEvent trail) don't have to re-derive it themselves.
+  accountId?: string;
 }
 
 export type GatewayValidationResult =

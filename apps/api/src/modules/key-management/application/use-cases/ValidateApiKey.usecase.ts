@@ -1,197 +1,68 @@
-import { ApiKeyRepository } from "@/core/types/api-key/apiKeys.type";
-import { ApiScope, SecurityEventType } from "@/core/constant/apikey.constant";
-import { ApiKeyCacheService } from "@/core/types/api-key/cacheservice.type";
+import { SecurityEventType } from "@/core/constant/apikey.constant";
 import {
   GatewayValidationResult,
   GatewayValidationError,
 } from "@/core/types/api-key/gateway.type";
 import { SecurityEventRepository } from "@/core/types/api-key/securityEvent.type";
-import { ApiKeyStatus } from "@/generated/prisma";
 import { SecurityEvent } from "@/modules/key-management/domain/entities/security.entities";
-import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
-import { buildCachePayload } from "@/modules/key-management/application/helpers/keymanagement.utils";
-import { createHmac, timingSafeEqual } from "crypto";
+import type {
+  IValidateApiKeyUseCase,
+  ValidateApiKeyParams,
+} from "@vhyxvoid/shared";
+
+// The canonical HMAC/replay/scope/rate-limit validation logic used to be
+// duplicated here and in packages/shared/src/validateApiKey.ts (the Hub's
+// live gateway path) — same algorithm, independently maintained, and they
+// had already silently diverged once (fail-soft/fail-open Redis handling)
+// before that was caught. This class is now a thin adapter around the
+// single canonical implementation: it delegates the actual validation to
+// the injected IValidateApiKeyUseCase and adds only what's specific to
+// apps/api — mapping the canonical (generic-string) failure code onto this
+// module's SecurityEventType enum, and writing the fire-and-forget
+// SecurityEvent audit row that packages/shared deliberately does not know
+// how to do (it stays Prisma-free by design). See decision.md, 2026-09-13,
+// "Unify ValidateApiKeyUseCase".
+//
+// Canonical code -> SecurityEventType. Both sides were forked from the same
+// original logic and drifted to different string literals for the same two
+// cases (SCOPE_MISSING/RATE_LIMITED vs SCOPE_VIOLATION/RATE_LIMIT_EXCEEDED).
+// Kept as an explicit map (not a shared enum) so a future new canonical code
+// fails loudly here instead of silently producing an UNKNOWN security event.
+const CODE_MAP: Record<string, SecurityEventType> = {
+  INVALID_SIGNATURE: SecurityEventType.INVALID_SIGNATURE,
+  REPLAY_ATTACK: SecurityEventType.REPLAY_ATTACK,
+  REVOKED_KEY: SecurityEventType.REVOKED_KEY,
+  EXPIRED_KEY: SecurityEventType.EXPIRED_KEY,
+  SUSPENDED_ACCOUNT: SecurityEventType.SUSPENDED_ACCOUNT,
+  SCOPE_MISSING: SecurityEventType.SCOPE_VIOLATION,
+  RATE_LIMITED: SecurityEventType.RATE_LIMIT_EXCEEDED,
+};
+
 export class ValidateApiKeyUseCase {
   constructor(
-    private apiKeyRepository: ApiKeyRepository,
-    private cacheService: ApiKeyCacheService,
-    private securityRepository: SecurityEventRepository,
-    private pepper: string,
+    private readonly canonical: IValidateApiKeyUseCase,
+    private readonly securityRepository: SecurityEventRepository,
   ) {}
 
-  async execute(params: {
-    keyId: string;
-    signature: string;
-    method: string;
-    path: string;
-    body: string;
-    requestId: string;
-    timestamp: number; // unix ms from client
-    requiredScope: string;
-    ip: string;
-  }): Promise<GatewayValidationResult | GatewayValidationError> {
-    // const now = new Date();
+  async execute(
+    params: ValidateApiKeyParams,
+  ): Promise<GatewayValidationResult | GatewayValidationError> {
+    const result = await this.canonical.execute(params);
 
-    // ── 1. Timestamp check ──────────────────────────────────────────────────
-    const SIGNATURE_WINDOW_MS = 60_000;
-    const age = Math.abs(Date.now() - params.timestamp);
-    if (age > SIGNATURE_WINDOW_MS) {
-      return this.reject(
-        SecurityEventType.INVALID_SIGNATURE,
-        "Request timestamp outside acceptable window",
-        { keyId: params.keyId, ip: params.ip },
-      );
-    }
-
-    // ── 2. Replay protection — SET NX in Redis ───────────────────────────────
-    const isNew = await this.cacheService.markRequestId(params.requestId);
-    if (!isNew) {
-      return this.reject(
-        SecurityEventType.REPLAY_ATTACK,
-        "Duplicate requestId detected",
-        {
-          keyId: params.keyId,
-          ip: params.ip,
-        },
-      );
-    }
-
-    // ── 3. Load key — cache first, DB fallback ───────────────────────────────
-    let cached = await this.cacheService.get(params.keyId);
-
-    if (!cached) {
-      const key = await this.apiKeyRepository.findByKeyId(params.keyId);
-      if (!key) {
-        return this.reject(
-          SecurityEventType.INVALID_SIGNATURE,
-          "Unknown API key",
-          {
-            ip: params.ip,
-          },
-        );
-      }
-      // Warm cache for next request
-      cached = buildCachePayload(key, Infinity, key.accountId);
-      await this.cacheService.set(params.keyId, cached);
-    }
-
-    // ── 4. Status checks ────────────────────────────────────────────────────
-    if (cached.status === ApiKeyStatus.REVOKED) {
-      return this.reject(
-        SecurityEventType.REVOKED_KEY,
-        "API key has been revoked",
-        {
-          keyId: params.keyId,
-          accountId: cached.accountId,
-          ip: params.ip,
-        },
-      );
-    }
-
-    if (cached.expiresAt && cached.expiresAt < Date.now()) {
-      return this.reject(SecurityEventType.EXPIRED_KEY, "API key has expired", {
+    if (!result.valid) {
+      const mappedCode = CODE_MAP[result.code] ?? SecurityEventType.INVALID_SIGNATURE;
+      return this.reject(mappedCode, result.reason, {
         keyId: params.keyId,
-        accountId: cached.accountId,
+        accountId: result.accountId,
         ip: params.ip,
       });
     }
 
-    if (cached.accountStatus !== "ACTIVE") {
-      return this.reject(
-        SecurityEventType.SUSPENDED_ACCOUNT,
-        "Account is not active",
-        {
-          keyId: params.keyId,
-          accountId: cached.accountId,
-          ip: params.ip,
-        },
-      );
-    }
-
-    // ── 5. Scope check ───────────────────────────────────────────────────────
-    const hasScope =
-      cached.scopes.includes(ApiScope.WILDCARD) ||
-      cached.scopes.includes(params.requiredScope);
-
-    if (!hasScope) {
-      return this.reject(
-        SecurityEventType.SCOPE_VIOLATION,
-        `Key does not have required scope: ${params.requiredScope}`,
-        { keyId: params.keyId, accountId: cached.accountId, ip: params.ip },
-      );
-    }
-
-    // ── 6. HMAC signature verification ──────────────────────────────────────
-    const canonical = ApiKey.buildCanonical({
-      method: params.method,
-      path: params.path,
-      body: params.body,
-      requestId: params.requestId,
-      timestamp: params.timestamp,
-    });
-
-    // Reconstruct entity just enough to call verifySignature
-    // We don't rehydrate the full entity — just do the HMAC check directly
-    const verifyHash = (hash: string): boolean => {
-      try {
-        const expected = createHmac("sha256", hash)
-          .update(canonical)
-          .digest("hex");
-        return timingSafeEqual(
-          Buffer.from(expected, "hex"),
-          Buffer.from(params.signature, "hex"),
-        );
-      } catch {
-        return false;
-      }
-    };
-
-    const graceActive =
-      cached.rotationGraceEndsAt !== null &&
-      cached.rotationGraceEndsAt > Date.now();
-
-    const signatureValid =
-      verifyHash(cached.secretHash) ||
-      (graceActive && cached.previousSecretHash
-        ? verifyHash(cached.previousSecretHash)
-        : false);
-
-    if (!signatureValid) {
-      return this.reject(
-        SecurityEventType.INVALID_SIGNATURE,
-        "HMAC signature verification failed",
-        { keyId: params.keyId, accountId: cached.accountId, ip: params.ip },
-      );
-    }
-
-    // ── 7. Rate limit check ──────────────────────────────────────────────────
-    const count = await this.cacheService.incrementRateLimit(params.keyId);
-    if (
-      cached.rateLimitPerMinute !== Infinity &&
-      count > cached.rateLimitPerMinute
-    ) {
-      return this.reject(
-        SecurityEventType.RATE_LIMIT_EXCEEDED,
-        `Rate limit exceeded: ${cached.rateLimitPerMinute} req/min`,
-        { keyId: params.keyId, accountId: cached.accountId, ip: params.ip },
-      );
-    }
-
-    // ── 8. Record usage — fire and forget ────────────────────────────────────
-    this.cacheService
-      .incrementUsage({
-        accountId: cached.accountId,
-        apiKeyId: params.keyId,
-        metric: "requests",
-        amount: 1,
-      })
-      .catch(() => {}); // never block the response
-
     return {
       valid: true,
-      apiKeyId: params.keyId,
-      accountId: cached.accountId,
-      scopes: cached.scopes,
+      apiKeyId: result.apiKeyId,
+      accountId: result.accountId,
+      scopes: result.scopes,
     };
   }
 
