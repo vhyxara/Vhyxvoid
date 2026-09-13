@@ -1,0 +1,33 @@
+{
+  "name": "@vhyxvoid/next",
+  "version": "1.0.3",
+  "description": "Zero-config tunnel for Next.js — starts automatically with next dev",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b && esbuild dist/index.js --bundle --platform=node --external:next --external:better-sqlite3 --allow-overwrite --outfile=dist/index.js",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "keywords": [
+    "tunnel",
+    "nextjs",
+    "next",
+    "vhyxvoid",
+    "ngrok",
+    "hmr"
+  ],
+  "peerDependencies": {
+    "next": ">=13.0.0"
+  },
+  "dependencies": {
+    "@vhyxvoid/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0"
+  }
+}

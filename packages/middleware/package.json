@@ -1,0 +1,56 @@
+{
+  "name": "@vhyxvoid/middleware",
+  "version": "1.0.3",
+  "description": "Zero-config tunnel middleware for Express, Fastify, and Next.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./next": "./dist/next.js",
+    "./fastify": "./dist/fastify.js"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc -b && esbuild dist/index.js --bundle --platform=node --external:express --external:fastify --external:fastify-plugin --external:better-sqlite3 --allow-overwrite --outfile=dist/index.js && esbuild dist/next.js --bundle --platform=node --external:better-sqlite3 --allow-overwrite --outfile=dist/next.js && esbuild dist/fastify.js --bundle --platform=node --external:fastify --external:fastify-plugin --external:better-sqlite3 --allow-overwrite --outfile=dist/fastify.js",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "keywords": [
+    "tunnel",
+    "middleware",
+    "express",
+    "nextjs",
+    "fastify",
+    "vhyxvoid"
+  ],
+  "peerDependencies": {
+    "express": ">=4.0.0",
+    "fastify": ">=4.0.0",
+    "fastify-plugin": ">=4.0.0",
+    "next": ">=13.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "fastify-plugin": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@vhyxvoid/agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0"
+  }
+}
