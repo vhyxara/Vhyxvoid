@@ -13,6 +13,7 @@ import { GetInvoicesUseCase } from "@/modules/billing/application/use-cases/bill
 import { GetSubscriptionUseCase } from "@/modules/billing/application/use-cases/billing/GetSubscription.usecase";
 import { HandleStripeWebhookUseCase } from "@/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase";
 import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
+import { GracePeriodWorker } from "@/modules/billing/infrastructure/workers/GracePeriod.worker";
 import { PrismaSubscriptionRepository } from "@/modules/billing/domain/repositories/PrismaSubscriptionRepository";
 import { PrismaInvoiceRepository } from "@/modules/billing/domain/repositories/PrismaInvoiceRepository";
 import { PrismaAccountBillingRepository } from "@/modules/billing/domain/repositories/PrismaAccountBillingRepository";
@@ -178,6 +179,20 @@ export const billingPlugin = fp(
       "checkPlanLimitsService",
       new CheckPlanLimitsService(subscriptionRepo),
     );
+
+    // ── Background workers ───────────────────────────────────────
+    // context.md risk #41: this class existed fully written but was never
+    // instantiated/scheduled anywhere. start() runs an immediate sweep
+    // before its hourly interval, so a restart after any downtime (first
+    // deploy of this fix included) catches already-stale PAST_DUE
+    // accounts the same way any other restart would — no separate
+    // backfill/migration step needed. See decision.md, 2026-09-14,
+    // "Schedule GracePeriodWorker".
+    const gracePeriodWorker = new GracePeriodWorker(fastify.prisma);
+    gracePeriodWorker.start();
+    fastify.addHook("onClose", async () => {
+      gracePeriodWorker.stop();
+    });
 
     // ── Routes ─────────────────────────────────────────────────
     // fastify.register(billingRoutes, { prefix: "/accounts" });
