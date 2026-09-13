@@ -1,31 +1,44 @@
-import { describe, it, expect, vi } from "vitest";
-import { verifySignature } from "../../apps/hub/src/auth";
-import crypto from "crypto";
-import { addFrontendKey } from "../../apps/hub/src/store";
+import { describe, it, expect } from "vitest";
+import {
+  buildCanonical,
+  signCanonical,
+  verifyCanonical,
+} from "../../packages/protocol/src/canonical";
 
-describe("HMAC Signature → valid", () => {
-  it("accepts correct signature", () => {
-    vi.spyOn(Date, "now").mockReturnValue(123456);
-
+// REPLACED 2026-09-12 (broken-test-repair session). See verifySignature.test.ts
+// for the full explanation of why this maps onto packages/protocol's
+// canonical-string signing/verification, not a resurrected "frontendKey"
+// store. This file keeps the original's "success path" framing/split.
+describe("verifyCanonical — success path", () => {
+  it("accepts a correctly-signed canonical string", () => {
     const secret = "secret_demo";
-    addFrontendKey("front-demo", secret);
-    const canonical = "GET|/hello||req1|123456";
-
-    const signature = crypto
-      .createHmac("sha256", secret)
-      .update(canonical)
-      .digest("hex");
-
-    const ok = verifySignature({
+    const canonical = buildCanonical({
       method: "GET",
       path: "/hello",
-      bodyBase64: null,
+      query: "",
+      body: "",
       requestId: "req1",
       ts: 123456,
-      signature,
-      frontendKey: "front-demo",
     });
 
-    expect(ok).toBe(true);
+    const signature = signCanonical(canonical, secret);
+
+    expect(verifyCanonical(canonical, signature, secret)).toBe(true);
+  });
+
+  it("still accepts correctly when the request has a body (body hash included in the canonical string)", () => {
+    const secret = "secret_demo";
+    const canonical = buildCanonical({
+      method: "POST",
+      path: "/tunnel/forward",
+      query: "page=2",
+      body: JSON.stringify({ hello: "world" }),
+      requestId: "req2",
+      ts: 987654,
+    });
+
+    const signature = signCanonical(canonical, secret);
+
+    expect(verifyCanonical(canonical, signature, secret)).toBe(true);
   });
 });
