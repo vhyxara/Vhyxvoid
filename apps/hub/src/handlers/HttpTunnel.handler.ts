@@ -148,8 +148,12 @@ export class HttpTunnelHandler {
     const agent = this.agentRegistry.findByAgentId(entry.agentId);
 
     if (!agent) {
-      // Entry in Redis but agent not in registry — stale, clean it up
-      await this.subdomainRegistry.unregister(label, accountSlug);
+      // Entry in Redis but agent not in registry — stale, clean it up.
+      // Passing entry.agentId makes this a compare-and-delete (see
+      // SubdomainRegistry.unregister) — if a real reconnect races this
+      // cleanup and re-registers the label first, this becomes a correct
+      // no-op instead of deleting the fresh, valid entry.
+      await this.subdomainRegistry.unregister(label, accountSlug, entry.agentId);
       return this.sendError(
         res,
         503,

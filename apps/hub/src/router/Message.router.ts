@@ -179,9 +179,11 @@ export class MessageRouter {
     const accountSlug = await this.sessionRepo.findAccountSlug(session.accountId).catch(() => null);
 
     if (accountSlug) {
-      await this.subdomainRegistry.unregister(session.label, accountSlug).catch((err: Error) => {
-        console.error({ err: err.message }, '[router] failed to unregister subdomain');
-      });
+      await this.subdomainRegistry
+        .unregister(session.label, accountSlug, session.agentId)
+        .catch((err: Error) => {
+          console.error({ err: err.message }, '[router] failed to unregister subdomain');
+        });
     }
     console.info(
       {
