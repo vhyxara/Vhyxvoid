@@ -46,6 +46,7 @@ import { PendingRegistry } from '@/registry/Pending.registry';
 import { SdkRegistry } from '@/registry/Sdk.registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from '@/handlers/HttpTunnel.handler';
+import { debugLog } from '@/utils/debug';
 
 export class MessageRouter {
   constructor(
@@ -238,11 +239,11 @@ export class MessageRouter {
       ws.close();
       return;
     }
-    console.log('[debug] session persisted, fetching slug for subdomain registration');
+    debugLog('[debug] session persisted, fetching slug for subdomain registration');
 
     // 4. Fetch account slug BEFORE sending registered — needed for tunnelUrl
     const accountSlug = await this.sessionRepo.findAccountSlug(apiKey.accountId).catch(() => null);
-    console.log('[debug] accountSlug for subdomain:', accountSlug);
+    debugLog('[debug] accountSlug for subdomain:', accountSlug);
 
     // const tunnelUrl = accountSlug
     //   ? `https://${msg.label}.${accountSlug}.${this.hubDomain}`
@@ -297,7 +298,7 @@ export class MessageRouter {
       .then(async () => {
         console.info({ agentId }, '[router] session persisted to DB');
         if (accountSlug) {
-          console.log('[debug] calling subdomainRegistry.register with:', {
+          debugLog('[debug] calling subdomainRegistry.register with:', {
             agentId,
             accountId: apiKey.accountId,
             label: msg.label,
@@ -312,7 +313,7 @@ export class MessageRouter {
               accountSlug,
               hubInstanceId: this.hubInstanceId,
             })
-            .then(() => console.log('[debug] subdomain registered in Redis ✅'))
+            .then(() => debugLog('[debug] subdomain registered in Redis'))
             .catch((err: Error) => {
               console.error(
                 { err: err.message, errStack: err.stack },
@@ -320,7 +321,7 @@ export class MessageRouter {
               );
             });
         } else {
-          console.log('[debug] accountSlug is null — skipping subdomain registration');
+          debugLog('[debug] accountSlug is null — skipping subdomain registration');
         }
       })
       .catch((err) => {

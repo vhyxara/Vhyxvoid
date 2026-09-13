@@ -157,6 +157,7 @@
 import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
 import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@vhyxvoid/protocol';
 import crypto from 'crypto';
+import { debugLog } from '@/utils/debug';
 
 export interface HubAuthResult {
   accountId: string;
@@ -195,7 +196,7 @@ export class HubAuthService {
    */
   async authenticateAgent(msg: AgentRegisterMsg, _ip: string): Promise<HubAuthResult> {
     // No timestamp check needed — this is a connection handshake not a request
-    console.log('[hub-auth] received agent register:', JSON.stringify(msg));
+    debugLog('[hub-auth] received agent register', { keyId: msg.keyId, label: msg.label });
 
     // Load key from cache/DB
     const key = await this.loadKeyHash(msg.keyId);
@@ -212,13 +213,12 @@ export class HubAuthService {
     }
 
     // Verify raw secret — hub applies pepper server-side
+    // Never log expectedHash/storedHash/pepper length here, even behind a
+    // debug flag — these are secret-adjacent values. See context.md risk #8.
     const expectedHash = crypto
       .createHmac('sha256', this.pepper)
       .update(msg.rawSecret)
       .digest('hex');
-    console.log('[debug] pepper length:', this.pepper?.length);
-    console.log('[debug] expectedHash:', expectedHash);
-    console.log('[debug] storedHash:  ', key.secretHash);
     const storedHash = Buffer.from(key.secretHash, 'hex');
     const computedHash = Buffer.from(expectedHash, 'hex');
 

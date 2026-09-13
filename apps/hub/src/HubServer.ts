@@ -23,6 +23,7 @@ import { WebSocketServer } from 'ws';
 import { SubdomainRegistry } from './services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from './handlers/HttpTunnel.handler';
 import WebSocket from 'ws';
+import { isInternalRequestAuthorized } from '@/utils/internalAuth';
 
 interface WebSocketWithMeta extends WebSocket {
   meta: {
@@ -49,6 +50,18 @@ export interface HubServerConfig {
   validateKeyUseCase: IValidateApiKeyUseCase;
   tunnelSessionRepo: TunnelSessionRepository;
   tunnelRequestRepo: TunnelRequestRepository;
+
+  /**
+   * Shared secret required on every /internal/proxy request (header
+   * `x-hub-internal-secret`), checked with a timing-safe comparison.
+   * No caller exists yet (HUB_INTERNAL_URL in apps/api has no wired-up
+   * caller — see context.md's Configuration table), so this intentionally
+   * fails CLOSED when unset: every /internal/proxy request is rejected
+   * with 503 rather than silently falling back to "no auth required".
+   * See context.md risk #7 and decision.md, 2026-09-12, "internal/proxy
+   * authentication".
+   */
+  internalSecret?: string;
 }
 
 export class HubServer {
@@ -122,6 +135,18 @@ export class HubServer {
     );
   }
 
+  /**
+   * Checks the `x-hub-internal-secret` header against config.internalSecret.
+   * Delegates to the pure, directly-unit-tested isInternalRequestAuthorized()
+   * in utils/internalAuth.ts.
+   */
+  private checkInternalAuth(req: import('http').IncomingMessage): boolean {
+    return isInternalRequestAuthorized(
+      req.headers['x-hub-internal-secret'],
+      this.config.internalSecret,
+    );
+  }
+
   // ADD TO HubServer class:
   resolveRequest(requestId: string, response: unknown): void {
     const resolver = this.pendingRequests.get(requestId);
@@ -168,6 +193,20 @@ export class HubServer {
       }
 
       if (req.method === 'POST' && req.url === '/internal/proxy') {
+        if (!this.checkInternalAuth(req)) {
+          res.writeHead(this.config.internalSecret ? 401 : 503, {
+            'Content-Type': 'application/json',
+          });
+          res.end(
+            JSON.stringify({
+              success: false,
+              message: this.config.internalSecret
+                ? 'Unauthorized'
+                : 'Internal proxy endpoint is disabled (HUB_INTERNAL_SECRET not configured)',
+            }),
+          );
+          return;
+        }
         let rawBody = '';
         req.on('data', (chunk: Buffer) => {
           rawBody += chunk.toString();

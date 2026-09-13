@@ -37,48 +37,68 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
   // ── Key data cache ─────────────────────────────────────────────────────────
 
   async set(keyId: string, data: CachedApiKeyData): Promise<void> {
-    // await this.redis.set(NS.apiKey(keyId), JSON.stringify(data), 'EX', KEY_CACHE_TTL_SEC);
-    console.log(
-      "1. Setting cache for keyId",
-      keyId,
-      "with TTL",
-      KEY_CACHE_TTL_SEC,
-      "seconds",
-      "data:",
-      data,
-    );
     try {
       await this.redis.set(NS.apiKey(keyId), JSON.stringify(data), {
         ex: KEY_CACHE_TTL_SEC,
       });
     } catch (err) {
+      // Cache-write failure must never affect the gateway response — same
+      // rationale as incrementUsage() below. The DB write this always
+      // follows (create/update/rotate all call apiKeyRepository.save()
+      // first) has already committed by the time this runs; re-throwing
+      // here turned a successful mutation into an apparent 500. See
+      // decision.md, 2026-09-12, "Bug 1 fix: RedisApiKeyCacheService fails
+      // soft".
       console.error("[Redis] set failed:", {
         cause: (err as any)?.cause,
         message: (err as any)?.message,
         url: process.env.UPSTASH_REDIS_REST_URL,
         tokenSet: !!process.env.UPSTASH_REDIS_REST_TOKEN,
       });
-      throw err;
     }
   }
 
   async get(keyId: string): Promise<CachedApiKeyData | null> {
-    console.log("1. Getting cache for keyId", keyId);
-    // const raw = await this.redis.get(NS.apiKey(keyId));
-    const raw = await this.redis.get<string>(NS.apiKey(keyId));
-    console.log("2. Cache raw result for keyId", keyId, ":", raw);
+    // Fails soft (return null → caller's existing DB-fallback path runs)
+    // instead of letting a Redis error propagate — same rationale as
+    // set()/invalidate() above. Previously unguarded: a Redis outage would
+    // throw here and take down every caller of ValidateApiKeyUseCase.execute()
+    // (currently only the dormant POST /gateway/v1/validate route — see
+    // decision.md, 2026-09-12, "RedisApiKeyCacheService.get()/markRequestId()").
+    let raw: string | null;
+    try {
+      raw = await this.redis.get<string>(NS.apiKey(keyId));
+    } catch (err) {
+      console.error("[Redis] get failed:", {
+        cause: (err as any)?.cause,
+        message: (err as any)?.message,
+      });
+      return null;
+    }
     if (!raw) return null;
     try {
-      console.log("3. Parsing cache for keyId", keyId);
       return JSON.parse(raw) as CachedApiKeyData;
     } catch {
-      console.log("3. Failed to parse cache for keyId", keyId);
       return null;
     }
   }
 
   async invalidate(keyId: string): Promise<void> {
-    await this.redis.del(NS.apiKey(keyId));
+    try {
+      await this.redis.del(NS.apiKey(keyId));
+    } catch (err) {
+      // Same fail-soft rationale as set() above — every caller
+      // (create/update/rotate/revoke use cases, both expiry workers)
+      // already saved the DB row before calling this; a stale cache entry
+      // that outlives its TTL (max KEY_CACHE_TTL_SEC) is a much smaller
+      // risk than turning a successful mutation into a 500.
+      console.error("[Redis] invalidate failed:", {
+        cause: (err as any)?.cause,
+        message: (err as any)?.message,
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        tokenSet: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+    }
   }
 
   // ── Rate limiting — sliding window ─────────────────────────────────────────
@@ -115,12 +135,25 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
   // Returns false if the requestId was already seen (replay attack).
 
   async markRequestId(requestId: string): Promise<boolean> {
-    // const result = await this.redis.set(NS.replay(requestId), '1', 'PX', REPLAY_WINDOW_MS, 'NX');
-    const result = await this.redis.set(NS.replay(requestId), "1", {
-      px: REPLAY_WINDOW_MS,
-      nx: true,
-    });
-    return result === "OK"; // null = already exists
+    // Fail OPEN on a Redis error: treat the request as new rather than
+    // rejecting it. Deliberate choice, not an oversight — see decision.md,
+    // 2026-09-12, "RedisApiKeyCacheService.get()/markRequestId()" for the
+    // full tradeoff writeup. Matches the equivalent, already-fail-open
+    // markRequestId() in packages/shared/src/validateApiKey.ts (the Hub's
+    // own, separate copy of this logic), so both implementations now agree.
+    try {
+      const result = await this.redis.set(NS.replay(requestId), "1", {
+        px: REPLAY_WINDOW_MS,
+        nx: true,
+      });
+      return result === "OK"; // null = already exists
+    } catch (err) {
+      console.error("[Redis] markRequestId failed:", {
+        cause: (err as any)?.cause,
+        message: (err as any)?.message,
+      });
+      return true;
+    }
   }
 
   // ── Usage counters — hot path ──────────────────────────────────────────────

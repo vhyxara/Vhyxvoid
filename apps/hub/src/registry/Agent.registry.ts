@@ -121,6 +121,8 @@
 // apps/hub/src/registry/AgentRegistry.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { debugLog } from '@/utils/debug';
+
 export interface AgentSession {
   agentId: string;
   accountId: string;
@@ -144,7 +146,11 @@ export class AgentRegistry {
     return Array.from(this.byAgentId.values());
   }
   register(session: AgentSession): void {
-    console.debug({ session }, '[AgentRegistry] register');
+    debugLog('[AgentRegistry] register', {
+      agentId: session.agentId,
+      accountId: session.accountId,
+      label: session.label,
+    });
     let acct = this.accounts.get(session.accountId);
     if (!acct) {
       acct = new Map();

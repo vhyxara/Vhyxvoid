@@ -28,6 +28,7 @@ import {
 import type { Socket } from 'net';
 // import { WsConnectionRegistry } from '@/registry/WsConnection.registry';
 import { WebSocketServer, WebSocket } from 'ws';
+import { debugLog } from '@/utils/debug';
 
 // How long to wait for the agent to respond before returning 504
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -52,7 +53,9 @@ export class HttpTunnelHandler {
     const host = req.headers.host ?? '';
     // Strip port if present
     const hostname = host.split(':')[0];
-    console.log('[tunnel] isTunnelRequest check:', hostname, 'domain:', this.hubDomain);
+    // NOTE: called on EVERY incoming HTTP request — must stay gated, not just
+    // "debug-labeled", or it floods logs at real traffic volume.
+    debugLog('[tunnel] isTunnelRequest check:', hostname, 'domain:', this.hubDomain);
 
     // Must end with our domain and have at least one subdomain segment
     if (!hostname.endsWith(`.${this.hubDomain}`)) return false;
@@ -223,7 +226,7 @@ export class HttpTunnelHandler {
 
       // Send to agent
       try {
-        console.log(
+        debugLog(
           '[tunnel] sending forward to agent:',
           agent.agentId,
           'ws readyState:',
@@ -231,7 +234,7 @@ export class HttpTunnelHandler {
         );
         agent.ws.send(serialize(forward as any));
       } catch (err) {
-        console.log('[tunnel] send failed:', err);
+        console.error('[tunnel] send failed:', err);
 
         clearTimeout(timer);
         this.pendingRegistry.reject(requestId, 'SEND_FAILED', 'Failed to send request to agent');
@@ -274,7 +277,7 @@ export class HttpTunnelHandler {
     this.tunnelWss.handleUpgrade(req, socket, head, (browserWs) => {
       const connectionId = `ws_${randomUUID().replace(/-/g, '')}`;
 
-      console.log('[tunnel-ws] browser connected:', connectionId, req.url);
+      debugLog('[tunnel-ws] browser connected:', connectionId, req.url);
 
       // Tell agent to open WS to local backend
       const openMsg: TunnelWsOpenMsg = {

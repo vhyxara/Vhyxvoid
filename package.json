@@ -27,7 +27,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
-    "test": "turbo run test",
+    "test": "vitest run --config tests/vitest.config.ts",
     "test:api": "pnpm --filter @vhyxvoid/api test",
     "db:migrate": "pnpm --filter @vhyxvoid/api db:migrate",
     "db:generate": "pnpm --filter @vhyxvoid/api db:generate",
@@ -52,6 +52,7 @@
     "turbo": "^2.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.0.15"
   }
 }
