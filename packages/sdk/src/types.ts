@@ -18,7 +18,16 @@ export interface TunnelClientConfig {
 export interface TunnelResponse {
   status: number;
   headers: Record<string, string>;
-  body: string | null;
+  /**
+   * A text response (JSON, HTML, plain text, ...) is a string, as before.
+   * A binary response (image, PDF, audio/video, octet-stream, ...) is a
+   * real Buffer with the original bytes, not a base64 string or a
+   * corrupted UTF-8 decode of them — see context.md risk #21. This is a
+   * widened type (previously always `string | null`); no existing caller
+   * in this repo assumed `body` was always a string for a binary response,
+   * since that path never actually worked correctly before this fix.
+   */
+  body: string | Buffer | null;
   durationMs: number;
   /** true = response came from local agent (bypassed hub) */
   isLocal: boolean;

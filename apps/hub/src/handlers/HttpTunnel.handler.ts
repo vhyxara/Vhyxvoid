@@ -24,6 +24,7 @@ import {
   TunnelWsMessageMsg,
   TunnelWsOpenMsg,
   serialize,
+  isBinaryContentType,
 } from '@vhyxvoid/protocol';
 import type { Socket } from 'net';
 // import { WsConnectionRegistry } from '@/registry/WsConnection.registry';
@@ -161,6 +162,7 @@ export class HttpTunnelHandler {
 
     // Read request body
     let body: string | null = null;
+    let bodyEncoding: 'utf8' | 'base64' | undefined;
     const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
 
     if (contentLength > MAX_BODY_BYTES) {
@@ -172,8 +174,11 @@ export class HttpTunnelHandler {
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const raw = await this.readBody(req, MAX_BODY_BYTES);
-      body = raw.length > 0 ? raw : null; // ← null instead of ""
+      const rawBuffer = await this.readBody(req, MAX_BODY_BYTES);
+      if (rawBuffer.length > 0) {
+        bodyEncoding = isBinaryContentType(req.headers['content-type']) ? 'base64' : 'utf8';
+        body = rawBuffer.toString(bodyEncoding);
+      }
     }
 
     // Build forward message
@@ -191,6 +196,7 @@ export class HttpTunnelHandler {
       query: '',
       headers: forwardHeaders,
       body: body,
+      bodyEncoding,
       timeoutMs: REQUEST_TIMEOUT_MS - 2000,
     };
 
@@ -405,18 +411,9 @@ export class HttpTunnelHandler {
     // Prefer the explicit bodyEncoding the agent now sets (see
     // context.md risk #21) over content-type sniffing — sniffing stays as
     // the fallback for an older agent build that predates this field.
-    let isBinary: boolean;
-    if (response.bodyEncoding) {
-      isBinary = response.bodyEncoding === 'base64';
-    } else {
-      const contentType = (headers['content-type'] ?? '').toLowerCase();
-      isBinary =
-        contentType.includes('image/') ||
-        contentType.includes('application/pdf') ||
-        contentType.includes('application/octet-stream') ||
-        contentType.includes('audio/') ||
-        contentType.includes('video/');
-    }
+    const isBinary = response.bodyEncoding
+      ? response.bodyEncoding === 'base64'
+      : isBinaryContentType(headers['content-type']);
 
     if (isBinary) {
       res.end(Buffer.from(response.body, 'base64'));
@@ -438,7 +435,7 @@ export class HttpTunnelHandler {
     res.end(body);
   }
 
-  private readBody(req: IncomingMessage, maxBytes: number): Promise<string> {
+  private readBody(req: IncomingMessage, maxBytes: number): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       let totalBytes = 0;
@@ -453,7 +450,15 @@ export class HttpTunnelHandler {
         chunks.push(chunk);
       });
 
-      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      // Returns the raw bytes rather than decoding here — the caller
+      // decides utf8 vs base64 based on content-type (see
+      // isBinaryContentType, imported from @vhyxvoid/protocol). Previously
+      // this unconditionally did .toString('utf8'), which silently
+      // corrupted any binary request body (e.g. a file uploaded through a
+      // tunneled subdomain) before it ever reached TunnelForwardMsg.body —
+      // the mirror image of the response-path bug fixed 2026-09-12. See
+      // context.md risk #21.
+      req.on('end', () => resolve(Buffer.concat(chunks)));
       req.on('error', reject);
     });
   }

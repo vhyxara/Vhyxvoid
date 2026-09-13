@@ -4,7 +4,7 @@
 
 import http from "http";
 import { TunnelResponse } from "./types";
-import { LIMITS, TIMING } from "@vhyxvoid/protocol";
+import { LIMITS, TIMING, isBinaryContentType } from "@vhyxvoid/protocol";
 
 export interface LocalForwardParams {
   method: string;
@@ -69,7 +69,7 @@ export class LocalAgentClient {
   ): Promise<{
     status: number;
     headers: Record<string, string>;
-    body: string | null;
+    body: string | Buffer | null;
   }> {
     return new Promise((resolve, reject) => {
       const url = `${params.path}${params.query ? `?${params.query}` : ""}`;
@@ -86,9 +86,19 @@ export class LocalAgentClient {
           const chunks: Buffer[] = [];
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () => {
-            const body = chunks.length
-              ? Buffer.concat(chunks).toString("utf8")
-              : null;
+            // This connects directly to the developer's real local
+            // backend, bypassing the hub/BackendProxy entirely — it never
+            // sees a bodyEncoding field, so it must do its own
+            // content-type-based binary detection to avoid the same
+            // lossy toString('utf8') corruption fixed elsewhere for the
+            // hub-routed paths (context.md risk #21).
+            let body: string | Buffer | null = null;
+            if (chunks.length) {
+              const buf = Buffer.concat(chunks);
+              body = isBinaryContentType(res.headers["content-type"])
+                ? buf
+                : buf.toString("utf8");
+            }
             resolve({
               status: res.statusCode ?? 200,
               headers: res.headers as Record<string, string>,

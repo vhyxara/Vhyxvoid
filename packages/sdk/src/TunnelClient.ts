@@ -260,10 +260,22 @@ export class TunnelClient {
     this.pending.delete(requestId);
 
     if (msg.type === "sdk:response") {
+      // msg.body is base64 text over the wire when bodyEncoding is
+      // 'base64' (set by BackendProxy, passed through by the hub
+      // unchanged — see context.md risk #21). Decode it back to real
+      // bytes here; this is the SDK-side consumption this repo's
+      // 2026-09-12 audit explicitly left unfixed. A plain text body
+      // (bodyEncoding 'utf8' or absent, for backward compatibility with
+      // an older hub/agent) passes through as a string, unchanged.
+      const body =
+        msg.bodyEncoding === "base64" && msg.body !== null
+          ? Buffer.from(msg.body, "base64")
+          : msg.body;
+
       pending.resolve({
         status: msg.status,
         headers: msg.headers,
-        body: msg.body,
+        body,
         durationMs: msg.durationMs,
         isLocal: false,
       });

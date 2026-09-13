@@ -7,6 +7,7 @@ import {
   TunnelForwardMsg,
   TunnelResponseMsg,
   LIMITS,
+  isBinaryContentType,
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
 import WebSocket from "ws";
@@ -69,11 +70,24 @@ export class BackendProxy {
     const start = Date.now();
     const url = msg.path + (msg.query ? `?${msg.query}` : "");
 
+    // The mirror image of the response-path fix below: when the hub set
+    // bodyEncoding: 'base64' (a binary request body — e.g. a file
+    // uploaded through a tunneled subdomain), msg.body is base64 text and
+    // must be decoded back to real bytes before axios sends it, or the
+    // local backend receives base64 text instead of the original file.
+    // An older hub that never sets bodyEncoding is treated as utf8, same
+    // as before. See context.md risk #21.
+    let requestData: Buffer | string | undefined;
+    if (msg.body && msg.body.length > 0) {
+      requestData =
+        msg.bodyEncoding === "base64" ? Buffer.from(msg.body, "base64") : msg.body;
+    }
+
     const response = await this.client.request({
       method: msg.method,
       url,
       headers: this.sanitizeInboundHeaders(msg.headers),
-      data: msg.body && msg.body.length > 0 ? msg.body : undefined,
+      data: requestData,
     });
 
     const bodyBuffer = response.data as Buffer;
@@ -89,7 +103,7 @@ export class BackendProxy {
     // 'base64') on the way back out, the bytes were already mangled. See
     // context.md risk #21 and decision.md, 2026-09-12, "tunnel:forward /
     // tunnel:response bodyEncoding".
-    const isBinary = this.isBinaryContentType(headers["content-type"]);
+    const isBinary = isBinaryContentType(headers["content-type"]);
     const bodyEncoding: "utf8" | "base64" = isBinary ? "base64" : "utf8";
     const bodyStr =
       bodyBuffer.length > 0 ? bodyBuffer.toString(bodyEncoding) : null;
@@ -110,19 +124,6 @@ export class BackendProxy {
       bodyEncoding,
       durationMs,
     };
-  }
-
-  private isBinaryContentType(contentType: string | undefined): boolean {
-    const ct = (contentType ?? "").toLowerCase();
-    return (
-      ct.includes("image/") ||
-      ct.includes("application/pdf") ||
-      ct.includes("application/octet-stream") ||
-      ct.includes("audio/") ||
-      ct.includes("video/") ||
-      ct.includes("font/") ||
-      ct.includes("application/zip")
-    );
   }
 
   /** Invalidate cached GETs related to a mutating request path */

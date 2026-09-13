@@ -81,6 +81,15 @@ export interface TunnelForwardMsg {
   query: string;
   headers: Record<string, string>;
   body: string | null;
+  /**
+   * How `body` is encoded — mirrors TunnelResponseMsg.bodyEncoding, same
+   * meaning, opposite direction. Optional for backward compatibility with
+   * an older hub that never sets it (e.g. the WS sdk:request path, whose
+   * body is always JSON.stringify'd text and never sets this field) — a
+   * receiver seeing it undefined should treat `body` as plain utf8, not
+   * attempt to decode it. See context.md risk #21.
+   */
+  bodyEncoding?: "utf8" | "base64";
   timeoutMs: number;
 }
 
