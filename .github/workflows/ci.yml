@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    name: Typecheck, build, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # apps/web is intentionally excluded from CI. It consumes
+      # @vhyxui/react and @vhyxui/tokens via pnpm's link: protocol pointing
+      # at a sibling VhyxUI repo checkout (see .claude/decision.md,
+      # 2026-09-09 "VhyxUI stays a separate repo"), which does not exist in
+      # a plain checkout of this repo alone — `pnpm install` for apps/web
+      # would fail here. Covering apps/web in CI needs a real decision
+      # (checkout VhyxUI too via a second repo + credentials? publish it?
+      # vendor it?) that's out of scope for this minimal pass — see
+      # .claude/context.md / decision.md, 2026-09-12, "CI: minimal backend
+      # pipeline, apps/web excluded".
+      - name: Install dependencies (excludes apps/web)
+        run: pnpm install --filter '!@vhyxvoid/web' --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm turbo run typecheck --filter='!@vhyxvoid/web'
+
+      # packages/next and packages/middleware used to fail here (missing
+      # @vhyxvoid/agent dependency declaration — context.md risk #15,
+      # fixed 2026-09-13, see decision.md). Both build cleanly now; no
+      # exclusion needed beyond apps/web.
+      - name: Build
+        run: pnpm turbo run build --filter='!@vhyxvoid/web'
+
+      - name: Test
+        run: pnpm test
