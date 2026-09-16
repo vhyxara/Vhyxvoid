@@ -1,0 +1,149 @@
+.trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--vhyx-color-text-subtle);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.trigger:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+  color: var(--vhyx-color-text);
+}
+
+.badgeWrap {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  line-height: 0;
+}
+
+/* Overrides Popover.Content's default padding (space-4) to 0 so the header/
+   list/footer sections can each own their own padding — same override
+   mechanism UserDropdown.module.css's .menu already uses successfully. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* A compound two-class selector, so this reliably beats .content's
+   single-class box-shadow rule regardless of stylesheet load order —
+   unlike a single-class override, which only works because .menu/.panel
+   happen to load after Popover's own module in practice. */
+.panel.bordered {
+  box-shadow: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--vhyx-space-3, 0.75rem) var(--vhyx-space-4, 1rem);
+  border-bottom: 1px solid var(--vhyx-color-border);
+}
+
+.list {
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background-color: var(--vhyx-color-bg-muted);
+  border-radius: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-3, 0.75rem) var(--vhyx-space-4, 1rem);
+  cursor: default;
+  transition: background-color 0.15s;
+}
+
+.row[data-unread='true'] {
+  background-color: var(--vhyx-color-bg-subtle);
+  cursor: pointer;
+}
+
+.row:hover {
+  background-color: var(--vhyx-color-bg-muted);
+}
+
+.rowIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rowContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.unreadDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--vhyx-color-accent);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.empty {
+  padding: var(--vhyx-space-8, 2rem) 0;
+  text-align: center;
+}
+
+.footer {
+  border-top: 1px solid var(--vhyx-color-border);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-4, 1rem);
+}
+
+.footerButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vhyx-space-2, 0.5rem);
+  width: 100%;
+  padding: var(--vhyx-space-2, 0.5rem);
+  background: none;
+  border: none;
+  border-radius: var(--vhyx-radius-md, 6px);
+  color: var(--vhyx-color-accent);
+  font: inherit;
+  font-weight: var(--vhyx-weight-medium, 500);
+  cursor: pointer;
+}
+
+.footerButton:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+}
+
+.skeletonRow {
+  display: flex;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-3, 0.75rem) var(--vhyx-space-4, 1rem);
+}

@@ -28,12 +28,14 @@ import { FeedbackButton } from '@/views/feedback/FeedbackButton'
 // LayoutWrapper would have silently broken that. Providers and
 // FeedbackButton are otherwise unchanged (AuthGuard's loading spinner and
 // this file's own ScrollToTop button were migrated off MUI in Phase 1 of
-// the removal plan, 2026-09-16 — see decision.md). CssBaseline/ThemeProvider
-// (inside Providers) stays active: the new shell itself has zero MUI
-// dependency, but the page CONTENT (dashboard/organizations pages, not yet
-// migrated), ScrollToTop's own Zoom/useScrollTrigger wrapper, and
-// NotificationBell/FeedbackButton (deliberately left MUI-internal, see
-// decision.md) all still need it. See decision.md, 2026-09-10, "Step 3
+// the removal plan, 2026-09-16; NotificationBell in Phase 3 — see
+// decision.md). CssBaseline/ThemeProvider (inside Providers) stays active:
+// the new shell itself has zero MUI dependency, but the page CONTENT
+// (dashboard/organizations pages, not yet migrated), ScrollToTop's own
+// Zoom/useScrollTrigger wrapper (itself a MUI holdout the original audit
+// missed — see decision.md, 2026-09-16, "Phase 3 part 1"), and
+// FeedbackButton (deliberately left MUI-internal, its own follow-up
+// session) all still need it. See decision.md, 2026-09-10, "Step 3
 // dashboard shell rebuilt on VhyxUI".
 const Layout = async (props: ChildrenType) => {
   const { children } = props

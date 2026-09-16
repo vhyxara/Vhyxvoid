@@ -1,29 +1,16 @@
 'use client'
-import { useRef, useState } from 'react'
 
-// import { useRouter } from 'next/navigation'
+import { Badge, Button, Popover, Separator, Tooltip } from '@vhyxui/react'
 
-// import { styled } from '@mui/material/styles'
-import Badge from '@mui/material/Badge'
-import IconButton from '@mui/material/IconButton'
-import Popper from '@mui/material/Popper'
-import Fade from '@mui/material/Fade'
-import Paper from '@mui/material/Paper'
-import ClickAwayListener from '@mui/material/ClickAwayListener'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Divider from '@mui/material/Divider'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import Tooltip from '@mui/material/Tooltip'
-import CircularProgress from '@mui/material/CircularProgress'
-import Skeleton from '@mui/material/Skeleton'
-
+import { Skeleton, Typography } from '@/components/vhyxui-shims'
 import { useSettings } from '@core/hooks/useSettings'
 import type { AppNotification, NotificationType } from '@/api/domain/notification/notification.types'
 import { useNotifications, useMarkRead, useMarkAllRead } from '@/api/application/hooks/useNotifications'
 
-// ── Type → icon + color map ───────────────────────────────────────────────
+import styles from './NotificationBell.module.css'
+
+// ── Type → icon + color map (unchanged from the MUI version — literal hex
+// values, not MUI theme tokens, so nothing here needed to change) ──────────
 
 type NotificationMeta = { icon: string; color: string }
 
@@ -46,7 +33,7 @@ function getNotificationMeta(type: NotificationType): NotificationMeta {
   return map[type] ?? { icon: 'tabler-bell', color: '#94a3b8' }
 }
 
-// ── Time formatting ───────────────────────────────────────────────────────
+// ── Time formatting (unchanged) ───────────────────────────────────────────
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -74,43 +61,23 @@ function NotificationRow({
   const meta = getNotificationMeta(notification.type)
 
   return (
-    <Box
+    <div
       onClick={() => !notification.isRead && onMarkRead(notification.id)}
-      sx={{
-        display: 'flex',
-        gap: 1.5,
-        px: 2,
-        py: 1.5,
-        cursor: notification.isRead ? 'default' : 'pointer',
-        bgcolor: notification.isRead ? 'transparent' : 'action.hover',
-        transition: 'background-color 0.15s',
-        '&:hover': { bgcolor: 'action.selected' },
-        position: 'relative'
-      }}
+      className={styles.row}
+      data-unread={!notification.isRead}
     >
-      {/* Icon circle */}
-      <Box
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          bgcolor: `${meta.color}18`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          mt: 0.25
-        }}
-      >
+      {/* Icon circle — the `${meta.color}18` tint is a literal hex+alpha
+          string, not a design token, so it stays an inline style either way */}
+      <div className={styles.rowIcon} style={{ backgroundColor: `${meta.color}18` }}>
         <i className={meta.icon} style={{ color: meta.color, fontSize: 16 }} />
-      </Box>
+      </div>
 
       {/* Content */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <div className={styles.rowContent}>
         <Typography
           variant='body2'
-          fontWeight={notification.isRead ? 400 : 600}
-          sx={{
+          style={{
+            fontWeight: notification.isRead ? 400 : 600,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap'
@@ -120,35 +87,27 @@ function NotificationRow({
         </Typography>
         <Typography
           variant='caption'
-          color='text.secondary'
-          sx={{
+          style={{
+            color: 'var(--vhyx-color-text-subtle)',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden'
           }}
         >
-          {notification.message}
+          {notification.body}
         </Typography>
-        <Typography variant='caption' color='text.disabled' sx={{ mt: 0.25, display: 'block' }}>
+        <Typography
+          variant='caption'
+          style={{ color: 'var(--vhyx-color-text-disabled)', marginTop: 2, display: 'block' }}
+        >
           {timeAgo(notification.createdAt)}
         </Typography>
-      </Box>
+      </div>
 
       {/* Unread dot */}
-      {!notification.isRead && (
-        <Box
-          sx={{
-            width: 7,
-            height: 7,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            flexShrink: 0,
-            mt: 0.75
-          }}
-        />
-      )}
-    </Box>
+      {!notification.isRead && <span className={styles.unreadDot} />}
+    </div>
   )
 }
 
@@ -156,26 +115,24 @@ function NotificationRow({
 
 function NotificationSkeleton() {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+    <div className='flex flex-col'>
       {[1, 2, 3].map(i => (
-        <Box key={i} sx={{ display: 'flex', gap: 1.5, px: 2, py: 1.5 }}>
+        <div key={i} className={styles.skeletonRow}>
           <Skeleton variant='circular' width={36} height={36} />
-          <Box sx={{ flex: 1 }}>
+          <div style={{ flex: 1 }}>
             <Skeleton variant='text' width='60%' height={18} />
             <Skeleton variant='text' width='90%' height={14} />
             <Skeleton variant='text' width='30%' height={12} />
-          </Box>
-        </Box>
+          </div>
+        </div>
       ))}
-    </Box>
+    </div>
   )
 }
 
 // ── Bell component ────────────────────────────────────────────────────────
 
 export function NotificationBell() {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement>(null)
   const { settings } = useSettings()
 
   const { data, isLoading } = useNotifications({ limit: 20 })
@@ -185,158 +142,112 @@ export function NotificationBell() {
   const markRead = useMarkRead()
   const markAllRead = useMarkAllRead()
 
-  const handleToggle = () => setOpen(prev => !prev)
-  const handleClose = () => setOpen(false)
+  // Same skin variable Login/Register/ForgotPassword/ResetPassword still
+  // read post-migration. VhyxUI's Popover.Content always has a visible
+  // border (unlike MUI's default-elevation Paper), so "bordered skin"
+  // is adapted here to mean "drop the shadow" rather than "add a border" —
+  // the closest equivalent behavior, not a literal 1:1 port.
+  const panelClassName = settings.skin === 'bordered' ? `${styles.panel} ${styles.bordered}` : styles.panel
 
   return (
-    <>
-      {/* ── Bell button ── */}
-      <Tooltip title='Notifications'>
-        <IconButton ref={anchorRef} onClick={handleToggle} size='small' sx={{ position: 'relative' }}>
-          <Badge
-            badgeContent={unreadCount > 99 ? '99+' : unreadCount}
-            color='error'
-            max={99}
-            sx={{
-              '& .MuiBadge-badge': {
-                fontSize: 10,
-                minWidth: 18,
-                height: 18,
-                fontWeight: 600
-              }
-            }}
-          >
-            <i className='tabler-bell text-xl' />
-          </Badge>
-        </IconButton>
+    <Popover>
+      {/* Popover.Trigger renders a plain <button> — Tooltip's cloneElement
+          composes cleanly on top of it (both set a ref via the same
+          forwardRef mechanism; Popover's own ref-setting still runs). */}
+      <Tooltip content='Notifications'>
+        <Popover.Trigger className={styles.trigger} aria-label='Notifications'>
+          <i className='tabler-bell text-xl' />
+          {unreadCount > 0 && (
+            <span className={styles.badgeWrap}>
+              <Badge variant='danger' size='sm'>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            </span>
+          )}
+        </Popover.Trigger>
       </Tooltip>
 
-      {/* ── Dropdown ── */}
-      <Popper
-        open={open}
-        anchorEl={anchorRef.current}
-        placement='bottom-end'
-        transition
-        disablePortal
-        className='z-1300'
-        style={{ width: 380 }}
-      >
-        {({ TransitionProps }) => (
-          <Fade {...TransitionProps} timeout={200}>
-            <Paper
-              elevation={8}
-              className={settings.skin === 'bordered' ? 'border shadow-none' : ''}
-              sx={{ borderRadius: 3, overflow: 'hidden', mt: 1.5 }}
-            >
-              <ClickAwayListener onClickAway={handleClose}>
-                <Box>
-                  {/* ── Header ── */}
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      px: 2,
-                      py: 1.5,
-                      borderBottom: '1px solid',
-                      borderColor: 'divider'
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant='subtitle1' fontWeight={600}>
-                        Notifications
-                      </Typography>
-                      {unreadCount > 0 && (
-                        <Chip
-                          label={unreadCount}
-                          size='small'
-                          color='error'
-                          sx={{ height: 20, fontSize: 11, fontWeight: 600 }}
-                        />
-                      )}
-                    </Box>
+      {/* side='bottom' align='end' matches the original placement='bottom-end',
+          same choice UserDropdown already made for the same top-right
+          icon-cluster position. Width is set inline (380px, matching the
+          original) since it must beat Popover.Content's own default
+          max-width (20rem/320px) — a genuine conflict, not just a
+          cosmetic default, so only an inline style is guaranteed to win
+          regardless of stylesheet load order. */}
+      <Popover.Content side='bottom' align='end' className={panelClassName} style={{ width: 380, maxWidth: 380 }}>
+        {/* ── Header ── */}
+        <div className={styles.header}>
+          <div className='flex items-center gap-2'>
+            <Typography variant='subtitle1' style={{ fontWeight: 600 }}>
+              Notifications
+            </Typography>
+            {unreadCount > 0 && (
+              <Badge variant='danger' size='sm'>
+                {unreadCount}
+              </Badge>
+            )}
+          </div>
 
-                    {unreadCount > 0 && (
-                      <Tooltip title='Mark all as read'>
-                        <IconButton size='small' onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
-                          {markAllRead.isPending ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <i className='tabler-checks text-sm' />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
+          {unreadCount > 0 && (
+            <Tooltip content='Mark all as read'>
+              <Button
+                variant='ghost'
+                size='sm'
+                iconOnly
+                aria-label='Mark all as read'
+                loading={markAllRead.isPending}
+                icon={<i className='tabler-checks text-sm' />}
+                onClick={() => markAllRead.mutate()}
+              />
+            </Tooltip>
+          )}
+        </div>
 
-                  {/* ── List ── */}
-                  <Box
-                    sx={{
-                      maxHeight: 440,
-                      overflowY: 'auto',
-                      '&::-webkit-scrollbar': { width: 4 },
-                      '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
-                      '&::-webkit-scrollbar-thumb': {
-                        bgcolor: 'action.disabled',
-                        borderRadius: 2
-                      }
-                    }}
-                  >
-                    {isLoading ? (
-                      <NotificationSkeleton />
-                    ) : notifications.length === 0 ? (
-                      <Box sx={{ py: 6, textAlign: 'center' }}>
-                        <i
-                          className='tabler-bell-off'
-                          style={{
-                            fontSize: 40,
-                            color: 'var(--mui-palette-text-disabled)',
-                            display: 'block',
-                            marginBottom: 8
-                          }}
-                        />
-                        <Typography variant='body2' color='text.secondary'>
-                          You&apos;re all caught up
-                        </Typography>
-                      </Box>
-                    ) : (
-                      notifications.map((notification: AppNotification, index) => (
-                        <Box key={notification.id}>
-                          <NotificationRow notification={notification} onMarkRead={id => markRead.mutate(id)} />
-                          {index < notifications.length - 1 && <Divider sx={{ mx: 2 }} />}
-                        </Box>
-                      ))
-                    )}
-                  </Box>
+        {/* ── List ── */}
+        <div className={styles.list}>
+          {isLoading ? (
+            <NotificationSkeleton />
+          ) : notifications.length === 0 ? (
+            <div className={styles.empty}>
+              <i
+                className='tabler-bell-off'
+                style={{
+                  fontSize: 40,
+                  color: 'var(--vhyx-color-text-disabled)',
+                  display: 'block',
+                  marginBottom: 8
+                }}
+              />
+              <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
+                You&apos;re all caught up
+              </Typography>
+            </div>
+          ) : (
+            notifications.map((notification: AppNotification, index) => (
+              <div key={notification.id}>
+                <NotificationRow notification={notification} onMarkRead={id => markRead.mutate(id)} />
+                {index < notifications.length - 1 && <Separator style={{ margin: 0 }} />}
+              </div>
+            ))
+          )}
+        </div>
 
-                  {/* ── Footer ── */}
-                  {notifications.length > 0 && (
-                    <Box
-                      sx={{
-                        borderTop: '1px solid',
-                        borderColor: 'divider',
-                        px: 2,
-                        py: 1,
-                        textAlign: 'center'
-                      }}
-                    >
-                      <Button
-                        size='small'
-                        variant='text'
-                        fullWidth
-                        endIcon={<i className='tabler-arrow-right text-sm' />}
-                        onClick={handleClose}
-                      >
-                        View all notifications
-                      </Button>
-                    </Box>
-                  )}
-                </Box>
-              </ClickAwayListener>
-            </Paper>
-          </Fade>
+        {/* ── Footer ──
+            A native <button> via Popover.Close (closes the panel, matching
+            the original's handleClose-on-click), not a real navigation —
+            "View all notifications" had no real target in the MUI version
+            either. Same "reproduce the pre-existing non-functional
+            placeholder faithfully" call as UserDropdown's My Profile/
+            Settings/Pricing/FAQ items. */}
+        {notifications.length > 0 && (
+          <div className={styles.footer}>
+            <Popover.Close className={styles.footerButton}>
+              View all notifications
+              <i className='tabler-arrow-right text-sm' />
+            </Popover.Close>
+          </div>
         )}
-      </Popper>
-    </>
+      </Popover.Content>
+    </Popover>
   )
 }
