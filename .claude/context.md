@@ -119,6 +119,12 @@ apps/
                   entries. Step 6 ("admin-only screens"), the last step in the originally
                   planned sequence, turned out to have no real scope to migrate — see the
                   "No admin frontend exists" item below and decision.md, 2026-09-14.
+                  **Committed as a clean baseline 2026-09-16** (was uncommitted since the
+                  2026-09-09 move, per decision.md's same-day entry). archived/ (gitignored,
+                  local only — same convention as apps/api/archived/) holds confirmed-unused
+                  Vuexy template material moved out of the tracked tree, plus older,
+                  unrelated pre-existing content (a pre-migration route-group structure)
+                  — see decision.md, 2026-09-16.
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.

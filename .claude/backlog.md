@@ -31,8 +31,3 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] `libs/table/TableAction.tsx` (`BulkActions`) still imports MUI
-  `Stack`/`Typography`/`IconButton`, unmigrated (admin-only usage, zero
-  live importers today) — worth finishing whenever this file is next
-  touched — found `TABLE_API_ARCHITECTURE_COMPARISON.md` Part 2 item 12,
-  2026-09-14
