@@ -21,7 +21,7 @@ VhyxVoid's goal is to become the default tunnel tool for full-stack development 
 - **Language**: TypeScript throughout (strict mode), Node.js runtime.
 - **Monorepo**: pnpm workspaces (`apps/*`, `packages/*`) orchestrated by Turborepo (`turbo.json`); `pnpm@10.6.2` pinned as `packageManager`.
 - **API (control plane)**: Fastify 5, Prisma 6 → Postgres, `@upstash/redis` + `ioredis` (both present), `@fastify/jwt` + cookies for user auth, Stripe SDK, Resend (email), bcryptjs, zod. Root-level linting is ESLint 9 flat config (`eslint.config.ts`) — **not** `eslint-plugin-boundaries` (an earlier audit pass claimed that; confirmed wrong by reading the file directly): it's a plain `no-restricted-imports` rule banning deep imports into another workspace package's `src/` and cross-package relative imports.
-- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-2, MUI remains only in blank-layout-pages' illustration/responsive-layout code and NotificationBell/FeedbackButton (Phases 3-4, open). VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
+- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-2 and Phase 3 part 1 (NotificationBell), MUI remains only in blank-layout-pages' illustration/responsive-layout code, `FeedbackButton.tsx` (Phase 3 part 2, its own follow-up session — full plan in decision.md, 2026-09-16 "Phase 3 part 1"), and `@core/components/scroll-to-top/index.tsx` (a small MUI holdout — `Zoom`+`useScrollTrigger` — the original audit missed, found during Phase 3 part 1's investigation, not yet scheduled). VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
 - **Hub (tunnel router)**: plain Node `http` module + `ws` (WebSocketServer in `noServer` mode) — `fastify`, `uWebSockets.js`, and `pg` are also listed as dependencies but are confirmed leftovers from two earlier rewrite attempts (uWebSockets.js → Fastify → plain http+ws), safe to remove. Imports `packages/shared`'s Prisma client directly (no HTTP call to the API).
 - **Agent**: `ws` client, `axios` (backend proxy), `better-sqlite3` (durable queue, WAL mode), `commander` (CLI).
 - **SDK**: `isomorphic-ws`, hand-rolled HMAC signing. Two live client implementations plus one dead one (see SDK Client Strategy below).
@@ -169,9 +169,24 @@ apps/
                   FeedbackButton rebuild as one earlier decision.md entry had assumed.
                   `@mui` surface: 69 files/142 lines (re-confirmed via `git stash` diff,
                   correcting Phase 1's own "68/142" note as an off-by-one) → **63 files/105
-                  lines**. See decision.md, 2026-09-16 ("Phase 2 executed"). Phases 3-4
-                  (NotificationBell/FeedbackButton rebuild, the illustration-panel problem)
-                  remain open.
+                  lines**. See decision.md, 2026-09-16 ("Phase 2 executed").
+                  **Phase 3 part 1 executed 2026-09-16**: `views/notification/
+                  NotificationBell.tsx` migrated to VhyxUI (`Popover`, matching
+                  `ModeDropdown`/`UserDropdown`'s established pattern; `Tooltip` — confirmed
+                  available in VhyxUI despite `ModeDropdown`'s stale "no equivalent"
+                  comment, see decision.md). Found and fixed a real, pre-existing bug via
+                  functional testing: `AppNotification.message` never matched the real
+                  API's field name (`body`) — every notification body has rendered blank
+                  since this feature shipped, MUI version included. `@mui` surface: 63
+                  files/105 lines → **62 files/90 lines**. `FeedbackButton.tsx`'s full
+                  migration plan was produced but not executed — its own follow-up
+                  session, see decision.md, 2026-09-16 ("Phase 3 part 1") for the complete
+                  plan (VhyxUI has no `Fab`/`Collapse` equivalent; `TextareaField` needed
+                  for 4 of its 6 form fields, not `TextField`). Phase 3 part 2
+                  (FeedbackButton) and Phase 4 (the illustration-panel problem) remain
+                  open. Also found, not yet scheduled: `@core/components/scroll-to-top/
+                  index.tsx` (the `ScrollToTopButton` wrapper) is itself still MUI
+                  (`Zoom`+`useScrollTrigger`) — missed by the original audit.
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.

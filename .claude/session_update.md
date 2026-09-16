@@ -1948,3 +1948,58 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase3-part1-notificationbell",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Phase 3 part 1 of the MUI/Vuexy removal plan: fully investigate NotificationBell.tsx and FeedbackButton.tsx, produce a concrete rebuild plan for both, then execute NotificationBell.tsx's migration to VhyxUI only -- FeedbackButton stays its own follow-up session.",
+  "status": "completed",
+  "summary": "Read both components fully and re-verified VhyxUI's current component set fresh (0.3.1-alpha, no CHANGELOG) rather than trusting the old MISSING-component list. Confirmed no Collapse/Dropdown/Fab exist, matching the original Step 3 finding -- but also found that Tooltip has existed in VhyxUI since before Step 3, contradicting ModeDropdown.tsx's own comment that it had no equivalent; used the real Tooltip in NotificationBell rather than repeating that miss. Migrated NotificationBell.tsx: Popover (matching ModeDropdown/UserDropdown's established pattern) replaces Popper+Fade+Paper+ClickAwayListener, Tooltip/Badge/Separator/Skeleton/Button round out the rest, all 12 notification-type mappings and mark-read/mark-all-read mutation logic preserved unchanged. Confirmed zero Server/Client boundary risk (the file already carried its own 'use client', its sole mount point DashboardTopbar.tsx never imports @vhyxui/react directly). No Chrome extension available (third session in a row) -- fell back to real-backend verification: seeded 3 real notifications via direct SQL (the standard test accounts had none), verified GET/mark-read/mark-all-read against the real API end-to-end, confirmed both dashboard states (populated and empty) SSR clean, then cleaned up. Found and fixed a real, pre-existing bug in the process: AppNotification.message never matched the API's actual field name (body) at any layer -- every notification body has rendered blank since this feature shipped, MUI version included. Fixed the one-field, single-consumer mismatch. Also produced a full, concrete migration plan for FeedbackButton.tsx (not executed): Fab has no equivalent (use Button iconOnly + fixed positioning, matching Phase 1's ScrollToTopButton precedent), its wrapping Zoom is dead code (in is hardcoded true, safe to drop), Chip type-selector needs the same hand-built Badge-in-a-button pattern CreateApiKeyDialog already established, and -- the plan's most load-bearing finding -- 4 of its 6 form fields are multiline and need VhyxUI's separate TextareaField component, not TextField (which has no multiline prop, unlike MUI's unified TextField). Collapse has no equivalent; recommended dropping the height-animation rather than hand-rolling a shim. No Server/Client boundary risk expected (FeedbackButton.tsx already has its own 'use client', same shape as the already-fixed ScrollToTopButton). Recommended treating it as one focused session, comparable in scope to BillingView, not split further. typecheck/build/test all pass clean (19 routes, apps/web 7/23 tests, root 19/99 tests, all unchanged). @mui import surface dropped from 63 files/105 lines to 62 files/90 lines. Committed as a single commit. Updated context.md/decision.md/backlog.md, including the full FeedbackButton plan in decision.md for its own session to read directly.",
+  "decisions_made": [
+    "NotificationBell's bell/mark-all-read tooltips use VhyxUI's real Tooltip component, correcting ModeDropdown's earlier (and already-incorrect-at-the-time) assumption that no equivalent exists",
+    "The notification panel's 380px width is set via an inline style, not a CSS Module class, since it must beat Popover.Content's own default max-width (20rem) -- a genuine specificity conflict where only an inline style is guaranteed to win regardless of stylesheet load order",
+    "The 'bordered skin' setting (still read from useSettings(), same as several already-migrated auth pages) is adapted to mean 'drop the panel's box-shadow' rather than 'add a border', since VhyxUI's Popover.Content always has a visible border unlike MUI's default-elevation Paper",
+    "AppNotification.message renamed to body to match the real API contract -- a real bug fix, not left 'faithfully reproduced', since preserving it would mean preserving a feature that has never actually shown a message",
+    "FeedbackButton's Zoom wrapper (around its Fab) recommended for outright removal, not a shim -- its `in` prop is hardcoded true with no conditional anywhere, so it never actually toggles visibility and is pure dead animation wrapper",
+    "FeedbackButton's Collapse (bug-specific fields) recommended to become a plain conditional render with no height-animation, rather than hand-rolling a max-height-transition shim -- a real shim here is non-trivial new component logic, not a thin prop-mapping wrapper like Typography/Skeleton, for a purely cosmetic gain",
+    "FeedbackButton recommended to stay unsplit as one focused session (comparable in scope to BillingView), not broken into further sub-sessions"
+  ],
+  "bugs_found_fixed": [
+    "AppNotification.message (frontend type) never matched apps/api's GetNotifications use case, which has always returned the field as `body` at every layer -- every notification's message text has rendered blank since this feature shipped (MUI version included, not introduced by this migration). Fixed: renamed the type field and its one consumer."
+  ],
+  "bugs_found_unfixed": [
+    "@core/components/scroll-to-top/index.tsx (ScrollToTopButton's wrapper) is itself still MUI (Zoom + useScrollTrigger) -- missed by the original 2026-09-16 audit, found during this session's investigation. Not fixed, not yet scheduled to a phase.",
+    "apps/web's /notification/notifications endpoint (and likely read/read-all) returns a bare {notifications, unreadCount} body with no success/data wrapper, unlike every other apps/api route -- an API-convention inconsistency, not itself a bug since the frontend already expects the bare shape."
+  ],
+  "files_changed": [
+    "apps/web/src/views/notification/NotificationBell.tsx -- full MUI surface -> VhyxUI (Popover/Tooltip/Badge/Separator/Button), plus the message->body field rename",
+    "apps/web/src/views/notification/NotificationBell.module.css -- new, dedicated CSS module (same convention as ModeDropdown/UserDropdown)",
+    "apps/web/src/api/domain/notification/notification.types.ts -- AppNotification.message renamed to body, with a comment documenting the bug",
+    "apps/web/src/libs/layout/vhyxui/DashboardTopbar.tsx -- stale comment describing NotificationBell as MUI-internal, corrected",
+    "apps/web/src/app/[locale]/(dashboard)/layout.tsx -- stale comment describing NotificationBell as MUI-internal, corrected; scroll-to-top holdout noted",
+    ".claude/context.md -- Phase 3 part 1 completion note added, FeedbackButton/scroll-to-top holdouts documented",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 3 part 1: NotificationBell migrated off MUI; FeedbackButton fully investigated and planned' -- includes the complete FeedbackButton plan",
+    ".claude/backlog.md -- NotificationBell item resolved and removed; FeedbackButton (Phase 3 part 2), Phase 4, the scroll-to-top holdout, and the notification-endpoint-wrapper inconsistency added as separate items",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass",
+    "build": "pass, 19 routes unchanged",
+    "test": "pass, apps/web 7 files/23 tests unchanged, root suite 19 files/99 tests unchanged",
+    "lint": "249 problems, unchanged from Phase 2's baseline (one new lines-around-comment violation in notification.types.ts's new comment block, caught and fixed before the final count)"
+  },
+  "open_items_for_next_session": [
+    "FeedbackButton.tsx (Phase 3 part 2) is fully planned and ready to execute directly from decision.md's 'Phase 3 part 1' entry -- no re-investigation needed. Key points to carry forward: Fab -> Button iconOnly + fixed positioning (ScrollToTopButton precedent), drop the dead Zoom wrapper, Chip type-selector -> hand-built Badge-in-button (CreateApiKeyDialog precedent), 4 of 6 form fields need TextareaField not TextField, Collapse -> plain conditional render (no shim), no Server/Client boundary risk expected, keep the no-<form>/manual-onClick submission structure as-is, treat as one focused session comparable to BillingView",
+    "Phase 4 (the blank-layout-pages illustration-panel problem) remains open -- still needs a real responsive-without-MUI-theme design, no VhyxUI breakpoint primitive as of the last check",
+    "@core/components/scroll-to-top/index.tsx is a small, newly-found MUI holdout (Zoom + useScrollTrigger) not yet assigned to any phase",
+    "Live browser verification of NotificationBell's interactive behavior (Popover open/close, hover Tooltip, badge overlay positioning, per-type icon colors) was not possible without the Chrome extension -- this component's stateful interaction specifically needs a real browser pass more than Phase 1-2's mostly-static content did, worth prioritizing when the extension is next available",
+    "The 249 pre-existing eslint problems remain untriaged and unrelated to this session"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 3 part 1 completion note is in place"
+  ]
+}
+```
