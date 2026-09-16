@@ -201,6 +201,26 @@ apps/
                   `VerifyEmailSentView`/`NotFound`'s illustration wrappers, plus the
                   `@core/theme/*` MUI theme-construction machinery those still depend on)
                   is the only phase remaining open.
+                  **Phase 4 part 1 (design) done 2026-09-16**: full CSS-only design
+                  produced — no implementation yet. Corrected the audit's own framing:
+                  `VerifyEmailView`/`VerifyEmailSentView` have zero real theme coupling
+                  (same trivial `styled('img')` shape as `AcceptInvitationView`, Phase 1)
+                  and were never part of the hard problem; only `Login`/`Register`/
+                  `ForgotPasswordView`/`ResetPasswordView`/`NotFound` are. Proposed: a
+                  shared `AuthIllustrationPanel` component + a new `useBreakpointDown`
+                  hook (replaces `useMediaQuery(theme.breakpoints.down(...))`) +
+                  Tailwind's built-in `rtl:` variant (replaces `theme.direction`, keyed
+                  off the already-existing, MUI-independent `<html dir>` attribute) + one
+                  small CSS Module for the two real breakpoint-capped max-heights
+                  (Tailwind's own `--breakpoint-*` values already match MUI's exactly).
+                  **Also found — solving the illustration panel alone does NOT fully
+                  unlock `ThemeProvider`/`CssBaseline` removal**: `Register.tsx`'s MUI
+                  `Grid`, and `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s
+                  real `useColorScheme()`/`setMode()` calls (the latter two used by
+                  *both* route groups, not just blank-layout-pages) also gate it. Full
+                  sequencing plan and the complete design: decision.md, 2026-09-16
+                  ("Phase 4 part 1"). `@core/components/mui/TextField.tsx` is now fully
+                  dead (zero importers) and can be deleted independently.
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.

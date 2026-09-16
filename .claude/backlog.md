@@ -32,12 +32,21 @@ an item here is fixed, delete its line entirely; don't check it off.
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
 - [ ] apps/web Phase 4: the blank-layout-pages illustration-panel problem
-  (no VhyxUI breakpoint/responsive primitive as of the last check,
-  2026-09-16) — Phase 0-3 (nav-shell deletion, small restyles,
-  org/profile views, NotificationBell, FeedbackButton, and the
-  scroll-to-top holdout) are all done, this is now the only open phase
-  — see decision.md, 2026-09-16 ("Fresh MUI/Vuexy dependency audit") for
-  context
+  — full design already produced and ready to execute directly, no
+  re-investigation needed: see decision.md, 2026-09-16 ("Phase 4 part 1")
+  for the complete plan (a shared AuthIllustrationPanel component + a new
+  useBreakpointDown hook + Tailwind's built-in rtl: variant, CSS-only, no
+  VhyxUI primitive needed). That entry also found the illustration panel
+  alone does NOT fully unlock ThemeProvider/CssBaseline removal —
+  Register.tsx's MUI Grid, and useImageVariant.ts/useLayoutInit.ts/
+  ModeChanger.tsx's real useColorScheme()/setMode() calls (used by BOTH
+  route groups, not just blank-layout-pages) also need clearing first,
+  in the sequence the plan lays out
+- [ ] `apps/web/src/@core/components/mui/TextField.tsx` is now fully dead
+  (zero importers anywhere — its last two consumers, CreateOrgDialog.tsx
+  and FeedbackButton.tsx, were migrated off it in Phase 2 and Phase 3
+  part 2 respectively) — found 2026-09-16, Phase 4 part 1 session. Safe
+  to delete outright, independent of the rest of Phase 4's design.
 - [ ] `apps/web`'s `/notification/notifications` endpoint (and likely its
   `read`/`read-all` siblings) returns a bare `{notifications, unreadCount}`
   body with no `success`/`data` wrapper, unlike every other apps/api

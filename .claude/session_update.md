@@ -2046,3 +2046,46 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase4-part1-design",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Phase 4 part 1 of the MUI/Vuexy removal plan: design a responsive layout solution for the blank-layout-pages illustration panel without depending on MUI's ThemeProvider/useTheme(). Investigation and design only, no implementation across the six pages this session.",
+  "status": "completed",
+  "summary": "Read all six originally-flagged pages (Login, Register, ForgotPasswordView, ResetPasswordView, VerifyEmailView, VerifyEmailSentView) plus NotFound.tsx fresh, cataloging every real useTheme()/theme.spacing()/theme.breakpoints()/theme.direction call rather than trusting the old 12-calls figure (which predates several unrelated component migrations in these same files -- the real count today is 4 distinct concerns: spacing, two breakpoint-capped max-heights, a below-md existence gate, and an RTL flip). Corrected the audit's own framing along the way: VerifyEmailView.tsx and VerifyEmailSentView.tsx have zero real theme coupling at all -- same trivial fixed-pixel styled('img') shape Phase 1 already fixed for AcceptInvitationView -- and were never part of the hard problem, just miscategorized because they share the surface property of 'still has a styled(\"img\")'. Re-checked VhyxUI fresh for any breakpoint/media-query primitive (still zero, fourth independent confirmation across this whole migration) and found the app already has an established, better answer sitting unused: Tailwind's own configured breakpoints (globals.css's --breakpoint-sm/md/lg/xl) are exact numeric matches for MUI's defaults, Tailwind's max-* and built-in rtl:/ltr: variants are confirmed present in the actual installed tailwindcss@4.1.17 build, and NotFound.tsx's own character image already uses a pure-Tailwind responsive size ramp with zero MUI dependency -- direct, load-bearing proof the pattern already works in this exact codebase. Caught and corrected a real arithmetic mistake mid-investigation: theme.spacing() in this app is NOT MUI's default 8px-per-unit -- @core/theme/spacing.ts overrides it to the same 0.25rem-per-unit formula Tailwind's own scale uses, meaning theme.spacing(N) always equals Tailwind's own N-suffixed utility with zero conversion. Designed a concrete, CSS-only solution: a new useBreakpointDown hook (window.matchMedia, replaces useMediaQuery(theme.breakpoints.down())), a shared AuthIllustrationPanel component (replaces the byte-identical duplicated block in 4 of the 6 pages, verified structurally identical by direct diff-reading, not assumed from file names), Tailwind's built-in rtl: variant keyed off the app's already-existing (if currently hardcoded) <html dir> attribute (replacing theme.direction, which is confirmed fully dead code today -- every direction= call site hardcodes 'ltr' and next-intl only configures LTR locales), and one small CSS Module (matching this project's own established per-component-module convention) for the two real breakpoint-capped max-heights, using a CSS custom property for the one value that genuinely varies per page since neither a template-literal Tailwind class nor an inline style can correctly coexist with the breakpoint overrides. Did the PART 3 completeness check the brief specifically asked for, rather than assuming the original audit's claim still holds: found that solving the illustration panel alone does NOT fully unlock ThemeProvider/CssBaseline removal. Register.tsx has a separate MUI Grid import unrelated to the illustration problem. More significantly, useImageVariant.ts and useLayoutInit.ts both call MUI's real useColorScheme() (not useTheme() -- a different hook, for resolved light/dark mode), and useLayoutInit.ts is called from BOTH route groups (confirmed via actual call sites in LayoutWrapper.tsx and BlankLayout.tsx, not assumed) -- meaning ThemeProvider can't come off the dashboard route group either purely because of this one hook, a dependency entirely outside the illustration-panel problem's scope on a route group already otherwise fully migrated. ModeChanger.tsx has the same real useColorScheme()/setMode() dependency, for a documented reason (syncing MUI's own components) that becomes moot once no MUI components remain anywhere. Also found @core/components/mui/TextField.tsx is now fully dead (zero importers -- its last two consumers were migrated off it in Phase 2 and Phase 3 part 2) and can be deleted independently. Wrote the complete design plus a recommended 5-step implementation sequence into decision.md as the reference the next session should execute from directly. No code was changed this session -- investigation and design only, as instructed.",
+  "decisions_made": [
+    "VerifyEmailView.tsx/VerifyEmailSentView.tsx are excluded from the shared AuthIllustrationPanel design entirely -- they need the same trivial styled('img')-to-plain-<img> conversion Phase 1 already did for AcceptInvitationView, not new component work",
+    "RTL support is preserved structurally (via Tailwind's built-in rtl: variant) even though it's confirmed fully dead code today (no live path to theme.direction ever resolving 'rtl') -- cheap to keep correct, not worth deleting just because nothing currently exercises it",
+    "The character illustration's per-page-variable base max-height needs a CSS custom property in a dedicated CSS Module, not a dynamic Tailwind arbitrary-value class (Tailwind's build-time scanner can't see runtime-interpolated values) or an inline style (its specificity would silently defeat the breakpoint-scoped override rules)",
+    "NotFound.tsx should reuse the mask-image piece of the new design (hidden-gate + rtl: flip) rather than getting a third hand-rolled copy, but does not need the full AuthIllustrationPanel wrapper since its layout is structurally different (single centered column, not a two-column split)",
+    "The useColorScheme()/setMode() removal in useLayoutInit.ts/ModeChanger.tsx is correctly sequenced as the LAST step of the whole Phase 4 removal, not something to attempt mid-way -- it's only safe once every other MUI component anywhere in the app (including the dashboard route group) is confirmed gone"
+  ],
+  "bugs_found_fixed": [],
+  "bugs_found_unfixed": [
+    "@core/components/mui/TextField.tsx is fully dead (zero importers) -- not fixed this session (investigation-only), added to backlog.md as an independently-actionable deletion"
+  ],
+  "files_changed": [
+    ".claude/context.md -- Phase 4 part 1 design note added, including the ThemeProvider-unlock finding",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 4 part 1: illustration-panel design (CSS-only, no MUI), and a broader ThemeProvider-removal blocker found' -- the full design and implementation sequencing",
+    ".claude/backlog.md -- Phase 4 item updated to point at the new design entry; new item added for the dead TextField.tsx wrapper",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "not run -- no apps/web code changed this session (investigation/design only)",
+    "build": "not run -- no apps/web code changed this session",
+    "test": "not run -- no apps/web code changed this session",
+    "lint": "not run -- no apps/web code changed this session"
+  },
+  "open_items_for_next_session": [
+    "Phase 4 part 2 (implementation) is fully designed and ready to execute directly from decision.md's 'Phase 4 part 1' entry -- recommended sequence: (1) trivial VerifyEmailView/VerifyEmailSentView conversions + delete dead TextField.tsx, (2) Register.tsx's Grid -> plain grid, (3) useBreakpointDown hook + AuthIllustrationPanel/mask component + CSS Module applied to Login/Register/ForgotPasswordView/ResetPasswordView/NotFound, (4) verify zero remaining @mui component imports with a fresh full-tree grep, (5) only then useImageVariant.ts's useResolvedMode() swap and useLayoutInit.ts/ModeChanger.tsx's useColorScheme()/setMode() removal, followed by actually deleting ThemeProvider/CssBaseline/Providers.tsx's MUI wiring and the @core/theme/libs/theme construction tree",
+    "Functional check for step 5 specifically should re-verify dark/light mode switching still works end-to-end via data-theme, since that touches always-active shared runtime logic rather than a single route group's static markup",
+    "The 249 pre-existing eslint problems and the apps/api notification-endpoint bare-response-shape inconsistency remain untouched, unrelated to this session"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 4 part 1 design note is in place"
+  ]
+}
+```
