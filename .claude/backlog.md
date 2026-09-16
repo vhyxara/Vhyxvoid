@@ -31,40 +31,40 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] apps/web `ThemeProvider`/`CssBaseline` removal: full design ready
-  to execute directly, no re-investigation needed — see decision.md,
-  2026-09-16 "Phase 4 part 2b" for the complete plan and exact code for
-  every file. Five things gate the actual removal, all now designed: (1)
-  `Register.tsx`'s MUI `Grid` → plain `grid grid-cols-2 gap-4` div,
-  trivial; (2) `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s
-  real `useColorScheme()`/`setMode()` calls → a new `useResolvedMode()`
-  hook (wraps `react-use`'s `useMedia`, not a new `matchMedia` listener)
-  for `useImageVariant.ts`; `useLayoutInit.ts` drops its now-fully-unused
-  `useSettings` import too once the MUI block is gone;
-  `ModeChanger.tsx` keeps its `data-theme` write but fixes a real,
-  currently-live bug found this session — its effect only depended on
-  `[settings.mode]`, so a live OS dark-mode toggle while
-  `settings.mode === 'system'` has never updated `data-theme` at all
-  (only MUI's `setMode()` caught that case, for MUI components only) —
-  now depends on `[settings.mode, isDark]` too; (3) `app/layout.tsx`'s
-  `InitColorSchemeScript` (newly found this session — a real MUI import
-  in the *root* layout no prior phase named individually) → delete
-  outright, no replacement needed (`data-theme={systemMode}` already
-  covers VhyxUI's own SSR flash-prevention on the same line); (4) the
-  actual deletion of `libs/theme/index.tsx`'s `ThemeProvider`/
-  `CssBaseline`/`AppRouterCacheProvider` wiring, `Providers.tsx`'s import
-  of it, and the ~44-file `@core/theme`/`libs/theme` construction tree
-  that only exists to feed it; (5) the already-dead `TextField.tsx`
-  below, independently deletable any time. Confirmed NOT a blocker,
-  informational only: `libs/layout/shared/Logo.tsx` uses
-  `@emotion/styled` directly (invisible to every prior `@mui`-string
-  grep) but its styled callback never reads `theme` — zero
-  `ThemeProvider` coupling, checked directly not assumed.
-- [ ] `apps/web/src/@core/components/mui/TextField.tsx` is now fully dead
-  (zero importers anywhere — its last two consumers, CreateOrgDialog.tsx
-  and FeedbackButton.tsx, were migrated off it in Phase 2 and Phase 3
-  part 2 respectively) — found 2026-09-16, Phase 4 part 1 session. Safe
-  to delete outright, independent of the rest of Phase 4's design.
+- [ ] apps/web has a ~37-file pile of unreachable dead `.jsx`/`.js` code
+  under `libs/ui/`, `libs/card-statistics/`, `libs/styles/`, and most of
+  `libs/components/*.jsx` that still contains real, uncommented `@mui`/
+  `@mui/lab` imports — confirmed zero importers anywhere (no barrel/index
+  file, no dynamic `import()`, no alias reference) for every file in the
+  pile; the only cross-references are within the pile itself (e.g.
+  `FileUploadDialog.jsx` → `DragAndDropComponent.jsx`). Same category as
+  the 4 dead `.jsx` files already flagged this session for referencing
+  `TextField.tsx` — just a much larger slice of the same pre-existing
+  pile, only fully enumerated now via an `@mui`-specific grep across
+  `.jsx`/`.js` (not just `.tsx`/`.ts`). Not touched during Phase 4 part 3
+  (none of it gated `ThemeProvider`/`CssBaseline`), but it's now the
+  single largest concentration of raw `@mui` source text left in the
+  tree and worth a dedicated delete-or-archive pass. Found 2026-09-16,
+  Phase 4 part 3 session (decision.md, "Phase 4 part 3").
+- [ ] apps/web's now-fully-unused `@mui/lab`/`@mui/material`/
+  `@mui/material-nextjs`/`@mui/utils` packages have not been removed from
+  `package.json` yet — deliberately deferred out of the Phase 4 part 3
+  session since it touches `package.json`/`pnpm-lock.yaml` (a
+  whole-workspace-affecting change) rather than pure `apps/web` source.
+  Keep `@emotion/styled`/`@emotion/react`/`@emotion/cache` — still
+  genuinely used directly by `libs/layout/shared/Logo.tsx`, independent
+  of MUI. Found 2026-09-16, Phase 4 part 3 session (decision.md, "Phase 4
+  part 3").
+- [ ] `Register.tsx`'s new `grid grid-cols-2 gap-4` (matching
+  `ProfileView.tsx`'s already-shipped precedent) doesn't match this app's
+  own `theme.spacing(N)` → Tailwind-`N` mapping: MUI's `Grid spacing={2}`
+  would map to `gap-2` by that convention, but both real usages use
+  `gap-4` instead. Not resolved — matched the existing precedent for
+  consistency per explicit instruction, but the spacing-unit-math
+  discrepancy itself is unexplained and worth a small design-system
+  cleanup pass later (either the mapping convention or these two
+  components is wrong). Found 2026-09-16, Phase 4 part 3 session
+  (decision.md, "Phase 4 part 3").
 - [ ] `apps/web`'s `/notification/notifications` endpoint (and likely its
   `read`/`read-all` siblings) returns a bare `{notifications, unreadCount}`
   body with no `success`/`data` wrapper, unlike every other apps/api

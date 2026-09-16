@@ -21,7 +21,7 @@ VhyxVoid's goal is to become the default tunnel tool for full-stack development 
 - **Language**: TypeScript throughout (strict mode), Node.js runtime.
 - **Monorepo**: pnpm workspaces (`apps/*`, `packages/*`) orchestrated by Turborepo (`turbo.json`); `pnpm@10.6.2` pinned as `packageManager`.
 - **API (control plane)**: Fastify 5, Prisma 6 → Postgres, `@upstash/redis` + `ioredis` (both present), `@fastify/jwt` + cookies for user auth, Stripe SDK, Resend (email), bcryptjs, zod. Root-level linting is ESLint 9 flat config (`eslint.config.ts`) — **not** `eslint-plugin-boundaries` (an earlier audit pass claimed that; confirmed wrong by reading the file directly): it's a plain `no-restricted-imports` rule banning deep imports into another workspace package's `src/` and cross-package relative imports.
-- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-3 (NotificationBell + FeedbackButton + the `scroll-to-top` holdout) and Phase 4 part 2a (the auth illustration panel — `Login`/`Register`/`ForgotPasswordView`/`ResetPasswordView`/`NotFound`/`VerifyEmailView`/`VerifyEmailSentView`), a full, ready-to-execute design exists (decision.md, 2026-09-16, "Phase 4 part 2b") for the last five things gating `ThemeProvider`/`CssBaseline` removal: `Register.tsx`'s `Grid`; `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s real `useColorScheme()` calls (plus a real, currently-live dark-mode-sync bug found and designed-around along the way); `app/layout.tsx`'s `InitColorSchemeScript` (newly found — a real MUI import in the root layout no prior phase had named); the actual `libs/theme`/`@core/theme` deletion; and the already-dead `@core/components/mui/TextField.tsx` wrapper. VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
+- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **MUI/Vuexy removal is complete as of 2026-09-16** (Phase 4 part 3 — see Directory Structure and decision.md's per-phase entries): `ThemeProvider`/`CssBaseline` and the entire `@core/theme`/`libs/theme` construction machinery that gated them are deleted; zero real `@mui` imports remain in any live, reachable file (two files carry only harmless pre-existing comments naming MUI) — a separate, pre-existing pile of ~37 unreachable dead `.jsx`/`.js` files (`libs/ui/`, `libs/card-statistics/`, `libs/styles/`, most of `libs/components/*.jsx`) still has real `@mui` imports but is out of scope (see backlog.md). VhyxUI is now the app's only UI/theme library, kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention. `@emotion/styled`/`@emotion/react`/`@emotion/cache` remain in `package.json` (still genuinely used directly by `libs/layout/shared/Logo.tsx`, independent of MUI); the now-fully-unused `@mui/*` packages themselves have **not** been removed from `package.json` yet — a small, deliberately-deferred, separate cleanup (see backlog.md).
 - **Hub (tunnel router)**: plain Node `http` module + `ws` (WebSocketServer in `noServer` mode) — `fastify`, `uWebSockets.js`, and `pg` are also listed as dependencies but are confirmed leftovers from two earlier rewrite attempts (uWebSockets.js → Fastify → plain http+ws), safe to remove. Imports `packages/shared`'s Prisma client directly (no HTTP call to the API).
 - **Agent**: `ws` client, `axios` (backend proxy), `better-sqlite3` (durable queue, WAL mode), `commander` (CLI).
 - **SDK**: `isomorphic-ws`, hand-rolled HMAC signing. Two live client implementations plus one dead one (see SDK Client Strategy below).
@@ -258,6 +258,39 @@ apps/
                   not a `ThemeProvider` blocker, just invisible to every prior `@mui`-only
                   grep). Full design and the complete final dependency list: decision.md,
                   2026-09-16 ("Phase 4 part 2b") — ready for direct execution.
+                  **Phase 4 part 3 (final) executed 2026-09-16 — MUI/Vuexy removal now
+                  fully complete.** The Phase 4 part 2b design implemented directly:
+                  `Register.tsx`'s `Grid` → `grid grid-cols-2 gap-4` (matching
+                  `ProfileView.tsx`'s shipped precedent exactly); new `useResolvedMode()`
+                  hook (wraps `react-use`'s `useMedia`) replaces `useColorScheme()` in
+                  `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`, closing the
+                  live OS-dark-mode `data-theme` sync bug as a byproduct; `app/layout.tsx`'s
+                  `InitColorSchemeScript` deleted outright (the existing `data-theme`
+                  attribute already covers it). With all five blockers cleared, a final
+                  exhaustive `ThemeProvider`/`CssBaseline`/`useTheme()`/`useColorScheme()`/
+                  `InitColorSchemeScript` grep confirmed nothing new and nothing missed,
+                  then `ThemeProvider`/`CssBaseline` were removed from `Providers.tsx` and
+                  the entire `@core/theme/` directory (43 files) plus `libs/theme/index.tsx`/
+                  `mergedTheme.ts`/`types.ts`/`userTheme.ts` were deleted (`ModeChanger.tsx`
+                  is now the sole file left in `libs/theme/`). `@core/components/mui/
+                  TextField.tsx` (dead since Phase 3 part 1) and its one newly-orphaned
+                  dependent, `@core/components/custom-inputs/types.ts`, were also removed,
+                  both archived to `apps/web/archived/` per the established convention.
+                  `@mui` surface: **zero real imports left in any live, reachable file**
+                  (two files carry only harmless pre-existing comments naming MUI). A
+                  wider final grep (across `.jsx`/`.js`, not just `.tsx`/`.ts`) also found
+                  37 more files with real, uncommented `@mui` imports — all confirmed
+                  unreachable dead code in the pre-existing `libs/ui/`/`libs/card-statistics/`/
+                  `libs/styles/`/`libs/components/*.jsx` pile (zero importers anywhere,
+                  same category as the 4 dead files found earlier this session, just a
+                  larger slice of it); see backlog.md and decision.md's correction. Full execution
+                  detail, the real dependency-array bug fix, the empirical `Logo.tsx`/Emotion
+                  verification (SSR HTML confirmed to still carry the correct Emotion class
+                  + `<style>` tag without `AppRouterCacheProvider`), the lint-delta
+                  explanation, and the disclosed live-OS-toggle verification gap (no browser
+                  tool available to simulate a live `prefers-color-scheme` change): decision.md,
+                  2026-09-16 ("Phase 4 part 3"). **This closes the entire MUI/Vuexy removal
+                  plan (Phases 0-4).**
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.
