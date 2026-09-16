@@ -1850,3 +1850,51 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase1-migration",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Execute Phase 1 of the MUI/Vuexy removal plan: migrate the four small, independent, no-theme-dependency components identified in the audit (NotFound.tsx's Button/Typography, AuthGuard.tsx's CircularProgress, AcceptInvitationView.tsx's illustration wrapper, the dashboard layout's ScrollToTop button) to their VhyxUI equivalents.",
+  "status": "completed",
+  "summary": "Re-verified each of the four targets' actual current MUI usage fresh before touching anything -- all matched the audit's description exactly, including confirming AcceptInvitationView.tsx's styled('img') has zero theme coupling (fixed pixel values only, unlike NotFound.tsx's theme-coupled MaskImg), which is what made it safe to convert to a plain <img> and drop the MUI import entirely rather than leaving it as part of the illustration-panel problem. Applied the established VhyxUI migration patterns already used elsewhere in the app (Button asChild for link-buttons, Spinner for loading states, iconOnly for icon-only buttons, the vhyxui-shims Typography). Hit and fixed a real Turbopack SSR build break: importing @vhyxui/react's Button directly into (dashboard)/layout.tsx -- a genuine Server/Client boundary-crossing file with no 'use client' of its own -- broke /profile's production build with a createContext TypeError, reproducible from a clean .next. Root-caused by checking which other files in the app import from @vhyxui/react without their own 'use client' (RowAction.tsx, TablePaginationComponent.tsx -- both fine because they're only ever reached from inside an already-client subtree, unlike the layout). Fixed by extracting the button into its own small client component, ScrollToTopButton.tsx. Also caught and fixed a real (not pre-existing) eslint import/order violation introduced in NotFound.tsx's new import block. Verified with the real local dev backend (no Chrome extension available in this environment, so curl against a running dev server instead of a live browser walkthrough): NotFound, accept-invitation (both valid-illustration and invalid-token Alert states), and the dashboard's unauthenticated-redirect flow all render correctly with real VhyxUI markup, no errors leaked into any HTML. typecheck/build/test all pass clean (19 routes, 23 tests, unchanged). @mui import surface dropped from 71 files/147 lines to 68 files/142 lines. Committed as a single commit. Updated context.md/decision.md/backlog.md to record Phase 1 as complete and Phase 2-4 as the remaining open work.",
+  "decisions_made": [
+    "Extracted the dashboard layout's scroll-to-top button into its own dedicated 'use client' component (ScrollToTopButton.tsx) instead of importing @vhyxui/react's Button directly into the Server Component layout.tsx -- the latter broke the production build (Turbopack SSR bundling issue specific to that boundary-crossing position), the former is the standard, unambiguous Next.js pattern and fixed it immediately",
+    "AcceptInvitationView.tsx's styled('img') judged genuinely separable from the illustration-panel problem (confirmed zero theme coupling -- fixed pixel values only) and converted to a plain <img> with Tailwind classes, rather than left alone as 'part of the deferred illustration work' -- the audit's own distinction, verified directly rather than assumed",
+    "AuthGuard.tsx's CircularProgress mapped to Spinner size='lg' (not the 'md' used for inline spinners elsewhere) as the closer visual match to MUI's default 40px CircularProgress, since this is a full-viewport loading moment not an inline one"
+  ],
+  "bugs_found_fixed": [
+    "app/[locale]/(dashboard)/layout.tsx: importing @vhyxui/react's Button directly into this Server Component broke the Turbopack production build for /profile ('(0, i.createContext) is not a function' collecting page data) -- fixed by extracting to a dedicated client component, ScrollToTopButton.tsx",
+    "views/pages/NotFound.tsx: a real (session-introduced, not pre-existing) eslint import/order violation in the new import block -- fixed to match the established grouping convention used elsewhere in the app"
+  ],
+  "bugs_found_unfixed": [],
+  "files_changed": [
+    "apps/web/src/views/pages/NotFound.tsx -- Button/Typography migrated to VhyxUI, illustration left MUI (genuine theme coupling)",
+    "apps/web/src/api/domain/identity/guard/AuthGuard.tsx -- CircularProgress -> Spinner",
+    "apps/web/src/views/org/AcceptInvitationView.tsx -- styled('img') -> plain <img>, MUI import removed entirely",
+    "apps/web/src/app/[locale]/(dashboard)/layout.tsx -- inline MUI Button -> ScrollToTopButton (new component)",
+    "apps/web/src/@core/components/scroll-to-top/ScrollToTopButton.tsx -- new, small 'use client' wrapper",
+    ".claude/context.md -- Phase 1 completion note added",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 1 executed'",
+    ".claude/backlog.md -- Phase 1 items removed from the open pointer",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass",
+    "build": "pass, 19 routes unchanged (after fixing the Turbopack SSR break)",
+    "test": "pass, 7 files / 23 tests unchanged",
+    "lint": "1 new violation caught and fixed (NotFound.tsx import/order); the 250 pre-existing problems from Phase 0 are untouched, still out of scope"
+  },
+  "open_items_for_next_session": [
+    "Phase 2 (CreateOrgDialog/MyAccountsTable/BillingView/FeedbackHistoryTab+Drawer/contexts-FeedbackContext migrations) is the next open phase",
+    "Phase 3 (NotificationBell/FeedbackButton rebuild) and Phase 4 (the blank-layout-pages illustration-panel problem) remain open, unchanged from the audit's plan",
+    "Watch for the same Server/Client-boundary Turbopack issue in future phases: any file that imports @vhyxui/react components without its own 'use client' AND isn't already inside a client subtree (i.e. any layout.tsx, page.tsx, or other genuine RSC entry point) needs the same extract-to-a-dedicated-client-component treatment, not a direct import",
+    "AuthGuard's Spinner render during the brief client-side bootstrap window was not directly observed (curl can't exercise client-only transient state) -- low risk since it's the same Spinner call already proven working elsewhere, but worth a real browser check next time the Chrome extension is available"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 1 completion note is in place"
+  ]
+}
+```

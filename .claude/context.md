@@ -144,9 +144,20 @@ apps/
                   members.columns.tsx, generic unused Vuexy boilerplate) are gone —
                   superseded by libs/layout/vhyxui/* and confirmed zero-importer, per
                   decision.md, 2026-09-16 ("Phase 0 executed"). `@mui` import surface
-                  dropped 94→71 files, 209→147 lines. Phases 1-4 (small live-component
-                  restyles, org/profile view migrations, NotificationBell/FeedbackButton
-                  rebuild, the illustration-panel problem) remain open.
+                  dropped 94→71 files, 209→147 lines.
+                  **Phase 1 executed 2026-09-16**: NotFound.tsx (Button/Typography, not its
+                  theme-coupled illustration), AuthGuard.tsx (CircularProgress→Spinner),
+                  AcceptInvitationView.tsx (its one, genuinely-untheme-coupled
+                  styled('img')), and the dashboard layout's ScrollToTop button all
+                  migrated to VhyxUI. `@mui` surface now 68 files/142 lines. Hit and fixed a
+                  real Turbopack SSR build break: importing `@vhyxui/react`'s `Button`
+                  directly into `(dashboard)/layout.tsx` (a genuine Server/Client
+                  boundary-crossing file, no `'use client'` of its own) broke `/profile`'s
+                  production build — fixed by extracting to a dedicated client component,
+                  `@core/components/scroll-to-top/ScrollToTopButton.tsx`. See decision.md,
+                  2026-09-16 ("Phase 1 executed"). Phases 2-4 (org/profile view migrations,
+                  NotificationBell/FeedbackButton rebuild, the illustration-panel problem)
+                  remain open.
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.
