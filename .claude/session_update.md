@@ -2003,3 +2003,46 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase3-part2-feedbackbutton",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Phase 3 part 2 of the MUI/Vuexy removal plan: execute FeedbackButton.tsx's migration to VhyxUI directly from the complete plan already produced in decision.md's 'Phase 3 part 1' entry (no re-investigation), and fix the small @core/components/scroll-to-top/index.tsx MUI holdout found during that session.",
+  "status": "completed",
+  "summary": "Read the Phase 3 part 1 plan in full and implemented FeedbackButton.tsx directly from it, with zero deviations from the mapping decisions already made: Button iconOnly + fixed positioning replaces Fab (ScrollToTopButton precedent), the dead Zoom wrapper (in hardcoded true) dropped entirely, the Chip type-selector becomes a hand-built Badge-in-a-plain-button (CreateApiKeyDialog precedent, all four still separate Controllers on the same field name, matching the original's structure), TextareaField (not TextField, which has no multiline prop) covers 4 of the 6 form fields, Collapse becomes a plain conditional render with no height animation. One thing settled itself while implementing rather than needing a fresh judgment call: re-reading the original file showed it already wired up error/helperText display on every field (unlike CreateOrgDialog/CreateApiKeyDialog's templates, which never did) -- preserving exact current behavior meant carrying that over, not choosing to add it. Confirmed zero Server/Client boundary risk exactly as the plan predicted -- pnpm build passed clean first try. Also migrated @core/components/scroll-to-top/index.tsx: plain scroll-position state (window.scrollY > 400, matching the original threshold) and a conditional render replace Zoom + useScrollTrigger + styled('div'), same computed position values. This one has a real, visible behavior change (the button now appears/disappears abruptly instead of fading+scaling in) since it was gating genuine functional visibility, unlike FeedbackButton's dead Zoom -- flagged explicitly, not hidden. No Chrome extension available (fourth session running, exactly as expected) -- fell back to real-backend verification: submitted a real BUG_REPORT feedback item via the actual API with both short-text (title) and multiline (description/stepsToReproduce/expectedBehavior/actualBehavior) fields populated, confirmed it appears via the same GET /api/v1/feedback endpoint Phase 2's already-migrated FeedbackHistoryTab reads (proving the submission-to-list round-trip works across both phases' code), cleaned up afterward. Confirmed FeedbackButton's own rendered output is inherently invisible to a curl-based SSR check -- not a regression, its direct parent AuthGuard gates on a client-only Zustand store that's always unresolved during SSR, the exact same ceiling Phase 1 already documented for AuthGuard's own spinner. typecheck/build/test all pass clean (19 routes, apps/web 7/23 tests, root 19/99 tests, all unchanged). @mui import surface dropped from 62 files/90 lines to 60 files/74 lines. Committed as a single commit. Updated context.md/decision.md/backlog.md -- Phase 3 part 2 and the scroll-to-top item removed from backlog.md; Phase 4 (the illustration-panel problem) is now the only open phase in the whole MUI/Vuexy removal plan.",
+  "decisions_made": [
+    "FeedbackButton's rich icon+title+subtitle dialog header is built from nested <span>s, not <div>s, inside Dialog.Title -- Dialog.Title renders an <h2>, which only permits phrasing content, and <div> is flow content (technically invalid nesting); <span> is phrasing content and avoids the issue. Not called out in the original plan, found while implementing.",
+    "FeedbackButton's per-field error display was preserved as-is (error={errors.field?.message} on every TextField/TextareaField) because the original MUI version already showed these messages -- 'preserve exact current behavior' settled the plan's open judgment call automatically rather than requiring a fresh decision",
+    "scroll-to-top/index.tsx's dropped Zoom animation is a real, visible cosmetic change (abrupt show/hide vs. fade+scale) and is documented as such, not silently absorbed the way FeedbackButton's dead Zoom wrapper was"
+  ],
+  "bugs_found_fixed": [],
+  "bugs_found_unfixed": [],
+  "files_changed": [
+    "apps/web/src/views/feedback/FeedbackButton.tsx -- full MUI surface -> VhyxUI (Button/Dialog/Badge/TextField/TextareaField/Tooltip), executed directly from the Phase 3 part 1 plan",
+    "apps/web/src/@core/components/scroll-to-top/index.tsx -- Zoom+useScrollTrigger+styled -> plain scroll-position state and conditional render",
+    "apps/web/src/app/[locale]/(dashboard)/layout.tsx -- stale comment describing FeedbackButton/scroll-to-top as MUI-internal, corrected",
+    ".claude/context.md -- Phase 3 part 2 completion note added; MUI/Vuexy removal now complete except Phase 4",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 3 part 2: FeedbackButton and scroll-to-top's Zoom/useScrollTrigger wrapper migrated off MUI'",
+    ".claude/backlog.md -- Phase 3 part 2 and scroll-to-top items resolved and removed; Phase 4 is now the sole remaining MUI/Vuexy item",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass",
+    "build": "pass, 19 routes unchanged",
+    "test": "pass, apps/web 7 files/23 tests unchanged, root suite 19 files/99 tests unchanged",
+    "lint": "249 problems, unchanged from Phase 3 part 1's baseline -- zero new issues in either touched file"
+  },
+  "open_items_for_next_session": [
+    "Phase 4 (the blank-layout-pages illustration-panel problem: Login/Register/ForgotPasswordView/ResetPasswordView/VerifyEmailView/VerifyEmailSentView/NotFound's illustration wrappers, plus the @core/theme/* MUI theme-construction machinery those depend on) is now the only open phase in the MUI/Vuexy removal plan -- still needs a real responsive-without-MUI-theme design, no VhyxUI breakpoint primitive as of the last check",
+    "A batched real-browser visual pass covering NotificationBell, FeedbackButton, and everything migrated since Phase 1 is planned once the Chrome extension is available -- per Tanveer's direction, this was deliberately not blocked on in any of Phases 1-3",
+    "The 249 pre-existing eslint problems remain untriaged and unrelated to this session",
+    "The apps/api notification-endpoint bare-response-shape inconsistency (found Phase 3 part 1) remains in backlog.md, untouched this session"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 3 part 2 completion note is in place"
+  ]
+}
+```
