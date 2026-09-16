@@ -31,22 +31,35 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] Two remaining blockers before `ThemeProvider`/`CssBaseline` can
-  actually come off apps/web (the illustration-panel problem itself is
-  now fully fixed, Phase 4 part 2a, 2026-09-16 — this item is NOT that,
-  see decision.md, 2026-09-16 "Phase 4 part 1"'s Part 3 and "Phase 4
-  part 2a"): (1) `Register.tsx`'s MUI `Grid` (firstName/lastName row) →
-  a plain `grid grid-cols-2 gap-4` div, trivial; (2)
-  `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s real
-  `useColorScheme()`/`setMode()` calls — the latter two used by BOTH the
-  dashboard AND blank-layout-pages route groups, not just the
-  illustration pages. Recommended fix already designed: extract a
-  `useResolvedMode()` hook (settings.mode + the same
-  `useMedia('(prefers-color-scheme: dark)')` fallback `ModeChanger.tsx`
-  already computes) for `useImageVariant.ts`; `useLayoutInit.ts`/
-  `ModeChanger.tsx` just drop their `useColorScheme()`/`setMode()` calls
-  once confirmed no MUI component renders anywhere. This must be the
-  last step, not attempted mid-way.
+- [ ] apps/web `ThemeProvider`/`CssBaseline` removal: full design ready
+  to execute directly, no re-investigation needed — see decision.md,
+  2026-09-16 "Phase 4 part 2b" for the complete plan and exact code for
+  every file. Five things gate the actual removal, all now designed: (1)
+  `Register.tsx`'s MUI `Grid` → plain `grid grid-cols-2 gap-4` div,
+  trivial; (2) `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s
+  real `useColorScheme()`/`setMode()` calls → a new `useResolvedMode()`
+  hook (wraps `react-use`'s `useMedia`, not a new `matchMedia` listener)
+  for `useImageVariant.ts`; `useLayoutInit.ts` drops its now-fully-unused
+  `useSettings` import too once the MUI block is gone;
+  `ModeChanger.tsx` keeps its `data-theme` write but fixes a real,
+  currently-live bug found this session — its effect only depended on
+  `[settings.mode]`, so a live OS dark-mode toggle while
+  `settings.mode === 'system'` has never updated `data-theme` at all
+  (only MUI's `setMode()` caught that case, for MUI components only) —
+  now depends on `[settings.mode, isDark]` too; (3) `app/layout.tsx`'s
+  `InitColorSchemeScript` (newly found this session — a real MUI import
+  in the *root* layout no prior phase named individually) → delete
+  outright, no replacement needed (`data-theme={systemMode}` already
+  covers VhyxUI's own SSR flash-prevention on the same line); (4) the
+  actual deletion of `libs/theme/index.tsx`'s `ThemeProvider`/
+  `CssBaseline`/`AppRouterCacheProvider` wiring, `Providers.tsx`'s import
+  of it, and the ~44-file `@core/theme`/`libs/theme` construction tree
+  that only exists to feed it; (5) the already-dead `TextField.tsx`
+  below, independently deletable any time. Confirmed NOT a blocker,
+  informational only: `libs/layout/shared/Logo.tsx` uses
+  `@emotion/styled` directly (invisible to every prior `@mui`-string
+  grep) but its styled callback never reads `theme` — zero
+  `ThemeProvider` coupling, checked directly not assumed.
 - [ ] `apps/web/src/@core/components/mui/TextField.tsx` is now fully dead
   (zero importers anywhere — its last two consumers, CreateOrgDialog.tsx
   and FeedbackButton.tsx, were migrated off it in Phase 2 and Phase 3

@@ -2141,3 +2141,48 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase4-part2b-design",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Phase 4 part 2b of the MUI/Vuexy removal plan: investigate and design fixes for the two remaining blockers to removing ThemeProvider/CssBaseline -- Register.tsx's MUI Grid, and useImageVariant.ts/useLayoutInit.ts/ModeChanger.tsx's real useColorScheme() calls -- plus one final exhaustive grep of the whole app for anything else still tied to ThemeProvider/CssBaseline/useTheme()/useColorScheme(). Investigation and design only, no implementation.",
+  "status": "completed",
+  "summary": "Read Register.tsx's MUI Grid fresh: two fields, a flat 50/50 split with zero responsive breakpoint behavior at all (size={6} applied uniformly, not a responsive object) -- meaning it was never doing anything a plain CSS grid couldn't already do. Found an identical, already-shipped precedent in this exact app: ProfileView.tsx has the same firstName/lastName row already converted to a plain `grid grid-cols-2 gap-4` div with no per-field wrapper needed. Recommended the same pattern for Register.tsx, flagging (not silently resolving) a real discrepancy: this app's own theme.spacing(N)-to-Tailwind-N mapping would suggest gap-2 for MUI's spacing={2}, but the shipped ProfileView precedent uses gap-4 -- recommended matching the precedent for visual consistency, framed as a judgment call. For the harder Part 2, read useImageVariant.ts/useLayoutInit.ts/ModeChanger.tsx fully plus (new this session) libs/theme/index.tsx (the actual ThemeProvider/CssBaseline wiring site) to understand the complete picture. Confirmed the prior sessions' description of useLayoutInit vs ModeChanger's distinct triggers still holds, but tracing the exact dependency arrays (not just re-reading the comments) found a real, previously-undiscovered, currently-live bug: ModeChanger.tsx's data-theme write only depends on [settings.mode], so a live OS dark-mode toggle while settings.mode==='system' has never updated VhyxUI's data-theme attribute at all -- only MUI's setMode() (via useLayoutInit.ts's separate effect) ever caught that case, and only for MUI components. Grepped every data-theme write site in the app to confirm nothing else covers this gap. Designed a new useResolvedMode() hook wrapping react-use's useMedia (the app's own already-three-times-used pattern for this exact query, deliberately not adapting useBreakpointDown's hand-rolled matchMedia technique, which was only necessary because no library hook covered arbitrary pixel breakpoints) to replace useColorScheme() in useImageVariant.ts, and designed the exact fix for useLayoutInit.ts (drops the now-fully-unused useSettings import too, once its only real job -- the unconditional colorPref cookie write -- is all that's left) and ModeChanger.tsx (drops useColorScheme()/setMode(), fixes the dependency array to [settings.mode, isDark], closing the sync gap as a natural byproduct of the same edit). For Part 3, ran a genuinely fresh, separate grep for ThemeProvider/CssBaseline/useTheme(/useColorScheme( as literal strings rather than re-deriving from the running @mui file-count tally, and found two real items no prior phase had named individually: app/layout.tsx has a real, live InitColorSchemeScript import from @mui/material, mounted in the root layout on every single route -- confirmed unnecessary once ThemeProvider goes (VhyxUI's own data-theme attribute is already set directly in the same SSR-rendered <html> tag, no script needed) -- and libs/layout/shared/Logo.tsx (rendered on every auth page plus the dashboard sidebar) uses @emotion/styled directly, invisible to every prior @mui-string-only grep since Emotion is a separate package. Checked Logo.tsx's styled callback directly rather than assuming from the surface pattern: it never reads theme, only plain component props, so it's confirmed to have zero ThemeProvider coupling and is not a blocker -- correctly reported as a non-issue, not overstated. Wrote the complete design, the exact code for all four affected files, and the final five-item dependency list into decision.md as the reference for the next (execution) session. No code was changed this session.",
+  "decisions_made": [
+    "Register.tsx's grid gap recommended as gap-4 (matching ProfileView.tsx's already-shipped identical-purpose layout) rather than the literal gap-2 this app's own theme.spacing(N)-to-Tailwind-N mapping would suggest -- framed as a judgment call for visual consistency, not a fact, since Register's original pre-migration spacing value can't be recovered from git history to confirm",
+    "useResolvedMode() should wrap react-use's useMedia, not reimplement window.matchMedia the way useBreakpointDown had to -- useBreakpointDown only hand-rolled matchMedia because no existing hook covered arbitrary pixel breakpoints, but useMedia already fully covers prefers-color-scheme and is the app's own established pattern for it in three places already",
+    "ModeChanger.tsx's dependency-array fix ([settings.mode] -> [settings.mode, isDark]) is bundled into the same edit that removes its useColorScheme() call, since both touch the same effect and the gap was found specifically by investigating why useColorScheme() was there in the first place",
+    "useLayoutInit.ts's cookie write being unconditional (not gated on settings.mode==='system') is noted but deliberately not touched -- it's a pre-existing characteristic unrelated to useColorScheme(), and changing it without confirming it's an actual bug first would be scope creep",
+    "app/layout.tsx's InitColorSchemeScript should be deleted outright with no replacement -- VhyxUI's own data-theme attribute already handles SSR flash-prevention directly in the same file",
+    "Logo.tsx's @emotion/styled usage is reported as confirmed-harmless informational context, not added to the blocker list -- it has zero theme-context coupling, verified by reading its styled callback directly"
+  ],
+  "bugs_found_fixed": [],
+  "bugs_found_unfixed": [
+    "ModeChanger.tsx's data-theme sync has a real, currently-live gap: a live OS dark-mode preference change while settings.mode==='system' never updates VhyxUI's data-theme attribute (only MUI's setMode() ever caught this, for MUI components only). Not fixed this session (design-only) -- the fix (extend the effect's dependency array to include isDark) is fully designed in decision.md's 'Phase 4 part 2b' entry, to be applied alongside the useColorScheme() removal."
+  ],
+  "files_changed": [
+    ".claude/context.md -- Phase 4 part 2b design note added",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 4 part 2b: design for the two remaining ThemeProvider blockers, plus two genuinely new dependencies found on the exhaustive final check'",
+    ".claude/backlog.md -- Grid/useColorScheme() item updated to point at the complete design with exact code; new informational note about the InitColorSchemeScript/Logo.tsx findings folded into the same item",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "not run -- no apps/web code changed this session (investigation/design only)",
+    "build": "not run -- no apps/web code changed this session",
+    "test": "not run -- no apps/web code changed this session",
+    "lint": "not run -- no apps/web code changed this session"
+  },
+  "open_items_for_next_session": [
+    "Phase 4 part 2c (execution) is fully designed and ready to implement directly from decision.md's 'Phase 4 part 2b' entry: (1) Register.tsx's Grid -> plain grid grid-cols-2 gap-4 div; (2) new useResolvedMode() hook + the exact useImageVariant.ts/useLayoutInit.ts/ModeChanger.tsx edits (including the data-theme dependency-array bug fix); (3) delete app/layout.tsx's InitColorSchemeScript import and JSX line; (4) only then, the actual deletion of libs/theme/index.tsx's ThemeProvider/CssBaseline/AppRouterCacheProvider wiring, Providers.tsx's import of it, and the ~44-file @core/theme/libs/theme construction tree; (5) delete the already-dead @core/components/mui/TextField.tsx (independent of the rest, can go any time). Where ModeChanger gets re-mounted from once libs/theme/index.tsx itself is deleted is an open implementation call left for that session.",
+    "Functional check for that execution session should specifically re-verify dark/light mode switching end-to-end via data-theme (both explicit toggle and, if testable, a live OS-preference change) since that's the one part of the change touching always-active shared runtime logic rather than a single route's static markup",
+    "useLayoutInit.ts's unconditional colorPref cookie write (possibly allowing a live OS-preference change to overwrite an explicit light/dark choice ahead of the next SSR pass) is noted but unconfirmed as an actual bug -- worth a dedicated look only if anyone notices dark-mode 'flickering' back to system behavior",
+    "The 249 pre-existing eslint problems and the apps/api notification-endpoint bare-response-shape inconsistency remain untouched, unrelated to this session"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 4 part 2b design note is in place"
+  ]
+}
+```
