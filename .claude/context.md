@@ -125,6 +125,28 @@ apps/
                   Vuexy template material moved out of the tracked tree, plus older,
                   unrelated pre-existing content (a pre-migration route-group structure)
                   — see decision.md, 2026-09-16.
+                  **MUI/Vuexy holdout list corrected 2026-09-16** (fresh audit): "only
+                  explicitly deferred: blank-layout-pages illustration +
+                  NotificationBell/FeedbackButton" (above) is stale — also live:
+                  views/org/{CreateOrgDialog,MyAccountsTable,billing/BillingView,
+                  AcceptInvitationView}.tsx, views/profile/FeedbackHistoryTab.tsx +
+                  views/feedback/FeedbackDetailDrawer.tsx, contexts/FeedbackContext.tsx
+                  (a global confirm/alert Dialog), views/pages/NotFound.tsx. Full inventory
+                  and phased removal plan: decision.md, 2026-09-16 ("Fresh MUI/Vuexy
+                  dependency audit").
+                  **Phase 0 of that plan executed 2026-09-16**: the orphaned pre-Step-3
+                  dashboard-shell generation (most of libs/layout/vertical/,
+                  libs/layout/shared/{ModeDropdown,UserDropdown}.tsx,
+                  @layouts/VerticalLayout.tsx and its subtree), the dead @menu vertical-menu
+                  *rendering* subsystem (@menu/vertical-menu/, most of
+                  @menu/components|styles|svg|utils/, @core/styles/vertical/*), and ~13
+                  standalone dead files (3 of the 4 @core/components/mui/* wrappers,
+                  members.columns.tsx, generic unused Vuexy boilerplate) are gone —
+                  superseded by libs/layout/vhyxui/* and confirmed zero-importer, per
+                  decision.md, 2026-09-16 ("Phase 0 executed"). `@mui` import surface
+                  dropped 94→71 files, 209→147 lines. Phases 1-4 (small live-component
+                  restyles, org/profile view migrations, NotificationBell/FeedbackButton
+                  rebuild, the illustration-panel problem) remain open.
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.
