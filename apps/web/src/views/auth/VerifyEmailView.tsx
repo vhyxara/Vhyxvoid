@@ -5,8 +5,6 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-import { styled } from '@mui/material/styles'
-
 import { Alert, Button, Spinner } from '@vhyxui/react'
 
 import type { SystemMode } from '@core/types'
@@ -15,12 +13,6 @@ import Logo from '@/libs/layout/shared/Logo'
 import { authService } from '@/api/infrastructure/services/auth.service'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
-
-const Illustration = styled('img')({
-  maxWidth: 320,
-  width: '100%',
-  marginBottom: 24
-})
 
 const VerifyEmailView = ({ mode }: { mode: SystemMode }) => {
   const searchParams = useSearchParams()
@@ -56,13 +48,14 @@ const VerifyEmailView = ({ mode }: { mode: SystemMode }) => {
           <Logo />
         </Link>
 
-        <Illustration
+        <img
           src={
             mode === 'dark'
               ? '/images/illustrations/auth/v2-verify-email-dark.png'
               : '/images/illustrations/auth/v2-verify-email-light.png'
           }
           alt='verify email'
+          className='max-is-[320px] is-full mbe-6'
         />
 
         {!token && (

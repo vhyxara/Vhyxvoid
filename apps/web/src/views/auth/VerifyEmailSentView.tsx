@@ -3,19 +3,11 @@
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-import { styled } from '@mui/material/styles'
-
 import { Button } from '@vhyxui/react'
 
 import type { SystemMode } from '@core/types'
 import { Typography } from '@/components/vhyxui-shims'
 import Logo from '@/libs/layout/shared/Logo'
-
-const Illustration = styled('img')({
-  maxWidth: 320,
-  width: '100%',
-  marginBottom: 32
-})
 
 const VerifyEmailSentView = ({ mode }: { mode: SystemMode }) => {
   const searchParams = useSearchParams()
@@ -28,13 +20,14 @@ const VerifyEmailSentView = ({ mode }: { mode: SystemMode }) => {
           <Logo />
         </Link>
 
-        <Illustration
+        <img
           src={
             mode === 'dark'
               ? '/images/illustrations/auth/v2-verify-email-dark.png'
               : '/images/illustrations/auth/v2-verify-email-light.png'
           }
           alt='verify email illustration'
+          className='max-is-[320px] is-full mbe-8'
         />
 
         <div className='flex flex-col gap-2'>
