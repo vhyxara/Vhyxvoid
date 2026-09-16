@@ -3,13 +3,6 @@
 // Next Imports
 import Link from 'next/link'
 
-// MUI Imports
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { styled, useTheme } from '@mui/material/styles'
-
-// Third-party Imports
-import classnames from 'classnames'
-
 // VhyxUI Imports
 import { Button } from '@vhyxui/react'
 
@@ -19,16 +12,7 @@ import { Typography } from '@/components/vhyxui-shims'
 
 // Hook Imports
 import { useImageVariant } from '@core/hooks/useImageVariant'
-
-// Styled Components
-const MaskImg = styled('img')({
-  blockSize: 'auto',
-  maxBlockSize: 355,
-  inlineSize: '100%',
-  position: 'absolute',
-  insetBlockEnd: 0,
-  zIndex: -1
-})
+import { AuthMaskImage } from '@/views/auth/AuthMaskImage'
 
 const NotFound = ({ mode }: { mode: SystemMode }) => {
   // Vars
@@ -36,8 +20,6 @@ const NotFound = ({ mode }: { mode: SystemMode }) => {
   const lightImg = '/images/pages/misc-mask-light.png'
 
   // Hooks
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
   const miscBackground = useImageVariant(mode, lightImg, darkImg)
 
   return (
@@ -57,13 +39,7 @@ const NotFound = ({ mode }: { mode: SystemMode }) => {
           className='object-cover bs-[400px] md:bs-[450px] lg:bs-[500px] mbs-10 md:mbs-14 lg:mbs-20'
         />
       </div>
-      {!hidden && (
-        <MaskImg
-          alt='mask'
-          src={miscBackground}
-          className={classnames({ 'scale-x-[-1]': theme.direction === 'rtl' })}
-        />
-      )}
+      <AuthMaskImage src={miscBackground} />
     </div>
   )
 }

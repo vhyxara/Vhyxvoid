@@ -4,15 +4,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// MUI Imports (illustration + Grid layout — out of scope for component
-// migration, see decision.md, 2026-09-10, "blank-layout-pages keeps MUI
-// CssBaseline/ThemeProvider active")
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { styled, useTheme } from '@mui/material/styles'
+// MUI Imports — Grid is a separate, still-open dependency, NOT part of the
+// illustration-panel problem this session fixed; left untouched on purpose,
+// see decision.md, 2026-09-16, "Phase 4 part 1" and "Phase 4 part 2a"
 import { Grid } from '@mui/material'
 
 // Third-party Imports
-import classnames from 'classnames'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 
@@ -27,31 +24,11 @@ import Logo from '@/libs/layout/shared/Logo'
 // Hook Imports
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
+import { AuthIllustrationPanel } from './AuthIllustrationPanel'
 import type { RegisterFormValues } from '@/api/domain/identity/schemas/register.schema'
 import { registerSchema } from '@/api/domain/identity/schemas/register.schema'
 
 import { authService } from '@/api/infrastructure/services/auth.service'
-
-// ── Styled (matches login template) ──────────────────────────────────────
-
-const RegisterIllustration = styled('img')(({ theme }) => ({
-  zIndex: 2,
-  blockSize: 'auto',
-  maxBlockSize: 600,
-  maxInlineSize: '100%',
-  margin: theme.spacing(12),
-  [theme.breakpoints.down(1536)]: { maxBlockSize: 550 },
-  [theme.breakpoints.down('lg')]: { maxBlockSize: 450 }
-}))
-
-const MaskImg = styled('img')({
-  blockSize: 'auto',
-  maxBlockSize: 345,
-  inlineSize: '100%',
-  position: 'absolute',
-  insetBlockEnd: 0,
-  zIndex: -1
-})
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -65,8 +42,6 @@ const Register = ({ mode }: { mode: SystemMode }) => {
 
   const router = useRouter()
   const { settings } = useSettings()
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
 
   const authBackground = useImageVariant(mode, lightImg, darkImg)
 
@@ -118,20 +93,14 @@ const Register = ({ mode }: { mode: SystemMode }) => {
   return (
     <div className='flex bs-full justify-center'>
       {/* ── Left panel ── */}
-      <div
-        className={classnames('flex bs-full items-center justify-center flex-1 min-bs-dvh relative p-6 max-md:hidden', {
-          'border-ie': settings.skin === 'bordered'
-        })}
-      >
-        <RegisterIllustration src={characterIllustration} alt='character-illustration' />
-        {!hidden && (
-          <MaskImg
-            alt='mask'
-            src={authBackground}
-            className={classnames({ 'scale-x-[-1]': theme.direction === 'rtl' })}
-          />
-        )}
-      </div>
+      <AuthIllustrationPanel
+        characterSrc={characterIllustration}
+        characterAlt='character-illustration'
+        maskSrc={authBackground}
+        bordered={settings.skin === 'bordered'}
+        characterMaxHeight={600}
+        maskMaxHeight={345}
+      />
 
       {/* ── Right panel ── */}
       <div className='flex justify-center items-center bs-full bg-backgroundPaper min-is-full! p-6 md:min-is-[unset]! md:p-12 md:is-[480px]'>

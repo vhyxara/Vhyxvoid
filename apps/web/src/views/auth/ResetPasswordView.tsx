@@ -6,9 +6,6 @@ import { useSearchParams } from 'next/navigation'
 
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { styled, useTheme } from '@mui/material/styles'
-import useMediaQuery from '@mui/material/useMediaQuery'
-import classnames from 'classnames'
 
 import { Alert, Button, Form, TextField, toast } from '@vhyxui/react'
 
@@ -17,28 +14,10 @@ import { Typography } from '@/components/vhyxui-shims'
 import Logo from '@/libs/layout/shared/Logo'
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
+import { AuthIllustrationPanel } from './AuthIllustrationPanel'
 import type { ResetPasswordFormValues } from '@/api/domain/identity/schemas/password.schema'
 import { resetPasswordSchema } from '@/api/domain/identity/schemas/password.schema'
 import { passwordService } from '@/api/infrastructure/services/password.service'
-
-const Illustration = styled('img')(({ theme }) => ({
-  zIndex: 2,
-  blockSize: 'auto',
-  maxBlockSize: 680,
-  maxInlineSize: '100%',
-  margin: theme.spacing(12),
-  [theme.breakpoints.down(1536)]: { maxBlockSize: 550 },
-  [theme.breakpoints.down('lg')]: { maxBlockSize: 450 }
-}))
-
-const MaskImg = styled('img')({
-  blockSize: 'auto',
-  maxBlockSize: 355,
-  inlineSize: '100%',
-  position: 'absolute',
-  insetBlockEnd: 0,
-  zIndex: -1
-})
 
 export default function ResetPasswordView({ mode }: { mode: SystemMode }) {
   const searchParams = useSearchParams()
@@ -48,8 +27,6 @@ export default function ResetPasswordView({ mode }: { mode: SystemMode }) {
   const [errorMsg, setErrorMsg] = useState('')
 
   const { settings } = useSettings()
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
 
   const darkImg = '/images/pages/auth-mask-dark.png'
   const lightImg = '/images/pages/auth-mask-light.png'
@@ -97,20 +74,12 @@ export default function ResetPasswordView({ mode }: { mode: SystemMode }) {
   return (
     <div className='flex bs-full justify-center'>
       {/* Left panel */}
-      <div
-        className={classnames('flex bs-full items-center justify-center flex-1 min-bs-dvh relative p-6 max-md:hidden', {
-          'border-ie': settings.skin === 'bordered'
-        })}
-      >
-        <Illustration src={characterIllustration} alt='reset-password-illustration' />
-        {!hidden && (
-          <MaskImg
-            alt='mask'
-            src={authBackground}
-            className={classnames({ 'scale-x-[-1]': theme.direction === 'rtl' })}
-          />
-        )}
-      </div>
+      <AuthIllustrationPanel
+        characterSrc={characterIllustration}
+        characterAlt='reset-password-illustration'
+        maskSrc={authBackground}
+        bordered={settings.skin === 'bordered'}
+      />
 
       {/* Right panel */}
       <div className='flex justify-center items-center bs-full bg-backgroundPaper min-is-full! p-6 md:min-is-[unset]! md:p-12 md:is-[480px]'>

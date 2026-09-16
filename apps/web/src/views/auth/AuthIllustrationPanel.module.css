@@ -1,0 +1,27 @@
+/* Real @media rules, not pure Tailwind utility classes — the character
+   illustration's base max-height varies per page (680 vs Register's 600),
+   which can't be expressed as a static Tailwind arbitrary-value class (a
+   runtime-interpolated class string is invisible to Tailwind's build-time
+   content scanner) or as an inline style (its specificity would beat the
+   breakpoint-scoped overrides below, at every viewport width). A CSS
+   custom property carries the per-instance base value; these @media rules
+   override it, matching MUI's own theme.breakpoints.down(1536)/down('lg')
+   pixel thresholds exactly (1199.98px matches MUI's own down('lg')
+   convention of subtracting 0.02px from the next breakpoint up).
+   See decision.md, 2026-09-16, "Phase 4 part 1". */
+
+.character {
+  max-block-size: var(--character-max-h, 680px);
+}
+
+@media (max-width: 1536px) {
+  .character {
+    max-block-size: 550px;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .character {
+    max-block-size: 450px;
+  }
+}

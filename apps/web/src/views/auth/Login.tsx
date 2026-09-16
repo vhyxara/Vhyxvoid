@@ -4,10 +4,6 @@ import { useEffect } from 'react'
 
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { styled, useTheme } from '@mui/material/styles'
-
-import classnames from 'classnames'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 
@@ -20,37 +16,13 @@ import Logo from '@/libs/layout/shared/Logo'
 import themeConfig from '@configs/themeConfig'
 import { useImageVariant } from '@core/hooks/useImageVariant'
 import { useSettings } from '@core/hooks/useSettings'
+import { AuthIllustrationPanel } from './AuthIllustrationPanel'
 
 import { loginSchema, type LoginFormValues } from '@/api/domain/identity/schemas/login.schema'
 import { useAuthStore } from '@/api/domain/identity/store/auth.store'
 
 import { authService } from '@/api/infrastructure/services/auth.service'
 import { getDisplayName } from '@/utils/utility'
-
-// ── Styled components (theme-dependent — out of scope for component
-// migration, kept on MUI's styled()/useTheme() since the whole illustration/
-// responsive-breakpoint system is built directly on the MUI theme object,
-// not just individual components; see decision.md, 2026-09-10, "blank-layout-
-// pages keeps MUI CssBaseline/ThemeProvider active") ────────────────────────
-
-const LoginIllustration = styled('img')(({ theme }) => ({
-  zIndex: 2,
-  blockSize: 'auto',
-  maxBlockSize: 680,
-  maxInlineSize: '100%',
-  margin: theme.spacing(12),
-  [theme.breakpoints.down(1536)]: { maxBlockSize: 550 },
-  [theme.breakpoints.down('lg')]: { maxBlockSize: 450 }
-}))
-
-const MaskImg = styled('img')({
-  blockSize: 'auto',
-  maxBlockSize: 355,
-  inlineSize: '100%',
-  position: 'absolute',
-  insetBlockEnd: 0,
-  zIndex: -1
-})
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -65,8 +37,6 @@ const Login = ({ mode }: { mode: SystemMode }) => {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { settings } = useSettings()
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
 
   const authBackground = useImageVariant(mode, lightImg, darkImg)
 
@@ -150,20 +120,12 @@ const Login = ({ mode }: { mode: SystemMode }) => {
   return (
     <div className='flex bs-full justify-center'>
       {/* ── Left panel — illustration ── */}
-      <div
-        className={classnames('flex bs-full items-center justify-center flex-1 min-bs-dvh relative p-6 max-md:hidden', {
-          'border-ie': settings.skin === 'bordered'
-        })}
-      >
-        <LoginIllustration src={characterIllustration} alt='character-illustration' />
-        {!hidden && (
-          <MaskImg
-            alt='mask'
-            src={authBackground}
-            className={classnames({ 'scale-x-[-1]': theme.direction === 'rtl' })}
-          />
-        )}
-      </div>
+      <AuthIllustrationPanel
+        characterSrc={characterIllustration}
+        characterAlt='character-illustration'
+        maskSrc={authBackground}
+        bordered={settings.skin === 'bordered'}
+      />
 
       {/* ── Right panel — form ── */}
       <div className='flex justify-center items-center bs-full bg-backgroundPaper min-is-full! p-6 md:min-is-[unset]! md:p-12 md:is-[480px]'>
