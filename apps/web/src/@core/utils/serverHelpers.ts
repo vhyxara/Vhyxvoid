@@ -37,13 +37,6 @@ export const getSystemMode = async (): Promise<SystemMode> => {
   return (mode === 'system' ? colorPrefCookie : mode) || 'light'
 }
 
-export const getServerMode = async () => {
-  const mode = await getMode()
-  const systemMode = await getSystemMode()
-
-  return mode === 'system' ? systemMode : mode
-}
-
 export const getSkin = async () => {
   const settingsCookie = await getSettingsFromCookie()
 

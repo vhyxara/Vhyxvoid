@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 // Component Imports
 
 // Server Action Imports
-import { getServerMode } from '@core/utils/serverHelpers'
+import { getSystemMode } from '@core/utils/serverHelpers'
 import Register from '@/views/auth/Register'
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const RegisterPage = async () => {
   // Vars
-  const mode = await getServerMode()
+  const mode = await getSystemMode()
 
   return <Register mode={mode} />
 }
