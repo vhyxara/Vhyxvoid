@@ -31,30 +31,29 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] apps/web has a ~37-file pile of unreachable dead `.jsx`/`.js` code
-  under `libs/ui/`, `libs/card-statistics/`, `libs/styles/`, and most of
-  `libs/components/*.jsx` that still contains real, uncommented `@mui`/
-  `@mui/lab` imports — confirmed zero importers anywhere (no barrel/index
-  file, no dynamic `import()`, no alias reference) for every file in the
-  pile; the only cross-references are within the pile itself (e.g.
-  `FileUploadDialog.jsx` → `DragAndDropComponent.jsx`). Same category as
-  the 4 dead `.jsx` files already flagged this session for referencing
-  `TextField.tsx` — just a much larger slice of the same pre-existing
-  pile, only fully enumerated now via an `@mui`-specific grep across
-  `.jsx`/`.js` (not just `.tsx`/`.ts`). Not touched during Phase 4 part 3
-  (none of it gated `ThemeProvider`/`CssBaseline`), but it's now the
-  single largest concentration of raw `@mui` source text left in the
-  tree and worth a dedicated delete-or-archive pass. Found 2026-09-16,
-  Phase 4 part 3 session (decision.md, "Phase 4 part 3").
-- [ ] apps/web's now-fully-unused `@mui/lab`/`@mui/material`/
-  `@mui/material-nextjs`/`@mui/utils` packages have not been removed from
-  `package.json` yet — deliberately deferred out of the Phase 4 part 3
-  session since it touches `package.json`/`pnpm-lock.yaml` (a
-  whole-workspace-affecting change) rather than pure `apps/web` source.
-  Keep `@emotion/styled`/`@emotion/react`/`@emotion/cache` — still
-  genuinely used directly by `libs/layout/shared/Logo.tsx`, independent
-  of MUI. Found 2026-09-16, Phase 4 part 3 session (decision.md, "Phase 4
-  part 3").
+- [ ] apps/web's `pnpm-lock.yaml` (and root `package.json`,
+  `packages/agent/package.json`, `packages/sdk/package.json`) have
+  pre-existing, uncommitted local changes predating the 2026-09-16 dead-
+  .jsx-pile/`@mui` package.json cleanup session, unrelated to that
+  session's work — confirmed: apps/web had no importer entry in the root
+  lockfile at all before that session, so any `pnpm install` regenerates
+  its entire transitive dependency tree for the first time, a large diff
+  regardless of what triggers it. Left uncommitted deliberately; needs
+  its own review/commit pass whenever the root/agent/sdk edits are ready.
+  Found 2026-09-16 (decision.md, "Phase 4 part 4: dead-.jsx-pile
+  archiving + @mui package.json cleanup").
+- [ ] apps/web's `@tanstack/react-query` is pinned to an exact version
+  (`5.102.8`, no caret) instead of a range, to force-match the
+  separately-linked `vhyx-api-kit` sibling repo's own independently
+  locked devDependency version and avoid a duplicate-package-instance TS
+  private-field mismatch on `QueryClient`. Fragile: if either repo's
+  locked version drifts again, the mismatch can recur. Real fix would be
+  making `vhyx-api-kit` not carry its own separately-resolved copy of a
+  package it also declares as a peerDependency (workspace-linking it
+  into the same node_modules, or a pnpm `overrides` entry pinning it
+  repo-wide) — deferred as more invasive than this session's scope.
+  Found 2026-09-16 (decision.md, "Phase 4 part 4: dead-.jsx-pile
+  archiving + @mui package.json cleanup").
 - [ ] `Register.tsx`'s new `grid grid-cols-2 gap-4` (matching
   `ProfileView.tsx`'s already-shipped precedent) doesn't match this app's
   own `theme.spacing(N)` → Tailwind-`N` mapping: MUI's `Grid spacing={2}`
