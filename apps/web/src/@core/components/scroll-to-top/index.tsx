@@ -2,49 +2,53 @@
 
 // React Imports
 import type { ReactNode } from 'react'
-
-// MUI Imports
-import Zoom from '@mui/material/Zoom'
-import { styled } from '@mui/material/styles'
-import useScrollTrigger from '@mui/material/useScrollTrigger'
+import { useEffect, useState } from 'react'
 
 interface ScrollToTopProps {
   className?: string
   children: ReactNode
 }
 
-const ScrollToTopStyled = styled('div')(({ theme }) => ({
-  zIndex: 'var(--mui-zIndex-fab)',
-  position: 'fixed',
-  insetInlineEnd: theme.spacing(20),
-  insetBlockEnd: theme.spacing(14)
-}))
+// Migrated off MUI's Zoom + useScrollTrigger + styled('div') — a plain
+// scroll-position state + conditional render replaces all three. No
+// VhyxUI equivalent needed: this was never using any MUI *component*
+// styling, just a scroll-threshold visibility trigger and a fixed-position
+// wrapper, both trivial to hand-roll. Position/threshold values (400px
+// threshold, 160px/112px inset) are unchanged from the original's
+// theme.spacing(20)/theme.spacing(14) (MUI's default spacing unit is 8px).
+// See decision.md, 2026-09-16, "Phase 3 part 2".
+const ScrollToTop = ({ children, className }: ScrollToTopProps) => {
+  const [visible, setVisible] = useState(false)
 
-const ScrollToTop = (props: ScrollToTopProps) => {
-  // Props
-  const { children, className } = props
+  useEffect(() => {
+    const handleScroll = () => setVisible(window.scrollY > 400)
 
-  // Hooks
-  // init trigger
-  const trigger = useScrollTrigger({
-    threshold: 400,
-    disableHysteresis: true
-  })
+    handleScroll()
+    window.addEventListener('scroll', handleScroll)
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const handleClick = () => {
-    const anchor = document.querySelector('body')
-
-    if (anchor) {
-      anchor.scrollIntoView({ behavior: 'smooth' })
-    }
+    document.querySelector('body')?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  if (!visible) return null
+
   return (
-    <Zoom in={trigger}>
-      <ScrollToTopStyled className={className} onClick={handleClick} role='presentation'>
-        {children}
-      </ScrollToTopStyled>
-    </Zoom>
+    <div
+      className={className}
+      onClick={handleClick}
+      role='presentation'
+      style={{
+        position: 'fixed',
+        insetInlineEnd: 160,
+        insetBlockEnd: 112,
+        zIndex: 1050
+      }}
+    >
+      {children}
+    </div>
   )
 }
 
