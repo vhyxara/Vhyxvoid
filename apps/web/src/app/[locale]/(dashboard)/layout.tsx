@@ -1,6 +1,3 @@
-// MUI Imports
-import Button from '@mui/material/Button'
-
 // Type Imports
 import type { ChildrenType } from '@core/types'
 
@@ -12,6 +9,7 @@ import Providers from '@/libs/components/Providers'
 import { DashboardShell } from '@/libs/layout/vhyxui/DashboardShell'
 
 import ScrollToTop from '@core/components/scroll-to-top'
+import { ScrollToTopButton } from '@core/components/scroll-to-top/ScrollToTopButton'
 
 // Util Imports
 import { getSystemMode } from '@core/utils/serverHelpers'
@@ -27,11 +25,13 @@ import { FeedbackButton } from '@/views/feedback/FeedbackButton'
 // preference while settings.mode==='system' and maintains a colorPref SSR
 // cookie — genuinely different from ModeChanger.tsx (that one only reacts to
 // explicit settings.mode changes, not live OS-preference changes). Dropping
-// LayoutWrapper would have silently broken that. Providers, AuthGuard,
-// ScrollToTop, and FeedbackButton are otherwise unchanged. CssBaseline/
-// ThemeProvider (inside Providers) stays active: even though the new shell
-// itself has zero MUI dependency, the page CONTENT (dashboard/organizations
-// pages, not yet migrated), AuthGuard's loading spinner, and
+// LayoutWrapper would have silently broken that. Providers and
+// FeedbackButton are otherwise unchanged (AuthGuard's loading spinner and
+// this file's own ScrollToTop button were migrated off MUI in Phase 1 of
+// the removal plan, 2026-09-16 — see decision.md). CssBaseline/ThemeProvider
+// (inside Providers) stays active: the new shell itself has zero MUI
+// dependency, but the page CONTENT (dashboard/organizations pages, not yet
+// migrated), ScrollToTop's own Zoom/useScrollTrigger wrapper, and
 // NotificationBell/FeedbackButton (deliberately left MUI-internal, see
 // decision.md) all still need it. See decision.md, 2026-09-10, "Step 3
 // dashboard shell rebuilt on VhyxUI".
@@ -56,9 +56,7 @@ const Layout = async (props: ChildrenType) => {
         }
       />
       <ScrollToTop className='mui-fixed'>
-        <Button variant='contained' className='is-10 bs-10 rounded-full p-0 min-is-0 flex items-center justify-center'>
-          <i className='tabler-arrow-up' />
-        </Button>
+        <ScrollToTopButton />
       </ScrollToTop>
     </Providers>
   )

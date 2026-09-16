@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-import { styled } from '@mui/material/styles'
-
 import { Alert, Button, Spinner } from '@vhyxui/react'
 
 // import { useAcceptInvitation } from '@/application/hooks/useMembers'
@@ -15,12 +13,6 @@ import { Typography } from '@/components/vhyxui-shims'
 import { memberService } from '@/api/infrastructure/services/member.service'
 
 type Status = 'idle' | 'loading' | 'success' | 'error'
-
-const Illustration = styled('img')({
-  maxWidth: 280,
-  width: '100%',
-  marginBottom: 24
-})
 
 type Props = { mode: SystemMode }
 
@@ -60,13 +52,14 @@ export function AcceptInvitationView({ mode }: Props) {
           <Logo />
         </Link>
 
-        <Illustration
+        <img
           src={
             mode === 'dark'
               ? '/images/illustrations/auth/v2-verify-email-dark.png'
               : '/images/illustrations/auth/v2-verify-email-light.png'
           }
           alt='invitation'
+          className='max-is-[280px] is-full mbe-6'
         />
 
         {!token && (

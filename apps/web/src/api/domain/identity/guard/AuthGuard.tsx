@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 
 import { useRouter } from 'next/navigation'
 
-import { CircularProgress } from '@mui/material'
+import { Spinner } from '@vhyxui/react'
 
 import { useAuthStore } from '../store/auth.store'
 
@@ -32,7 +32,7 @@ export function AuthGuard({ children, redirectTo = '/login' }: Props) {
   if (isBootstrapping) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress />
+        <Spinner size='lg' />
       </div>
     )
   }
