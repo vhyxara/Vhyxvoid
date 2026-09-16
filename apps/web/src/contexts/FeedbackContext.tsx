@@ -3,9 +3,10 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react'
 
-import { Button, Dialog, DialogActions, DialogContent, Typography } from '@mui/material'
+import { Button, Dialog } from '@vhyxui/react'
 import classNames from 'classnames'
 
+import { Typography } from '@/components/vhyxui-shims'
 
 // import useFeedbackDialog from '@/libs/components/useFeedbackDialog'
 import type { FeedbackDialogState } from '@/hooks/useFeedbackDialog';
@@ -37,35 +38,60 @@ export const FeedbackProvider = ({ children }: FeedbackProviderProps) => {
 
   const iconToRender = feedback.customIcon ?? <i className={defaultIconClass} />
 
-  const colorByType =
-    feedback.feedbackType === 'success'
-      ? 'success'
-      : feedback.feedbackType === 'error'
-        ? 'error'
-        : feedback.feedbackType === 'warning'
-          ? 'warning'
-          : 'info'
+  // Button has no per-semantic-type color (only primary/secondary/outline/
+  // ghost/destructive/link) — 'error' maps onto the real 'destructive'
+  // variant; the other three types get an inline accent-color override on
+  // top of 'primary', same targeted-override pattern as CreateApiKeyDialog's
+  // selected-Badge accent color.
+  const accentColorByType: Partial<Record<typeof feedback.feedbackType, string>> = {
+    success: 'var(--vhyx-color-success)',
+    warning: 'var(--vhyx-color-warning)',
+    info: 'var(--vhyx-color-info)'
+  }
+
+  const accentColor = accentColorByType[feedback.feedbackType]
+  const okButtonStyle = accentColor ? { backgroundColor: accentColor, borderColor: accentColor } : undefined
 
   return (
     <FeedbackContext.Provider value={feedback}>
       {children}
 
-      <Dialog open={feedback.feedbackOpen} onClose={feedback.handleClose}>
-        <DialogContent className='flex items-center flex-col text-center sm:pbs-16 sm:pbe-6 sm:pli-16'>
-          {iconToRender}
+      <Dialog open={feedback.feedbackOpen} onOpenChange={next => !next && feedback.handleClose()} size='sm'>
+        {/* Dialog.Portal gates rendering on open state — see decision.md,
+            2026-09-10/11, "Step 5b: Dialog.Portal omission". */}
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content className='flex items-center flex-col text-center sm:pbs-16 sm:pbe-6 sm:pli-16'>
+            {/* Cross-repo ReactNode type-identity mismatch (same class of
+                issue as Confirmation.tsx's `content as any`), not a real
+                type error. */}
+            {iconToRender as any}
 
-          <Typography variant='h4' className='mbe-5'>
-            {feedback.feedbackType.charAt(0).toUpperCase() + feedback.feedbackType.slice(1)}
-          </Typography>
+            <Dialog.Title className='mbe-5'>
+              {feedback.feedbackType.charAt(0).toUpperCase() + feedback.feedbackType.slice(1)}
+            </Dialog.Title>
 
-          <Typography color='text.primary'>{feedback.feedbackMessage}</Typography>
-        </DialogContent>
+            <Typography style={{ color: 'var(--vhyx-color-text)' }}>{feedback.feedbackMessage}</Typography>
 
-        <DialogActions className='justify-center pbs-0 sm:pbe-16 sm:pli-16'>
-          <Button variant='contained' color={colorByType as any} onClick={feedback.handleClose}>
-            Ok
-          </Button>
-        </DialogActions>
+            {/* Inline justifyContent (not a className) — Dialog.Footer's own
+                CSS-module class already sets justify-content: flex-end at
+                equal specificity to a Tailwind utility class, so only an
+                inline style is guaranteed to win regardless of stylesheet
+                load order. */}
+            <Dialog.Footer
+              className='pbs-0 sm:pbe-16 sm:pli-16'
+              style={{ justifyContent: 'center' }}
+            >
+              <Button
+                variant={feedback.feedbackType === 'error' ? 'destructive' : 'primary'}
+                style={okButtonStyle}
+                onClick={feedback.handleClose}
+              >
+                Ok
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Portal>
       </Dialog>
     </FeedbackContext.Provider>
   )
