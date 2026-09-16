@@ -1898,3 +1898,53 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase2-migration",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Execute Phase 2 of the MUI/Vuexy removal plan: migrate CreateOrgDialog, MyAccountsTable, BillingView, and contexts/FeedbackContext.tsx (confirmed org/profile view migrations from the audit), and resolve a scope discrepancy over whether FeedbackHistoryTab.tsx/FeedbackDetailDrawer.tsx belong in this Phase 2 or in Phase 3 alongside the FeedbackButton rebuild.",
+  "status": "completed",
+  "summary": "Resolved the Phase 2/3 scope question first, before touching any code: grepped FeedbackHistoryTab.tsx and FeedbackDetailDrawer.tsx for any import of or dependency on FeedbackButton.tsx -- found none in either direction. They are genuinely independent (a read-only list+detail view over already-submitted feedback vs. the separate submission-form dialog), matching backlog.md's existing framing rather than an earlier decision.md entry's ambiguous phase grouping, so they were included in this session. Re-verified each of the six target files' actual current MUI usage fresh before touching anything. CreateOrgDialog.tsx and MyAccountsTable.tsx converted using the exact established templates (CreateApiKeyDialog.tsx's Dialog/Form/TextField pattern; MembersTable.tsx's roleBadgeVariant Chip->Badge mapping). BillingView.tsx (447 lines, budgeted real time as instructed) fully converted across its four sub-components (UpgradeDialog, InvoiceRow, SubscriptionCard, InvoiceSection) -- found and fixed a latent pre-existing bug as a side effect: the success banner's MUI onClose never actually hid the alert (only ran a URL-cleanup callback), while VhyxUI's Alert manages its own dismissal internally, so the same conversion now correctly hides the banner on click. contexts/FeedbackContext.tsx converted after grepping every consumer of useFeedback() (only Confirmation.tsx, reading only showFeedback) -- the full external API shape is unchanged, only the internal Dialog/Button/Typography JSX moved to VhyxUI. FeedbackHistoryTab.tsx/FeedbackDetailDrawer.tsx converted (Chip->Badge, MUI Drawer->VhyxUI Drawer -- already used once elsewhere for the mobile nav), and the Chip->Badge color-mapping helper was extracted into feedback.util.ts since both files needed the identical logic. Verified no Server/Client boundary issue (Phase 1's layout.tsx bug class) in any of the six files -- all already carry their own 'use client' and are only ever consumed by other client components or by page.tsx files that import the already-client component, never a bare @vhyxui/react import inside a genuine Server Component. Functional check: no Chrome extension available (same as Phase 1), so killed two orphaned ts-node-dev apps/api supervisors found already running, started a fresh one against the local dev DB, and started apps/web on port 4177 (4000 occupied by an unrelated project, left untouched). Verified real data end-to-end at the API layer for every hook these files call: real 2-org /account/me data, a real active PRO subscription and 7 real paid Stripe invoices for Test Corp, a real org-creation round-trip (created then cleaned up via SQL), and a real 404 error shape from a cancel-invitation call to prove the exact error path Confirmation.tsx feeds into showFeedback(). All six SSR routes rendered 200 with zero server-side exceptions. Explicitly flagged what couldn't be observed: the actual post-hydration client-rendered DOM (real Badge colors, Dialog open/close, the FeedbackContext banner actually appearing), since these are all client-fetched and invisible to a curl of the SSR shell. typecheck/build/test all pass clean (19 routes, apps/web 7 files/23 tests, root suite 19 files/99 tests, all unchanged). @mui import surface dropped from 69 files/142 lines (re-confirmed via git stash, correcting Phase 1's own note as an off-by-one) to 63 files/105 lines. Committed as 4 commits. Updated context.md/decision.md/backlog.md.",
+  "decisions_made": [
+    "FeedbackHistoryTab.tsx and FeedbackDetailDrawer.tsx included in Phase 2, not deferred to Phase 3 -- confirmed zero import/dependency relationship with FeedbackButton.tsx by grep, so they're independent read-only views, not coupled to the submission-form rebuild",
+    "BillingView's PAST_DUE alert inline button uses Button variant='ghost' with an inline color: var(--vhyx-color-danger) override, not variant='link' -- link renders in the accent (indigo) color, which read as visually wrong inside a danger-red alert",
+    "Invoice PDF/hosted-invoice links use Button's asChild pattern to render as real <a href> elements, since ButtonProps has no native href prop",
+    "FeedbackContext's Dialog.Footer centering uses an inline style={{ justifyContent: 'center' }} rather than a Tailwind justify-center className -- a CSS-module class and a Tailwind utility class have equal specificity, so only an inline style is guaranteed to win regardless of stylesheet load order",
+    "Accepted a minor cosmetic regression in FeedbackDetailDrawer: the header is no longer sticky while the body scrolls underneath it, since VhyxUI's Drawer.Content has no separate header/body scroll regions -- not worth hand-rolling a custom sticky layout for"
+  ],
+  "bugs_found_fixed": [
+    "BillingView.tsx's success banner (justUpgraded Alert): MUI's onClose only fired a URL-cleanup callback and never actually hid the alert (justUpgraded is computed once from window.location.search at render time, and MUI onClose doesn't unmount anything itself) -- fixed as a side effect of using VhyxUI Alert's own dismissible/onDismiss, which manages dismissal state internally"
+  ],
+  "bugs_found_unfixed": [],
+  "files_changed": [
+    "apps/web/src/views/org/CreateOrgDialog.tsx -- MUI Dialog/Form/Button -> VhyxUI",
+    "apps/web/src/views/org/MyAccountsTable.tsx -- Chip/Typography/Button/Box -> Badge/Typography shim/Button/div",
+    "apps/web/src/views/org/billing/BillingView.tsx -- full MUI surface -> VhyxUI (Card/Dialog/Alert/Badge/Separator/Button)",
+    "apps/web/src/contexts/FeedbackContext.tsx -- MUI Dialog/Button/Typography -> VhyxUI, external API unchanged",
+    "apps/web/src/views/profile/FeedbackHistoryTab.tsx -- Chip/Typography/Box -> Badge/Typography shim/div",
+    "apps/web/src/views/feedback/FeedbackDetailDrawer.tsx -- MUI Drawer/Box/Typography/Chip/Divider/IconButton/Skeleton/Alert -> VhyxUI",
+    "apps/web/src/utils/feedback.util.ts -- new shared feedbackBadgeVariant() helper",
+    ".claude/context.md -- Phase 2 completion note added, Phase 2/3 scope question resolved",
+    ".claude/decision.md -- two new 2026-09-16 entries, 'Phase 2 vs Phase 3 scope discrepancy resolved' and 'Phase 2 executed'",
+    ".claude/backlog.md -- Phase 2 item resolved, replaced with a Phase 3-4-only item",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass",
+    "build": "pass, 19 routes unchanged",
+    "test": "pass, apps/web 7 files/23 tests unchanged, root suite 19 files/99 tests unchanged",
+    "lint": "249 problems, effectively unchanged from Phase 0's ~250 baseline -- one new item exactly mirrors an already-accepted instance of the same reused template pattern in CreateApiKeyDialog.tsx, not a new problem class"
+  },
+  "open_items_for_next_session": [
+    "Phase 3 (NotificationBell/FeedbackButton rebuild) and Phase 4 (the blank-layout-pages illustration-panel problem, still needs a real responsive-without-MUI-theme design -- VhyxUI has no breakpoint primitive as of the last check) remain open, unchanged from the audit's plan",
+    "Live browser verification of this session's six converted files (real Badge colors, Dialog/Drawer open-close interaction, the FeedbackContext banner actually appearing) was not possible without the Chrome extension -- worth a real browser pass next time it's available, same caveat as Phase 1's AuthGuard spinner gap",
+    "The 249 pre-existing eslint problems remain untriaged and unrelated to this session -- not added to backlog.md since it's a large, un-triaged batch rather than a small diagnosed item (same reasoning as Phase 1's note)"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 2 completion note is in place"
+  ]
+}
+```

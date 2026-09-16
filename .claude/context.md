@@ -21,7 +21,7 @@ VhyxVoid's goal is to become the default tunnel tool for full-stack development 
 - **Language**: TypeScript throughout (strict mode), Node.js runtime.
 - **Monorepo**: pnpm workspaces (`apps/*`, `packages/*`) orchestrated by Turborepo (`turbo.json`); `pnpm@10.6.2` pinned as `packageManager`.
 - **API (control plane)**: Fastify 5, Prisma 6 → Postgres, `@upstash/redis` + `ioredis` (both present), `@fastify/jwt` + cookies for user auth, Stripe SDK, Resend (email), bcryptjs, zod. Root-level linting is ESLint 9 flat config (`eslint.config.ts`) — **not** `eslint-plugin-boundaries` (an earlier audit pass claimed that; confirmed wrong by reading the file directly): it's a plain `no-restricted-imports` rule banning deep imports into another workspace package's `src/` and cross-package relative imports.
-- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration complete as of 2026-09-14** (see Directory Structure and decision.md's per-step entries) — MUI 7/Vuexy remains only where explicitly deferred (blank-layout-pages' illustration/responsive-layout code, NotificationBell/FeedbackButton), not as an ongoing migration. VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
+- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-2, MUI remains only in blank-layout-pages' illustration/responsive-layout code and NotificationBell/FeedbackButton (Phases 3-4, open). VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
 - **Hub (tunnel router)**: plain Node `http` module + `ws` (WebSocketServer in `noServer` mode) — `fastify`, `uWebSockets.js`, and `pg` are also listed as dependencies but are confirmed leftovers from two earlier rewrite attempts (uWebSockets.js → Fastify → plain http+ws), safe to remove. Imports `packages/shared`'s Prisma client directly (no HTTP call to the API).
 - **Agent**: `ws` client, `axios` (backend proxy), `better-sqlite3` (durable queue, WAL mode), `commander` (CLI).
 - **SDK**: `isomorphic-ws`, hand-rolled HMAC signing. Two live client implementations plus one dead one (see SDK Client Strategy below).
@@ -155,8 +155,22 @@ apps/
                   boundary-crossing file, no `'use client'` of its own) broke `/profile`'s
                   production build — fixed by extracting to a dedicated client component,
                   `@core/components/scroll-to-top/ScrollToTopButton.tsx`. See decision.md,
-                  2026-09-16 ("Phase 1 executed"). Phases 2-4 (org/profile view migrations,
-                  NotificationBell/FeedbackButton rebuild, the illustration-panel problem)
+                  2026-09-16 ("Phase 1 executed").
+                  **Phase 2 executed 2026-09-16**: `views/org/{CreateOrgDialog,MyAccountsTable,
+                  billing/BillingView}.tsx`, `contexts/FeedbackContext.tsx` (the global
+                  confirm/alert Dialog), and `views/profile/FeedbackHistoryTab.tsx` +
+                  `views/feedback/FeedbackDetailDrawer.tsx` all migrated to VhyxUI — six
+                  files, the full "org/profile view migrations" bucket from the audit's
+                  plan. **Phase 2 vs Phase 3 scope question resolved**: FeedbackHistoryTab/
+                  FeedbackDetailDrawer have zero import/dependency relationship with
+                  FeedbackButton.tsx (confirmed by grep — separate read-only views over
+                  feedback data vs. the submission form itself), so they belonged in Phase 2
+                  with the other independent views, not deferred to Phase 3's
+                  FeedbackButton rebuild as one earlier decision.md entry had assumed.
+                  `@mui` surface: 69 files/142 lines (re-confirmed via `git stash` diff,
+                  correcting Phase 1's own "68/142" note as an off-by-one) → **63 files/105
+                  lines**. See decision.md, 2026-09-16 ("Phase 2 executed"). Phases 3-4
+                  (NotificationBell/FeedbackButton rebuild, the illustration-panel problem)
                   remain open.
 
 packages/

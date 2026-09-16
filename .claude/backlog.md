@@ -31,12 +31,12 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] apps/web/Phase 2-4 of the MUI/Vuexy removal plan remain open (Phase
-  0 — dead nav-shell/@menu/standalone-file deletion — and Phase 1 — the
-  small no-theme-dependency restyles: NotFound/AuthGuard/ScrollToTop/
-  AcceptInvitationView — are both done, see decision.md, 2026-09-16
-  "Phase 0 executed" and "Phase 1 executed"): org/profile view migrations
-  (CreateOrgDialog/MyAccountsTable/BillingView/FeedbackHistoryTab+Drawer/
-  FeedbackContext), the NotificationBell/FeedbackButton rebuild, and the
-  blank-layout-pages illustration-panel problem — see decision.md,
-  2026-09-16 ("Fresh MUI/Vuexy dependency audit") for the full phased plan
+- [ ] apps/web/Phase 3-4 of the MUI/Vuexy removal plan remain open (Phase
+  0 — dead nav-shell/@menu/standalone-file deletion, Phase 1 — the small
+  no-theme-dependency restyles, and Phase 2 — org/profile view migrations
+  including FeedbackHistoryTab+Drawer, confirmed independent of
+  FeedbackButton — are all done, see decision.md, 2026-09-16 "Phase 0
+  executed", "Phase 1 executed", "Phase 2 executed"): the
+  NotificationBell/FeedbackButton rebuild, and the blank-layout-pages
+  illustration-panel problem — see decision.md, 2026-09-16 ("Fresh
+  MUI/Vuexy dependency audit") for the full phased plan
