@@ -4,11 +4,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-// MUI Imports — Grid is a separate, still-open dependency, NOT part of the
-// illustration-panel problem this session fixed; left untouched on purpose,
-// see decision.md, 2026-09-16, "Phase 4 part 1" and "Phase 4 part 2a"
-import { Grid } from '@mui/material'
-
 // Third-party Imports
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -115,14 +110,10 @@ const Register = ({ mode }: { mode: SystemMode }) => {
           </div>
 
           <Form form={untypedForm} onSubmit={handleFormSubmit} className='flex flex-col gap-5'>
-            <Grid container spacing={2}>
-              <Grid size={6}>
-                <TextField label='First name' autoFocus {...form.register('firstName')} />
-              </Grid>
-              <Grid size={6}>
-                <TextField label='Last name' {...form.register('lastName')} />
-              </Grid>
-            </Grid>
+            <div className='grid grid-cols-2 gap-4'>
+              <TextField label='First name' autoFocus {...form.register('firstName')} />
+              <TextField label='Last name' {...form.register('lastName')} />
+            </div>
 
             <TextField label='Email' type='email' autoComplete='email' {...form.register('email')} />
 
