@@ -1,8 +1,7 @@
+'use client'
+
 // React Imports
 import { useEffect } from 'react'
-
-// MUI Imports
-import { useColorScheme } from '@mui/material/styles'
 
 // Third-party Imports
 import { useMedia } from 'react-use'
@@ -15,7 +14,6 @@ import { useSettings } from '@core/hooks/useSettings'
 
 const ModeChanger = ({ systemMode }: { systemMode: SystemMode }) => {
   // Hooks
-  const { setMode } = useColorScheme()
   const { settings } = useSettings()
   const isDark = useMedia('(prefers-color-scheme: dark)', systemMode === 'dark')
 
@@ -23,17 +21,15 @@ const ModeChanger = ({ systemMode }: { systemMode: SystemMode }) => {
     if (settings.mode) {
       const resolvedMode = settings.mode === 'system' ? (isDark ? 'dark' : 'light') : settings.mode
 
-      setMode(resolvedMode)
-
-      // Keep VhyxUI's data-theme in sync with MUI's own data-mui-color-scheme.
-      // The two libraries use different attribute names for the same concept
-      // (see decision.md, 2026-09-10, "data-brand/data-theme wiring") — this
-      // is the one place mode changes at runtime, so it's the one place that
-      // needs to write both.
+      // Real bug fixed here (found 2026-09-16, Phase 4 part 2b): this effect
+      // previously only depended on [settings.mode], so a live OS-preference
+      // change while settings.mode === 'system' never updated data-theme at
+      // all — only MUI's now-removed setMode() call ever caught that case,
+      // for MUI components only. Now also depends on `isDark`.
       document.documentElement.setAttribute('data-theme', resolvedMode)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.mode])
+  }, [settings.mode, isDark])
 
   return null
 }

@@ -1,14 +1,12 @@
 // React Imports
 import { useMemo } from 'react'
 
-// Third-party imports
-import { useColorScheme } from '@mui/material'
-
 // Type imports
 import type { Mode } from '@core/types'
 
 // Hook Imports
 import { useSettings } from './useSettings'
+import { useResolvedMode } from './useResolvedMode'
 
 export const useImageVariant = (
   mode: Mode,
@@ -19,13 +17,11 @@ export const useImageVariant = (
 ): string => {
   // Hooks
   const { settings } = useSettings()
-  const { mode: muiMode, systemMode: muiSystemMode } = useColorScheme()
+  const resolvedMode = useResolvedMode(mode === 'dark' ? 'dark' : 'light')
 
   return useMemo(() => {
-    const currentMode = muiMode === 'system' ? muiSystemMode : muiMode || mode
-
     const isBordered = settings?.skin === 'bordered'
-    const isDarkMode = currentMode === 'dark'
+    const isDarkMode = resolvedMode === 'dark'
 
     if (isBordered && imgLightBordered && imgDarkBordered) {
       return isDarkMode ? imgDarkBordered : imgLightBordered
@@ -33,5 +29,5 @@ export const useImageVariant = (
 
     return isDarkMode ? imgDark : imgLight
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, muiMode, muiSystemMode])
+  }, [resolvedMode])
 }
