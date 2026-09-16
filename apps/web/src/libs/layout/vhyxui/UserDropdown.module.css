@@ -1,0 +1,83 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-inline-start: var(--vhyx-space-2, 0.5rem);
+  border-radius: 50%;
+  position: relative;
+}
+
+.onlineDot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--vhyx-color-success);
+  box-shadow: 0 0 0 2px var(--vhyx-color-surface);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+  padding: var(--vhyx-space-1, 0.25rem);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-2, 0.5rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+}
+
+.userText {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.userName {
+  font-weight: var(--vhyx-weight-medium, 500);
+  color: var(--vhyx-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10rem;
+}
+
+.userEmail {
+  font-size: var(--vhyx-text-xs, 0.75rem);
+  color: var(--vhyx-color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+  border-radius: var(--vhyx-radius-sm, 4px);
+  background: none;
+  border: none;
+  color: var(--vhyx-color-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.item:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+}
+
+.logoutRow {
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+}

@@ -1,0 +1,36 @@
+/* TEMPORARY shim styles — see README.md in this directory.
+   Reuses VhyxUI's own existing @vhyx-shimmer keyframe/duration/easing
+   tokens (packages/tokens/src/semantic/motion.css) rather than inventing
+   a new animation. */
+
+.root {
+  display: block;
+  background-color: var(--vhyx-color-bg-muted);
+  background-image: linear-gradient(
+    90deg,
+    var(--vhyx-color-bg-muted) 0%,
+    var(--vhyx-color-bg-subtle) 50%,
+    var(--vhyx-color-bg-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: vhyx-shimmer var(--vhyx-duration-glacial, 500ms) var(--vhyx-easing-standard, ease) infinite;
+}
+
+.text {
+  border-radius: var(--vhyx-radius-sm, 4px);
+  transform: scale(1, 0.7); /* matches MUI's text-variant default transform */
+}
+
+.circular {
+  border-radius: 50%;
+}
+
+.rectangular {
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    animation: none;
+  }
+}

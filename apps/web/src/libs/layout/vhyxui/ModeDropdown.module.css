@@ -1,0 +1,49 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--vhyx-color-text-subtle);
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.trigger:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+  color: var(--vhyx-color-text);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  padding: var(--vhyx-space-1, 0.25rem);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+  border-radius: var(--vhyx-radius-sm, 4px);
+  background: none;
+  border: none;
+  color: var(--vhyx-color-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.item:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+}
+
+.item[data-selected='true'] {
+  color: var(--vhyx-color-accent);
+  font-weight: var(--vhyx-weight-medium, 500);
+}

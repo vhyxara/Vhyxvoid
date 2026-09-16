@@ -1,0 +1,66 @@
+.desktopSidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  background-color: var(--vhyx-color-surface);
+  border-inline-end: 1px solid var(--vhyx-color-border);
+  transition: width var(--vhyx-duration-normal, 200ms) var(--vhyx-easing-standard);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vhyx-space-2, 0.5rem);
+  padding: var(--vhyx-space-4, 1rem);
+  min-height: 64px;
+  flex-shrink: 0;
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.collapseToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--vhyx-color-text-subtle);
+  cursor: pointer;
+  padding: var(--vhyx-space-1, 0.25rem);
+  border-radius: var(--vhyx-radius-sm, 4px);
+  flex-shrink: 0;
+}
+
+.collapseToggle:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+  color: var(--vhyx-color-text);
+}
+
+.mobileDrawerContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--vhyx-color-surface);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

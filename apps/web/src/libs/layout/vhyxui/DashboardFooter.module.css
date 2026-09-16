@@ -1,0 +1,29 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--vhyx-space-4, 1rem);
+  padding: var(--vhyx-space-4, 1rem);
+  border-top: 1px solid var(--vhyx-color-border);
+  color: var(--vhyx-color-text-subtle);
+  font-size: var(--vhyx-text-sm, 0.875rem);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: var(--vhyx-weight-extrabold, 800);
+  font-size: 1rem;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-4, 1rem);
+}
+
+.links a {
+  color: var(--vhyx-color-accent);
+  text-decoration: none;
+}

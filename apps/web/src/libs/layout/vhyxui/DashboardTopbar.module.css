@@ -1,0 +1,29 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vhyx-space-4, 1rem);
+  height: 64px;
+  padding: 0 var(--vhyx-space-4, 1rem);
+  border-bottom: 1px solid var(--vhyx-color-border);
+  background-color: var(--vhyx-color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-4, 1rem);
+}
+
+.hamburger {
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--vhyx-color-text-subtle);
+}
+
+.hamburger:hover {
+  color: var(--vhyx-color-text);
+}

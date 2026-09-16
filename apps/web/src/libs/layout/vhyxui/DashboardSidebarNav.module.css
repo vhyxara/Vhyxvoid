@@ -1,0 +1,129 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vhyx-space-1, 0.25rem);
+  padding: var(--vhyx-space-3, 0.75rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+}
+
+.sectionLabel {
+  font-size: var(--vhyx-text-2xs, 0.625rem);
+  font-weight: var(--vhyx-weight-semibold, 600);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vhyx-color-text-subtle);
+  padding: var(--vhyx-space-4, 1rem) var(--vhyx-space-2, 0.5rem) var(--vhyx-space-1, 0.25rem);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+  border-radius: var(--vhyx-radius-md, 6px);
+  color: var(--vhyx-color-text-subtle);
+  text-decoration: none;
+  font-size: var(--vhyx-text-sm, 0.875rem);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color var(--vhyx-duration-fast, 100ms) var(--vhyx-easing-standard);
+}
+
+.link:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+  color: var(--vhyx-color-text);
+}
+
+.link[data-active='true'] {
+  background-color: var(--vhyx-color-accent-subtle);
+  color: var(--vhyx-color-accent);
+  font-weight: var(--vhyx-weight-medium, 500);
+}
+
+.link i {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.linkLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subNavToggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--vhyx-space-3, 0.75rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+  border-radius: var(--vhyx-radius-md, 6px);
+  color: var(--vhyx-color-text-subtle);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.subNavToggle:hover {
+  background-color: var(--vhyx-color-bg-subtle);
+  color: var(--vhyx-color-text);
+}
+
+.subNavToggle i:first-child {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.orgName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  transition: transform var(--vhyx-duration-fast, 100ms) var(--vhyx-easing-standard);
+}
+
+.chevron[data-open='true'] {
+  transform: rotate(90deg);
+}
+
+.subItems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vhyx-space-1, 0.25rem);
+  padding-inline-start: var(--vhyx-space-6, 1.5rem);
+  margin-top: var(--vhyx-space-1, 0.25rem);
+}
+
+.skeletonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vhyx-space-2, 0.5rem);
+  padding: var(--vhyx-space-2, 0.5rem) var(--vhyx-space-3, 0.75rem);
+}
+
+/* Collapsed (icon-only, not hovered): hide all text, keep icons centered */
+.nav[data-show-labels='false'] .sectionLabel,
+.nav[data-show-labels='false'] .linkLabel,
+.nav[data-show-labels='false'] .orgName,
+.nav[data-show-labels='false'] .chevron {
+  display: none;
+}
+
+.nav[data-show-labels='false'] .subItems {
+  padding-inline-start: 0;
+}
+
+.nav[data-show-labels='false'] .link,
+.nav[data-show-labels='false'] .subNavToggle {
+  justify-content: center;
+}

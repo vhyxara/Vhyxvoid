@@ -1,0 +1,57 @@
+/* TEMPORARY shim styles — see README.md in this directory.
+   Fallback values in each var() repeat the literal ported into
+   @vhyxui/tokens' [data-brand="vhyxvoid"] override, so this still renders
+   correctly even before that attribute is set anywhere in the app. */
+
+.root {
+  margin: 0;
+  font-family: var(--vhyx-font-sans, 'Public Sans', sans-serif);
+  color: var(--vhyx-color-text, rgba(248, 248, 255, 0.92));
+}
+
+.h1 { font-size: var(--vhyxvoid-h1-size, 2.875rem); font-weight: var(--vhyxvoid-h1-weight, 500); line-height: var(--vhyxvoid-h1-leading, 1.47826); }
+.h2 { font-size: var(--vhyxvoid-h2-size, 2.375rem); font-weight: var(--vhyxvoid-h2-weight, 500); line-height: var(--vhyxvoid-h2-leading, 1.47368421); }
+.h3 { font-size: var(--vhyxvoid-h3-size, 1.75rem); font-weight: var(--vhyxvoid-h3-weight, 500); line-height: var(--vhyxvoid-h3-leading, 1.5); }
+.h4 { font-size: var(--vhyxvoid-h4-size, 1.5rem); font-weight: var(--vhyxvoid-h4-weight, 500); line-height: var(--vhyxvoid-h4-leading, 1.58334); }
+.h5 { font-size: var(--vhyxvoid-h5-size, 1.125rem); font-weight: var(--vhyxvoid-h5-weight, 500); line-height: var(--vhyxvoid-h5-leading, 1.5556); }
+.h6 { font-size: var(--vhyxvoid-h6-size, 0.9375rem); font-weight: var(--vhyxvoid-h6-weight, 500); line-height: var(--vhyxvoid-h6-leading, 1.46667); }
+
+.subtitle1 { font-size: var(--vhyxvoid-subtitle1-size, 0.9375rem); font-weight: var(--vhyxvoid-subtitle1-weight, 400); line-height: var(--vhyxvoid-subtitle1-leading, 1.46667); }
+.subtitle2 {
+  font-size: var(--vhyxvoid-subtitle2-size, 0.8125rem);
+  font-weight: var(--vhyxvoid-subtitle2-weight, 400);
+  line-height: var(--vhyxvoid-subtitle2-leading, 1.53846154);
+  color: var(--vhyx-color-text-subtle, rgba(161, 161, 181, 0.85));
+}
+
+.body1 { font-size: var(--vhyxvoid-body1-size, 0.9375rem); font-weight: var(--vhyxvoid-body1-weight, 400); line-height: var(--vhyxvoid-body1-leading, 1.46667); }
+.body2 {
+  font-size: var(--vhyxvoid-body2-size, 0.8125rem);
+  font-weight: var(--vhyxvoid-body2-weight, 400);
+  line-height: var(--vhyxvoid-body2-leading, 1.53846154);
+  color: var(--vhyx-color-text-subtle, rgba(161, 161, 181, 0.85));
+}
+
+.caption {
+  font-size: var(--vhyxvoid-caption-size, 0.8125rem);
+  font-weight: var(--vhyxvoid-caption-weight, 400);
+  line-height: var(--vhyxvoid-caption-leading, 1.38462);
+  letter-spacing: var(--vhyxvoid-caption-tracking, 0.4px);
+  color: var(--vhyx-color-text-subtle, rgba(161, 161, 181, 0.85));
+}
+
+.overline {
+  font-size: var(--vhyxvoid-overline-size, 0.75rem);
+  font-weight: var(--vhyxvoid-overline-weight, 400);
+  line-height: var(--vhyxvoid-overline-leading, 1.16667);
+  letter-spacing: var(--vhyxvoid-overline-tracking, 0.8px);
+  text-transform: uppercase;
+  color: var(--vhyx-color-text-subtle, rgba(161, 161, 181, 0.85));
+}
+
+.button {
+  font-size: var(--vhyxvoid-body1-size, 0.9375rem);
+  font-weight: var(--vhyxvoid-body1-weight, 400);
+  line-height: var(--vhyxvoid-body1-leading, 1.46667);
+  text-transform: none;
+}
