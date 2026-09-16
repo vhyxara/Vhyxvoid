@@ -21,7 +21,7 @@ VhyxVoid's goal is to become the default tunnel tool for full-stack development 
 - **Language**: TypeScript throughout (strict mode), Node.js runtime.
 - **Monorepo**: pnpm workspaces (`apps/*`, `packages/*`) orchestrated by Turborepo (`turbo.json`); `pnpm@10.6.2` pinned as `packageManager`.
 - **API (control plane)**: Fastify 5, Prisma 6 → Postgres, `@upstash/redis` + `ioredis` (both present), `@fastify/jwt` + cookies for user auth, Stripe SDK, Resend (email), bcryptjs, zod. Root-level linting is ESLint 9 flat config (`eslint.config.ts`) — **not** `eslint-plugin-boundaries` (an earlier audit pass claimed that; confirmed wrong by reading the file directly): it's a plain `no-restricted-imports` rule banning deep imports into another workspace package's `src/` and cross-package relative imports.
-- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-3 (NotificationBell + FeedbackButton + the `scroll-to-top` holdout), MUI remains only in the blank-layout-pages illustration/responsive-layout code (Phase 4, open — no VhyxUI breakpoint/responsive primitive exists yet). VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
+- **Frontend (apps/web, `@vhyxvoid/web`)**: Next.js 16 / React 19, moved into this monorepo 2026-09-09 from a standalone repo (was `vhyx-void`). Runs on port **4000** (not the default 3000). Deliberately kept OUT of the root TS project-reference graph (own `tsc --noEmit` script instead) and OUT of the root ESLint flat config (own ESLint 8 config) — see `decision.md` for both. **VhyxUI migration substantially complete, MUI/Vuexy removal in progress as of 2026-09-16** (see Directory Structure and decision.md's per-step/per-phase entries) — after Phase 0-3 (NotificationBell + FeedbackButton + the `scroll-to-top` holdout) and Phase 4 part 2a (the auth illustration panel — `Login`/`Register`/`ForgotPasswordView`/`ResetPasswordView`/`NotFound`/`VerifyEmailView`/`VerifyEmailSentView`), MUI remains only in: `Register.tsx`'s `Grid`, `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s real `useColorScheme()` calls (both needed before `ThemeProvider`/`CssBaseline` can actually come off — see decision.md, 2026-09-16, "Phase 4 part 1"'s Part 3), and the dead `@core/components/mui/TextField.tsx` wrapper (zero importers, just needs deleting). VhyxUI is an in-house component library kept in a **separate** sibling repo and consumed via pnpm `link:` — see Configuration & Environment for the linking convention.
 - **Hub (tunnel router)**: plain Node `http` module + `ws` (WebSocketServer in `noServer` mode) — `fastify`, `uWebSockets.js`, and `pg` are also listed as dependencies but are confirmed leftovers from two earlier rewrite attempts (uWebSockets.js → Fastify → plain http+ws), safe to remove. Imports `packages/shared`'s Prisma client directly (no HTTP call to the API).
 - **Agent**: `ws` client, `axios` (backend proxy), `better-sqlite3` (durable queue, WAL mode), `commander` (CLI).
 - **SDK**: `isomorphic-ws`, hand-rolled HMAC signing. Two live client implementations plus one dead one (see SDK Client Strategy below).
@@ -221,6 +221,23 @@ apps/
                   sequencing plan and the complete design: decision.md, 2026-09-16
                   ("Phase 4 part 1"). `@core/components/mui/TextField.tsx` is now fully
                   dead (zero importers) and can be deleted independently.
+                  **Phase 4 part 2a executed 2026-09-16**: the design above implemented
+                  directly, no re-investigation needed. `useBreakpointDown` (new hook),
+                  `AuthIllustrationPanel` + `AuthMaskImage` (new shared components), and
+                  the CSS Module all built exactly per the design; `Login`/`Register`/
+                  `ForgotPasswordView`/`ResetPasswordView`/`NotFound` converted to use
+                  them; `VerifyEmailView`/`VerifyEmailSentView` got the trivial
+                  `styled('img')`→plain-`<img>` fix. `Register.tsx`'s MUI `Grid` was
+                  deliberately left untouched, per the brief — see the still-open item
+                  below. `@mui` surface: 60 files/74 lines → **54 files/62 lines**.
+                  `views/auth/` now has zero `@mui` imports outside `Register.tsx`'s
+                  `Grid`. See decision.md, 2026-09-16 ("Phase 4 part 2a"). **Still open,
+                  explicitly not attempted this session**: `Register.tsx`'s `Grid` →
+                  plain grid, and `useImageVariant.ts`/`useLayoutInit.ts`/
+                  `ModeChanger.tsx`'s real `useColorScheme()`/`setMode()` calls — both
+                  required before `ThemeProvider`/`CssBaseline` can actually come off
+                  (see Phase 4 part 1's Part 3 finding above; neither is "the
+                  illustration panel," both need their own session).
 
 packages/
   protocol/       Wire message types, canonical-string HMAC signing, shared constants/errors.

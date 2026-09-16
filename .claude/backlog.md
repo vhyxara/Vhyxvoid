@@ -31,17 +31,22 @@ an item here is fixed, delete its line entirely; don't check it off.
   shape as VhyxVoid's now-removed dead path, but not independently
   confirmed live or dead there — found `TABLE_API_ARCHITECTURE_COMPARISON.md`
   Part 2 item 7, 2026-09-14
-- [ ] apps/web Phase 4: the blank-layout-pages illustration-panel problem
-  — full design already produced and ready to execute directly, no
-  re-investigation needed: see decision.md, 2026-09-16 ("Phase 4 part 1")
-  for the complete plan (a shared AuthIllustrationPanel component + a new
-  useBreakpointDown hook + Tailwind's built-in rtl: variant, CSS-only, no
-  VhyxUI primitive needed). That entry also found the illustration panel
-  alone does NOT fully unlock ThemeProvider/CssBaseline removal —
-  Register.tsx's MUI Grid, and useImageVariant.ts/useLayoutInit.ts/
-  ModeChanger.tsx's real useColorScheme()/setMode() calls (used by BOTH
-  route groups, not just blank-layout-pages) also need clearing first,
-  in the sequence the plan lays out
+- [ ] Two remaining blockers before `ThemeProvider`/`CssBaseline` can
+  actually come off apps/web (the illustration-panel problem itself is
+  now fully fixed, Phase 4 part 2a, 2026-09-16 — this item is NOT that,
+  see decision.md, 2026-09-16 "Phase 4 part 1"'s Part 3 and "Phase 4
+  part 2a"): (1) `Register.tsx`'s MUI `Grid` (firstName/lastName row) →
+  a plain `grid grid-cols-2 gap-4` div, trivial; (2)
+  `useImageVariant.ts`/`useLayoutInit.ts`/`ModeChanger.tsx`'s real
+  `useColorScheme()`/`setMode()` calls — the latter two used by BOTH the
+  dashboard AND blank-layout-pages route groups, not just the
+  illustration pages. Recommended fix already designed: extract a
+  `useResolvedMode()` hook (settings.mode + the same
+  `useMedia('(prefers-color-scheme: dark)')` fallback `ModeChanger.tsx`
+  already computes) for `useImageVariant.ts`; `useLayoutInit.ts`/
+  `ModeChanger.tsx` just drop their `useColorScheme()`/`setMode()` calls
+  once confirmed no MUI component renders anywhere. This must be the
+  last step, not attempted mid-way.
 - [ ] `apps/web/src/@core/components/mui/TextField.tsx` is now fully dead
   (zero importers anywhere — its last two consumers, CreateOrgDialog.tsx
   and FeedbackButton.tsx, were migrated off it in Phase 2 and Phase 3

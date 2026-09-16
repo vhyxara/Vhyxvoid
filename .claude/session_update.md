@@ -2089,3 +2089,55 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-16-apps-web-mui-phase4-part2a-illustration-panel",
+  "date": "2026-09-16",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Phase 4 part 2a of the MUI/Vuexy removal plan: execute the illustration-panel design from decision.md's 'Phase 4 part 1' entry directly -- the useBreakpointDown hook, AuthIllustrationPanel component, and conversion of Login/Register/ForgotPasswordView/ResetPasswordView/NotFound, plus the trivial VerifyEmailView/VerifyEmailSentView fixes. Explicitly excluded: Register.tsx's MUI Grid and any ThemeProvider/useColorScheme()/useLayoutInit.ts/ModeChanger.tsx/useImageVariant.ts work, both separate follow-ups.",
+  "status": "completed",
+  "summary": "Implemented directly from the already-complete Phase 4 part 1 design with zero re-investigation and zero deviations. Built useBreakpointDown (window.matchMedia, SSR-safe false default), AuthMaskImage (the hidden-below-900px mask piece, reused by both the panel and NotFound.tsx directly rather than nested under the panel's namespace -- the design left this file-split as non-load-bearing), AuthIllustrationPanel + its CSS Module (characterMaxHeight/maskMaxHeight props feeding a --character-max-h custom property, with real @media rules for the two breakpoint-capped overrides -- exactly as designed, since neither a template-literal Tailwind class nor an inline style can coexist correctly with those overrides). Converted Login.tsx, Register.tsx (passing 600/345 for its two different base values, Grid deliberately left untouched), ForgotPasswordView.tsx, ResetPasswordView.tsx, and NotFound.tsx to the new component/hook, removing every useTheme()/theme.spacing()/theme.breakpoints()/theme.direction call and the now-unused classnames import where nothing else needed it. Converted VerifyEmailView.tsx/VerifyEmailSentView.tsx's trivial fixed-pixel styled('img') to plain <img> with Tailwind classes, identical in shape to Phase 1's AcceptInvitationView fix. No Chrome extension available (fifth session in a row) -- gave real-backend + curl verification with the explicit flag the brief specifically asked for: curl has no viewport, so nothing here can confirm the character illustration actually shrinks at 1536px/1200px or the mask actually disappears below 900px in a real browser -- that is inherently unverifiable this way. What curl did confirm: all 7 converted pages returned clean 200s with zero server exceptions and zero Turbopack warnings; the raw rendered HTML for every split-layout page shows the exact expected markup (the CSS Module class, the Tailwind utility classes, the --character-max-h inline custom property with the correct per-page value including Register's 600px override, and the static rtl:scale-x-[-1] class) -- proving the design compiled and wired correctly, not just that it didn't crash; and three real mutations (login with real credentials, forgot-password, and a real throwaway registration cleaned up via SQL afterward) all succeeded against the actual backend, confirming none of the untouched form/submission logic broke as a side effect of the illustration-panel restyle. typecheck/build/test all pass clean (19 routes, apps/web 7/23 tests, root 19/99 tests, all unchanged, zero new lint issues). @mui import surface dropped from 60 files/74 lines to 54 files/62 lines -- views/auth/ and NotFound.tsx now import @mui only via Register.tsx's Grid, the one deliberately-untouched item. Committed as 2 commits (the hook+components+CSS-module+5-page conversion; the 2 trivial VerifyEmail fixes, kept separate as a genuinely different kind of change). Updated context.md/decision.md/backlog.md, recording the Register Grid and useColorScheme() blockers as their own explicit next item rather than folding them into 'Phase 4 complete' -- the illustration panel (Phase 4's original scope) is done, but the broader ThemeProvider/CssBaseline removal is not.",
+  "decisions_made": [
+    "AuthMaskImage.tsx is a sibling file to AuthIllustrationPanel.tsx, not a nested sub-export -- the design left this as a non-load-bearing naming/file-split call; a plain sibling file was simpler and lets NotFound.tsx import it directly without reaching into AuthIllustrationPanel's own module",
+    "Register.tsx's stale MUI-import comment (which attributed its Grid to being 'out of scope for component migration' for illustration reasons) was corrected to point at the real, current reason -- a separate blocker with its own follow-up -- since the illustration-panel reason no longer applies now that the rest of the file is converted",
+    "reset-password?token=... was verified for the token-present rendering path (shows the form, not the invalid-link alert) rather than a full real-token redemption flow, since passwordService.resetPassword's own logic is unchanged code and out of this session's scope"
+  ],
+  "bugs_found_fixed": [],
+  "bugs_found_unfixed": [],
+  "files_changed": [
+    "apps/web/src/@core/hooks/useBreakpointDown.ts -- new hook, MUI useMediaQuery(theme.breakpoints.down()) replacement",
+    "apps/web/src/views/auth/AuthMaskImage.tsx -- new component, the shared mask-image piece",
+    "apps/web/src/views/auth/AuthIllustrationPanel.tsx -- new shared component, the left-panel wrapper",
+    "apps/web/src/views/auth/AuthIllustrationPanel.module.css -- new CSS Module, the two real breakpoint-capped max-height overrides",
+    "apps/web/src/views/auth/Login.tsx -- illustration/theme code removed, uses AuthIllustrationPanel",
+    "apps/web/src/views/auth/Register.tsx -- same, plus characterMaxHeight/maskMaxHeight overrides; Grid deliberately untouched",
+    "apps/web/src/views/auth/ForgotPasswordView.tsx -- same",
+    "apps/web/src/views/auth/ResetPasswordView.tsx -- same",
+    "apps/web/src/views/pages/NotFound.tsx -- illustration/theme code removed, uses AuthMaskImage",
+    "apps/web/src/views/auth/VerifyEmailView.tsx -- trivial styled('img') -> plain <img>",
+    "apps/web/src/views/auth/VerifyEmailSentView.tsx -- same",
+    ".claude/context.md -- Phase 4 part 2a completion note added",
+    ".claude/decision.md -- new 2026-09-16 entry, 'Phase 4 part 2a: the auth illustration panel migrated off MUI's theme'",
+    ".claude/backlog.md -- Phase 4 illustration-panel item resolved and replaced with an explicit Grid/useColorScheme() blockers item",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass",
+    "build": "pass, 19 routes unchanged",
+    "test": "pass, apps/web 7 files/23 tests unchanged, root suite 19 files/99 tests unchanged",
+    "lint": "249 problems, unchanged from Phase 3 part 2's baseline -- zero new issues in any of the 9 touched/new files"
+  },
+  "open_items_for_next_session": [
+    "Register.tsx's MUI Grid (firstName/lastName row) -> plain grid grid-cols-2 gap-4 div -- trivial, its own small follow-up",
+    "useImageVariant.ts/useLayoutInit.ts/ModeChanger.tsx's real useColorScheme()/setMode() calls must be cleared before ThemeProvider/CssBaseline can actually be removed -- useLayoutInit.ts is used by BOTH route groups, not just blank-layout-pages. Recommended fix already designed in decision.md's Phase 4 part 1 entry: extract useResolvedMode() (settings.mode + the same useMedia('(prefers-color-scheme: dark)') fallback ModeChanger.tsx already computes) for useImageVariant.ts; useLayoutInit.ts/ModeChanger.tsx just drop their useColorScheme()/setMode() calls once confirmed no MUI component renders anywhere -- this must be the LAST step of the whole removal, not attempted mid-way",
+    "@core/components/mui/TextField.tsx remains fully dead (zero importers), not deleted this session, still in backlog.md",
+    "Live browser verification of the actual responsive behavior at real viewport widths (1536px/1200px/900px breakpoints, the RTL flip) was not possible without the Chrome extension and is inherently unverifiable via curl -- this is exactly the kind of check Tanveer's planned batched visual pass (once the extension is available) needs to cover for this phase specifically",
+    "The 249 pre-existing eslint problems and the apps/api notification-endpoint bare-response-shape inconsistency remain untouched, unrelated to this session"
+  ],
+  "context_md_updates_needed": [
+    "None beyond what this session already made -- the Phase 4 part 2a completion note is in place"
+  ]
+}
+```
