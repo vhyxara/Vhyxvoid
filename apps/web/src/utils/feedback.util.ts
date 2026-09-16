@@ -42,3 +42,16 @@ export function typeLabel(type: FeedbackType) {
     .toLowerCase()
     .replace(/^\w/, c => c.toUpperCase())
 }
+
+// typeColor/statusColor/priorityColor above return MUI-style color names.
+// VhyxUI's Badge has no 'error'/'primary' variant (only default/success/
+// warning/danger/info/outline) — same mapping pattern as MembersTable/
+// ApiKeysView/TunnelsView's own roleBadgeVariant/statusBadgeVariant/
+// envBadgeVariant. Shared here since both FeedbackHistoryTab.tsx and
+// FeedbackDetailDrawer.tsx need the identical mapping.
+export function feedbackBadgeVariant(muiColor: 'error' | 'info' | 'warning' | 'success' | 'primary' | 'default') {
+  if (muiColor === 'error') return 'danger' as const
+  if (muiColor === 'primary') return 'default' as const
+
+  return muiColor
+}

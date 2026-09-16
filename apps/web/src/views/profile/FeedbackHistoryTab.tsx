@@ -3,10 +3,9 @@ import { useState } from 'react'
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 
-import Chip from '@mui/material/Chip'
-import Typography from '@mui/material/Typography'
-import Box from '@mui/material/Box'
+import { Badge } from '@vhyxui/react'
 
+import { Typography } from '@/components/vhyxui-shims'
 import { GenericServerTable } from '@/libs/table/GenericServerTable'
 import { useServerTable } from '@/libs/table/useServerTable'
 import { RowActions } from '@/libs/table/RowAction'
@@ -14,7 +13,7 @@ import type { RowAction } from '@/libs/table/type'
 import { FeedbackDetailDrawer } from '@/views/feedback/FeedbackDetailDrawer'
 import type { FeedbackListItem } from '@/api/domain/feedback/feedback.types'
 import { useMyFeedbackTableList } from '@/api/application/hooks/useFeedback'
-import { typeLabel, typeColor, statusColor, priorityColor } from '@/utils/feedback.util'
+import { typeLabel, typeColor, statusColor, priorityColor, feedbackBadgeVariant } from '@/utils/feedback.util'
 
 // import type { FeedbackType } from '@/hooks/useFeedbackDialog'
 
@@ -73,7 +72,9 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
       header: 'Type',
       enableSorting: false,
       cell: info => (
-        <Chip label={typeLabel(info.getValue())} color={typeColor(info.getValue())} size='small' variant='tonal' />
+        <Badge variant={feedbackBadgeVariant(typeColor(info.getValue()))} size='sm'>
+          {typeLabel(info.getValue())}
+        </Badge>
       )
     }),
 
@@ -81,11 +82,11 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
       header: 'Title',
       enableSorting: false,
       cell: info => (
-        <Box>
+        <div>
           <Typography
             variant='body2'
-            fontWeight={500}
-            sx={{
+            style={{
+              fontWeight: 500,
               maxWidth: 240,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -96,8 +97,8 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
           </Typography>
           <Typography
             variant='caption'
-            color='text.secondary'
-            sx={{
+            style={{
+              color: 'var(--vhyx-color-text-subtle)',
               maxWidth: 240,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -107,21 +108,27 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
           >
             {info.row.original.description}
           </Typography>
-        </Box>
+        </div>
       )
     }),
 
     col.accessor('status', {
       header: 'Status',
       enableSorting: false,
-      cell: info => <Chip label={info.getValue()} color={statusColor(info.getValue())} size='small' variant='tonal' />
+      cell: info => (
+        <Badge variant={feedbackBadgeVariant(statusColor(info.getValue()))} size='sm'>
+          {info.getValue()}
+        </Badge>
+      )
     }),
 
     col.accessor('priority', {
       header: 'Priority',
       enableSorting: false,
       cell: info => (
-        <Chip label={info.getValue()} color={priorityColor(info.getValue())} size='small' variant='outlined' />
+        <Badge variant={feedbackBadgeVariant(priorityColor(info.getValue()))} size='sm'>
+          {info.getValue()}
+        </Badge>
       )
     }),
 
@@ -129,7 +136,7 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
       header: 'Submitted',
       enableSorting: false,
       cell: info => (
-        <Typography variant='body2' color='text.secondary'>
+        <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
           {new Date(info.getValue()).toLocaleDateString(undefined, {
             month: 'short',
             day: 'numeric',
@@ -143,7 +150,10 @@ function buildColumns(onView: (id: string) => void): ColumnDef<FeedbackListItem,
       header: 'Resolved',
       enableSorting: false,
       cell: info => (
-        <Typography variant='body2' color={info.getValue() ? 'success.main' : 'text.secondary'}>
+        <Typography
+          variant='body2'
+          style={{ color: info.getValue() ? 'var(--vhyx-color-success)' : 'var(--vhyx-color-text-subtle)' }}
+        >
           {info.getValue()
             ? new Date(info.getValue()!).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
             : '—'}
