@@ -1,16 +1,10 @@
 'use client'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
-import Button from '@mui/material/Button'
-import LoadingButton from '@mui/lab/LoadingButton'
-import Typography from '@mui/material/Typography'
+import { Button, Dialog, Form, TextField } from '@vhyxui/react'
 
-import CustomTextField from '@core/components/mui/TextField'
+import { Typography } from '@/components/vhyxui-shims'
 import { useCreateOrg } from '@/api/application/hooks/useOrg'
 
 import { type CreateOrgFormValues, createOrgSchema } from '@/api/domain/identity/schemas/createOrg.schema'
@@ -23,15 +17,19 @@ type Props = {
 export function CreateOrgDialog({ open, onClose }: Props) {
   const createOrg = useCreateOrg()
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors }
-  } = useForm<CreateOrgFormValues>({
+  const form = useForm<CreateOrgFormValues>({
     resolver: yupResolver(createOrgSchema),
     defaultValues: { name: '' }
   })
+
+  const { reset } = form
+
+  // See decision.md, 2026-09-10, "VhyxUI Form generic typing friction" and
+  // "Step 4: Form/Field error-display requires reading formState.isSubmitting"
+  // — reused verbatim from the established template.
+  const untypedForm = form as any
+  const loading = form.formState.isSubmitting
+  void form.formState.errors
 
   const onSubmit = (values: CreateOrgFormValues) => {
     createOrg.mutate(values, {
@@ -49,45 +47,45 @@ export function CreateOrgDialog({ open, onClose }: Props) {
     })
   }
 
+  const handleFormSubmit = (data: any) => onSubmit(data as CreateOrgFormValues)
+
   const handleClose = () => {
     reset()
     onClose()
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth='xs' fullWidth>
-      <DialogTitle>Create organization</DialogTitle>
+    <Dialog open={open} onOpenChange={next => !next && handleClose()} size='sm'>
+      {/* Dialog.Portal gates rendering on open state — see decision.md,
+          2026-09-10/11, "Step 5b: Dialog.Portal omission". */}
+      <Dialog.Portal>
+        <Dialog.Overlay />
+        <Dialog.Content>
+          <Dialog.Title>Create organization</Dialog.Title>
 
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '16px !important' }}>
-        <Typography variant='body2' color='text.secondary'>
-          Organizations let you collaborate with a team under shared billing and role-based access.
-        </Typography>
+          <Form form={untypedForm} onSubmit={handleFormSubmit} className='flex flex-col gap-4'>
+            <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
+              Organizations let you collaborate with a team under shared billing and role-based access.
+            </Typography>
 
-        <Controller
-          name='name'
-          control={control}
-          render={({ field }) => (
-            <CustomTextField
-              {...field}
+            <TextField
               label='Organization name'
               autoFocus
-              fullWidth
-              error={!!errors.name}
-              helperText={errors.name?.message}
               placeholder='e.g. Acme Corp'
+              {...form.register('name')}
             />
-          )}
-        />
-      </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={handleClose} variant='outlined' color='secondary'>
-          Cancel
-        </Button>
-        <LoadingButton onClick={handleSubmit(onSubmit)} loading={createOrg.isPending} variant='contained'>
-          Create
-        </LoadingButton>
-      </DialogActions>
+            <Dialog.Footer>
+              <Button variant='secondary' onClick={handleClose} type='button'>
+                Cancel
+              </Button>
+              <Button type='submit' loading={loading || createOrg.isPending}>
+                Create
+              </Button>
+            </Dialog.Footer>
+          </Form>
+        </Dialog.Content>
+      </Dialog.Portal>
     </Dialog>
   )
 }

@@ -4,12 +4,9 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
-import Chip from '@mui/material/Chip'
-import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
+import { Badge, Button } from '@vhyxui/react'
 
-import { Box } from '@mui/material'
-
+import { Typography } from '@/components/vhyxui-shims'
 import { GenericServerTable } from '@/libs/table/GenericServerTable'
 import { useServerTable } from '@/libs/table/useServerTable'
 import { RowActions } from '@/libs/table/RowAction'
@@ -22,6 +19,18 @@ import type { MyAccount } from '@/api/domain/identity/types/org.types'
 // ── Column definitions ────────────────────────────────────────────────────
 
 const col = createColumnHelper<MyAccount>()
+
+// roleLevelColor() returns MUI-style names ('error' | 'warning' | 'default').
+// VhyxUI's Badge has no 'error' variant — same mapping as MembersTable.tsx's
+// roleBadgeVariant.
+function roleBadgeVariant(level: RoleLevel) {
+  const c = roleLevelColor(level)
+
+  if (c === 'error') return 'danger' as const
+  if (c === 'warning') return 'warning' as const
+
+  return 'default' as const
+}
 
 function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAccount, any>[] {
   return [
@@ -38,14 +47,17 @@ function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAcco
       header: 'Organization',
       enableSorting: true,
       cell: ({ row }) => (
-        <Box>
-          <Typography variant='body2' fontWeight={500}>
+        <div>
+          <Typography variant='body2' style={{ fontWeight: 500 }}>
             {row.original.accountName ?? 'Personal account'}
           </Typography>
-          <Typography variant='caption' color='text.secondary' fontFamily='monospace'>
+          <Typography
+            variant='caption'
+            style={{ color: 'var(--vhyx-color-text-subtle)', fontFamily: 'monospace', display: 'block' }}
+          >
             {row.original.accountType} · {row.original.accountStatus}
           </Typography>
-        </Box>
+        </div>
       )
     }),
 
@@ -53,12 +65,9 @@ function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAcco
       header: 'Your role',
       enableSorting: true,
       cell: info => (
-        <Chip
-          label={roleLevelName(info.getValue())}
-          color={roleLevelColor(info.getValue())}
-          size='small'
-          variant='tonal'
-        />
+        <Badge variant={roleBadgeVariant(info.getValue())} size='sm'>
+          {roleLevelName(info.getValue())}
+        </Badge>
       )
     }),
 
@@ -66,7 +75,7 @@ function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAcco
       header: 'Joined',
       enableSorting: true,
       cell: info => (
-        <Typography variant='body2' color='text.secondary'>
+        <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
           {new Date(info.getValue()).toLocaleDateString()}
         </Typography>
       )
@@ -136,7 +145,7 @@ export function MyAccountsTable() {
           }
         ]}
         renderToolbar={() => (
-          <Button variant='contained' startIcon={<i className='tabler-plus' />} onClick={() => setCreateOpen(true)}>
+          <Button icon={<i className='tabler-plus' />} onClick={() => setCreateOpen(true)}>
             New organization
           </Button>
         )}
