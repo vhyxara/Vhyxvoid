@@ -2295,3 +2295,45 @@ task, appended at the bottom, most recent last.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-17-apps-web-mui-phase4-part5-mode-mgmt-implemented",
+  "date": "2026-09-17",
+  "agent": "claude-code",
+  "repo": "Black-Server (apps/web)",
+  "brief_summary": "Implemented exactly the three approved fixes from Phase 4 part 4's mode-management investigation (decision.md, 2026-09-16): ModeChanger.tsx calling useResolvedMode() instead of duplicating its logic, consolidating getServerMode()/getSystemMode() into one function, and fixing the stale MUI-era comment in (dashboard)/layout.tsx. Explicitly did not pursue the deeper unification that investigation recommended against.",
+  "status": "completed",
+  "summary": "Fix 1: ModeChanger.tsx now calls useResolvedMode(systemMode) instead of running its own independent useSettings()+useMedia()+ternary -- removes one redundant matchMedia subscription's worth of duplicate logic, dependency array simplifies from [settings.mode, isDark] to [resolvedMode] with no eslint-disable needed. Before considering this done, re-traced react-use's actual useMedia implementation (window.matchMedia called once per mount inside useEffect, live 'change' listener drives setState) and hand-verified all four settings.mode/OS-preference combinations against Phase 4 part 3's exact original bug description, confirming the live-OS-toggle-while-system-mode fix survives this refactor with no regression, and that the one disclosed behavior difference (data-theme now always resolves a value instead of skipping the write when settings.mode is transiently falsy) carries no SSR/hydration risk. Added ModeChanger.test.tsx (no prior test existed) -- 5 tests: explicit-mode resolution, system-mode resolution on mount, the critical regression test (a simulated live matchMedia 'change' event while settings.mode==='system' updates data-theme), explicit mode correctly ignoring a live OS toggle, and a call-count check confirming exactly one matchMedia subscription is created. Caught and fixed two lint errors in the new test file (unused beforeEach import, an unused-but-necessarily-typed mock parameter) before finalizing. Fix 2: getServerMode() and getSystemMode() were mathematically identical (previously proven in the investigation); deleted getServerMode() entirely, switched its three callers (login/page.tsx, register/page.tsx, [...not-found]/page.tsx) to getSystemMode() -- the latter previously called both functions for the same value under two names, now calls getSystemMode() once and reuses the result for both props it feeds. Fix 3: rewrote (dashboard)/layout.tsx's stale multi-line comment, correcting three now-false claims (useLayoutInit 'live-syncing MUI's color mode', ModeChanger 'only reacting to explicit changes', and 'CssBaseline/ThemeProvider stays active') with what's actually true post-Phase-4-part-3, while preserving the real, still-accurate distinction between useLayoutInit's SSR-cookie-for-next-load and ModeChanger's live-DOM-attribute-for-current-page. Did not touch useLayoutInit.ts's own separate useMedia subscription or pursue any shared-context/useSyncExternalStore unification, per the explicit instruction not to go beyond the three approved fixes. Verified typecheck/build (19 routes)/full test suite (apps/web 8 files/28 tests, up from 7/23 by exactly the new test file; root suite 19/99 unchanged) all clean, and lint back to exactly 36 problems (the Phase 4 part 4 baseline, unchanged) after fixing the new test file's own transient lint issues. Committed as a single commit -- all three fixes plus the regression test are small and interdependent enough not to warrant splitting.",
+  "decisions_made": [
+    "Consolidated [...not-found]/page.tsx's two identical getServerMode()/getSystemMode() calls into a single getSystemMode() call reused for both props, rather than a purely mechanical rename -- the two variables were never anything but the same value under two names, so keeping two separate calls would have preserved dead duplication instead of removing it.",
+    "Left useResolvedMode.ts's own comment untouched even though it now references the deleted libs/theme/index.tsx's CustomThemeProvider as historical justification -- noticed but explicitly out of scope for 'these three fixes'; not promoted to a backlog item either, judged too minor to track separately."
+  ],
+  "bugs_found_fixed": [],
+  "bugs_found_unfixed": [],
+  "files_changed": [
+    "apps/web/src/libs/theme/ModeChanger.tsx -- now calls useResolvedMode(systemMode) instead of duplicating its resolution logic",
+    "apps/web/src/libs/theme/ModeChanger.test.tsx -- new file, 5 tests covering the live-OS-preference-change regression and single-subscription check",
+    "apps/web/src/@core/utils/serverHelpers.ts -- getServerMode() deleted",
+    "apps/web/src/app/[locale]/(blank-layout-pages)/login/page.tsx -- switched to getSystemMode()",
+    "apps/web/src/app/[locale]/(blank-layout-pages)/register/page.tsx -- switched to getSystemMode()",
+    "apps/web/src/app/[locale]/[...not-found]/page.tsx -- switched to a single getSystemMode() call reused for both props",
+    "apps/web/src/app/[locale]/(dashboard)/layout.tsx -- stale comment rewritten to reflect post-Phase-4-part-3 reality",
+    ".claude/decision.md -- new 2026-09-17 entry, 'Phase 4 part 5: mode-management proposal (Phase 4 part 4's Findings 1-3) implemented, nothing beyond'",
+    ".claude/session_update.md -- this entry"
+  ],
+  "gate_results": {
+    "typecheck": "pass -- tsc --noEmit clean",
+    "build": "pass -- 19 routes, unchanged",
+    "test": "pass -- apps/web 8 files/28 tests (up from 7/23 by exactly the new ModeChanger.test.tsx); root suite 19 files/99 tests unchanged",
+    "lint": "36 problems -- unchanged from the Phase 4 part 4 baseline (a transient +2 from the new test file was caught and fixed before finalizing)"
+  },
+  "open_items_for_next_session": [
+    "useResolvedMode.ts's own comment still references the deleted libs/theme/index.tsx's CustomThemeProvider as historical justification for its useMedia choice -- minor staleness, noticed but not fixed (out of scope for this session's three approved fixes), not yet promoted to a backlog item.",
+    "All other open items are unchanged from Phase 4 part 4: the pre-existing uncommitted pnpm-lock.yaml/root-package.json drift, the fragile @tanstack/react-query exact-version pin, the gap-2-vs-gap-4 spacing discrepancy, the notification-endpoint response-shape inconsistency, and .claude/chrome-visual.md's full checklist awaiting a Chrome-extension session."
+  ],
+  "context_md_updates_needed": [
+    "None -- context.md never described Part 2's proposal as a pending item (only decision.md/backlog.md did), so there's nothing there to mark as implemented."
+  ]
+}
+```
