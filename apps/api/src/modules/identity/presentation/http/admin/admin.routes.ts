@@ -178,11 +178,17 @@ export async function adminRoutes(fastify: FastifyInstance) {
    * Get admin by ID
    * GET /admin/users/:id
    */
-  fastify.get<{ Params: { adminId: string } }>(
+  fastify.get<{ Params: { id: string } }>(
     "/users/:id",
     { onRequest: [fastify.requireAbility("admin.read")] },
     async (request, reply) => {
-      const { adminId } = request.params;
+      // Route param is :id, not :adminId -- the generic type + destructure
+      // here previously said `adminId`, which read `request.params.adminId`
+      // (always undefined; Fastify populates params by the route's actual
+      // placeholder name) instead of `request.params.id`. Every call threw
+      // a PrismaClientValidationError (findById(undefined)) as a 500, not
+      // even a clean 404. See internal-tools/api/decision.md, 2026-09-17.
+      const { id: adminId } = request.params;
       const admin = await fastify.uow.adminUserRepository.findById(adminId);
       if (!admin) {
         throw new NotFoundError("Admin not found");
@@ -272,11 +278,13 @@ export async function adminRoutes(fastify: FastifyInstance) {
    * POST /admin/users/:id/disable
    * Required ability: admin.disable
    */
-  fastify.post<{ Params: { adminId: string } }>(
+  fastify.post<{ Params: { id: string } }>(
     "/users/:id/disable",
     { onRequest: [fastify.requireAbility("admin.disable")] },
     async (request, reply) => {
-      const { adminId } = request.params;
+      // Same route-param mismatch as GET /users/:id, fixed the same way —
+      // see the comment there and internal-tools/api/decision.md, 2026-09-17.
+      const { id: adminId } = request.params;
       const admin = getAdminContext(request);
 
       const targetAdmin =
