@@ -6,8 +6,6 @@ import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtSer
 import { CreateAbilityUseCase } from "@/modules/identity/application/use-cases/admin/CreateAbility.usecase";
 import { RevokeAbilityFromRoleUseCase } from "@/modules/identity/application/use-cases/admin/RevokeAbilityFromRole.usecase";
 import { AssignAbilityToRoleUseCase } from "@/modules/identity/application/use-cases/admin/AssignAbilityToRole.usecase";
-import { AdminAuditLog } from "@/modules/identity/domain/entities/admin/AdminAuditLog.entities";
-import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { GetAdminAbilitiesUseCase } from "@/modules/identity/application/use-cases/admin/GetAdminAbilities.usecase";
 import { VerifyAdminAbilityUseCase } from "@/modules/identity/application/use-cases/admin/VerifyAdminAbility.usecase";
 import { CreateApiKeyUseCase } from "@/modules/key-management/application/use-cases/CreateApiKey.usecase";
@@ -19,9 +17,6 @@ import { RotateApiKeyUseCase } from "@/modules/key-management/application/use-ca
 import { GetApiKeyUsageUseCase } from "@/modules/key-management/application/use-cases/GetApiKeyUsage.usecase";
 import { ValidateApiKeyUseCase } from "@/modules/key-management/application/use-cases/ValidateApiKey.usecase";
 import { Redis } from "@upstash/redis";
-import { TunnelSessionRepository } from "@/modules/identity/domain/repositories/tunnel/TunnelSession.repositories";
-import { TunnelRequestRepository } from "@/modules/identity/domain/repositories/tunnel/TunnelRequest.repositories";
-import { MembershipRepository } from "@/modules/identity/domain/repositories/account/Account.repositories";
 import { CreateCheckoutSessionUseCase } from "@/modules/billing/application/use-cases/billing/CreateCheckoutSession.usecase";
 import { CreateBillingPortalSessionUseCase } from "@/modules/billing/application/use-cases/billing/CreateBillingPortalSession.usecase";
 import { GetSubscriptionUseCase } from "@/modules/billing/application/use-cases/billing/GetSubscription.usecase";
@@ -60,9 +55,16 @@ declare module "fastify" {
     // Core
     prisma: PrismaClient;
     container: Container;
+    // uow.membershipRepository / .tunnelSessionRepository / .tunnelRequestRepository
+    // etc. are reached via this nested PrismaUnitOfWork, not as their own
+    // top-level FastifyInstance properties — three stale duplicate
+    // declarations that pointed at the top level directly (never
+    // decorated, never read) were removed 2026-09-17 in the decorator
+    // sweep that also removed TokenHasher/AdminAuditLog (both consumed as
+    // statically-imported classes, e.g. TokenHasher.hash(...), never via
+    // this instance). See internal-tools/api/decision.md, 2026-09-17.
     uow: PrismaUnitOfWork;
     jwtService: RS256JwtService;
-    TokenHasher: TokenHasher;
     redis: Redis;
     // tokenGenerator: CryptoTokenGenerator;
     // uow: PrismaUnitOfWork & {
@@ -90,11 +92,7 @@ declare module "fastify" {
     changeMemberRoleUseCase: ChangeMemberRoleUseCase;
     removeMemberUseCase: RemoveMemberUseCase;
     transferOwnershipUseCase: TransferOwnershipUseCase;
-    membershipRepository?: MembershipRepository;
 
-    // ---Tunnel
-    tunnelSessionRepository: TunnelSessionRepository;
-    tunnelRequestRepository: TunnelRequestRepository;
     // ── Admin
     adminLoginUseCase: AdminLoginUseCase;
     adminRefreshTokenUseCase: AdminRefreshTokenUseCase;
@@ -104,7 +102,6 @@ declare module "fastify" {
     revokeRoleFromAdminUseCase: RevokeRoleFromAdminUseCase;
     verifyAdminAbilityUseCase: VerifyAdminAbilityUseCase;
     getAdminAbilitiesUseCase: GetAdminAbilitiesUseCase;
-    AdminAuditLog: AdminAuditLog;
     assignAbilityToRoleUseCase: AssignAbilityToRoleUseCase;
     revokeAbilityFromRoleUseCase: RevokeAbilityFromRoleUseCase;
     createAbilityUseCase: CreateAbilityUseCase;
