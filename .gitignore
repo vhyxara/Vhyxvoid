@@ -34,3 +34,5 @@ apps/hub/.env.*
 deploy.md
 apps/api/keys/*certbot/
 vhyxconfig.md
+.claude
+internal-tools

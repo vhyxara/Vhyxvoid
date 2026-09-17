@@ -3,7 +3,8 @@
 ## @vhyx/api-kit local link setup
 
 `@vhyx/api-kit` (shared `createHttpClient`/`createQueryKeys`/`createQueryClient`
-conventions — see `TABLE_API_ARCHITECTURE_COMPARISON.md` at the monorepo root)
+conventions — see `internal-tools/shared/TABLE_API_ARCHITECTURE_COMPARISON.md`
+at the monorepo root)
 is declared the same way `@vhyxui/react`/`@vhyxui/tokens` are — pnpm's `link:`
 protocol, pointing at a relative path into a **separate** sibling repo:
 
