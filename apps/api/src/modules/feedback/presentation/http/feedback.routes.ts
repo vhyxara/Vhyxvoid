@@ -6,6 +6,7 @@ import {
   FeedbackPriority,
 } from "@/generated/prisma";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
+import { getAdminContext } from "@/modules/identity/infrastructure/middleware/AdminRoute.middleware";
 import { SubmitFeedbackUseCase } from "../../application/use-cases";
 import { GetMyFeedbackUseCase } from "../../application/use-cases";
 import { GetFeedbackByIdUseCase } from "../../application/use-cases";
@@ -223,7 +224,13 @@ export async function adminFeedbackRoutes(fastify: FastifyInstance) {
     { onRequest: [fastify.adminAuthGuard] },
     async (request, reply) => {
       const { feedbackId } = feedbackIdParamSchema.parse(request.params);
-      const admin = getUserContext(request);
+      // This route is gated by adminAuthGuard, which sets request.admin, not
+      // request.user -- getUserContext() (meant for userAuthGuard routes,
+      // its own docstring says so) always threw "Not authenticated" here,
+      // regardless of a valid admin token, since request.user was never
+      // set. Fixed to use the matching helper, getAdminContext(). See
+      // internal-tools/api/decision.md, 2026-09-17.
+      const admin = getAdminContext(request);
 
       const result = await getByIdUseCase.execute({
         feedbackId,
