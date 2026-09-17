@@ -1,5 +1,8 @@
 export const allowedOrigins = [
   "http://localhost:4000",
+  // apps/admin's local dev port — see internal-tools/admin-frontend/decision.md,
+  // 2026-09-17 (scaffolding session), "Location, naming, port".
+  "http://localhost:4001",
   "https://www.vhyxvoid.com",
 ];
 

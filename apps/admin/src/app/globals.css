@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+@plugin 'tailwindcss-logical';
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--vhyx-color-bg);
+  color: var(--vhyx-color-text);
+}

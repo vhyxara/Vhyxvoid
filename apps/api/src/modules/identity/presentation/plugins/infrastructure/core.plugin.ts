@@ -34,6 +34,22 @@ export default fp(async (fastify) => {
     return new PrismaUnitOfWork(fastify.prisma);
   });
 
+  // Same gap as the jwtService decoration below, found by the same smoke
+  // test: core/types/core/fastify.d.ts declares fastify.uow: PrismaUnitOfWork,
+  // and several routes read fastify.uow.<repo> directly (most heavily
+  // admin.routes.ts -- GET /me, /users, /users/:id, /roles, /roles/:id,
+  // /abilities, /roles/:roleId/abilities, /audit-logs, PUT /users/:id,
+  // disable/enable -- plus one regular-user route,
+  // identity.routes.ts's /resend-verification), but nothing ever decorated
+  // it. Every use case resolved through fastify.container (AdminLoginUseCase,
+  // CreateAdminUseCase, etc.) already receives PrismaUnitOfWork correctly via
+  // constructor injection -- this only affects routes that read fastify.uow
+  // directly instead of going through a use case, which is why the
+  // extensively-verified regular-user/member/tunnel/api-key flows never hit
+  // this, while most of the admin backend does. See
+  // internal-tools/api/decision.md, 2026-09-17.
+  fastify.decorate("uow", container.resolve(PrismaUnitOfWork));
+
   container.register(BcryptPasswordHasher, () => {
     return new BcryptPasswordHasher();
   });
@@ -45,4 +61,19 @@ export default fp(async (fastify) => {
   container.register(RS256JwtService, () => {
     return new RS256JwtService(privateKey, publicKey);
   });
+
+  // core/types/core/fastify.d.ts declares fastify.jwtService: RS256JwtService,
+  // and adminAuthGuard.plugin.ts reads it directly (fastify.jwtService, not
+  // the DI container) -- but nothing ever actually decorated it. Confirmed
+  // via a real login+authenticated-request smoke test while wiring up
+  // apps/admin (internal-tools/admin-frontend/decision.md, 2026-09-17):
+  // every adminAuthGuard-gated route (everything except /auth/login and
+  // /auth/refresh, which resolve RS256JwtService via the container inside
+  // their own use cases) unconditionally threw "Server misconfiguration:
+  // JWT service not registered" -> 500 -> caught and rethrown as a 403,
+  // regardless of a valid token or super-admin status. The regular-user
+  // guard (userAuthGuard.ts) was never affected -- it resolves
+  // RS256JwtService from the container directly rather than going through
+  // this decorator. See internal-tools/api/decision.md, 2026-09-17.
+  fastify.decorate("jwtService", container.resolve(RS256JwtService));
 });

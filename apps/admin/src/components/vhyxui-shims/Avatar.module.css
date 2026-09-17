@@ -1,0 +1,24 @@
+/* TEMPORARY shim styles — see README.md in this directory. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-weight: 500;
+  color: #fff;
+  background-color: var(--vhyx-color-accent, #7C3AED);
+  overflow: hidden;
+  user-select: none;
+}
+
+.sm { width: 28px; height: 28px; font-size: 12px; }
+.md { width: 38px; height: 38px; font-size: 14px; }
+.lg { width: 48px; height: 48px; font-size: 16px; }
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
