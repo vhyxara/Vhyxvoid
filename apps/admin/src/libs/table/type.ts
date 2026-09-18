@@ -22,8 +22,14 @@ type DialogAction<T> = BaseAction<T> & {
   dialogProps?: Record<string, unknown> // ← was Record<string, never>
 }
 
+// 'disabled' is deliberately excluded from ConfirmationProps here —
+// BaseAction<T>'s `(row: T) => boolean` signature (shared with
+// click/dialog actions) is the one action-authoring callers use;
+// RowAction.tsx evaluates it and passes the resulting boolean into
+// Confirmation's own `disabled?: boolean` prop. Intersecting both shapes
+// directly collapses to an unsatisfiable type (a function AND a boolean).
 type ConfirmationAction<T> = BaseAction<T> &
-  Omit<ConfirmationProps, 'onConfirm'> & {
+  Omit<ConfirmationProps, 'onConfirm' | 'disabled'> & {
     type: 'confirmation'
     onConfirm: (row: T) => Promise<void> | void
   }

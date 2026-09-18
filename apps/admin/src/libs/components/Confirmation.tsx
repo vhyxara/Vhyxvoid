@@ -60,6 +60,12 @@ export type ConfirmationProps = {
   /** Button size */
   buttonSize?: 'xs' | 'sm' | 'md' | 'lg'
 
+  /** Disables the trigger button (e.g. guarding a super-admin/self row). Not
+      previously present — RowAction.tsx computed a per-row disabled state
+      for 'confirmation'-type actions but had nowhere to pass it, so the
+      guard was silently discarded. See decision.md, 2026-09-18. */
+  disabled?: boolean
+
   /** Fallback error message shown when onConfirm rejects without its own message */
   errorFeedbackMessage?: string
 
@@ -96,6 +102,7 @@ export default function Confirmation({
   isOpen = false,
   buttonText = '',
   buttonSize,
+  disabled = false,
 
   errorFeedbackMessage = 'Something went wrong.',
 
@@ -144,6 +151,7 @@ export default function Confirmation({
           iconOnly
           aria-label={confirmButtonText}
           icon={<i className={icon} />}
+          disabled={disabled}
           onClick={handleClickOpen}
         />
       ) : (
@@ -151,6 +159,7 @@ export default function Confirmation({
           variant={colorToVariant(confirmButtonColor)}
           size={buttonSize ?? 'sm'}
           icon={icon ? <i className={icon} /> : undefined}
+          disabled={disabled}
           onClick={handleClickOpen}
         >
           {buttonText || confirmButtonText}
