@@ -8,7 +8,7 @@ import * as yup from 'yup'
 import { Badge, Button, Card, Form, Separator, TextField } from '@vhyxui/react'
 
 import { Avatar, Typography } from '@/components/vhyxui-shims'
-import { useMyProfile } from '@/api/application/hooks/useMe'
+import { useMyAccounts, useMyProfile } from '@/api/application/hooks/useMe'
 import { useUpdateProfile } from '@/api/application/hooks/useOrg'
 import ChangePasswordView from './ChangePasswordView'
 import { FeedbackHistoryTab } from './FeedbackHistoryTab'
@@ -22,6 +22,7 @@ type FormValues = yup.InferType<typeof schema>
 
 export default function ProfileView() {
   const { data: profile } = useMyProfile()
+  const { data: accounts } = useMyAccounts()
   const updateProfile = useUpdateProfile()
 
   const form = useForm<FormValues>({
@@ -136,11 +137,18 @@ export default function ProfileView() {
         </div>
       </Card>
 
-      {/* ── Organizations membership summary ── */}
+      {/* ── Organizations membership summary ──
+          useMyProfile()'s select() deliberately strips the query result
+          down to profile-only fields (id/email/name/isEmailVerified) — it
+          never carried `accounts`, so reading it off `profile` always fell
+          back to 0 regardless of real membership count. useMyAccounts()
+          shares the same underlying meKeys.detail() cache entry (no extra
+          fetch), so this stays a single real network request. See
+          decision.md, 2026-09-19, "ProfileView organization count". */}
       <Card>
         <Typography variant='subtitle1'>Organization memberships</Typography>
         <Typography variant='body2'>
-          {profile ? `Member of ${(profile as any).accounts?.length ?? 0} organization(s)` : '—'}
+          {profile ? `Member of ${accounts?.length ?? 0} organization(s)` : '—'}
         </Typography>
       </Card>
 
