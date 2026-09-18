@@ -23,7 +23,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@core/*": ["./src/@core/*"]
+      "@core/*": ["./src/@core/*"],
+      "@assets/*": ["./src/assets/*"]
     }
   },
   "include": [

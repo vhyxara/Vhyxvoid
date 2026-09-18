@@ -2,6 +2,9 @@ import '@/app/globals.css'
 import '@vhyxui/tokens'
 import '@vhyxui/react/style.css'
 
+// Generated Icon CSS Imports
+import '@assets/iconify-icons/generated-icons.css'
+
 import type { ReactNode } from 'react'
 
 import VhyxUIRoot from '@/components/VhyxUIRoot'
