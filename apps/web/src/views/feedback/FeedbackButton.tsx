@@ -12,7 +12,12 @@ import { useSubmitFeedback } from '@/api/application/hooks/useFeedback'
 
 import type { FeedbackFormValues } from '@/api/domain/identity/schemas/feedback.schema'
 import { feedbackSchema } from '@/api/domain/identity/schemas/feedback.schema'
-import type { FeedbackType } from '@/hooks/useFeedbackDialog'
+// Was previously re-exported (unrelated to this file's own use) through
+// @/hooks/useFeedbackDialog — a dangling barrel re-export tacked onto the
+// bottom of that file, unrelated to the confirm/alert-Dialog hook it
+// otherwise defined. That file is gone (see decision.md, 2026-09-19,
+// "FeedbackContext removed") — import the real domain type directly.
+import type { FeedbackType } from '@/api/domain/feedback/feedback.types'
 
 // ── Type config (unchanged) ───────────────────────────────────────────────
 

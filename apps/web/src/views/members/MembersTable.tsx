@@ -58,7 +58,7 @@ const col = createColumnHelper<Member>()
 function buildColumns(args: {
   accountId: string
   permissions: ReturnType<typeof usePermissions>
-  onRemove: (userId: string) => void
+  onRemove: (userId: string) => Promise<unknown>
 }): ColumnDef<Member, any>[] {
   const { permissions, onRemove, accountId } = args
 
@@ -211,7 +211,11 @@ export function MembersTable({ accountId }: Props) {
   const columns = buildColumns({
     accountId,
     permissions,
-    onRemove: userId => removeMember.mutate(userId)
+    // .mutateAsync(), not fire-and-forget .mutate() — Confirmation.tsx's
+    // own loading state and error handling both depend on awaiting the
+    // real mutation promise. See decision.md, 2026-09-19,
+    // "FeedbackContext removed".
+    onRemove: userId => removeMember.mutateAsync(userId)
   })
 
   // Owns the real query now — GenericServerTable no longer fetches its own

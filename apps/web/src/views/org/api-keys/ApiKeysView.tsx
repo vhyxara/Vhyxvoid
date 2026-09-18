@@ -41,7 +41,7 @@ const col = createColumnHelper<ApiKey>()
 
 function buildColumns(args: {
   accountId: string
-  onRevoke: (keyId: string) => void
+  onRevoke: (keyId: string) => Promise<unknown>
   onRotate: (keyId: string) => Promise<void>
 }): ColumnDef<ApiKey, any>[] {
   return [
@@ -215,7 +215,9 @@ export default function ApiKeysView({ accountId }: Props) {
 
   const columns = buildColumns({
     accountId,
-    onRevoke: keyId => revokeKey.mutate({ keyId }),
+    // .mutateAsync(), not fire-and-forget .mutate() — see decision.md,
+    // 2026-09-19, "FeedbackContext removed".
+    onRevoke: keyId => revokeKey.mutateAsync({ keyId }),
     onRotate: async keyId => {
       // Single source of truth for the rotate mutation — RotateApiKeyDialog
       // no longer calls useRotateApiKey itself. See decision.md, 2026-09-10/11,

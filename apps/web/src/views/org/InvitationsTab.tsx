@@ -29,7 +29,7 @@ const col = createColumnHelper<Invitation>()
 
 function buildColumns(args: {
   accountId: string
-  onCancel: (id: string) => void
+  onCancel: (id: string) => Promise<unknown>
   isAdmin: boolean
 }): ColumnDef<Invitation, any>[] {
   return [
@@ -114,7 +114,9 @@ export function InvitationsTab({ accountId }: Props) {
   const columns = buildColumns({
     accountId,
     isAdmin: permissions.isAdmin,
-    onCancel: id => cancelInvite.mutate(id)
+    // .mutateAsync(), not fire-and-forget .mutate() — see decision.md,
+    // 2026-09-19, "FeedbackContext removed".
+    onCancel: id => cancelInvite.mutateAsync(id)
   })
 
   // Owns the real query now — GenericServerTable no longer fetches its own

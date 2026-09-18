@@ -8,7 +8,6 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 
 import { createQueryClient } from '@/api/wrapper/queryClient'
-import { FeedbackProvider } from '@/contexts/FeedbackContext'
 import { SessionBootstrapper } from '@/libs/components/SessionBootstrapper'
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
@@ -17,11 +16,9 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster position='top-right' />
-      <FeedbackProvider>
-        <SessionBootstrapper />
+      <SessionBootstrapper />
 
-        {children}
-      </FeedbackProvider>
+      {children}
     </QueryClientProvider>
   )
 }

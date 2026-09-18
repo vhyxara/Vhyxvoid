@@ -25,7 +25,12 @@ type DialogAction<T> = BaseAction<T> & {
 type ConfirmationAction<T> = BaseAction<T> &
   Omit<ConfirmationProps, 'onConfirm'> & {
     type: 'confirmation'
-    onConfirm: (row: T) => Promise<void> | void
+    // Promise<unknown>, not Promise<void> — real callers return a real
+    // mutateAsync() promise (see decision.md, 2026-09-19, "FeedbackContext
+    // removed"), which resolves to the mutation's own real value, not
+    // undefined. Confirmation.tsx only awaits this to know when the
+    // request finished / whether it rejected, never reads the value.
+    onConfirm: (row: T) => Promise<unknown> | void
   }
 
 export type RowAction<T> = ClickAction<T> | DialogAction<T> | ConfirmationAction<T>

@@ -4,8 +4,6 @@ import { useState, type ReactNode } from 'react'
 
 import { Button, Dialog } from '@vhyxui/react'
 
-import { useFeedback } from '../../contexts/FeedbackContext'
-
 /* ---------- Types ---------- */
 
 // Same plain color-name union MUI's ButtonProps['color'] used, decoupled from
@@ -60,9 +58,6 @@ export type ConfirmationProps = {
   /** Button size */
   buttonSize?: 'xs' | 'sm' | 'md' | 'lg'
 
-  /** Fallback error message shown when onConfirm rejects without its own message */
-  errorFeedbackMessage?: string
-
   /** Loading text */
   loadingText?: string
 
@@ -73,8 +68,19 @@ export type ConfirmationProps = {
       and bypassed the mutation-hook/query-key-invalidation architecture
       every real caller actually relies on. Removed 2026-09-15 along with
       utils/fetchData.ts — see decision.md, "NEXT_PUBLIC_SECRET_KEY removal".
-      Every real usage must go through a mutation hook now. */
-  onConfirm?: () => Promise<void> | void
+      Every real usage must go through a mutation hook now.
+
+      Must return the real mutation's own promise (i.e. call `.mutateAsync()`,
+      not fire-and-forget `.mutate()`) — `handleConfirm` below awaits this to
+      know when the real request has actually finished, not just when this
+      function returned. See decision.md, 2026-09-19, "FeedbackContext
+      removed" for why a caller that doesn't return a real promise used to
+      silently defeat both the loading state below and this component's
+      error handling entirely. `Promise<unknown>` (not `Promise<void>`) since
+      a real `mutateAsync()` call resolves to the mutation's own real return
+      value (e.g. `{ success: boolean }`), not `undefined` — this component
+      never reads that value, only whether the promise rejects. */
+  onConfirm?: () => Promise<unknown> | void
 
   /** Fires after a successful onConfirm */
   onSuccessCallback?: () => void
@@ -97,8 +103,6 @@ export default function Confirmation({
   buttonText = '',
   buttonSize,
 
-  errorFeedbackMessage = 'Something went wrong.',
-
   onConfirm,
   onSuccessCallback,
 
@@ -106,8 +110,6 @@ export default function Confirmation({
 }: ConfirmationProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(isOpen)
   const [isLoading, setIsLoading] = useState(false)
-
-  const { showFeedback } = useFeedback()
 
   /* ---------- Confirm Action Wrapper ---------- */
 
@@ -122,8 +124,27 @@ export default function Confirmation({
       // actually ran. Fixed here since this function is being rewritten
       // anyway. See decision.md, "NEXT_PUBLIC_SECRET_KEY removal".
       onSuccessCallback?.()
-    } catch (err: any) {
-      showFeedback(err?.message ?? errorFeedbackMessage, { type: 'error' })
+    } catch {
+      // Deliberately no user-facing error surface here — every mutation
+      // failure app-wide already gets a real, working error toast from the
+      // global QueryClient's own MutationCache.onError handler (see
+      // api/wrapper/queryClient.ts), which fires regardless of whether this
+      // catch block does anything. This used to also open a second,
+      // redundant error Dialog (FeedbackContext) on top of that toast —
+      // except it never actually could, since every real caller of
+      // `onConfirm` used fire-and-forget `.mutate()` rather than returning
+      // a promise, so this catch block was permanently unreachable in
+      // practice. Once callers were fixed to return the real mutation
+      // promise (so the loading state above would be honest), this catch
+      // became reachable for the first time — and forcing it to also show
+      // FeedbackContext's Dialog would have meant every mutation failure
+      // doubling up two competing error surfaces for the same event. See
+      // decision.md, 2026-09-19, "FeedbackContext removed" for the full
+      // investigation and why the toast is treated as the one real error
+      // surface here, not this component's own Dialog. The `catch` still
+      // exists (rather than letting `onConfirm`'s rejection propagate
+      // unhandled) purely so `finally` below reliably closes the dialog and
+      // clears the loading state on failure too, not just on success.
     } finally {
       setIsLoading(false)
       setIsDialogOpen(false)
