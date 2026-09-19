@@ -31,21 +31,12 @@ export function startTunnel(opts: TunnelOptions): AgentClient {
     return { stop: () => {}, start: () => {} } as any;
   }
 
-  // Lazy-load package version
-  let agentVersion = "1.0.0";
-  try {
-    agentVersion = require("@vhyxvoid/agent/package.json").version;
-  } catch {
-    /* ignore */
-  }
-
   const agent = new AgentClient({
     hubUrl: opts.hub,
     keyId: opts.key,
     secret: opts.secret,
     label: opts.label,
     port: opts.port,
-    agentVersion,
     disableQueue: true, // in-process agent reconnects automatically; no SQLite needed
     localDiscovery: false, // disable in middleware mode — no separate CLI discovery
     onStateChange: (state) => {

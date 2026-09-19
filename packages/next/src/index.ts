@@ -136,20 +136,12 @@ function startTunnel(
     return;
   }
 
-  let agentVersion = "1.0.0";
-  try {
-    agentVersion = require("@vhyxvoid/agent/package.json").version;
-  } catch {
-    /* ignore */
-  }
-
   agent = new AgentClient({
     hubUrl: opts.hub,
     keyId: opts.key,
     secret: opts.secret,
     label: opts.label,
     port: opts.port,
-    agentVersion,
     disableQueue: true, // in-process agent reconnects automatically; no SQLite needed
     localDiscovery: false,
     onStateChange: (state) => {

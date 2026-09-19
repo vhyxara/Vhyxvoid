@@ -6,7 +6,7 @@
 // import { AgentClient } from "./AgentClient";
 // // import crypto from "crypto";
 
-// import { version } from "../package.json";
+// import { AGENT_VERSION } from "./version";
 // import { config } from "dotenv";
 
 // config();
@@ -98,7 +98,7 @@
 //   process.exit(1);
 // }
 
-// console.log(`\nvhyxvoid-agent v${version}`);
+// console.log(`\nvhyxvoid-agent v${AGENT_VERSION}`);
 // console.log(`  Key:    ${opts.key}`);
 // console.log(`  Label:  ${opts.label}`);
 // console.log(`  Port:   ${port}`);
@@ -160,7 +160,7 @@
 
 import { Command } from "commander";
 import { AgentClient } from "./AgentClient";
-import { version } from "../package.json";
+import { AGENT_VERSION } from "./version";
 import { config as loadEnv } from "dotenv";
 import * as fs from "fs";
 // import * as path from "path";
@@ -179,7 +179,7 @@ program
   .description(
     "Platform tunnel agent — connects your local server to the platform.",
   )
-  .version(version);
+  .version(AGENT_VERSION);
 
 // ── init command ──────────────────────────────────────────────────────────────
 
@@ -330,7 +330,7 @@ program
       process.exit(1);
     }
 
-    console.log(`\nvhyxvoid-agent v${version}`);
+    console.log(`\nvhyxvoid-agent v${AGENT_VERSION}`);
     console.log(`  Key:    ${opts.key}`);
     console.log(`  Label:  ${opts.label}`);
     console.log(`  Port:   ${port}`);
@@ -347,7 +347,6 @@ program
       secret: opts.secret,
       label: opts.label,
       port,
-      agentVersion: version,
       queuePath: opts.queuePath,
       localDiscovery: opts.localDiscovery,
       onStateChange: (state) => {

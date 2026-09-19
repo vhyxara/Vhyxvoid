@@ -29,6 +29,7 @@ import {
 } from "@vhyxvoid/protocol";
 import { DurableQueue } from "./queue/DurableQueue";
 import { NoOpQueue } from "./queue/NoOpQueue";
+import { AGENT_VERSION } from "./version";
 import { BackendProxy } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
 import { replayQueue } from "./replay/replayQueue";
@@ -58,8 +59,11 @@ export interface AgentConfig {
   label: string;
   /** Local backend port to forward requests to */
   port: number;
-  /** npm package version — sent to hub for compatibility checking */
-  agentVersion: string;
+  /**
+   * Version reported to the hub. Defaults to this package's own version
+   * (AGENT_VERSION); only override it to report something else on purpose.
+   */
+  agentVersion?: string;
   /** SQLite queue file path (default: ~/.vhyxvoid/queue.db) */
   queuePath?: string;
   /** Enable local discovery HTTP server on port 4242 (default: true) */
@@ -124,7 +128,7 @@ export class AgentClient {
     const useDiscovery = config.localDiscovery !== false;
     this.discovery = useDiscovery
       ? new LocalDiscoveryServer({
-          agentVersion: config.agentVersion,
+          agentVersion: config.agentVersion ?? AGENT_VERSION,
           label: config.label,
           port: config.port,
           accountIdHash: "", // populated after hub:registered
@@ -211,7 +215,7 @@ export class AgentClient {
 
       rawSecret: this.config.secret, // ← raw secret, hub applies pepper
 
-      agentVersion: this.config.agentVersion,
+      agentVersion: this.config.agentVersion ?? AGENT_VERSION,
     };
 
     this.sendRaw(serialize(msg));
