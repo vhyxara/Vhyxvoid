@@ -138,6 +138,12 @@ const intlMiddleware = createMiddleware(routing)
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // 0. /docs is proxied to apps/docs (next.config.ts rewrites). Bypass next-intl:
+  // it would rewrite /docs to /en/docs, and the docs rewrite would no longer match.
+  if (process.env.DOCS_ORIGIN_RESOLVED && (pathname === '/docs' || pathname.startsWith('/docs/'))) {
+    return NextResponse.next()
+  }
+
   // 1. Rewrite bare backend-generated paths to default locale
   const bareMatch = BARE_REWRITE_PATHS.find(p => pathname.startsWith(p))
 

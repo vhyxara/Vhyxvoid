@@ -1,0 +1,131 @@
+/* COPY — do not edit here. Source: apps/web vhyxui-brand-override.css (monorepo).
+   Refresh with: pnpm --filter @vhyxvoid/docs sync-tokens */
+
+/* VhyxVoid brand override — ADDITIVE, does not change VhyxUI's own default
+   token values. Scoped under [data-brand="vhyxvoid"] so VhyxUI's own docs/
+   playground and any other consumer are unaffected; VhyxVoid's app opts in
+   by setting data-brand="vhyxvoid" on a root element (e.g. <html>), the same
+   way VhyxUI's own dark mode opts in via data-theme="dark".
+
+   Ported from apps/web/src/@core/theme/{colorSchemes,spacing,typography,
+   customShadows}.ts in the VhyxVoid monorepo (Vuexy/MUI theme). Values are
+   copied as-is, not renormalized — see decision.md, 2026-09-10, "VhyxUI
+   brand override scoped via data-brand, not a global default overwrite".
+
+   Lives in VhyxVoid's own repo (not VhyxUI's) — see decision.md, 2026-09-10,
+   "VhyxUI brand override file relocated from VhyxUI's repo to VhyxVoid's":
+   this is consumer-specific branding, not a VhyxUI bug fix, so it belongs
+   here, not in VhyxUI's shipped package.
+
+   Spacing note: VhyxVoid's MUI spacing factor (0.25rem per unit) already
+   matches VhyxUI's --vhyx-space-* scale numerically (--vhyx-space-2 =
+   0.5rem = MUI spacing(2)) — nothing to port there, scales already agree.
+*/
+
+[data-brand="vhyxvoid"] {
+  /* === Accent (MUI primary) === */
+  --vhyx-color-accent:        #7C3AED;
+  --vhyx-color-accent-hover:  #6D28D9;
+  --vhyx-color-accent-active: #6D28D9;
+  --vhyx-color-accent-subtle: rgba(124, 58, 237, 0.08);
+  --vhyx-color-accent-muted:  rgba(124, 58, 237, 0.16);
+
+  /* === Status colors (mode-invariant in VhyxVoid's own source — same hex
+     in both its "light" and "dark" palettes, so not repeated below) === */
+  --vhyx-color-success:       #10B981;
+  --vhyx-color-success-hover: #059669;
+  --vhyx-color-success-subtle: rgba(16, 185, 129, 0.08);
+  --vhyx-color-success-text:  #059669;
+
+  --vhyx-color-danger:        #EF4444;
+  --vhyx-color-danger-hover:  #DC2626;
+  --vhyx-color-danger-subtle: rgba(239, 68, 68, 0.08);
+  --vhyx-color-danger-text:   #DC2626;
+
+  --vhyx-color-warning:       #F59E0B;
+  --vhyx-color-warning-hover: #D97706;
+  --vhyx-color-warning-subtle: rgba(245, 158, 11, 0.08);
+  --vhyx-color-warning-text:  #D97706;
+
+  --vhyx-color-info:          #22D3EE;
+  --vhyx-color-info-hover:    #0891B2;
+  --vhyx-color-info-subtle:   rgba(34, 211, 238, 0.08);
+  --vhyx-color-info-text:     #0891B2;
+
+  /* === Background/surface/border/text ===
+     VhyxVoid's "light" scheme is a near-black "space" aesthetic, not a
+     conventional light theme — ported faithfully as-is, not normalized.
+     Values below are the default ("non-bordered") skin; VhyxVoid also has
+     a "bordered" skin variant using #0F0F14 for bg instead of #050505,
+     not ported here since VhyxUI has no skin-variant concept to hang it on. */
+  --vhyx-color-bg:             #050505;
+  --vhyx-color-bg-subtle:      #0A0A0D;
+  --vhyx-color-surface:        #09090B;
+  --vhyx-color-surface-raised: #0F0F14;
+  --vhyx-color-surface-overlay: #14141B;
+  --vhyx-color-border:         rgba(255, 255, 255, 0.08);
+  --vhyx-color-border-strong:  rgba(255, 255, 255, 0.16);
+  --vhyx-color-border-focus:   #7C3AED;
+  --vhyx-color-text:           rgba(248, 248, 255, 0.92);
+  --vhyx-color-text-subtle:    rgba(161, 161, 181, 0.85);
+  --vhyx-color-text-disabled:  rgba(107, 107, 128, 0.5);
+  /* --vhyx-color-bg-muted/text-muted: NOT in VhyxVoid's own source theme
+     (only 3 text-opacity levels vs VhyxUI's 4, no separate "muted" surface
+     tier) — a Step 0 decision to leave these on VhyxUI's own default rather
+     than invent values not actually in the source. That default turned out
+     visually broken here: VhyxUI's own light-mode default for these tokens
+     is an actual light gray, and VhyxVoid's "light" mode (data-theme is
+     "light" unless a user explicitly picks dark) is a near-black aesthetic
+     by design — confirmed during Step 5a when Badge's default variant
+     rendered as a near-invisible light-gray-on-near-black chip. Corrected
+     here by choosing values consistent with the alpha-overlay pattern
+     already used for --vhyx-color-border, rather than left unfixed. See
+     decision.md, 2026-09-10, "Step 5a: brand-override token gap found via
+     Badge's default variant" for the full correction note. */
+  --vhyx-color-bg-muted:       rgba(255, 255, 255, 0.06);
+  --vhyx-color-text-muted:     rgba(161, 161, 181, 0.6);
+
+  /* === Typography === */
+  --vhyx-font-sans: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                     Roboto, 'Helvetica Neue', Arial, sans-serif,
+                     'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+
+  /* Heading/body presets — VhyxVoid's actual h1-h6/body/caption scale.
+     Namespaced --vhyxvoid-* rather than --vhyx-*: these are VhyxVoid-
+     specific derived presets, not general VhyxUI primitives, and don't
+     force-fit onto VhyxUI's generic 2xs-4xl scale since none of these
+     fractional rem sizes coincide with it. Consumed by the temporary
+     Typography shim (see apps/web/src/components/vhyxui-shims/). Weight
+     is 400 (MUI's typography default) where VhyxVoid didn't explicitly
+     override it — noted per-line, not presented as an explicit choice. */
+  --vhyxvoid-h1-size: 2.875rem;   --vhyxvoid-h1-weight: 500; --vhyxvoid-h1-leading: 1.47826;
+  --vhyxvoid-h2-size: 2.375rem;   --vhyxvoid-h2-weight: 500; --vhyxvoid-h2-leading: 1.47368421;
+  --vhyxvoid-h3-size: 1.75rem;    --vhyxvoid-h3-weight: 500; --vhyxvoid-h3-leading: 1.5;
+  --vhyxvoid-h4-size: 1.5rem;     --vhyxvoid-h4-weight: 500; --vhyxvoid-h4-leading: 1.58334;
+  --vhyxvoid-h5-size: 1.125rem;   --vhyxvoid-h5-weight: 500; --vhyxvoid-h5-leading: 1.5556;
+  --vhyxvoid-h6-size: 0.9375rem;  --vhyxvoid-h6-weight: 500; --vhyxvoid-h6-leading: 1.46667;
+  --vhyxvoid-subtitle1-size: 0.9375rem; --vhyxvoid-subtitle1-weight: 400; --vhyxvoid-subtitle1-leading: 1.46667;
+  --vhyxvoid-subtitle2-size: 0.8125rem; --vhyxvoid-subtitle2-weight: 400; --vhyxvoid-subtitle2-leading: 1.53846154;
+  --vhyxvoid-body1-size: 0.9375rem; --vhyxvoid-body1-weight: 400; --vhyxvoid-body1-leading: 1.46667;
+  --vhyxvoid-body2-size: 0.8125rem; --vhyxvoid-body2-weight: 400; --vhyxvoid-body2-leading: 1.53846154;
+  --vhyxvoid-caption-size: 0.8125rem; --vhyxvoid-caption-weight: 400; --vhyxvoid-caption-leading: 1.38462; --vhyxvoid-caption-tracking: 0.4px;
+  --vhyxvoid-overline-size: 0.75rem; --vhyxvoid-overline-weight: 400; --vhyxvoid-overline-leading: 1.16667; --vhyxvoid-overline-tracking: 0.8px;
+}
+
+/* Dark-mode variant. Accent/status colors are mode-invariant in the source
+   (identical hex in both palettes), so only bg/surface/border/text repeat. */
+[data-brand="vhyxvoid"][data-theme="dark"] {
+  --vhyx-color-bg:             #09090B;
+  --vhyx-color-bg-subtle:      #0C0C10;
+  --vhyx-color-surface:        #0F0F14;
+  --vhyx-color-surface-raised: #151520;
+  --vhyx-color-surface-overlay: #1A1A26;
+  --vhyx-color-border:         rgb(225 222 245 / 0.12);
+  --vhyx-color-border-strong:  rgb(225 222 245 / 0.2);
+  --vhyx-color-border-focus:   #7C3AED;
+  --vhyx-color-text:           rgb(225 222 245 / 0.9);
+  --vhyx-color-text-subtle:    rgb(225 222 245 / 0.7);
+  --vhyx-color-text-disabled:  rgb(225 222 245 / 0.4);
+  --vhyx-color-bg-muted:       rgb(225 222 245 / 0.08);
+  --vhyx-color-text-muted:     rgb(225 222 245 / 0.55);
+}

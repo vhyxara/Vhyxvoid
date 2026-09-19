@@ -1,0 +1,25 @@
+---
+title: Concepts
+description: The few ideas behind VhyxVoid, in one page.
+verified:
+  date: "2026-09-19"
+  commit: cf625f2
+  packages:
+    "@vhyxvoid/agent": "1.0.18"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/router/Message.router.ts
+  - apps/api/src/core/constant/apikey.constant.ts
+---
+
+**Agent.** The process that runs next to your server. It opens an outbound connection to the VhyxVoid hub, so you don't open any inbound ports, and forwards requests it receives to a port on `127.0.0.1`. You run it with the CLI or start it from your framework.
+
+**Hub.** VhyxVoid's server. It accepts requests on your tunnel URL and passes them to the agent that owns that URL.
+
+**Account slug and label.** A tunnel URL is `https://<account-slug>--<label>.vhyxvoid.com`. The slug identifies your account. The label names a tunnel, so one account can run several (for example `app` and `api`). The default label is `default`.
+
+**API key.** A key ID plus a secret, created in the dashboard. The agent uses it to prove which account it belongs to. The secret is shown once. Keys have an environment (**DEV** or **PROD**), scopes, and an optional expiry. Agents need the `tunnel:connect` scope.
+
+**Stable URL.** For a given slug and label, the URL doesn't change between runs. Only one agent at a time serves a given URL.
+
+**The tunnel URL is public.** Nothing on the request path checks who is calling. Authentication, if you need it, is your application's job.

@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "index",
+    "getting-started",
+    "integrations",
+    "cli",
+    "sdk",
+    "dashboard",
+    "reference",
+    "troubleshooting",
+    "limitations",
+    "changelog"
+  ]
+}

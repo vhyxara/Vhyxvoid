@@ -1,0 +1,29 @@
+---
+title: VhyxVoid Documentation
+description: Put your local server on a stable public URL, without a separate tunnel tool to babysit.
+verified:
+  date: "2026-09-19"
+  commit: cf625f2
+  packages:
+    "@vhyxvoid/agent": "1.0.18"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - packages/agent/src/AgentClient.ts
+---
+
+VhyxVoid connects a server running on your machine to a public HTTPS URL. A small agent runs next to your server, holds a connection to the VhyxVoid hub, and forwards incoming requests to `localhost`. The URL stays the same between runs, so you can put it in webhook settings, `.env` files, and teammates' chats.
+
+<Cards>
+  <Card title="Quickstart" href="/getting-started/quickstart">
+    Account, API key, first tunnel, first request. About ten minutes.
+  </Card>
+  <Card title="Add it to your framework" href="/integrations/nextjs">
+    Next.js, Express, and Fastify can start the tunnel for you, in-process.
+  </Card>
+  <Card title="Call your tunnel from code" href="/sdk/overview">
+    The SDK's HTTP client for scripts, CI, and other servers.
+  </Card>
+  <Card title="Know the limits" href="/limitations">
+    What VhyxVoid doesn't do, stated up front.
+  </Card>
+</Cards>

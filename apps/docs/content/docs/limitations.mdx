@@ -1,0 +1,40 @@
+---
+title: Limitations
+description: What VhyxVoid does not do or guarantee, stated plainly.
+verified:
+  date: "2026-09-19"
+  commit: cf625f2
+  packages:
+    "@vhyxvoid/agent": "1.0.18"
+    "@vhyxvoid/sdk": "1.0.1"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/registry/Pending.registry.ts
+  - packages/agent/src/replay/replayQueue.ts
+  - packages/sdk/src/client.ts
+  - packages/sdk/src/TunnelClient.ts
+---
+
+## Requests don't survive agent disconnects
+
+If your agent loses its connection to VhyxVoid and a request arrives before it reconnects, that request is not held and replayed afterwards. The caller gets a `504` after the 30 second timeout.
+
+- **`GET` and other safe requests:** retrying is fine.
+- **`POST`, `PUT`, `PATCH`, `DELETE`:** a request that was already handed to your server can still be processed after the caller has been told it failed. Retrying may apply the change twice. Make these handlers idempotent (for example with an idempotency key) if a duplicate would cause harm.
+
+## Tunnel URLs are public
+
+Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application.
+
+## Request size and time
+
+- Request bodies are limited to **10 MB**. Larger requests get `413`.
+- Your server has **30 seconds** to respond. After that the caller gets `504`.
+
+## The WebSocket client exposes your secret to the browser
+
+`TunnelClient`, the SDK's WebSocket client, is configured with your API key secret. If you use it in browser code, that secret is in your JavaScript bundle. If you must, use a dedicated DEV key with only the scopes it needs, and never a production key. The HTTP client (`createClient`) doesn't have this problem, because it uses no key.
+
+## `@vhyxvoid/sdk` 1.0.1 can't be `import`ed
+
+The package declares an ES module entry point that was never built, so `import … from '@vhyxvoid/sdk'` fails. Use `require()`, or `createRequire` from an ES module. See the [Quickstart](/getting-started/quickstart).

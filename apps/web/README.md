@@ -71,3 +71,22 @@ to make this cross-repo link work under Turbopack:
   Components, and importing one into a Server Component fails at build time.
 
 ## Internationalization and proxy middleware todos
+
+## /docs is proxied to apps/docs
+
+`/docs` is not served by this app. `next.config.ts` rewrites `/docs` and
+`/docs/*` (`beforeFiles`) to `apps/docs`, a separate Next app with
+`basePath: '/docs'`, so both share one origin. `src/proxy.ts` skips next-intl
+for those paths (otherwise it rewrites `/docs` to `/en/docs` first and the docs
+rewrite never matches).
+
+- **Local dev:** run `pnpm dev:docs` (port 4002); `DOCS_ORIGIN` defaults to
+  `http://localhost:4002`. Restart `apps/web`'s dev server after pulling this
+  change — `next.config.ts` is not hot-reloaded.
+- **Production:** set `DOCS_ORIGIN` (no trailing slash needed) at **build time**
+  — Next bakes rewrites in at `next build`. Where apps/docs is deployed is not
+  recorded in this repo. If `DOCS_ORIGIN` is unset the build warns and `/docs`
+  falls back to the "Coming soon" placeholder page rather than proxying to
+  nothing.
+- Only the unprefixed `/docs` is proxied; `/fr/docs` still hits the placeholder
+  (docs are English-only).

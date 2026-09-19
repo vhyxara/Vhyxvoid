@@ -1,0 +1,11 @@
+{
+  "title": "Dashboard",
+  "pages": [
+    "account-and-organizations",
+    "api-keys",
+    "tunnels",
+    "members-and-roles",
+    "billing",
+    "feedback-and-notifications"
+  ]
+}

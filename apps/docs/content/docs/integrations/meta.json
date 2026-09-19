@@ -1,0 +1,10 @@
+{
+  "title": "Integrations",
+  "pages": [
+    "express",
+    "fastify",
+    "nextjs",
+    "standalone-cli",
+    "webhooks"
+  ]
+}

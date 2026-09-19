@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+/* Fumadocs' structural/layout CSS only — deliberately NOT one of its color
+   presets (neutral.css etc.); colors come from the VhyxUI tokens below. */
+@import 'fumadocs-ui/css/preset.css';
+
+/* Copies of VhyxUI's tokens + apps/web's VhyxVoid brand override (see
+   scripts/sync-tokens.mjs). Order matters: the brand override must load after
+   the tokens so its same-specificity custom properties win. */
+@import '../styles/vhyxui-tokens.css';
+@import '../styles/vhyxui-brand-override.css';
+
+/* Fumadocs -> VhyxUI token bridge. `inline` keeps the var() reference live at
+   the point of use, so it follows <html data-brand data-theme> instead of
+   being frozen at :root. */
+@theme inline {
+  --color-fd-background: var(--vhyx-color-bg);
+  --color-fd-foreground: var(--vhyx-color-text);
+  --color-fd-muted: var(--vhyx-color-bg-muted);
+  --color-fd-muted-foreground: var(--vhyx-color-text-subtle);
+  --color-fd-popover: var(--vhyx-color-surface-overlay);
+  --color-fd-popover-foreground: var(--vhyx-color-text);
+  --color-fd-card: var(--vhyx-color-surface);
+  --color-fd-card-foreground: var(--vhyx-color-text);
+  --color-fd-border: var(--vhyx-color-border);
+  --color-fd-primary: var(--vhyx-color-accent);
+  --color-fd-primary-foreground: var(--vhyx-color-text-on-accent);
+  --color-fd-secondary: var(--vhyx-color-surface-raised);
+  --color-fd-secondary-foreground: var(--vhyx-color-text);
+  --color-fd-accent: var(--vhyx-color-accent-subtle);
+  --color-fd-accent-foreground: var(--vhyx-color-text);
+  --color-fd-ring: var(--vhyx-color-border-focus);
+  --color-fd-overlay: var(--vhyx-color-overlay);
+  --color-fd-info: var(--vhyx-color-info);
+  --color-fd-warning: var(--vhyx-color-warning);
+  --color-fd-error: var(--vhyx-color-danger);
+  --color-fd-success: var(--vhyx-color-success);
+  --color-fd-idea: var(--vhyx-color-warning);
+}
+
+/* Fumadocs' preset.css builds utilities (e.g. bg-fd-diff-remove) from these,
+   so they must exist even though VhyxUI has no diff-color tokens. Values are
+   Fumadocs' own defaults (default-colors.css), kept as-is. */
+@theme static {
+  --color-fd-diff-remove: rgba(200, 10, 100, 0.12);
+  --color-fd-diff-remove-symbol: rgb(230, 10, 100);
+  --color-fd-diff-add: rgba(14, 180, 100, 0.1);
+  --color-fd-diff-add-symbol: rgb(10, 200, 100);
+}
+
+body {
+  font-family: var(--vhyx-font-sans);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
