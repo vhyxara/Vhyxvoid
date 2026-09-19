@@ -165,7 +165,7 @@ import { config as loadEnv } from "dotenv";
 import * as fs from "fs";
 // import * as path from "path";
 // import * as os from "os";
-import * as readline from "readline";
+import { createPrompter } from "./prompt";
 
 // Load .env, .env.local, .env.vhyxvoid in order (last wins)
 for (const f of [".env", ".env.local", ".env.vhyxvoid"]) {
@@ -189,41 +189,8 @@ program
   .action(async () => {
     console.log("\n🚀  vhyxvoid setup\n");
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    const ask = (q: string, def?: string): Promise<string> =>
-      new Promise((resolve) => {
-        const prompt = def ? `${q} (${def}): ` : `${q}: `;
-        rl.question(prompt, (ans) => resolve(ans.trim() || def || ""));
-      });
-
-    const askSecret = (q: string): Promise<string> =>
-      new Promise((resolve) => {
-        process.stdout.write(`${q}: `);
-        // Hide input
-        process.stdin.setRawMode?.(true);
-        let secret = "";
-        const handler = (char: Buffer) => {
-          const c = char.toString();
-          if (c === "\r" || c === "\n") {
-            process.stdin.setRawMode?.(false);
-            process.stdin.removeListener("data", handler);
-            process.stdout.write("\n");
-            resolve(secret);
-          } else if (c === "\u0003") {
-            process.exit();
-          } else if (c === "\u007f") {
-            secret = secret.slice(0, -1);
-          } else {
-            secret += c;
-            process.stdout.write("*");
-          }
-        };
-        process.stdin.on("data", handler);
-      });
+    const prompter = createPrompter();
+    const { ask, askSecret } = prompter;
 
     try {
       const key = await ask(
@@ -243,8 +210,12 @@ program
         "Hub URL",
         process.env.VHYXVOID_HUB_URL ?? "wss://hub.vhyxvoid.com/agent",
       );
+      const accountSlug = await ask(
+        "Account slug (optional, the part of your tunnel URL before --)",
+        process.env.VHYXVOID_ACCOUNT_SLUG,
+      );
 
-      rl.close();
+      prompter.close();
 
       if (!key || !secret) {
         console.error("\n❌  Key and secret are required.\n");
@@ -260,6 +231,7 @@ program
         `VHYXVOID_PORT=${port}`,
         `VHYXVOID_LABEL=${label}`,
         `VHYXVOID_HUB_URL=${hub}`,
+        accountSlug ? `VHYXVOID_ACCOUNT_SLUG=${accountSlug}` : null,
       ].join("\n");
 
       fs.writeFileSync(".env.vhyxvoid", envContent + "\n", "utf8");
@@ -280,8 +252,9 @@ program
       }
 
       console.log("\n🎉  Setup complete! Run vhyxvoid to start the tunnel.\n");
-    } catch {
-      rl.close();
+    } catch (err) {
+      prompter.close();
+      console.error(`\n❌  Setup failed: ${(err as Error).message}\n`);
       process.exit(1);
     }
   });
