@@ -1,7 +1,7 @@
 // packages/agent/src/replay/replayQueue.ts
 // Single replay path. Outbound first, then inbound.
 
-import { DurableQueue, QueueItem } from "../queue/DurableQueue";
+import { QueueItem } from "../queue/DurableQueue";
 import { BackendProxy } from "../proxy/BackendProxy";
 import {
   TunnelForwardMsg,
@@ -12,6 +12,13 @@ import {
 } from "@vhyxvoid/protocol";
 type SendFn = (data: string) => void;
 
+type QueueLike = {
+  drainForReplay(): QueueItem[];
+  markSuccess(id: string): void;
+  markFailed(id: string): void;
+  count(): { ready: number; pending: number; deadLetter: number };
+};
+
 export interface ReplayResult {
   succeeded: number;
   failed: number;
@@ -19,7 +26,7 @@ export interface ReplayResult {
 }
 
 export async function replayQueue(
-  queue: DurableQueue,
+  queue: QueueLike,
   send: SendFn,
   proxy: BackendProxy,
 ): Promise<ReplayResult> {

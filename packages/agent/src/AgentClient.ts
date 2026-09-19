@@ -28,6 +28,7 @@ import {
   TunnelWsErrorMsg,
 } from "@vhyxvoid/protocol";
 import { DurableQueue } from "./queue/DurableQueue";
+import { NoOpQueue } from "./queue/NoOpQueue";
 import { BackendProxy } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
 import { replayQueue } from "./replay/replayQueue";
@@ -75,6 +76,8 @@ export interface AgentConfig {
     warn: (obj: object, msg?: string) => void;
     error: (obj: object, msg?: string) => void;
   };
+  /** Disable durable queue (SQLite). Use when running in-process. Default: false */
+  disableQueue?: boolean;
 }
 
 export class AgentClient {
@@ -85,7 +88,7 @@ export class AgentClient {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private stopped: boolean = false;
 
-  private readonly queue: DurableQueue;
+  private readonly queue: DurableQueue | NoOpQueue;
   private readonly proxy: BackendProxy;
   private readonly batcher: MessageBatcher;
   private readonly discovery: LocalDiscoveryServer | null;
@@ -98,12 +101,15 @@ export class AgentClient {
       error: (obj, msg) => console.error(msg ?? "", obj),
     };
 
-    // Ensure queue directory exists
-    const queuePath =
-      config.queuePath ?? path.join(os.homedir(), ".vhyxvoid", "queue.db");
-    fs.mkdirSync(path.dirname(queuePath), { recursive: true });
-
-    this.queue = new DurableQueue(queuePath);
+    const useQueue = config.disableQueue !== true;
+    if (useQueue) {
+      const queuePath =
+        config.queuePath ?? path.join(os.homedir(), ".vhyxvoid", "queue.db");
+      fs.mkdirSync(path.dirname(queuePath), { recursive: true });
+      this.queue = new DurableQueue(queuePath);
+    } else {
+      this.queue = new NoOpQueue();
+    }
     this.proxy = new BackendProxy(config.port);
 
     this.batcher = new MessageBatcher(
