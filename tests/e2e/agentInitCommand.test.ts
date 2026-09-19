@@ -17,7 +17,11 @@ import * as path from "node:path";
 // agentPrompt.test.ts.
 
 const root = path.resolve(__dirname, "../..");
-const tsx = path.join(root, "node_modules/.bin/tsx");
+// tsx is a devDependency of apps/api (and hoisted to the root bin only sometimes),
+// so look in both rather than assuming the root copy exists.
+const tsx = [path.join(root, "node_modules/.bin/tsx"), path.join(root, "apps/api/node_modules/.bin/tsx")].find((p) =>
+  fs.existsSync(p),
+) as string;
 const cli = path.join(root, "packages/agent/src/cli.ts");
 
 function runInit(input: string, cwd: string): Promise<{ code: number | null; out: string }> {
