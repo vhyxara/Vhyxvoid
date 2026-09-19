@@ -3,10 +3,10 @@ title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
   date: "2026-09-19"
-  commit: a91d383
+  commit: 7f81b9d
   packages:
     "@vhyxvoid/agent": "1.0.19"
-    "@vhyxvoid/sdk": "1.0.1"
+    "@vhyxvoid/sdk": "1.1.0"
 sources:
   - packages/agent/src/cli.ts
   - packages/agent/src/AgentClient.ts
@@ -104,36 +104,28 @@ Anything else is your own server's response.
 
 ## 4. Call it from code
 
-To call the tunnel from a script, a CI job, or another server, install the SDK:
+To call the tunnel from a script, a CI job, or another server, install the SDK. It is a Node.js library (see [Limitations](/limitations#the-sdk-is-nodejs-only)):
 
 ```bash
 npm install @vhyxvoid/sdk
 ```
 
-```js title="call-tunnel.js"
-const { createClient } = require('@vhyxvoid/sdk')
+```js title="call-tunnel.mjs"
+import { createClient } from '@vhyxvoid/sdk'
 
 const api = createClient({ accountSlug: 'acme', label: 'default' })
 
-api
-  .get('/')
-  .then(({ status, data }) => console.log(status, data))
-  .catch((err) => console.error(err.name, err.status ?? '', err.message))
+try {
+  const { status, data } = await api.get('/')
+  console.log(status, data)
+} catch (err) {
+  console.error(err.name, err.status ?? '', err.message)
+}
 ```
 
-Replace `acme` with the slug from your own URL. You can also set `VHYXVOID_ACCOUNT_SLUG` and `VHYXVOID_LABEL` in the environment and call `createClient()` with no arguments.
+Replace `acme` with the slug from your own URL. You can also set `VHYXVOID_ACCOUNT_SLUG` and `VHYXVOID_LABEL` in the environment and call `createClient()` with no arguments. In a CommonJS file use `const { createClient } = require('@vhyxvoid/sdk')` instead; both work.
 
-`get`, `post`, `put`, `patch`, and `delete` return `{ data, status, headers, ok }`. JSON responses are parsed and text comes back as a string. Binary responses (images, PDFs) are not returned correctly by `@vhyxvoid/sdk` 1.0.1, which decodes them as text; see [Limitations](/limitations). A non-2xx response throws a `ClientError` carrying the `status` and the response `data`.
-
-<Callout type="warn" title="Use require(), not import, for now">
-  In `@vhyxvoid/sdk` 1.0.1, `import { createClient } from '@vhyxvoid/sdk'` fails with `ERR_MODULE_NOT_FOUND`: the package's ESM entry point is declared but was never built. `require()` works. From an ES module, load it with `createRequire`:
-
-  ```js
-  import { createRequire } from 'node:module'
-
-  const { createClient } = createRequire(import.meta.url)('@vhyxvoid/sdk')
-  ```
-</Callout>
+`get`, `post`, `put`, `patch`, and `delete` return `{ data, status, headers, ok }`. JSON responses are parsed, text comes back as a string, and binary responses (images, PDFs) come back as a `Buffer`. A non-2xx response throws a `ClientError` carrying the `status` and the response `data`.
 
 The HTTP client is a plain `fetch` to your tunnel URL and sends no VhyxVoid credentials. That is why it needs your slug but no key.
 

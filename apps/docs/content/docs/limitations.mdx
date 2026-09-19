@@ -3,10 +3,10 @@ title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
   date: "2026-09-19"
-  commit: a91d383
+  commit: 7f81b9d
   packages:
     "@vhyxvoid/agent": "1.0.19"
-    "@vhyxvoid/sdk": "1.0.1"
+    "@vhyxvoid/sdk": "1.1.0"
     "@vhyxvoid/middleware": "1.0.4"
     "@vhyxvoid/next": "1.0.4"
 sources:
@@ -32,6 +32,19 @@ If your agent loses its connection to VhyxVoid and a request arrives before it r
 
 Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application.
 
+## The SDK is Node.js only
+
+<Callout type="warn" title="Not usable in a browser">
+  `@vhyxvoid/sdk` runs on Node.js. It cannot be bundled for a browser, and it should not be.
+</Callout>
+
+An earlier version of this page, and other descriptions of the SDK, called the WebSocket client browser-oriented. That was wrong, and it is corrected here.
+
+- **It cannot be bundled.** The SDK uses Node's built-in `crypto` module (to sign requests) and `http` module (to find a local agent). Bundling it for a browser fails with `Could not resolve "crypto"` and `Could not resolve "http"`, and that is true even if you import only `createClient`. This was checked against the published 1.1.0 with esbuild.
+- **Making it bundle would not make it safe.** `TunnelClient`, the WebSocket client, authenticates with your API key ID and secret. Any browser bundle that contains them hands them to everyone who loads the page. Running it in browsers needs a different way of authenticating, not just a bundler setting, and that is not planned for this release.
+- **In a browser, call your tunnel URL directly.** It is a public URL that needs no key, so plain `fetch` works. Don't put an API key or secret in client-side code.
+- **What `TunnelClient` is for.** A Node.js process that wants one persistent WebSocket connection to the hub instead of a new HTTPS request per call. Keep its key ID and secret on the server, in environment variables. The HTTP client (`createClient`) is the default choice and needs no key at all.
+
 ## Cached responses
 
 The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero, and it marks responses with an `x-vhyxvoid-cache: HIT` or `MISS` header.
@@ -49,19 +62,3 @@ Requests reach your server with `Host` (and `x-forwarded-host`) set to `127.0.0.
 
 - Request bodies are limited to **10 MB**. Larger requests get `413`.
 - Your server has **30 seconds** to respond. After that the caller gets `504`.
-
-## The WebSocket client exposes your secret to the browser
-
-`TunnelClient`, the SDK's WebSocket client, is configured with your API key secret. If you use it in browser code, that secret is in your JavaScript bundle. If you must, use a dedicated DEV key with only the scopes it needs, and never a production key. The HTTP client (`createClient`) doesn't have this problem, because it uses no key.
-
-## `@vhyxvoid/sdk` 1.0.1 has two known problems
-
-These are bugs in the published SDK, not design limits. Neither is fixed yet, and the fixes for the agent and the framework integrations do not affect them. Each will be removed from this page when a fixed version is published.
-
-### It can't be `import`ed
-
-The package declares an ES module entry point that was never built, so `import … from '@vhyxvoid/sdk'` fails. Use `require()`, or `createRequire` from an ES module. See the [Quickstart](/getting-started/quickstart).
-
-### It returns binary responses as garbled text
-
-When the server answers with a binary content type (images, PDFs, audio, zip files), `createClient` decodes the body as UTF-8 text, which corrupts it: eight raw bytes came back as a string of replacement characters instead of a `Buffer`. The published 1.0.1 build predates the fix that exists in the source. Fetch binary responses with plain `fetch` against your tunnel URL until a new SDK version is released. JSON and text responses are fine.
