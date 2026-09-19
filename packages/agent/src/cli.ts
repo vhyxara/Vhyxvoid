@@ -296,6 +296,10 @@ program
   )
   .option("--no-local-discovery", "Disable local discovery on port 4242")
   .option(
+    "--debug",
+    "Print verbose diagnostics. Env: VHYXVOID_DEBUG_LOGGING=true",
+  )
+  .option(
     "--write-env [file]",
     "Write tunnel URL to .env.local after connect. Env: VHYXVOID_WRITE_ENV",
     process.env.VHYXVOID_WRITE_ENV,
@@ -306,6 +310,8 @@ program
     process.env.VHYXVOID_ENV_KEY ?? "NEXT_PUBLIC_TUNNEL_URL",
   )
   .action((opts) => {
+    if (opts.debug) process.env.VHYXVOID_DEBUG_LOGGING = "true";
+
     // Validate
     if (!opts.key) {
       console.error("\n❌  API key required.");

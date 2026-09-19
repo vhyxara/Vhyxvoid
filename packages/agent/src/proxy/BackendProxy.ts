@@ -11,6 +11,7 @@ import {
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
 import WebSocket from "ws";
+import { debugLog } from "../debug";
 
 const HOP_BY_HOP = new Set([
   "connection",
@@ -210,7 +211,7 @@ export class BackendProxy {
     this.wsConnections.set(connectionId, ws);
 
     ws.on("open", () => {
-      console.log("[proxy] WS opened to backend:", path);
+      debugLog("[proxy] WS opened to backend:", path);
     });
 
     ws.on("message", (data: Buffer, isBinary: boolean) => {

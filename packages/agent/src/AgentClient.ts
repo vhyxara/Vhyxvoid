@@ -30,6 +30,7 @@ import {
 import { DurableQueue } from "./queue/DurableQueue";
 import { NoOpQueue } from "./queue/NoOpQueue";
 import { AGENT_VERSION } from "./version";
+import { debugLog } from "./debug";
 import { BackendProxy } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
 import { replayQueue } from "./replay/replayQueue";
@@ -188,7 +189,7 @@ export class AgentClient {
   }
 
   private onOpen(): void {
-    console.log("[agent] WS OPEN, sending register"); // ← ADD
+    debugLog("[agent] WS OPEN, sending register");
 
     this.setState("AUTHENTICATING");
     this.reconnectDelay = TIMING.RECONNECT_INITIAL_MS; // reset backoff on success
@@ -226,12 +227,12 @@ export class AgentClient {
   }
 
   private onMessage(data: Buffer): void {
-    console.log("[agent] RAW MESSAGE RECEIVED, length:", data.length); // ← ADD
+    debugLog("[agent] RAW MESSAGE RECEIVED, length:", data.length);
     let msg: ReturnType<typeof parseMessage>;
     try {
       msg = parseMessage(data);
     } catch (err) {
-      console.error("[agent] parse error:", err); // ← ADD
+      console.error("[agent] parse error:", err);
 
       if (err instanceof ProtocolError) {
         this.log.warn(
@@ -244,7 +245,7 @@ export class AgentClient {
       }
       return;
     }
-    console.log("[agent] parsed message type:", msg.type); // ← ADD
+    debugLog("[agent] parsed message type:", msg.type);
 
     switch (msg.type) {
       case "hub:registered":
@@ -312,9 +313,9 @@ export class AgentClient {
   }
 
   private onPing(msg: HubPingMsg): void {
-    console.log("[agent] PING received, sending pong, agentId:", this.agentId); // ← ADD
+    debugLog("[agent] PING received, sending pong, agentId:", this.agentId);
     if (!this.agentId) {
-      console.log("[agent] no agentId, skipping pong"); // ← ADD
+      debugLog("[agent] no agentId, skipping pong");
 
       return;
     }
@@ -324,7 +325,7 @@ export class AgentClient {
       agentId: this.agentId,
       ts: Date.now(),
     };
-    console.log("[agent] pong queued in batcher"); // ← ADD
+    debugLog("[agent] pong queued in batcher");
 
     this.batcher.add(pong);
   }
@@ -348,7 +349,7 @@ export class AgentClient {
   }
 
   private async onForward(msg: TunnelForwardMsg): Promise<void> {
-    console.log("[agent] FORWARD received:", msg.method, msg.path); // ← ADD
+    debugLog("[agent] FORWARD received:", msg.method, msg.path);
 
     // Invalidate related cache entries on mutating requests
     this.proxy.invalidateCacheFor(msg.method, msg.path);
@@ -378,7 +379,7 @@ export class AgentClient {
   }
 
   private onWsOpen(msg: TunnelWsOpenMsg): void {
-    console.log("[agent] WS open request:", msg.path);
+    debugLog("[agent] WS open request:", msg.path);
 
     this.proxy.openWebSocket(
       msg.connectionId,
@@ -434,7 +435,7 @@ export class AgentClient {
   }
 
   private onClose(code: number, reason: string): void {
-    console.log("[agent] WS CLOSED, code:", code, "reason:", reason); // ← ADD
+    debugLog("[agent] WS CLOSED, code:", code, "reason:", reason);
 
     if (this.stopped) return;
     this.log.warn({ code, reason }, "[agent] WS closed — scheduling reconnect");
@@ -444,7 +445,7 @@ export class AgentClient {
   }
 
   private onError(err: Error): void {
-    console.log("[agent] WS ERROR:", err.message); // ← ADD
+    debugLog("[agent] WS ERROR:", err.message);
 
     // WS error is always followed by close — just log
     this.log.warn({ message: err.message }, "[agent] WS error");
@@ -464,12 +465,12 @@ export class AgentClient {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private sendRaw(data: string): void {
-    console.log(
+    debugLog(
       "[agent] sendRaw, ws state:",
       this.ws?.readyState,
       "data length:",
       data.length,
-    ); // ← ADD
+    );
 
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
