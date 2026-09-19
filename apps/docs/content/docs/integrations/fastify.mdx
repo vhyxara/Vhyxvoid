@@ -3,7 +3,7 @@ title: Fastify
 description: Start a VhyxVoid tunnel from inside a Fastify app with the @vhyxvoid/middleware Fastify plugin.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/middleware": "1.0.3"
 sources:
@@ -17,6 +17,10 @@ The Fastify integration is a plugin in the same package as the [Express](/integr
 
 <Callout type="error" title="The published package currently crashes">
   `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` when the plugin registers with credentials set, and your server does not start. The fix is in the package source but has not been published. Everything on this page was verified against that source. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli).
+</Callout>
+
+<Callout type="info" title="Fixed in the source, not yet published">
+  The crash is fixed in the repository, and the fixed build was checked by installing the packed package into a project with no `better-sqlite3`. Nothing has been published, so `@vhyxvoid/middleware` 1.0.3 on npm is unchanged and still crashes. The warning above stays until a fixed version is released.
 </Callout>
 
 ## Install

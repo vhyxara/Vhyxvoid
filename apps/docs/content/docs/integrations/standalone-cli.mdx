@@ -3,7 +3,7 @@ title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/agent": "1.0.18"
 sources:
@@ -58,7 +58,7 @@ VHYXVOID_LABEL=web
 Then just run `npx vhyxvoid`. Add `.env.vhyxvoid` to your `.gitignore`. A flag on the command line beats a value from a file; this was checked, with `--label` overriding `VHYXVOID_LABEL` from `.env.vhyxvoid`. Values in these files also take precedence over variables already set in your shell.
 
 <Callout type="warn" title="vhyxvoid init does not work right now">
-  `vhyxvoid init` is meant to ask for your details and write `.env.vhyxvoid` for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently, with status 0, right after the secret prompt, and writes nothing. Create the file by hand as above. (Other Node versions weren't tried.)
+  `vhyxvoid init` is meant to ask for your details and write `.env.vhyxvoid` for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently, with status 0, right after the secret prompt, and writes nothing. Create the file by hand as above. (Other Node versions weren't tried.) This is fixed in the source but not yet published.
 </Callout>
 
 ## Commands and flags
@@ -102,6 +102,8 @@ npx vhyxvoid --label api --port 4000   # in another terminal
 - **Local discovery.** By default the agent also listens on `127.0.0.1:4242` so that the [SDK](/sdk/overview), when it runs on the same machine, can find it. It answers only on your own machine, and has no authentication. If you don't use the SDK locally, pass `--no-local-discovery`. It is also the flag to reach for if port 4242 is already taken.
 
 ## Known issues
+
+These describe `@vhyxvoid/agent` 1.0.18 as published. Each of them is fixed in the source and none of the fixes is published yet; this list will shrink when a release goes out. In the source, the debug output is off unless you pass `--debug` or set `VHYXVOID_DEBUG_LOGGING=true`.
 
 - **`--version` and the startup banner show `1.0.16`.** Installed `@vhyxvoid/agent` 1.0.18 reports `1.0.16` in `vhyxvoid --version` and in the `vhyxvoid-agent v…` banner, and sends that number to VhyxVoid. It is a cosmetic bug in the published bundle; the package you installed is 1.0.18.
 - **Verbose logs.** Besides the lines shown above, the agent prints internal debug lines prefixed `[agent]` and `[batcher]`, including one per request.

@@ -3,7 +3,7 @@ title: Express
 description: Start a VhyxVoid tunnel from inside an Express app with @vhyxvoid/middleware.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/middleware": "1.0.3"
 sources:
@@ -17,6 +17,10 @@ sources:
 
 <Callout type="error" title="The published package currently crashes">
   `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` as soon as `vhyxvoid()` runs with credentials set, and your server does not start. Its bundle predates the in-process fix described below and still tries to open an on-disk SQLite queue. Everything on this page was verified against the current source of the package, which does not have this problem, but that fix has not been published yet. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli) instead.
+</Callout>
+
+<Callout type="info" title="Fixed in the source, not yet published">
+  The crash is fixed in the repository, and the fixed build was checked by installing the packed package into a project with no `better-sqlite3`. Nothing has been published, so `@vhyxvoid/middleware` 1.0.3 on npm is unchanged and still crashes. The warning above stays until a fixed version is released.
 </Callout>
 
 ## Install

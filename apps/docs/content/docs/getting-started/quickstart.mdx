@@ -3,7 +3,7 @@ title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/agent": "1.0.18"
     "@vhyxvoid/sdk": "1.0.1"
@@ -55,7 +55,7 @@ npx @vhyxvoid/agent
 ```
 
 <Callout type="warn" title="vhyxvoid init does not work right now">
-  The CLI has an interactive `vhyxvoid init` command that is meant to write this file for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently after the secret prompt without writing anything, so create the file by hand as above. Details on the [CLI page](/integrations/standalone-cli).
+  The CLI has an interactive `vhyxvoid init` command that is meant to write this file for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently after the secret prompt without writing anything, so create the file by hand as above. Details on the [CLI page](/integrations/standalone-cli). This is fixed in the source but not yet published.
 </Callout>
 
 When it connects you'll see:
@@ -69,7 +69,7 @@ When it connects you'll see:
   Share the Public URL — it is stable and never changes.
 ```
 
-You will also see internal debug lines starting with `[agent]` and `[batcher]`; they are noisy but harmless.
+You will also see internal debug lines starting with `[agent]` and `[batcher]`; they are noisy but harmless. (They are switched off in the source, but not yet in a published release.)
 
 That `Public` line is your tunnel URL. It has the shape `https://<account-slug>--<label>.vhyxvoid.com`. The part before `--` is your account slug and the part after it is the label you chose.
 

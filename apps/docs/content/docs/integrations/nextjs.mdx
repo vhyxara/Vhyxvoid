@@ -3,7 +3,7 @@ title: Next.js
 description: Start a VhyxVoid tunnel automatically whenever next dev runs, with @vhyxvoid/next.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/next": "1.0.3"
 sources:
@@ -25,6 +25,8 @@ npm install --save-dev @vhyxvoid/next better-sqlite3
 
 <Callout type="warn" title="Install better-sqlite3 explicitly">
   `@vhyxvoid/next` 1.0.3 declares no dependencies, but its bundled agent still loads `better-sqlite3` when your config is evaluated. In a fresh project, `next dev` fails with `Cannot find module 'better-sqlite3'` unless something else in your dependency tree provides it. Installing it as above (or installing `@vhyxvoid/agent`, which depends on it) fixes that. See [Installation](/getting-started/installation) for the native-module note.
+
+  This is fixed in the source, which no longer needs `better-sqlite3` for in-process use, but the fix is not published. This page describes `@vhyxvoid/next` 1.0.3 as released.
 </Callout>
 
 ## Configure

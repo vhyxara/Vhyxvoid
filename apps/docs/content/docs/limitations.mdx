@@ -3,7 +3,7 @@ title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/agent": "1.0.18"
     "@vhyxvoid/sdk": "1.0.1"
@@ -34,7 +34,7 @@ Anyone who knows or guesses a tunnel URL can send requests to your local server.
 
 ## Cached responses can be shared between callers
 
-The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero. Entries are keyed by path and query string alone, not by cookies or `Authorization`, so a response your server produced for one user can be returned to another until it expires. This was reproduced with two requests carrying different cookies. Responses are marked with an `x-vhyxvoid-cache: HIT` or `MISS` header. If your dev server sends `max-age` on personalised pages, send `Cache-Control: no-store` on them while you tunnel.
+The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero. Entries are keyed by path and query string alone, not by cookies or `Authorization`, so a response your server produced for one user can be returned to another until it expires. This was reproduced with two requests carrying different cookies. Responses are marked with an `x-vhyxvoid-cache: HIT` or `MISS` header. If your dev server sends `max-age` on personalised pages, send `Cache-Control: no-store` on them while you tunnel. The source now keys the cache on the caller's credentials as well, but that is not published yet, so this describes the released agent.
 
 ## Your server sees a local Host header
 
@@ -51,7 +51,7 @@ Requests reach your server with `Host` (and `x-forwarded-host`) set to `127.0.0.
 
 ## Known problems in the current releases
 
-These are bugs in the published packages, not design limits, and each will be removed from this list when it is fixed.
+These are bugs in the published packages, not design limits, and each will be removed from this list when a fixed version is published. All of them are already fixed in the source; none of the fixes has been published yet.
 
 - **`@vhyxvoid/middleware` 1.0.3 crashes at startup** when credentials are set, with `Could not locate the bindings file`. See [Express](/integrations/express). Use the [CLI](/integrations/standalone-cli) instead.
 - **`@vhyxvoid/next` 1.0.3 and `@vhyxvoid/middleware` 1.0.3 don't declare `better-sqlite3`,** which they need. Install it yourself. See [Next.js](/integrations/nextjs).

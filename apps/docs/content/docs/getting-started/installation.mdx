@@ -3,7 +3,7 @@ title: Installation
 description: Which VhyxVoid package to install for what.
 verified:
   date: "2026-09-19"
-  commit: fce6000
+  commit: 1a72d96
   packages:
     "@vhyxvoid/agent": "1.0.18"
     "@vhyxvoid/sdk": "1.0.1"
@@ -34,11 +34,11 @@ npm install --save-dev @vhyxvoid/agent
 You can also run the agent without installing it, with `npx @vhyxvoid/agent`, as the quickstart does.
 
 <Callout title="Native module">
-  The agent depends on `better-sqlite3`, which includes a native component. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. `@vhyxvoid/next` and `@vhyxvoid/middleware` bundle the agent but do not declare this dependency, so a fresh project must install `better-sqlite3` itself, or `@vhyxvoid/agent`, which brings it along. The [Next.js](/integrations/nextjs) page shows the error you get otherwise.
+  The agent depends on `better-sqlite3`, which includes a native component. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. `@vhyxvoid/next` and `@vhyxvoid/middleware` bundle the agent but do not declare this dependency, so a fresh project must install `better-sqlite3` itself, or `@vhyxvoid/agent`, which brings it along. The [Next.js](/integrations/nextjs) page shows the error you get otherwise. This is fixed in the source but not yet published.
 </Callout>
 
 <Callout type="error" title="@vhyxvoid/middleware 1.0.3 currently crashes">
-  The Express and Fastify integration in the published `@vhyxvoid/middleware` 1.0.3 fails at startup when credentials are set. Use the [CLI](/integrations/standalone-cli) for those frameworks until a fixed version is published. Details on the [Express](/integrations/express) page.
+  The Express and Fastify integration in the published `@vhyxvoid/middleware` 1.0.3 fails at startup when credentials are set. Use the [CLI](/integrations/standalone-cli) for those frameworks until a fixed version is published. Details on the [Express](/integrations/express) page. The crash is fixed in the source but not yet published.
 </Callout>
 
 <Callout type="warn" title="The Next.js integration">
