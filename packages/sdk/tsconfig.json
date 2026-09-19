@@ -5,10 +5,10 @@
     "rootDir": "./src",
     "composite": true,
     "declaration": true,
-    "emitDeclarationOnly": false,
+    "emitDeclarationOnly": true,
     "noEmit": false
   },
   "references": [{ "path": "../protocol" }],
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "src/blackserver-client.ts", "src/demo.js"]
 }

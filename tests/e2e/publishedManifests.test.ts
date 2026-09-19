@@ -53,6 +53,59 @@ describe.each(wrappers)("%s manifest", (dir) => {
   });
 });
 
+// @vhyxvoid/sdk, found in the 2026-09-19 sdk publish prep. Published 1.0.1 (a) declared
+// "import": "./dist/index.mjs" and "module" pointing at a file no build produced, so
+// `import { createClient } from '@vhyxvoid/sdk'` failed with ERR_MODULE_NOT_FOUND;
+// (b) shipped tsc's per-file output, which `require`s @vhyxvoid/protocol at runtime,
+// with protocol as `workspace:*` (uninstallable via npm publish; via pnpm it became a
+// dependency on the old protocol 1.0.0, which has no isBinaryContentType); and
+// (c) depended on the npm placeholder package `crypto`. The bundle now inlines
+// protocol (from its source, so the ESM build has no CommonJS in it) and emits both
+// index.js and index.mjs; scripts/check-dist.mjs verifies the emitted files and that
+// index.mjs really imports.
+describe("packages/sdk manifest", () => {
+  const pkg = readJson("packages/sdk/package.json");
+
+  it("declares no workspace: version under dependencies (unpublishable with npm)", () => {
+    for (const [name, range] of Object.entries<string>(pkg.dependencies ?? {})) {
+      expect(range, `${name} in dependencies`).not.toMatch(/^workspace:/);
+    }
+  });
+
+  it("inlines @vhyxvoid/protocol at build, so it is a devDependency and not a runtime one", () => {
+    expect(pkg.dependencies?.["@vhyxvoid/protocol"]).toBeUndefined();
+    expect(pkg.devDependencies?.["@vhyxvoid/protocol"]).toBeDefined();
+    expect(pkg.scripts.build).toContain("--alias:@vhyxvoid/protocol=");
+  });
+
+  it("does not depend on the deprecated `crypto` placeholder package (the code uses Node's built-in)", () => {
+    expect(pkg.dependencies?.crypto).toBeUndefined();
+  });
+
+  it("only leaves ws and isomorphic-ws external, and declares them", () => {
+    expect([...new Set(externals(pkg.scripts.build))].sort()).toEqual(["isomorphic-ws", "ws"]);
+    expect(pkg.dependencies.ws).toBeDefined();
+    expect(pkg.dependencies["isomorphic-ws"]).toBeDefined();
+  });
+
+  it("builds every file its manifest points at (index.js for require, index.mjs for import)", () => {
+    expect(pkg.exports["."].import).toBe("./dist/index.mjs");
+    expect(pkg.exports["."].require).toBe("./dist/index.js");
+    expect(pkg.scripts.build).toContain("--format=esm");
+    expect(pkg.scripts.build).toContain("--outfile=dist/index.mjs");
+    expect(pkg.scripts.build).toContain("--outfile=dist/index.js");
+  });
+
+  it("lists `types` first in exports, which TypeScript needs to find the declarations", () => {
+    expect(Object.keys(pkg.exports["."])[0]).toBe("types");
+  });
+
+  it("rebuilds and checks the bundles before every publish", () => {
+    expect(pkg.scripts.prepublishOnly).toBe("npm run build");
+    expect(pkg.scripts.build).toContain("check-dist.mjs");
+  });
+});
+
 // @vhyxvoid/agent has the same shape: its bundles (dist/cli.js, dist/AgentClient.js,
 // the two files package.json points at) inline @vhyxvoid/protocol, so protocol is
 // a build input. Found while preparing the 1.0.19 publish: with protocol under

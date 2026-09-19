@@ -13,29 +13,30 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
   "files": [
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc -b && esbuild src/index.ts --bundle --platform=node --format=cjs --alias:@vhyxvoid/protocol=../protocol/src/index.ts --external:ws --external:isomorphic-ws --outfile=dist/index.js && esbuild src/index.ts --bundle --platform=node --format=esm --alias:@vhyxvoid/protocol=../protocol/src/index.ts --external:ws --external:isomorphic-ws --outfile=dist/index.mjs && node ../../scripts/check-dist.mjs dist/index.js dist/index.mjs",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@vhyxvoid/protocol": "workspace:*",
-    "crypto": "^1.0.1",
     "isomorphic-ws": "^5.0.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "@vhyxvoid/protocol": "workspace:*",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0"
   }
 }

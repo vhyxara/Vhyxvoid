@@ -661,12 +661,6 @@ importers:
 
   packages/sdk:
     dependencies:
-      '@vhyxvoid/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      crypto:
-        specifier: ^1.0.1
-        version: 1.0.1
       isomorphic-ws:
         specifier: ^5.0.0
         version: 5.0.0(ws@8.18.3)
@@ -680,6 +674,15 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      '@vhyxvoid/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.2
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
 
   packages/shared:
     dependencies:
@@ -3924,10 +3927,6 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
-
-  crypto@1.0.1:
-    resolution: {integrity: sha512-VxBKmeNcqQdiUQUW2Tzq0t377b54N2bMtXO/qiLa+6eRRmmC4qT3D4OnTGoT/U6O9aklQ/jTwbOtRMTTY8G0Ig==}
-    deprecated: This package is no longer supported. It's now a built-in Node module. If you've depended on crypto, you should switch to the one that's built-in.
 
   css-functions-list@3.3.3:
     resolution: {integrity: sha512-8HFEBPKhOpJPEPu70wJJetjKta86Gw9+CCyCnB3sui2qQfOvRyqBy4IKLKKAwdMpWb2lHXWk9Wb4Z6AmaUT1Pg==}
@@ -9192,8 +9191,8 @@ snapshots:
 
   '@prisma/config@6.7.0':
     dependencies:
-      esbuild: 0.28.0
-      esbuild-register: 3.6.0(esbuild@0.28.0)
+      esbuild: 0.28.2
+      esbuild-register: 3.6.0(esbuild@0.28.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -10710,8 +10709,6 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  crypto@1.0.1: {}
-
   css-functions-list@3.3.3: {}
 
   css-in-js-utils@3.1.0:
@@ -11072,10 +11069,10 @@ snapshots:
       esast-util-from-estree: 2.0.0
       vfile-message: 4.0.3
 
-  esbuild-register@3.6.0(esbuild@0.28.0):
+  esbuild-register@3.6.0(esbuild@0.28.2):
     dependencies:
       debug: 4.4.3
-      esbuild: 0.28.0
+      esbuild: 0.28.2
     transitivePeerDependencies:
       - supports-color
 
