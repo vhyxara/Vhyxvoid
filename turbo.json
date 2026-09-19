@@ -7,7 +7,9 @@
         "dist/**",
         "packages/*/dist/**",
         "tsconfig.tsbuildinfo",
-        "apps/*/dist/**"
+        "apps/*/dist/**",
+        ".next/**",
+        "!.next/cache/**"
       ]
     },
     "dev": {
