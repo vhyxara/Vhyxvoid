@@ -3,7 +3,7 @@
 // WAL mode: survives process crashes without corruption.
 // Never shares storage with batching — batcher is in-memory only.
 
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
 import { randomUUID } from "crypto";
 import {
   TunnelForwardMsg,
@@ -28,9 +28,19 @@ export type InboundPayload = TunnelForwardMsg;
 export type OutboundPayload = TunnelResponseMsg | TunnelAgentErrorMsg;
 
 export class DurableQueue {
-  private readonly db: Database.Database;
+  private readonly db: BetterSqlite3.Database;
 
   constructor(dbPath: string) {
+    // Loaded here, not at module top, on purpose. better-sqlite3 is a native
+    // module, and every bundle that inlines this file (packages/next,
+    // packages/middleware) marks it external. A top-level import would make
+    // merely loading those bundles require it even though in-process use
+    // (AgentConfig.disableQueue) never constructs a DurableQueue. Deferring the
+    // require means only code that really opens a queue needs the native
+    // module installed. See context.md risk #15/#17 and decision.md,
+    // 2026-09-19, "better-sqlite3 undeclared dependency".
+    const Database = require("better-sqlite3") as typeof import("better-sqlite3");
+
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL"); // crash-safe: writes go to WAL file first
     this.db.pragma("synchronous = NORMAL"); // balanced: fsync on WAL checkpoint only

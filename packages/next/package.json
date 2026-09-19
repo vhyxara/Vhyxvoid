@@ -8,7 +8,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild dist/index.js --bundle --platform=node --external:next --external:better-sqlite3 --allow-overwrite --outfile=dist/index.js",
+    "build": "tsc -b && esbuild src/index.ts --bundle --platform=node --external:next --external:better-sqlite3 --outfile=dist/index.js && node ../../scripts/check-dist.mjs dist/index.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "keywords": [
@@ -22,11 +22,9 @@
   "peerDependencies": {
     "next": ">=13.0.0"
   },
-  "dependencies": {
-    "@vhyxvoid/agent": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@vhyxvoid/agent": "workspace:*",
     "esbuild": "^0.28.0",
     "typescript": "^5.0.0"
   }

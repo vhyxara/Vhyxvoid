@@ -602,9 +602,6 @@ importers:
 
   packages/middleware:
     dependencies:
-      '@vhyxvoid/agent':
-        specifier: workspace:*
-        version: link:../agent
       express:
         specifier: '>=4.0.0'
         version: 5.2.1
@@ -624,6 +621,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.10.1
+      '@vhyxvoid/agent':
+        specifier: workspace:*
+        version: link:../agent
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
@@ -633,9 +633,6 @@ importers:
 
   packages/next:
     dependencies:
-      '@vhyxvoid/agent':
-        specifier: workspace:*
-        version: link:../agent
       next:
         specifier: '>=13.0.0'
         version: 16.2.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -643,6 +640,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.10.1
+      '@vhyxvoid/agent':
+        specifier: workspace:*
+        version: link:../agent
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0

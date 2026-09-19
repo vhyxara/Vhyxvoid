@@ -13,7 +13,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild dist/index.js --bundle --platform=node --external:express --external:fastify --external:fastify-plugin --external:better-sqlite3 --allow-overwrite --outfile=dist/index.js && esbuild dist/next.js --bundle --platform=node --external:better-sqlite3 --allow-overwrite --outfile=dist/next.js && esbuild dist/fastify.js --bundle --platform=node --external:fastify --external:fastify-plugin --external:better-sqlite3 --allow-overwrite --outfile=dist/fastify.js",
+    "build": "tsc -b && esbuild src/index.ts --platform=node --bundle --external:better-sqlite3 --external:express --external:fastify --external:fastify-plugin --outfile=dist/index.js && esbuild src/next.ts --platform=node --bundle --external:better-sqlite3 --outfile=dist/next.js && esbuild src/fastify.ts --platform=node --bundle --external:better-sqlite3 --external:fastify --external:fastify-plugin --outfile=dist/fastify.js && node ../../scripts/check-dist.mjs dist/index.js dist/next.js dist/fastify.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "keywords": [
@@ -44,12 +44,10 @@
       "optional": true
     }
   },
-  "dependencies": {
-    "@vhyxvoid/agent": "workspace:*"
-  },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
+    "@vhyxvoid/agent": "workspace:*",
     "esbuild": "^0.28.0",
     "typescript": "^5.0.0"
   }
