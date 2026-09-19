@@ -1,6 +1,6 @@
 {
   "name": "@vhyxvoid/agent",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "Platform tunnel agent — connect your local server to the platform",
   "keywords": [
     "tunnel",
@@ -17,7 +17,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild dist/cli.js --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --outfile=dist/cli.bundled.js && cp dist/cli.bundled.js dist/cli.js && chmod +x dist/cli.js",
+    "build": "tsc -b && esbuild dist/cli.js --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --outfile=dist/cli.bundled.js && cp dist/cli.bundled.js dist/cli.js && chmod +x dist/cli.js && esbuild dist/AgentClient.js --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --allow-overwrite --outfile=dist/AgentClient.js",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",

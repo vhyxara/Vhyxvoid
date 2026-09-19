@@ -1,6 +1,6 @@
 {
   "name": "@vhyxvoid/sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Frontend TypeScript SDK — connect to your backend through the platform tunnel",
   "keywords": [
     "tunnel",
