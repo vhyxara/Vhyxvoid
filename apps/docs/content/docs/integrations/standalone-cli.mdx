@@ -1,9 +1,115 @@
 ---
 title: Any stack (CLI)
-description: Tunnel any local server with the vhyxvoid CLI.
-stub: true
+description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
+verified:
+  date: "2026-09-19"
+  commit: fce6000
+  packages:
+    "@vhyxvoid/agent": "1.0.18"
+sources:
+  - packages/agent/src/cli.ts
+  - packages/agent/src/AgentClient.ts
+  - packages/agent/src/proxy/BackendProxy.ts
+  - packages/agent/src/cache/ResponseCache.ts
+  - packages/agent/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+The `vhyxvoid` command runs the agent as its own process. It works with anything that listens on a local port: Django, Rails, Go, a static file server. Use it when there is no framework integration for your stack, or when you'd rather keep the tunnel out of your app's process. For Next.js, Express and Fastify there are [in-process integrations](/integrations/nextjs).
+
+## Run it
+
+You don't need to install anything:
+
+```bash
+npx @vhyxvoid/agent --key vhyxvoid_dev_xxxxxxxx --secret your-key-secret --port 3000
+```
+
+Or install it once, so `vhyxvoid` is available as a command:
+
+```bash
+npm install --save-dev @vhyxvoid/agent
+npx vhyxvoid --port 3000
+```
+
+Creating an API key is covered in the [Quickstart](/getting-started/quickstart#1-create-an-account-and-an-api-key). When the agent connects it prints your public URL:
+
+```text
+  ✅  Tunnel active
+
+  Local:   http://localhost:3000
+  Public:  https://acme--default.vhyxvoid.com
+
+  Share the Public URL — it is stable and never changes.
+```
+
+Stop it with Ctrl+C. If the connection to VhyxVoid drops it reconnects on its own.
+
+## Keep credentials in a file, not on the command line
+
+Flags end up in your shell history and process list. Put them in a file in the directory you run the command from. The agent reads `.env`, `.env.local` and `.env.vhyxvoid` from the current directory, in that order, and the later files win:
+
+```bash title=".env.vhyxvoid"
+VHYXVOID_API_KEY=vhyxvoid_dev_xxxxxxxx
+VHYXVOID_SECRET=your-key-secret
+VHYXVOID_PORT=3000
+VHYXVOID_LABEL=web
+```
+
+Then just run `npx vhyxvoid`. Add `.env.vhyxvoid` to your `.gitignore`. A flag on the command line beats a value from a file; this was checked, with `--label` overriding `VHYXVOID_LABEL` from `.env.vhyxvoid`. Values in these files also take precedence over variables already set in your shell.
+
+<Callout type="warn" title="vhyxvoid init does not work right now">
+  `vhyxvoid init` is meant to ask for your details and write `.env.vhyxvoid` for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently, with status 0, right after the secret prompt, and writes nothing. Create the file by hand as above. (Other Node versions weren't tried.)
 </Callout>
+
+## Commands and flags
+
+`vhyxvoid` with no command is the same as `vhyxvoid start`.
+
+| Flag | Environment variable | Default | Meaning |
+| --- | --- | --- | --- |
+| `-k, --key <keyId>` | `VHYXVOID_API_KEY` | none, required | API key ID. |
+| `-s, --secret <secret>` | `VHYXVOID_SECRET` | none, required | API key secret. |
+| `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port to forward to. Must be 1 to 65535. |
+| `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label, the part of the URL after `--`. |
+| `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
+| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where the agent keeps its on-disk queue. |
+| `--no-local-discovery` | none | discovery on | Turn off the local discovery server. |
+| `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off; `.env.local` if no file is given | Write the public URL into a file after connecting. |
+| `--env-key <key>` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name that `--write-env` writes. |
+
+A complete reference generated from the command definitions will replace this table later.
+
+### Writing the URL to a file
+
+`--write-env` saves your public URL where other tools can read it. With `--write-env`, the agent writes `NEXT_PUBLIC_TUNNEL_URL=https://…` into `.env.local` as soon as it connects, replacing an existing line with the same name. Give a file name and a different variable to change either:
+
+```bash
+npx vhyxvoid --write-env .env.development --env-key API_PUBLIC_URL
+```
+
+### Several tunnels
+
+Each tunnel is one agent process with its own label and port, and its own URL:
+
+```bash
+npx vhyxvoid --label web --port 3000
+npx vhyxvoid --label api --port 4000   # in another terminal
+```
+
+### The queue and local discovery
+
+- **Queue.** The agent keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`) so that responses it could not send while disconnected can be sent after it reconnects. It needs the `better-sqlite3` native module; see [Installation](/getting-started/installation). Requests that arrive while the agent is disconnected are not replayed; see [Limitations](/limitations).
+- **Local discovery.** By default the agent also listens on `127.0.0.1:4242` so that the [SDK](/sdk/overview), when it runs on the same machine, can find it. It answers only on your own machine, and has no authentication. If you don't use the SDK locally, pass `--no-local-discovery`. It is also the flag to reach for if port 4242 is already taken.
+
+## Known issues
+
+- **`--version` and the startup banner show `1.0.16`.** Installed `@vhyxvoid/agent` 1.0.18 reports `1.0.16` in `vhyxvoid --version` and in the `vhyxvoid-agent v…` banner, and sends that number to VhyxVoid. It is a cosmetic bug in the published bundle; the package you installed is 1.0.18.
+- **Verbose logs.** Besides the lines shown above, the agent prints internal debug lines prefixed `[agent]` and `[batcher]`, including one per request.
+- **`vhyxvoid init` exits early.** See above.
+- **Cached responses.** The agent keeps some `GET` responses in memory and can serve them again without asking your server. It only does this when your server sends `Cache-Control` with a `max-age` above zero on a successful response. The cache key is the path and query string only, so a response meant for one user can be handed to another. This was reproduced: two requests to the same path with different cookies got the same response and the second never reached the server. If your server sends `max-age` on personalised pages, set `Cache-Control: no-store` on them while tunneling. See [Limitations](/limitations).
+- **Host header.** Your server sees `Host: 127.0.0.1:<port>` and `x-forwarded-host` set to the same, plus `x-forwarded-by: vhyxvoid`, not the public hostname.
+
+## Next steps
+
+- [Receive webhooks locally](/integrations/webhooks)
+- [Call your tunnel from code](/sdk/overview)

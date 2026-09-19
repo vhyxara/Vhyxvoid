@@ -3,16 +3,22 @@ title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
   date: "2026-09-19"
-  commit: cf625f2
+  commit: fce6000
   packages:
     "@vhyxvoid/agent": "1.0.18"
     "@vhyxvoid/sdk": "1.0.1"
+    "@vhyxvoid/middleware": "1.0.3"
+    "@vhyxvoid/next": "1.0.3"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/registry/Pending.registry.ts
   - packages/agent/src/replay/replayQueue.ts
   - packages/sdk/src/client.ts
   - packages/sdk/src/TunnelClient.ts
+  - packages/agent/src/cache/ResponseCache.ts
+  - packages/agent/src/proxy/BackendProxy.ts
+  - packages/middleware/package.json
+  - packages/next/package.json
 ---
 
 ## Requests don't survive agent disconnects
@@ -26,6 +32,14 @@ If your agent loses its connection to VhyxVoid and a request arrives before it r
 
 Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application.
 
+## Cached responses can be shared between callers
+
+The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero. Entries are keyed by path and query string alone, not by cookies or `Authorization`, so a response your server produced for one user can be returned to another until it expires. This was reproduced with two requests carrying different cookies. Responses are marked with an `x-vhyxvoid-cache: HIT` or `MISS` header. If your dev server sends `max-age` on personalised pages, send `Cache-Control: no-store` on them while you tunnel.
+
+## Your server sees a local Host header
+
+Requests reach your server with `Host` (and `x-forwarded-host`) set to `127.0.0.1:<port>`, not the public hostname, and with `x-forwarded-by: vhyxvoid`. Code that builds absolute URLs from those headers, or signs the request host, will not see your tunnel URL.
+
 ## Request size and time
 
 - Request bodies are limited to **10 MB**. Larger requests get `413`.
@@ -35,6 +49,16 @@ Anyone who knows or guesses a tunnel URL can send requests to your local server.
 
 `TunnelClient`, the SDK's WebSocket client, is configured with your API key secret. If you use it in browser code, that secret is in your JavaScript bundle. If you must, use a dedicated DEV key with only the scopes it needs, and never a production key. The HTTP client (`createClient`) doesn't have this problem, because it uses no key.
 
-## `@vhyxvoid/sdk` 1.0.1 can't be `import`ed
+## Known problems in the current releases
+
+These are bugs in the published packages, not design limits, and each will be removed from this list when it is fixed.
+
+- **`@vhyxvoid/middleware` 1.0.3 crashes at startup** when credentials are set, with `Could not locate the bindings file`. See [Express](/integrations/express). Use the [CLI](/integrations/standalone-cli) instead.
+- **`@vhyxvoid/next` 1.0.3 and `@vhyxvoid/middleware` 1.0.3 don't declare `better-sqlite3`,** which they need. Install it yourself. See [Next.js](/integrations/nextjs).
+- **`vhyxvoid init` exits early** without writing your credentials file (`@vhyxvoid/agent` 1.0.18, Node 24). See the [CLI page](/integrations/standalone-cli).
+- **`vhyxvoid --version` and the startup banner say `1.0.16`** for the 1.0.18 package.
+- **The agent prints verbose `[agent]` and `[batcher]` debug lines.**
+
+### `@vhyxvoid/sdk` 1.0.1 can't be `import`ed
 
 The package declares an ES module entry point that was never built, so `import … from '@vhyxvoid/sdk'` fails. Use `require()`, or `createRequire` from an ES module. See the [Quickstart](/getting-started/quickstart).

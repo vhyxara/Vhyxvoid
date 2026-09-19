@@ -3,7 +3,7 @@ title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
   date: "2026-09-19"
-  commit: cf625f2
+  commit: fce6000
   packages:
     "@vhyxvoid/agent": "1.0.18"
     "@vhyxvoid/sdk": "1.0.1"
@@ -36,21 +36,27 @@ By the end of this page you'll have a local server reachable at a public HTTPS U
 
 ## 2. Run the agent
 
-Run the interactive setup from your project directory:
+Save your credentials in a file in your project directory, and keep it out of git:
 
-```bash
-npx @vhyxvoid/agent init
+```bash title=".env.vhyxvoid"
+VHYXVOID_API_KEY=vhyxvoid_dev_xxxxxxxx
+VHYXVOID_SECRET=your-key-secret
+VHYXVOID_PORT=3000
 ```
 
-It asks for your key ID, secret (typed characters are masked), the local port, a label, and the hub URL. Accept the defaults for the label (`default`) and hub URL. Leave **Account slug** empty for now; you'll see it in your tunnel URL in a moment.
+```bash
+echo ".env.vhyxvoid" >> .gitignore
+```
 
-The answers are saved to `.env.vhyxvoid`, and that file is added to your `.gitignore` (created if you don't have one) so the secret doesn't get committed.
-
-Then start the tunnel:
+The label defaults to `default` and the hub URL to `wss://hub.vhyxvoid.com/agent`, so you don't need to set them. Then start the tunnel:
 
 ```bash
 npx @vhyxvoid/agent
 ```
+
+<Callout type="warn" title="vhyxvoid init does not work right now">
+  The CLI has an interactive `vhyxvoid init` command that is meant to write this file for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently after the secret prompt without writing anything, so create the file by hand as above. Details on the [CLI page](/integrations/standalone-cli).
+</Callout>
 
 When it connects you'll see:
 
@@ -62,6 +68,8 @@ When it connects you'll see:
 
   Share the Public URL — it is stable and never changes.
 ```
+
+You will also see internal debug lines starting with `[agent]` and `[batcher]`; they are noisy but harmless.
 
 That `Public` line is your tunnel URL. It has the shape `https://<account-slug>--<label>.vhyxvoid.com`. The part before `--` is your account slug and the part after it is the label you chose.
 
@@ -138,4 +146,6 @@ Requests sent to the tunnel while the agent is reconnecting can fail with `504` 
 ## Next steps
 
 - Skip the separate process: start the tunnel from inside your app with the [Next.js](/integrations/nextjs), [Express](/integrations/express), or [Fastify](/integrations/fastify) integration.
+- Every option of the `vhyxvoid` command: [CLI](/integrations/standalone-cli).
+- Receive webhooks on your machine: [Webhooks](/integrations/webhooks).
 - Read [Concepts](/getting-started/concepts) for how the pieces fit together.

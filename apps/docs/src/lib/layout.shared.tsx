@@ -4,8 +4,8 @@ export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
       title: 'VhyxVoid Docs',
-      // The dashboard lives on the same origin, outside this app's basePath.
-      url: '/docs'
+      // next/link prepends basePath, so '/' is the docs home (/docs).
+      url: '/'
     },
     // VhyxVoid's dashboard is a near-black "space" theme in both of its modes
     // (see apps/web vhyxui-brand-override.css), so this site is dark-only for

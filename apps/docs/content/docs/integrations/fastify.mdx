@@ -1,9 +1,78 @@
 ---
 title: Fastify
-description: Add VhyxVoid to a Fastify server with @vhyxvoid/middleware/fastify.
-stub: true
+description: Start a VhyxVoid tunnel from inside a Fastify app with the @vhyxvoid/middleware Fastify plugin.
+verified:
+  date: "2026-09-19"
+  commit: fce6000
+  packages:
+    "@vhyxvoid/middleware": "1.0.3"
+sources:
+  - packages/middleware/src/fastify.ts
+  - packages/middleware/src/config.ts
+  - packages/middleware/src/tunnel.ts
+  - packages/middleware/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+The Fastify integration is a plugin in the same package as the [Express](/integrations/express) one, and shares its options, defaults and credential handling. This page covers what differs.
+
+<Callout type="error" title="The published package currently crashes">
+  `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` when the plugin registers with credentials set, and your server does not start. The fix is in the package source but has not been published. Everything on this page was verified against that source. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli).
 </Callout>
+
+## Install
+
+```bash
+npm install --save-dev @vhyxvoid/middleware fastify-plugin
+```
+
+`fastify` (version 4 or later) and `fastify-plugin` are both peer dependencies of this plugin. `fastify-plugin` is not installed by Fastify itself, so add it yourself or the import fails with `Cannot find module 'fastify-plugin'`. You need an API key too; see the [Quickstart](/getting-started/quickstart).
+
+## Use it
+
+Import from the `/fastify` subpath, not from the package root:
+
+```js title="server.js"
+const Fastify = require('fastify')
+const { vhyxvoidPlugin } = require('@vhyxvoid/middleware/fastify')
+
+async function main() {
+  const app = Fastify()
+
+  await app.register(vhyxvoidPlugin, { port: 3000, label: 'api' })
+
+  app.get('/health', async () => ({ ok: true }))
+
+  await app.listen({ port: 3000 })
+}
+
+main()
+```
+
+The plugin is registered with `fastify-plugin`, so it is not encapsulated and applies to the whole app. It adds no routes or hooks other than `onClose`. When the tunnel connects it logs:
+
+```text
+  [vhyxvoid] ✅  Tunnel active
+  [vhyxvoid] Public:  https://acme--api.vhyxvoid.com
+  [vhyxvoid] Local:   http://localhost:3000
+```
+
+## Options and credentials
+
+The options are the same as Express's: `key`, `secret`, `port`, `label` (default `default`), `hub`, `writeEnv`, `envKey`, `enabled`, `onConnect`, with the same environment variables and defaults. See the [Express options table](/integrations/express#options). Three points carry over exactly:
+
+- `port` is **not** taken from `app.listen`. Set it to the port you listen on.
+- Only `process.env` is read. `.env.vhyxvoid` is not loaded for you.
+- The tunnel is off when `NODE_ENV` is `production`.
+
+## What differs from Express
+
+- **Registration is async.** Await `app.register(...)`. The tunnel starts as the plugin loads, before `listen`.
+- **It stops with the app.** The plugin's `onClose` hook stops the tunnel, so `await app.close()` shuts it down. Express has no equivalent and relies on process signals or `stopTunnel()`.
+- **Import path.** `@vhyxvoid/middleware/fastify`, and the export is `vhyxvoidPlugin`, not `vhyxvoid`.
+- **Options are the second argument to `register`.**
+
+## Things to know
+
+The same caveats as Express apply: `Host` and `x-forwarded-host` are `127.0.0.1:<port>`, `GET` responses with `Cache-Control: max-age` can be served from the agent's memory to other callers, the agent prints verbose `[agent]` debug lines, and anyone with the URL can reach your server. See [Express](/integrations/express#things-to-know) and [Limitations](/limitations).
+
+For signed webhooks, Fastify needs the raw body. See [Webhooks](/integrations/webhooks).

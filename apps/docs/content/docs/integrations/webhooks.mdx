@@ -1,9 +1,144 @@
 ---
 title: Webhooks
-description: Use your tunnel URL as a webhook target.
-stub: true
+description: Receive Stripe, GitHub, and other webhooks on your local machine, using your tunnel URL as the endpoint.
+verified:
+  date: "2026-09-19"
+  commit: fce6000
+  packages:
+    "@vhyxvoid/agent": "1.0.18"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - packages/agent/src/proxy/BackendProxy.ts
+  - packages/protocol/src/bodyEncoding.ts
+  - apps/api/src/core/constant/apikey.constant.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+Services like Stripe and GitHub deliver webhooks by sending an HTTP request to a public URL. Your development server isn't public, so nothing arrives. A VhyxVoid tunnel gives your local server a public URL that stays the same between runs, so you register it once with the provider and every webhook lands on your machine.
+
+This page uses Stripe as the worked example, and the same steps apply to any provider.
+
+## What you need
+
+- A running tunnel. Follow the [Quickstart](/getting-started/quickstart), or use the [Next.js](/integrations/nextjs), [Express](/integrations/express), [Fastify](/integrations/fastify) or [CLI](/integrations/standalone-cli) pages, and note the `Public:` URL.
+- A route in your app that accepts `POST`.
+
+Your webhook URL is your tunnel URL plus your route, for example `https://acme--default.vhyxvoid.com/api/webhooks/stripe`.
+
+## 1. Write the handler
+
+Signature checks are computed over the exact bytes the provider sent. That means your handler must read the **raw** body, before any JSON parser touches it. The three examples below verify a Stripe signature with the official `stripe` package.
+
+<Callout>
+  Install it with `npm install stripe`. Set `STRIPE_WEBHOOK_SECRET` to the signing secret (`whsec_…`) that Stripe shows for your endpoint in step 2.
 </Callout>
+
+**Express.** Give this route `express.raw`, and register it before any global `express.json()`:
+
+```js title="server.js"
+const express = require('express')
+const Stripe = require('stripe')
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const app = express()
+
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res) => {
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      req.headers['stripe-signature'],
+      process.env.STRIPE_WEBHOOK_SECRET
+    )
+  } catch (err) {
+    return res.status(400).send('Bad signature')
+  }
+
+  console.log('received', event.type, event.id)
+  res.json({ received: true })
+})
+
+app.use(express.json()) // any global JSON parser goes after the webhook route
+app.listen(3000)
+```
+
+**Next.js.** In an App Router route handler, read the body as text:
+
+```js title="app/api/webhooks/stripe/route.js"
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+export async function POST(req) {
+  const raw = await req.text()
+
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(
+      raw,
+      req.headers.get('stripe-signature'),
+      process.env.STRIPE_WEBHOOK_SECRET
+    )
+  } catch (err) {
+    return new Response('Bad signature', { status: 400 })
+  }
+
+  console.log('received', event.type, event.id)
+  return Response.json({ received: true })
+}
+```
+
+**Fastify.** Keep the body as a buffer for JSON requests:
+
+```js title="server.js"
+app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => done(null, body))
+
+app.post('/api/webhooks/stripe', async (req, reply) => {
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      req.headers['stripe-signature'],
+      process.env.STRIPE_WEBHOOK_SECRET
+    )
+  } catch (err) {
+    return reply.code(400).send('Bad signature')
+  }
+
+  return { received: true }
+})
+```
+
+The Express and Fastify handlers were exercised with a real signature from `generateTestHeaderString`: a valid signature was accepted and the same payload with one extra space was rejected with `400`. The Next.js route handler was checked with an HMAC over the raw text rather than Stripe's helper.
+
+## 2. Register the URL with the provider
+
+In the Stripe dashboard, add a webhook endpoint pointing at your tunnel URL plus route, choose the events you want, and copy the endpoint's signing secret into `STRIPE_WEBHOOK_SECRET`. Because the tunnel URL doesn't change, you do this once. It stays valid across restarts as long as you keep the same account and label.
+
+Other providers work the same way: GitHub, for instance, sends a signature header that you verify against the raw body. Follow that provider's documentation for the header name and algorithm.
+
+## 3. Trigger an event and watch it arrive
+
+Send a test event from the provider. It travels to the VhyxVoid hub, down your agent's connection, and to your local route. Your handler's response goes back the same way. Log inside your handler so you can see what arrived.
+
+VhyxVoid does not currently show individual requests, so there is no request inspector to replay or browse events; the [Tunnels](/dashboard/tunnels) page shows tunnel status and usage. Use your provider's own delivery log to see what it sent and what it got back.
+
+## What the tunnel does to the request
+
+These points matter when a signature check or your code depends on the request's exact shape. All were checked by sending requests through the agent to a local server:
+
+- **Method, path, query string, body and headers arrive unchanged**, including `stripe-signature` and `content-type`. A signed JSON body with non-ASCII characters and odd whitespace verified correctly on the other side.
+- **`Host` is rewritten** to `127.0.0.1:<port>`, and `x-forwarded-host` is set to the same, with `x-forwarded-by: vhyxvoid`. Signature schemes that sign the body, like Stripe's and GitHub's, are unaffected. A scheme that signs the request URL or host would fail, because your server never sees the public hostname.
+- **Bodies with a binary content type** (images, PDFs, audio, video, fonts, zip, `application/octet-stream`) are carried as base64 and restored, so they arrive intact. Text bodies are carried as UTF-8 text, so a webhook whose body isn't valid UTF-8 under a text content type such as `application/json` would not survive; this is unusual in practice.
+- **Limits:** request bodies up to 10 MB, and your server has 30 seconds to answer. Answer quickly and do slow work afterwards.
+
+## Failures and retries
+
+If your agent isn't connected, the tunnel URL answers `503` (or `404` if it was never registered). If your server is slow, it answers `504` after 30 seconds. Most providers retry failed deliveries on their own schedule, so events sent while you were offline may arrive later. Check your provider's retry policy.
+
+Requests that arrive while your agent is reconnecting are not held and replayed by VhyxVoid, and a request that reaches you can be retried by the provider after you already processed it. Make handlers **idempotent**: record each event's `id` (Stripe's `evt_…`) and ignore one you have already seen. See [Limitations](/limitations).
+
+## Things to know
+
+- **The URL is public.** Anyone who knows it can send requests to your webhook route. The signature check is what proves a request really came from the provider, so never skip it, even in development.
+- **Use a test-mode secret and test data.** Don't point live-mode webhooks at a laptop.
+- **You don't need any special API-key scope for this.** The agent needs only `tunnel:connect`, as in the [Quickstart](/getting-started/quickstart). The `webhook:receive` and `webhook:inspect` scopes exist on API keys, but nothing checks them today.

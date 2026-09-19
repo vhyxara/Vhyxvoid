@@ -1,9 +1,9 @@
 {
   "title": "Integrations",
   "pages": [
+    "nextjs",
     "express",
     "fastify",
-    "nextjs",
     "standalone-cli",
     "webhooks"
   ]

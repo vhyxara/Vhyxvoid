@@ -1,9 +1,110 @@
 ---
 title: Express
-description: Add VhyxVoid to an Express server with @vhyxvoid/middleware.
-stub: true
+description: Start a VhyxVoid tunnel from inside an Express app with @vhyxvoid/middleware.
+verified:
+  date: "2026-09-19"
+  commit: fce6000
+  packages:
+    "@vhyxvoid/middleware": "1.0.3"
+sources:
+  - packages/middleware/src/index.ts
+  - packages/middleware/src/config.ts
+  - packages/middleware/src/tunnel.ts
+  - packages/middleware/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+`@vhyxvoid/middleware` starts the VhyxVoid agent inside your Express process. Add one line and your server gets a public URL, with no separate `vhyxvoid` process to run.
+
+<Callout type="error" title="The published package currently crashes">
+  `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` as soon as `vhyxvoid()` runs with credentials set, and your server does not start. Its bundle predates the in-process fix described below and still tries to open an on-disk SQLite queue. Everything on this page was verified against the current source of the package, which does not have this problem, but that fix has not been published yet. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli) instead.
 </Callout>
+
+## Install
+
+```bash
+npm install --save-dev @vhyxvoid/middleware
+```
+
+`express` is a peer dependency; you already have it. You need an API key, so complete steps 1 and 2 of the [Quickstart](/getting-started/quickstart) first.
+
+## Use it
+
+```js title="server.js"
+const express = require('express')
+const { vhyxvoid } = require('@vhyxvoid/middleware')
+
+const app = express()
+
+app.use(vhyxvoid({ port: 3000, label: 'api' }))
+
+app.get('/health', (req, res) => res.json({ ok: true }))
+
+app.listen(3000)
+```
+
+`vhyxvoid()` starts the tunnel when it is called and then acts as a plain pass-through middleware; it never touches your requests. When the tunnel connects it logs the public URL:
+
+```text
+  [vhyxvoid] ✅  Tunnel active
+  [vhyxvoid] Public:  https://acme--api.vhyxvoid.com
+  [vhyxvoid] Local:   http://localhost:3000
+```
+
+The URL is `https://<account-slug>--<label>.vhyxvoid.com`; see [Concepts](/getting-started/concepts).
+
+<Callout type="warn" title="Set port to the port you listen on">
+  The middleware cannot see what you pass to `app.listen`. `port` defaults to `VHYXVOID_PORT`, then `3000`. If your server listens elsewhere and you don't set `port`, the tunnel forwards to the wrong place.
+</Callout>
+
+### Credentials
+
+Pass `key` and `secret` as options, or set `VHYXVOID_API_KEY` and `VHYXVOID_SECRET` in the environment.
+
+<Callout type="warn" title="No .env files are read">
+  Unlike the CLI and `@vhyxvoid/next`, the middleware reads only `process.env`. A `.env.vhyxvoid` file will not be picked up. Load your env file yourself before calling `vhyxvoid()`, for example with [`dotenv`](https://www.npmjs.com/package/dotenv) or `node --env-file=.env server.js`. Without credentials it logs `Missing VHYXVOID_API_KEY or VHYXVOID_SECRET — tunnel not started` and your server runs normally.
+</Callout>
+
+## Options
+
+| Option | Environment variable | Default | Meaning |
+| --- | --- | --- | --- |
+| `key` | `VHYXVOID_API_KEY` | none | API key ID. |
+| `secret` | `VHYXVOID_SECRET` | none | API key secret. |
+| `port` | `VHYXVOID_PORT` | `3000` | Local port to forward to. |
+| `label` | `VHYXVOID_LABEL` | `default` | Tunnel label, the part of the URL after `--`. |
+| `hub` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
+| `writeEnv` | `VHYXVOID_WRITE_ENV` | off | File to write the public URL into, for example `.env.local`. |
+| `envKey` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name written by `writeEnv`. |
+| `enabled` | none | `true` unless `NODE_ENV` is `production` | Force the tunnel on or off. |
+| `onConnect` | none | none | Callback that receives the public URL. |
+
+The default label here is `default`, not `app` as in `@vhyxvoid/next`.
+
+## Development only
+
+The tunnel is off when `NODE_ENV` is `production`, so deploying the same code does not open a tunnel. It is on for every other value, including an unset `NODE_ENV` and `test`. If your CI sets `NODE_ENV` to something else, pass `enabled` explicitly:
+
+```js
+app.use(vhyxvoid({ enabled: process.env.VHYXVOID_TUNNEL === '1' }))
+```
+
+## Stopping
+
+The tunnel stops when the process receives `SIGINT` or `SIGTERM` or exits. To stop it earlier, for example in a test, call `stopTunnel()`:
+
+```js
+const { stopTunnel } = require('@vhyxvoid/middleware')
+
+afterAll(() => stopTunnel())
+```
+
+The tunnel starts once per process. Calling `vhyxvoid()` again logs `tunnel already running, skipping`.
+
+## Things to know
+
+- **No on-disk queue.** The middleware runs the agent in-process without the SQLite queue and without the local discovery server, so it creates no queue database. The agent reconnects to VhyxVoid by itself if the connection drops.
+- **Host header.** Requests reach Express with `Host` set to `127.0.0.1:<port>` and `x-forwarded-host` set to the same, not the public hostname. Build absolute URLs from the public URL, not from those headers.
+- **Body parsers.** Signed webhooks need the raw body. Mount `express.raw()` on those routes before any global `express.json()`. See [Webhooks](/integrations/webhooks).
+- **Response caching.** A `GET` response with `Cache-Control: max-age=…` may be served from the agent's memory to other callers, ignoring cookies. See [Limitations](/limitations).
+- **Public by design.** Anyone with the URL can reach your server. See [Limitations](/limitations).
+- **Verbose logs.** The agent currently prints internal `[agent]` and `[batcher]` debug lines in addition to the messages shown above.

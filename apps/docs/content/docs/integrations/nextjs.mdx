@@ -1,9 +1,118 @@
 ---
 title: Next.js
-description: Add VhyxVoid to a Next.js app with @vhyxvoid/next.
-stub: true
+description: Start a VhyxVoid tunnel automatically whenever next dev runs, with @vhyxvoid/next.
+verified:
+  date: "2026-09-19"
+  commit: fce6000
+  packages:
+    "@vhyxvoid/next": "1.0.3"
+sources:
+  - packages/next/src/index.ts
+  - packages/next/package.json
+  - packages/agent/src/AgentClient.ts
+  - packages/agent/src/proxy/BackendProxy.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+`@vhyxvoid/next` wraps your Next.js config. When you run `next dev`, it starts the tunnel inside the dev server process, so there is no second terminal and no separate agent to remember. It is the only supported way to run VhyxVoid inside a Next.js app. For any other stack, use the [CLI](/integrations/standalone-cli).
+
+You need an API key first. If you don't have one, follow steps 1 and 2 of the [Quickstart](/getting-started/quickstart).
+
+## Install
+
+```bash
+npm install --save-dev @vhyxvoid/next better-sqlite3
+```
+
+<Callout type="warn" title="Install better-sqlite3 explicitly">
+  `@vhyxvoid/next` 1.0.3 declares no dependencies, but its bundled agent still loads `better-sqlite3` when your config is evaluated. In a fresh project, `next dev` fails with `Cannot find module 'better-sqlite3'` unless something else in your dependency tree provides it. Installing it as above (or installing `@vhyxvoid/agent`, which depends on it) fixes that. See [Installation](/getting-started/installation) for the native-module note.
 </Callout>
+
+## Configure
+
+Add your credentials to `.env.local`, or to `.env.vhyxvoid`. Both are read, and a variable that is already set in the environment is never overridden.
+
+```bash title=".env.local"
+VHYXVOID_API_KEY=vhyxvoid_dev_xxxxxxxx
+VHYXVOID_SECRET=your-key-secret
+```
+
+Then wrap your Next config:
+
+```js title="next.config.mjs"
+import { withVhyxvoid } from '@vhyxvoid/next'
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Lets the browser load dev resources through the tunnel URL. See below.
+  allowedDevOrigins: ['*.vhyxvoid.com']
+}
+
+export default withVhyxvoid(nextConfig)
+```
+
+Run `next dev` as usual. When the tunnel connects you'll see a banner with your public URL:
+
+```text
+  ┌─────────────────────────────────────────────┐
+  │  🚇 vhyxvoid tunnel active                   │
+  │                                               │
+  │  Local:   http://localhost:3000             │
+  │  Public:  https://acme--app.vhyxvoid.com       │
+  └─────────────────────────────────────────────┘
+```
+
+The URL is `https://<account-slug>--<label>.vhyxvoid.com`. Here the label is `app`, the default for this package. See [Concepts](/getting-started/concepts) for what each part means.
+
+`withVhyxvoid` returns your config unchanged, so it composes with other wrappers in either order, for example `withVhyxvoid(withNextIntl(nextConfig))`.
+
+## Options
+
+Pass options as the second argument. Each one falls back to an environment variable, and then to a default.
+
+| Option | Environment variable | Default | Meaning |
+| --- | --- | --- | --- |
+| `key` | `VHYXVOID_API_KEY` | none | API key ID. |
+| `secret` | `VHYXVOID_SECRET` | none | API key secret. |
+| `label` | `VHYXVOID_LABEL` | `app` | Tunnel label, the part of the URL after `--`. |
+| `port` | `VHYXVOID_PORT` | detected, see below | Local port to forward to. |
+| `hub` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
+| `writeEnv` | `VHYXVOID_WRITE_ENV` | off | File to write the public URL into, for example `.env.local`. If you use the environment variable, its value is the file name. |
+| `envKey` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name written by `writeEnv`. |
+| `enabled` | none | `true` under `next dev` only | Force the tunnel on or off. |
+| `onConnect` | none | none | Callback that receives the public URL. |
+
+If the key or secret is missing, the tunnel does not start and a warning explains why; your dev server keeps running.
+
+### Port detection
+
+When `port` is not set, the tunnel forwards to the port your dev server is running on. This was checked with `next dev -p 3071` run through `npx`, and with `next dev -p 3072` run as the bare binary, and the banner showed the right port each time. Under the hood the port comes from the first of these that exists:
+
+1. `-p` or `--port` in the command that started the process, as seen through npm's script environment.
+2. `VHYXVOID_PORT`
+3. `PORT`, which Next sets itself from its `-p` flag
+4. `3000`
+
+If your setup is unusual, set `port` explicitly.
+
+## Development only, and the build-time gotcha
+
+By default the tunnel starts only under `next dev`. It is off for `next build` and `next start`, so it will not start during CI or a production build. On Next 16.1.1 this was checked directly: `next dev` starts one tunnel, and `next build` with credentials present starts none.
+
+Passing `enabled: true` overrides that and **does** start a tunnel during `next build`. Only do that deliberately, for example `enabled: process.env.TUNNEL === '1'`, never as a constant.
+
+## Using the public URL in your app
+
+With `writeEnv: '.env.local'`, the agent writes `NEXT_PUBLIC_TUNNEL_URL=https://…` there after it connects. The URL doesn't change between runs, so after the first run the value is already in the file when Next starts. On the very first run, Next may have read its env files before the URL was written, so restart once, or read the URL in `onConnect`.
+
+## Things to know
+
+- **Dev origins.** The browser loads your app from the tunnel URL, which Next treats as a different origin from `localhost`. On Next 16.1.1 this only logs a warning (`Cross origin request detected to /_next/* resource`), and a future major version will require the origin to be allowed. The `allowedDevOrigins` line in the config above avoids the warning; with it in place the warning did not appear in testing. Use your own slug in place of the wildcard if you prefer.
+- **Host header.** Requests reach Next with `Host` set to `127.0.0.1:<port>`, and `x-forwarded-host` set to the same value, not the public hostname. Code that builds absolute URLs from those headers will produce `127.0.0.1` addresses. Use the public URL from `NEXT_PUBLIC_TUNNEL_URL` instead.
+- **Response caching.** If a route sends `Cache-Control: max-age=…` on a `GET`, the agent may serve that response from memory to other callers. This ignores cookies. See [Limitations](/limitations).
+- **Public by design.** Anyone with the URL can reach your dev server. See [Limitations](/limitations).
+- **Reconnects.** If the connection to VhyxVoid drops, the agent reconnects by itself. Requests made while it is down are not replayed. See [Limitations](/limitations).
+
+## Next steps
+
+- Receive webhooks in a route handler: [Webhooks](/integrations/webhooks).
+- Call the tunnel from another program: [SDK overview](/sdk/overview).
