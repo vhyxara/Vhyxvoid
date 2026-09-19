@@ -53,6 +53,28 @@ describe.each(wrappers)("%s manifest", (dir) => {
   });
 });
 
+// @vhyxvoid/agent has the same shape: its bundles (dist/cli.js, dist/AgentClient.js,
+// the two files package.json points at) inline @vhyxvoid/protocol, so protocol is
+// a build input. Found while preparing the 1.0.19 publish: with protocol under
+// `dependencies` as `workspace:*`, `npm publish` produced a tarball that
+// `npm install` rejects with EUNSUPPORTEDPROTOCOL. (The published sdk still has
+// protocol as a real runtime dependency, because its dist is not bundled; that
+// is a separate publish and is deliberately not covered here.)
+describe("packages/agent manifest", () => {
+  const pkg = readJson("packages/agent/package.json");
+
+  it("declares no workspace: protocol version under dependencies (unpublishable with npm)", () => {
+    for (const [name, range] of Object.entries<string>(pkg.dependencies ?? {})) {
+      expect(range, `${name} in dependencies`).not.toMatch(/^workspace:/);
+    }
+  });
+
+  it("keeps @vhyxvoid/protocol as a build-time devDependency, since the bundles inline it", () => {
+    expect(pkg.dependencies?.["@vhyxvoid/protocol"]).toBeUndefined();
+    expect(pkg.devDependencies?.["@vhyxvoid/protocol"]).toBeDefined();
+  });
+});
+
 describe("agent: better-sqlite3 stays a lazy, declared dependency", () => {
   it("is declared by @vhyxvoid/agent itself (the package that really uses the queue)", () => {
     expect(readJson("packages/agent/package.json").dependencies["better-sqlite3"]).toBeDefined();

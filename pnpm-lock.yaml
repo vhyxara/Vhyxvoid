@@ -565,9 +565,6 @@ importers:
 
   packages/agent:
     dependencies:
-      '@vhyxvoid/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       axios:
         specifier: ^1.13.2
         version: 1.13.2
@@ -596,6 +593,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      '@vhyxvoid/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
