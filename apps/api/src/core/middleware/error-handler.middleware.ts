@@ -55,6 +55,14 @@ export const errorHandler = (
     "Unhandled Exception",
   );
 
+  // request.log.error above is a silent no-op unless Fastify's logger is
+  // enabled (server.ts builds Fastify() with no logger option, so its
+  // default logger has no real transport) — this left every unhandled
+  // exception in this app completely invisible in server output. Falling
+  // back to console.error guarantees the actual error is always visible
+  // regardless of logger config. See internal-tools/api/decision.md, 2026-09-12 (Bug 2 investigation).
+  console.error(`[Unhandled Exception] ${request.method} ${request.url} (requestId=${requestId})`, error);
+
   // 4 Fallback: Internal Server Error (500)
   return reply.status(500).send({
     success: false,

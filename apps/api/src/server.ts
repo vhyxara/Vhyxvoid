@@ -26,6 +26,23 @@ export const buildServer = async () => {
   // Attach requestId context for logging
   server.addHook("onRequest", requestIdHook);
 
+  // Global error handler — MUST be registered before registerPlugins/
+  // registerRoutes below. Fastify's encapsulation model resolves each
+  // nested plugin's inherited error handler at the moment that plugin is
+  // registered, not lazily per-request — registering this after those
+  // `await server.register(...)` calls (as it previously was, at the end
+  // of this function) meant every route declared inside a nested plugin
+  // (i.e. everything registered via registerRoutes/registerPlugins —
+  // effectively the entire API surface except the few raw `server.get()`
+  // routes below) permanently inherited Fastify's default error handler
+  // instead of this one. That silently broke two things app-wide: every
+  // ZodError became an opaque 500 instead of the intended 400, and every
+  // AppError (ForbiddenError, NotFoundError, etc.) lost its intended
+  // {success, code, message, data, requestId} response shape. See
+  // internal-tools/api/decision.md, 2026-09-12, "Bug 2 resolution:
+  // setErrorHandler registered too late in the Fastify boot sequence".
+  server.setErrorHandler(errorHandler);
+
   // Register enterprise plugins
   await registerPlugins(server);
 
@@ -43,11 +60,9 @@ export const buildServer = async () => {
   server.get("/health", async () => {
     return { status: "ok" };
   });
+
   // 404 handler
   server.setNotFoundHandler(notFoundHandler);
-
-  // Global error handler
-  server.setErrorHandler(errorHandler);
 
   return server;
 };
