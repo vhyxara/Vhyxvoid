@@ -1,6 +1,6 @@
 // apps/hub/src/HubServer.ts
 // uWebSockets.js server — maximum throughput (~1.2M msg/sec per core).
-// Two WS endpoints: /agent (agent connections) and /sdk (frontend SDK connections).
+// Two WS endpoints: /agent (agent connections) and /sdk (SDK TunnelClient connections).
 // Health + metrics endpoints for load balancer probes.
 
 // import uWS from 'uWebSockets.js';

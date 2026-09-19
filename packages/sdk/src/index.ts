@@ -18,7 +18,7 @@
 // This file is the barrel that npm consumers import from.
 // In your project, create packages/sdk/src/index.ts with these lines uncommented.
 
-// Existing WebSocket SDK (frontend browser use)
+// WebSocket client (Node.js only: persistent connection to the hub)
 export { TunnelClient } from "./TunnelClient";
 export type {
   TunnelClientConfig,

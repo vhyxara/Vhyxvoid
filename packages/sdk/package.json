@@ -1,7 +1,7 @@
 {
   "name": "@vhyxvoid/sdk",
   "version": "1.1.0",
-  "description": "Frontend TypeScript SDK — connect to your backend through the platform tunnel",
+  "description": "Node.js TypeScript SDK — call your tunneled backend through VhyxVoid",
   "keywords": [
     "tunnel",
     "websocket",

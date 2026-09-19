@@ -1,8 +1,12 @@
 // packages/sdk/src/TunnelClient.ts
-// Frontend TypeScript SDK. Manages WS connection to hub.
+// WebSocket client for Node.js. Manages a persistent WS connection to the hub.
+// Node-only: it signs with Node's crypto module and cannot be bundled for a
+// browser, and it is configured with the API key secret, which must never be
+// shipped in client-side code. See internal-tools/shared/decision.md, 2026-09-19,
+// "SDK reclassified as Node-only".
 // Supports local agent discovery (bypasses hub for local-to-local calls).
 
-import WebSocket, { MessageEvent } from "isomorphic-ws"; // works in browser and Node.js
+import WebSocket, { MessageEvent } from "isomorphic-ws";
 import { randomUUID, createHmac } from "crypto";
 import {
   parseMessage,
