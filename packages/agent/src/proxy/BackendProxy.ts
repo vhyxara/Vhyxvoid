@@ -56,7 +56,7 @@ export class BackendProxy {
     msg: TunnelForwardMsg,
   ): Promise<Omit<TunnelResponseMsg, "v" | "type" | "requestId">> {
     // ── Cache check (GET only) ────────────────────────────────────────────────
-    const cached = this.cache.get(msg.method, msg.path, msg.query);
+    const cached = this.cache.get(msg.method, msg.path, msg.query, msg.headers);
     if (cached) {
       return {
         status: cached.status,
@@ -110,13 +110,19 @@ export class BackendProxy {
       bodyBuffer.length > 0 ? bodyBuffer.toString(bodyEncoding) : null;
 
     // ── Store in cache if cacheable ───────────────────────────────────────────
-    this.cache.set(msg.method, msg.path, msg.query, {
-      status: response.status,
-      headers,
-      body: bodyStr,
-      bodyEncoding,
-      durationMs,
-    });
+    this.cache.set(
+      msg.method,
+      msg.path,
+      msg.query,
+      {
+        status: response.status,
+        headers,
+        body: bodyStr,
+        bodyEncoding,
+        durationMs,
+      },
+      msg.headers,
+    );
 
     return {
       status: response.status,
