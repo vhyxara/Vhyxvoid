@@ -3,9 +3,9 @@ title: Fastify
 description: Start a VhyxVoid tunnel from inside a Fastify app with the @vhyxvoid/middleware Fastify plugin.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/middleware": "1.0.3"
+    "@vhyxvoid/middleware": "1.0.4"
 sources:
   - packages/middleware/src/fastify.ts
   - packages/middleware/src/config.ts
@@ -14,14 +14,6 @@ sources:
 ---
 
 The Fastify integration is a plugin in the same package as the [Express](/integrations/express) one, and shares its options, defaults and credential handling. This page covers what differs.
-
-<Callout type="error" title="The published package currently crashes">
-  `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` when the plugin registers with credentials set, and your server does not start. The fix is in the package source but has not been published. Everything on this page was verified against that source. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli).
-</Callout>
-
-<Callout type="info" title="Fixed in the source, not yet published">
-  The crash is fixed in the repository, and the fixed build was checked by installing the packed package into a project with no `better-sqlite3`. Nothing has been published, so `@vhyxvoid/middleware` 1.0.3 on npm is unchanged and still crashes. The warning above stays until a fixed version is released.
-</Callout>
 
 ## Install
 
@@ -77,6 +69,6 @@ The options are the same as Express's: `key`, `secret`, `port`, `label` (default
 
 ## Things to know
 
-The same caveats as Express apply: `Host` and `x-forwarded-host` are `127.0.0.1:<port>`, `GET` responses with `Cache-Control: max-age` can be served from the agent's memory to other callers, the agent prints verbose `[agent]` debug lines, and anyone with the URL can reach your server. See [Express](/integrations/express#things-to-know) and [Limitations](/limitations).
+The same caveats as Express apply: `Host` and `x-forwarded-host` are `127.0.0.1:<port>`, `GET` responses can be cached per caller, the agent prints a couple of `[agent]` status lines (set `VHYXVOID_DEBUG_LOGGING=true` for full diagnostics), and anyone with the URL can reach your server. See [Express](/integrations/express#things-to-know) and [Limitations](/limitations).
 
 For signed webhooks, Fastify needs the raw body. See [Webhooks](/integrations/webhooks).

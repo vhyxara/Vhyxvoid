@@ -3,9 +3,9 @@ title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/agent": "1.0.18"
+    "@vhyxvoid/agent": "1.0.19"
     "@vhyxvoid/sdk": "1.0.1"
 sources:
   - packages/agent/src/cli.ts
@@ -36,27 +36,25 @@ By the end of this page you'll have a local server reachable at a public HTTPS U
 
 ## 2. Run the agent
 
-Save your credentials in a file in your project directory, and keep it out of git:
-
-```bash title=".env.vhyxvoid"
-VHYXVOID_API_KEY=vhyxvoid_dev_xxxxxxxx
-VHYXVOID_SECRET=your-key-secret
-VHYXVOID_PORT=3000
-```
+Run the interactive setup from your project directory:
 
 ```bash
-echo ".env.vhyxvoid" >> .gitignore
+npx @vhyxvoid/agent init
 ```
 
-The label defaults to `default` and the hub URL to `wss://hub.vhyxvoid.com/agent`, so you don't need to set them. Then start the tunnel:
+It asks for your key ID, the secret (shown as `*` as you type), the local port, a label, and the hub URL. Press Enter to accept the defaults for the label (`default`) and hub URL. It also asks for an account slug; leave that empty for now, because you'll see the slug in your tunnel URL in a moment.
+
+Your answers are saved to `.env.vhyxvoid`, and that file is added to your `.gitignore` (created if you don't have one) so the secret doesn't get committed.
+
+<Callout>
+  Prefer to write the file yourself? Create `.env.vhyxvoid` containing `VHYXVOID_API_KEY=…`, `VHYXVOID_SECRET=…` and `VHYXVOID_PORT=3000`, and add it to `.gitignore`. Everything else has a default. The [CLI page](/integrations/standalone-cli) lists every setting.
+</Callout>
+
+Then start the tunnel:
 
 ```bash
 npx @vhyxvoid/agent
 ```
-
-<Callout type="warn" title="vhyxvoid init does not work right now">
-  The CLI has an interactive `vhyxvoid init` command that is meant to write this file for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently after the secret prompt without writing anything, so create the file by hand as above. Details on the [CLI page](/integrations/standalone-cli). This is fixed in the source but not yet published.
-</Callout>
 
 When it connects you'll see:
 
@@ -69,7 +67,7 @@ When it connects you'll see:
   Share the Public URL — it is stable and never changes.
 ```
 
-You will also see internal debug lines starting with `[agent]` and `[batcher]`; they are noisy but harmless. (They are switched off in the source, but not yet in a published release.)
+The agent also prints a few status lines of its own, such as `[agent] authenticating with hub`, and a version banner before the tunnel comes up.
 
 That `Public` line is your tunnel URL. It has the shape `https://<account-slug>--<label>.vhyxvoid.com`. The part before `--` is your account slug and the part after it is the label you chose.
 
@@ -125,7 +123,7 @@ api
 
 Replace `acme` with the slug from your own URL. You can also set `VHYXVOID_ACCOUNT_SLUG` and `VHYXVOID_LABEL` in the environment and call `createClient()` with no arguments.
 
-`get`, `post`, `put`, `patch`, and `delete` return `{ data, status, headers, ok }`. JSON responses are parsed, text comes back as a string, and binary responses come back as a `Buffer`. A non-2xx response throws a `ClientError` carrying the `status` and the response `data`.
+`get`, `post`, `put`, `patch`, and `delete` return `{ data, status, headers, ok }`. JSON responses are parsed and text comes back as a string. Binary responses (images, PDFs) are not returned correctly by `@vhyxvoid/sdk` 1.0.1, which decodes them as text; see [Limitations](/limitations). A non-2xx response throws a `ClientError` carrying the `status` and the response `data`.
 
 <Callout type="warn" title="Use require(), not import, for now">
   In `@vhyxvoid/sdk` 1.0.1, `import { createClient } from '@vhyxvoid/sdk'` fails with `ERR_MODULE_NOT_FOUND`: the package's ESM entry point is declared but was never built. `require()` works. From an ES module, load it with `createRequire`:

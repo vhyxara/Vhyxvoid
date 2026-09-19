@@ -3,9 +3,9 @@ title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/agent": "1.0.18"
+    "@vhyxvoid/agent": "1.0.19"
 sources:
   - packages/agent/src/cli.ts
   - packages/agent/src/AgentClient.ts
@@ -57,9 +57,15 @@ VHYXVOID_LABEL=web
 
 Then just run `npx vhyxvoid`. Add `.env.vhyxvoid` to your `.gitignore`. A flag on the command line beats a value from a file; this was checked, with `--label` overriding `VHYXVOID_LABEL` from `.env.vhyxvoid`. Values in these files also take precedence over variables already set in your shell.
 
-<Callout type="warn" title="vhyxvoid init does not work right now">
-  `vhyxvoid init` is meant to ask for your details and write `.env.vhyxvoid` for you. In `@vhyxvoid/agent` 1.0.18 on Node 24 it exits silently, with status 0, right after the secret prompt, and writes nothing. Create the file by hand as above. (Other Node versions weren't tried.) This is fixed in the source but not yet published.
-</Callout>
+## Interactive setup
+
+`vhyxvoid init` asks for your details and writes `.env.vhyxvoid` for you, and adds that file to `.gitignore` (creating it if needed):
+
+```bash
+npx @vhyxvoid/agent init
+```
+
+It asks for the key ID, the secret (shown as `*`), the port, the label, the hub URL and an optional account slug, the part of your tunnel URL before `--`. Blank answers take the defaults shown in brackets. Ctrl-C at any prompt cancels without writing anything, and a blank key or secret stops with an error. It also accepts answers piped in, one per line, for scripts.
 
 ## Commands and flags
 
@@ -74,6 +80,7 @@ Then just run `npx vhyxvoid`. Add `.env.vhyxvoid` to your `.gitignore`. A flag o
 | `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
 | `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where the agent keeps its on-disk queue. |
 | `--no-local-discovery` | none | discovery on | Turn off the local discovery server. |
+| `--debug` | `VHYXVOID_DEBUG_LOGGING=true` | off | Print detailed diagnostics: one or more lines per message and per request. |
 | `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off; `.env.local` if no file is given | Write the public URL into a file after connecting. |
 | `--env-key <key>` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name that `--write-env` writes. |
 
@@ -101,15 +108,12 @@ npx vhyxvoid --label api --port 4000   # in another terminal
 - **Queue.** The agent keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`) so that responses it could not send while disconnected can be sent after it reconnects. It needs the `better-sqlite3` native module; see [Installation](/getting-started/installation). Requests that arrive while the agent is disconnected are not replayed; see [Limitations](/limitations).
 - **Local discovery.** By default the agent also listens on `127.0.0.1:4242` so that the [SDK](/sdk/overview), when it runs on the same machine, can find it. It answers only on your own machine, and has no authentication. If you don't use the SDK locally, pass `--no-local-discovery`. It is also the flag to reach for if port 4242 is already taken.
 
-## Known issues
+## Things to know
 
-These describe `@vhyxvoid/agent` 1.0.18 as published. Each of them is fixed in the source and none of the fixes is published yet; this list will shrink when a release goes out. In the source, the debug output is off unless you pass `--debug` or set `VHYXVOID_DEBUG_LOGGING=true`.
-
-- **`--version` and the startup banner show `1.0.16`.** Installed `@vhyxvoid/agent` 1.0.18 reports `1.0.16` in `vhyxvoid --version` and in the `vhyxvoid-agent v…` banner, and sends that number to VhyxVoid. It is a cosmetic bug in the published bundle; the package you installed is 1.0.18.
-- **Verbose logs.** Besides the lines shown above, the agent prints internal debug lines prefixed `[agent]` and `[batcher]`, including one per request.
-- **`vhyxvoid init` exits early.** See above.
-- **Cached responses.** The agent keeps some `GET` responses in memory and can serve them again without asking your server. It only does this when your server sends `Cache-Control` with a `max-age` above zero on a successful response. The cache key is the path and query string only, so a response meant for one user can be handed to another. This was reproduced: two requests to the same path with different cookies got the same response and the second never reached the server. If your server sends `max-age` on personalised pages, set `Cache-Control: no-store` on them while tunneling. See [Limitations](/limitations).
+- **Response caching.** The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server sends `Cache-Control` with a `max-age` above zero on a successful response. Entries are kept per caller: a cookie, an `Authorization` header, or a header whose name looks like a credential (`x-api-key`, `x-auth-token`, `x-csrf-token`, `x-session-id`, and similar) gives that caller their own entries, so two callers with different credentials never share one. Responses that set a cookie, or send `Vary: *`, are never cached, and a `Vary` header is honoured. A custom credential header with an unusual name is not recognised, so a server that authenticates that way should send `Vary` or `Cache-Control: no-store`. Cached responses carry `x-vhyxvoid-cache: HIT`. See [Limitations](/limitations#cached-responses).
 - **Host header.** Your server sees `Host: 127.0.0.1:<port>` and `x-forwarded-host` set to the same, plus `x-forwarded-by: vhyxvoid`, not the public hostname.
+- **Output.** The agent prints a version banner, a couple of `[agent]` status lines, and the tunnel details shown above. Use `--debug` for everything else.
+- **Version.** `vhyxvoid --version` and the banner show the installed package's version. Releases before 1.0.19 showed `1.0.16` for 1.0.18.
 
 ## Next steps
 

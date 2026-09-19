@@ -3,9 +3,9 @@ title: Next.js
 description: Start a VhyxVoid tunnel automatically whenever next dev runs, with @vhyxvoid/next.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/next": "1.0.3"
+    "@vhyxvoid/next": "1.0.4"
 sources:
   - packages/next/src/index.ts
   - packages/next/package.json
@@ -20,14 +20,10 @@ You need an API key first. If you don't have one, follow steps 1 and 2 of the [Q
 ## Install
 
 ```bash
-npm install --save-dev @vhyxvoid/next better-sqlite3
+npm install --save-dev @vhyxvoid/next
 ```
 
-<Callout type="warn" title="Install better-sqlite3 explicitly">
-  `@vhyxvoid/next` 1.0.3 declares no dependencies, but its bundled agent still loads `better-sqlite3` when your config is evaluated. In a fresh project, `next dev` fails with `Cannot find module 'better-sqlite3'` unless something else in your dependency tree provides it. Installing it as above (or installing `@vhyxvoid/agent`, which depends on it) fixes that. See [Installation](/getting-started/installation) for the native-module note.
-
-  This is fixed in the source, which no longer needs `better-sqlite3` for in-process use, but the fix is not published. This page describes `@vhyxvoid/next` 1.0.3 as released.
-</Callout>
+The package has no runtime dependencies of its own, and it does not need `better-sqlite3`: the tunnel runs inside your dev server without the on-disk queue that module is used for.
 
 ## Configure
 
@@ -110,7 +106,7 @@ With `writeEnv: '.env.local'`, the agent writes `NEXT_PUBLIC_TUNNEL_URL=https://
 
 - **Dev origins.** The browser loads your app from the tunnel URL, which Next treats as a different origin from `localhost`. On Next 16.1.1 this only logs a warning (`Cross origin request detected to /_next/* resource`), and a future major version will require the origin to be allowed. The `allowedDevOrigins` line in the config above avoids the warning; with it in place the warning did not appear in testing. Use your own slug in place of the wildcard if you prefer.
 - **Host header.** Requests reach Next with `Host` set to `127.0.0.1:<port>`, and `x-forwarded-host` set to the same value, not the public hostname. Code that builds absolute URLs from those headers will produce `127.0.0.1` addresses. Use the public URL from `NEXT_PUBLIC_TUNNEL_URL` instead.
-- **Response caching.** If a route sends `Cache-Control: max-age=…` on a `GET`, the agent may serve that response from memory to other callers. This ignores cookies. See [Limitations](/limitations).
+- **Response caching.** If your server answers a `GET` with `Cache-Control: max-age=…`, the agent may serve repeat requests from memory. Entries are kept per caller: requests with different cookies, `Authorization` or API-key style headers never share one, and responses that set a cookie are not cached. See [Limitations](/limitations#cached-responses).
 - **Public by design.** Anyone with the URL can reach your dev server. See [Limitations](/limitations).
 - **Reconnects.** If the connection to VhyxVoid drops, the agent reconnects by itself. Requests made while it is down are not replayed. See [Limitations](/limitations).
 

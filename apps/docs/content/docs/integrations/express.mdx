@@ -3,9 +3,9 @@ title: Express
 description: Start a VhyxVoid tunnel from inside an Express app with @vhyxvoid/middleware.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/middleware": "1.0.3"
+    "@vhyxvoid/middleware": "1.0.4"
 sources:
   - packages/middleware/src/index.ts
   - packages/middleware/src/config.ts
@@ -14,14 +14,6 @@ sources:
 ---
 
 `@vhyxvoid/middleware` starts the VhyxVoid agent inside your Express process. Add one line and your server gets a public URL, with no separate `vhyxvoid` process to run.
-
-<Callout type="error" title="The published package currently crashes">
-  `@vhyxvoid/middleware` 1.0.3, the version on npm today, throws `Error: Could not locate the bindings file` as soon as `vhyxvoid()` runs with credentials set, and your server does not start. Its bundle predates the in-process fix described below and still tries to open an on-disk SQLite queue. Everything on this page was verified against the current source of the package, which does not have this problem, but that fix has not been published yet. Until a new version is released, run the agent next to your server with the [CLI](/integrations/standalone-cli) instead.
-</Callout>
-
-<Callout type="info" title="Fixed in the source, not yet published">
-  The crash is fixed in the repository, and the fixed build was checked by installing the packed package into a project with no `better-sqlite3`. Nothing has been published, so `@vhyxvoid/middleware` 1.0.3 on npm is unchanged and still crashes. The warning above stays until a fixed version is released.
-</Callout>
 
 ## Install
 
@@ -109,6 +101,6 @@ The tunnel starts once per process. Calling `vhyxvoid()` again logs `tunnel alre
 - **No on-disk queue.** The middleware runs the agent in-process without the SQLite queue and without the local discovery server, so it creates no queue database. The agent reconnects to VhyxVoid by itself if the connection drops.
 - **Host header.** Requests reach Express with `Host` set to `127.0.0.1:<port>` and `x-forwarded-host` set to the same, not the public hostname. Build absolute URLs from the public URL, not from those headers.
 - **Body parsers.** Signed webhooks need the raw body. Mount `express.raw()` on those routes before any global `express.json()`. See [Webhooks](/integrations/webhooks).
-- **Response caching.** A `GET` response with `Cache-Control: max-age=…` may be served from the agent's memory to other callers, ignoring cookies. See [Limitations](/limitations).
+- **Response caching.** If your server answers a `GET` with `Cache-Control: max-age=…`, the agent may serve repeat requests from memory. Entries are kept per caller: requests with different cookies, `Authorization` or API-key style headers never share one, and responses that set a cookie are not cached. See [Limitations](/limitations#cached-responses).
 - **Public by design.** Anyone with the URL can reach your server. See [Limitations](/limitations).
-- **Verbose logs.** The agent currently prints internal `[agent]` and `[batcher]` debug lines in addition to the messages shown above.
+- **Extra output.** Besides the messages above, the agent prints a couple of `[agent]` status lines. Set `VHYXVOID_DEBUG_LOGGING=true` for full diagnostics.

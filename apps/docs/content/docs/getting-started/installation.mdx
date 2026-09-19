@@ -3,12 +3,12 @@ title: Installation
 description: Which VhyxVoid package to install for what.
 verified:
   date: "2026-09-19"
-  commit: 1a72d96
+  commit: a91d383
   packages:
-    "@vhyxvoid/agent": "1.0.18"
+    "@vhyxvoid/agent": "1.0.19"
     "@vhyxvoid/sdk": "1.0.1"
-    "@vhyxvoid/middleware": "1.0.3"
-    "@vhyxvoid/next": "1.0.3"
+    "@vhyxvoid/middleware": "1.0.4"
+    "@vhyxvoid/next": "1.0.4"
 sources:
   - packages/agent/package.json
   - packages/sdk/package.json
@@ -21,8 +21,8 @@ VhyxVoid ships four npm packages. Pick by what you're doing:
 | You want to… | Install | Guide |
 | --- | --- | --- |
 | Tunnel any local server, from the command line | `@vhyxvoid/agent` | [Quickstart](/getting-started/quickstart) |
-| Start the tunnel from inside a Next.js app | `@vhyxvoid/next` and `better-sqlite3` | [Next.js](/integrations/nextjs) |
-| Start the tunnel from inside an Express or Fastify app (see the warning below) | `@vhyxvoid/middleware` | [Express](/integrations/express), [Fastify](/integrations/fastify) |
+| Start the tunnel from inside a Next.js app | `@vhyxvoid/next` | [Next.js](/integrations/nextjs) |
+| Start the tunnel from inside an Express or Fastify app | `@vhyxvoid/middleware` | [Express](/integrations/express), [Fastify](/integrations/fastify) |
 | Call a tunneled server from code | `@vhyxvoid/sdk` | [SDK overview](/sdk/overview) |
 
 For most projects, install the one you need as a development dependency:
@@ -34,11 +34,7 @@ npm install --save-dev @vhyxvoid/agent
 You can also run the agent without installing it, with `npx @vhyxvoid/agent`, as the quickstart does.
 
 <Callout title="Native module">
-  The agent depends on `better-sqlite3`, which includes a native component. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. `@vhyxvoid/next` and `@vhyxvoid/middleware` bundle the agent but do not declare this dependency, so a fresh project must install `better-sqlite3` itself, or `@vhyxvoid/agent`, which brings it along. The [Next.js](/integrations/nextjs) page shows the error you get otherwise. This is fixed in the source but not yet published.
-</Callout>
-
-<Callout type="error" title="@vhyxvoid/middleware 1.0.3 currently crashes">
-  The Express and Fastify integration in the published `@vhyxvoid/middleware` 1.0.3 fails at startup when credentials are set. Use the [CLI](/integrations/standalone-cli) for those frameworks until a fixed version is published. Details on the [Express](/integrations/express) page. The crash is fixed in the source but not yet published.
+  Only `@vhyxvoid/agent` depends on `better-sqlite3`, which includes a native component, for the on-disk queue the CLI uses. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. `@vhyxvoid/next` and `@vhyxvoid/middleware` run the agent inside your process without that queue, have no dependencies of their own, and install nothing native.
 </Callout>
 
 <Callout type="warn" title="The Next.js integration">
