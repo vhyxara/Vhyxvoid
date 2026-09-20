@@ -1,0 +1,16 @@
+# TEMPORARY SAFEGUARD — remove once the migration fix has proven stable.
+#
+# Compose merges this file automatically on every `docker compose up`,
+# including the @reboot cron entry. It makes the api skip
+# `prisma migrate deploy` on start and run the app directly, so a failed
+# migration record in the database can't crash-loop the api and take the
+# whole stack down.
+#
+# Background: migration 20260426101925_serverboot was recorded as failed
+# in production (P3009) and blocked every api start. It was marked
+# rolled back on 2026-09-20. While this file is in place, new migrations
+# are NOT applied on deploy — run `prisma migrate deploy` by hand if you
+# add one, or delete this file.
+services:
+  api:
+    command: ["node", "bootstrap.js"]
