@@ -15,7 +15,7 @@
 
 import { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID } from 'crypto';
-import { AgentRegistry, PendingRegistry } from '@/registry';
+import { AgentRegistry, PendingRegistry, TunnelWsRegistry, closeBrowserSocket } from '@/registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
 import {
   TunnelForwardMsg,
@@ -25,9 +25,9 @@ import {
   TunnelWsOpenMsg,
   serialize,
   isBinaryContentType,
+  toSendableCloseCode,
 } from '@vhyxvoid/protocol';
 import type { Socket } from 'net';
-// import { WsConnectionRegistry } from '@/registry/WsConnection.registry';
 import { WebSocketServer, WebSocket } from 'ws';
 import { debugLog } from '@/utils/debug';
 import { getTunnelRequestTimeoutMs } from '@/utils/tunnelTimeout';
@@ -41,7 +41,10 @@ export class HttpTunnelHandler {
     private readonly agentRegistry: AgentRegistry,
     private readonly pendingRegistry: PendingRegistry,
     private readonly hubDomain: string, // e.g. "vhyxvoid.com"
-    // private readonly wsRegistry: WsConnectionRegistry,
+    // One instance shared with nothing else today, but constructor-injectable so
+    // HubServer owns its lifetime like every other registry. The default keeps
+    // callers that only exercise the HTTP path (tests) unchanged.
+    private readonly tunnelWsRegistry: TunnelWsRegistry = new TunnelWsRegistry(),
   ) {}
 
   /**
@@ -282,13 +285,26 @@ export class HttpTunnelHandler {
       return;
     }
 
-    // Create a local WSS to handle the browser WebSocket upgrade
-    // const wss = new WebSocketServer({ noServer: true });
-
     this.tunnelWss.handleUpgrade(req, socket, head, (browserWs) => {
       const connectionId = `ws_${randomUUID().replace(/-/g, '')}`;
 
       debugLog('[tunnel-ws] browser connected:', connectionId, req.url);
+
+      // Register BEFORE telling the agent, so any frame or close the agent sends
+      // back can already be attributed to (and checked against) its owner.
+      this.tunnelWsRegistry.add({
+        connectionId,
+        accountId: entry.accountId,
+        agentId: agent.agentId,
+        browserWs,
+        openedAt: Date.now(),
+      });
+
+      // A ws with no 'error' listener throws on error and takes the hub down;
+      // an error is always followed by 'close', which does the cleanup.
+      browserWs.on('error', (err) => {
+        debugLog('[tunnel-ws] browser socket error:', connectionId, err.message);
+      });
 
       // Tell agent to open WS to local backend
       const openMsg: TunnelWsOpenMsg = {
@@ -303,6 +319,14 @@ export class HttpTunnelHandler {
 
       // Browser → Agent → Backend
       browserWs.on('message', (data: Buffer, isBinary: boolean) => {
+        // Resolve the owning agent at send time, not at upgrade time: the agent
+        // may have reconnected (new agentId) since, and the socket captured at
+        // upgrade would now be dead.
+        const owner = this.agentRegistry.findByAgentId(agent.agentId);
+        if (!owner) {
+          this.teardown(connectionId, 1012, 'Tunnel agent disconnected', false);
+          return;
+        }
         const msg: TunnelWsMessageMsg = {
           v: '1',
           type: 'tunnel:ws:message',
@@ -310,30 +334,95 @@ export class HttpTunnelHandler {
           data: isBinary ? data.toString('base64') : data.toString('utf8'),
           isBinary,
         };
-        agent.ws.send(serialize(msg as any));
+        try {
+          owner.ws.send(serialize(msg));
+        } catch {
+          this.teardown(connectionId, 1011, 'Tunnel send failed', false);
+        }
       });
 
       browserWs.on('close', (code, reason) => {
-        const msg: TunnelWsCloseMsg = {
-          v: '1',
-          type: 'tunnel:ws:close',
-          connectionId,
-          code,
-          reason: reason.toString(),
-        };
-        try {
-          agent.ws.send(serialize(msg as any));
-        } catch {
-          // ignore
-        }
-        // this.pendingRegistry['wsConnections']?.delete(connectionId);
-        this.activeBrowserWs.delete(connectionId);
+        // Already torn down from the agent side / by a dropped agent: nothing
+        // left to notify or clean. (Also makes the teardown idempotent.)
+        if (!this.tunnelWsRegistry.delete(connectionId)) return;
+        this.notifyAgentClosed(agent.agentId, connectionId, code, reason.toString());
       });
-
-      // Store browser WS so agent responses can find it
-      // Reuse PendingRegistry pattern — store in a simple map on the handler
-      this.activeBrowserWs.set(connectionId, browserWs);
     });
+  }
+
+  // ── Agent → browser tunnel:ws:* ────────────────────────────────────────────
+  // Every handler takes the id of the agent the frame ARRIVED FROM (resolved by
+  // the router from the sending socket) and only acts if that agent owns the
+  // connection. connectionIds are unguessable, but an agent that learns one must
+  // still not be able to inject into, or close, another account's browser socket.
+
+  private ownedEntry(connectionId: string, fromAgentId: string) {
+    const entry = this.tunnelWsRegistry.get(connectionId);
+    if (!entry) return undefined;
+    if (entry.agentId !== fromAgentId) {
+      console.warn(
+        { connectionId, fromAgentId, ownerAgentId: entry.agentId },
+        '[tunnel-ws] ignoring tunnel:ws frame from an agent that does not own the connection',
+      );
+      return undefined;
+    }
+    return entry;
+  }
+
+  handleAgentWsMessage(msg: TunnelWsMessageMsg, fromAgentId: string): void {
+    const entry = this.ownedEntry(msg.connectionId, fromAgentId);
+    if (!entry || entry.browserWs.readyState !== WebSocket.OPEN) return;
+
+    const payload = msg.isBinary ? Buffer.from(msg.data, 'base64') : msg.data;
+    entry.browserWs.send(payload);
+  }
+
+  handleAgentWsClose(msg: TunnelWsCloseMsg, fromAgentId: string): void {
+    if (!this.ownedEntry(msg.connectionId, fromAgentId)) return;
+    this.teardown(msg.connectionId, msg.code, msg.reason, false);
+  }
+
+  handleAgentWsError(msg: { connectionId: string; message: string }, fromAgentId: string): void {
+    if (!this.ownedEntry(msg.connectionId, fromAgentId)) return;
+    // The agent's message is a raw local error (e.g. "connect ECONNREFUSED
+    // 127.0.0.1:3000") — it names the developer's local port, so it stays in
+    // the hub's logs and never reaches the browser.
+    debugLog('[tunnel-ws] agent reported error:', msg.connectionId, msg.message);
+    this.teardown(msg.connectionId, 1011, 'Tunnel backend error', false);
+  }
+
+  /** Closes every tunnel WebSocket owned by an agent whose hub link is gone. */
+  closeAllForAgent(agentId: string, code: number, reason: string): number {
+    return this.tunnelWsRegistry.closeAllForAgent(agentId, code, reason);
+  }
+
+  /**
+   * Single teardown path for a tunnel WebSocket: removes it from the registry,
+   * closes the browser socket (never leaving it open — see closeBrowserSocket),
+   * and optionally tells the agent to close the backend side. Idempotent.
+   */
+  private teardown(connectionId: string, code: number, reason: string, notifyAgent: boolean): void {
+    const entry = this.tunnelWsRegistry.delete(connectionId);
+    if (!entry) return;
+    closeBrowserSocket(entry.browserWs, code, reason);
+    if (notifyAgent) this.notifyAgentClosed(entry.agentId, connectionId, code, reason);
+  }
+
+  private notifyAgentClosed(agentId: string, connectionId: string, code: number, reason: string): void {
+    const owner = this.agentRegistry.findByAgentId(agentId);
+    if (!owner) return;
+    const msg: TunnelWsCloseMsg = {
+      v: '1',
+      type: 'tunnel:ws:close',
+      connectionId,
+      code: toSendableCloseCode(code),
+      reason,
+    };
+    try {
+      owner.ws.send(serialize(msg));
+    } catch {
+      // agent link already gone — its own cleanup closes the backend socket
+    }
   }
 
   // ── Private helpers ───────────────────────────────────────
@@ -491,39 +580,5 @@ export class HttpTunnelHandler {
     return hopByHop.has(header.toLowerCase());
   }
 
-  // Add to class:
-  private readonly activeBrowserWs = new Map<string, WebSocket>();
-
   private readonly tunnelWss = new WebSocketServer({ noServer: true });
-
-  // Called by MessageRouter when agent sends tunnel:ws:* messages back
-  handleAgentWsMessage(msg: TunnelWsMessageMsg): void {
-    const ws = this.activeBrowserWs.get(msg.connectionId);
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    const payload = msg.isBinary ? Buffer.from(msg.data, 'base64') : msg.data;
-    ws.send(payload);
-  }
-
-  handleAgentWsClose(msg: TunnelWsCloseMsg): void {
-    const ws = this.activeBrowserWs.get(msg.connectionId);
-    if (!ws) return;
-    try {
-      ws.close(msg.code, msg.reason);
-    } catch {
-      // Ignore
-    }
-    this.activeBrowserWs.delete(msg.connectionId);
-  }
-
-  handleAgentWsError(msg: { connectionId: string; message: string }): void {
-    const ws = this.activeBrowserWs.get(msg.connectionId);
-    if (!ws) return;
-    try {
-      ws.close(1011, msg.message);
-    } catch {
-      // Ignore
-    }
-    this.activeBrowserWs.delete(msg.connectionId);
-  }
 }

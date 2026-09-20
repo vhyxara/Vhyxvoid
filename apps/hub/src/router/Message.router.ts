@@ -95,11 +95,11 @@ export class MessageRouter {
         case 'tunnel:agent-error':
           return this.handleTunnelAgentError(msg as TunnelAgentErrorMsg);
         case 'tunnel:ws:message':
-          return this.handleAgentWsMessage(msg as TunnelWsMessageMsg);
+          return this.handleAgentWsMessage(ws, msg as TunnelWsMessageMsg);
         case 'tunnel:ws:close':
-          return this.handleAgentWsClose(msg as TunnelWsCloseMsg);
+          return this.handleAgentWsClose(ws, msg as TunnelWsCloseMsg);
         case 'tunnel:ws:error':
-          return this.handleAgentWsError(msg as any);
+          return this.handleAgentWsError(ws, msg as any);
         default:
           return this.sendToWs(
             ws,
@@ -173,6 +173,13 @@ export class MessageRouter {
     this.agentRegistry.evict(session.accountId, session.label);
 
     const rejected = this.pendingRegistry.rejectAllForAgent(session.accountId, session.label);
+    // Tunnel WebSockets have no PendingRegistry entry (no response to reject);
+    // close them explicitly. 1012 = "Service Restart": clients reconnect.
+    const wsClosed = this.httpTunnelHandler.closeAllForAgent(
+      session.agentId,
+      1012,
+      'Tunnel agent disconnected',
+    );
 
     this.sessionRepo.markDisconnected(session.agentId, 'DISCONNECTED').catch(() => {});
     // Unregister subdomain from Redis
@@ -191,6 +198,7 @@ export class MessageRouter {
         accountId: session.accountId,
         label: session.label,
         rejected,
+        wsClosed,
       },
       '[router] agent disconnected',
     );
@@ -268,6 +276,14 @@ export class MessageRouter {
       agentVersion: msg.agentVersion,
       ip,
     };
+    // A same-label re-registration evicts the previous session inside
+    // AgentRegistry.register(); that session's socket close then finds no
+    // session, so onAgentClose never runs for it. Close its tunnel WebSockets
+    // here instead, or they would be orphaned.
+    const replaced = this.agentRegistry.find(apiKey.accountId, msg.label);
+    if (replaced) {
+      this.httpTunnelHandler.closeAllForAgent(replaced.agentId, 1012, 'Tunnel agent replaced');
+    }
     this.agentRegistry.register(session);
 
     // 6. Send registered response with tunnelUrl included
@@ -351,6 +367,18 @@ export class MessageRouter {
           case 'agent:pong':
             this.handleAgentPong(item);
             break;
+          // Agents before the WS-relay fix batched WebSocket frames; without
+          // these cases every frame that shared a 50ms window with another
+          // message was silently dropped (ws-tunnel-design.md, D1).
+          case 'tunnel:ws:message':
+            this.handleAgentWsMessage(ws, item);
+            break;
+          case 'tunnel:ws:close':
+            this.handleAgentWsClose(ws, item);
+            break;
+          case 'tunnel:ws:error':
+            this.handleAgentWsError(ws, item);
+            break;
         }
       } catch (err) {
         // console.error({ err, type: item.type }, '[router] error in batch item');
@@ -392,14 +420,21 @@ export class MessageRouter {
       })
       .catch(() => {});
   }
-  private handleAgentWsMessage(msg: TunnelWsMessageMsg): void {
-    this.httpTunnelHandler.handleAgentWsMessage(msg);
+  // tunnel:ws:* handlers resolve WHICH agent sent the frame from the socket it
+  // arrived on and hand that to the tunnel handler, which only acts if that
+  // agent owns the connection (ws-tunnel-design.md, D10). An unregistered
+  // socket has no agent identity, so its frames are ignored.
+  private handleAgentWsMessage(ws: unknown, msg: TunnelWsMessageMsg): void {
+    const session = this.agentRegistry.findByWs(ws);
+    if (session) this.httpTunnelHandler.handleAgentWsMessage(msg, session.agentId);
   }
-  private handleAgentWsClose(msg: TunnelWsCloseMsg): void {
-    this.httpTunnelHandler.handleAgentWsClose(msg);
+  private handleAgentWsClose(ws: unknown, msg: TunnelWsCloseMsg): void {
+    const session = this.agentRegistry.findByWs(ws);
+    if (session) this.httpTunnelHandler.handleAgentWsClose(msg, session.agentId);
   }
-  private handleAgentWsError(msg: { connectionId: string; message: string }): void {
-    this.httpTunnelHandler.handleAgentWsError(msg);
+  private handleAgentWsError(ws: unknown, msg: { connectionId: string; message: string }): void {
+    const session = this.agentRegistry.findByWs(ws);
+    if (session) this.httpTunnelHandler.handleAgentWsError(msg, session.agentId);
   }
   // ── SDK handlers ───────────────────────────────────────────────────────────
 

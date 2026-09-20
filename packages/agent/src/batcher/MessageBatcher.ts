@@ -9,15 +9,13 @@ import {
   AgentBatchMsg,
   serialize,
   TIMING,
-  TunnelWsMessageMsg,
 } from "@vhyxvoid/protocol";
 import { debugLog } from "../debug";
 
-export type BatchableMsg =
-  | TunnelResponseMsg
-  | TunnelAgentErrorMsg
-  | AgentPongMsg
-  | TunnelWsMessageMsg;
+// tunnel:ws:* frames are deliberately NOT batchable: they must stay ordered with
+// tunnel:ws:close/error, which are sent immediately, and must never reach the
+// durable queue (ws-tunnel-design.md, D2/D6). The type keeps them out.
+export type BatchableMsg = TunnelResponseMsg | TunnelAgentErrorMsg | AgentPongMsg;
 
 type FlushFn = (data: string) => void;
 type QueueFallback = (msg: TunnelResponseMsg | TunnelAgentErrorMsg) => void;

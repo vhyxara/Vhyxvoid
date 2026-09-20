@@ -395,8 +395,14 @@ export class AgentClient {
           data,
           isBinary,
         };
-        // this.sendRaw(serialize(frame));
-        this.batcher.add(frame);
+        // Same ordered channel as :close and :error — NOT the batcher. Batching
+        // let a close overtake buffered frames (they flushed up to 50ms later,
+        // into an already-closed socket), added up to 50ms latency to every
+        // frame, and a batch that reached an older hub was dropped whole.
+        // Frames are also never worth persisting: if the hub link is down the
+        // connection is dead (onClose closes it), so sendRaw's no-op is right and
+        // the durable queue must not fill with frames for dead connections.
+        this.sendRaw(serialize(frame));
       },
       // Backend closed
       (code, reason) => {
@@ -439,6 +445,10 @@ export class AgentClient {
 
     if (this.stopped) return;
     this.log.warn({ code, reason }, "[agent] WS closed — scheduling reconnect");
+    // Tunnel WebSockets do not survive a hub reconnect (the hub closes the
+    // browser side on its end). Close the backend sockets now, or they stay
+    // open on the developer's server with nobody on the other end.
+    this.proxy.closeAllWebSockets();
     this.batcher.flushToQueue(); // save in-memory buffer to SQLite
     this.setState("RECONNECTING");
     this.scheduleReconnect();

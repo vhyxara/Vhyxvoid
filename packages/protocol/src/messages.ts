@@ -52,7 +52,17 @@ export interface TunnelAgentErrorMsg {
 export interface AgentBatchMsg {
   v: "1";
   type: "agent:batch";
-  messages: Array<TunnelResponseMsg | TunnelAgentErrorMsg | AgentPongMsg>;
+  // The tunnel:ws:* members are accepted from agents that still batch WebSocket
+  // frames (agents before the WS-relay fix did); current agents send them
+  // unbatched. Hub-side handling must stay for the mixed-version window.
+  messages: Array<
+    | TunnelResponseMsg
+    | TunnelAgentErrorMsg
+    | AgentPongMsg
+    | TunnelWsMessageMsg
+    | TunnelWsCloseMsg
+    | TunnelWsErrorMsg
+  >;
 }
 
 // ── Hub → Agent ──────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid';
 import { AgentRegistry } from '@/registry/Agent.registry';
 import { SdkRegistry } from '@/registry/Sdk.registry';
 import { PendingRegistry } from '@/registry/Pending.registry';
+import { TunnelWsRegistry } from '@/registry/TunnelWs.registry';
 import { MessageRouter } from '@/router/Message.router';
 import { HubAuthService } from '@/services/HubAuth.service';
 import { HeartbeatService } from '@/services/Heartbeat.service';
@@ -114,7 +115,7 @@ export class HubServer {
       this.agentRegistry,
       this.pendingRegistry,
       config.hubDomain,
-      // this.wsRegistry,
+      new TunnelWsRegistry(),
     );
 
     // ── Router ───────────────────────────────────────────────────────────────
@@ -314,10 +315,7 @@ export class HubServer {
         return; // ← httpTunnelHandler creates its own wss internally, never touches the main wss
       }
 
-      // ← ADD THIS: if it's a tunnel subdomain trying to upgrade to WebSocket
-      // (e.g. someone running socket.io through the tunnel)
-      // we need to forward the upgrade too — but that is Phase 2.
-      // For now, reject non-agent/sdk WebSocket upgrades cleanly.
+      // Not /agent, /sdk or a tunnel host: nothing to upgrade.
       socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
       socket.destroy();
     });

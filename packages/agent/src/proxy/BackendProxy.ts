@@ -8,6 +8,7 @@ import {
   TunnelResponseMsg,
   LIMITS,
   isBinaryContentType,
+  toSendableCloseCode,
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
 import WebSocket from "ws";
@@ -256,8 +257,9 @@ export class BackendProxy {
   closeWebSocket(connectionId: string, code: number, reason: string): void {
     const ws = this.wsConnections.get(connectionId);
     if (!ws) return;
-    // Sanitize close code — ws library only accepts 1000 or 3000-4999
-    const safeCode = code >= 1000 && code <= 4999 ? code : 1000;
+    // Sanitize close code — `ws` throws for 1005/1006/1015 and other reserved
+    // values; the hub can relay any of them (see closeCode.ts).
+    const safeCode = toSendableCloseCode(code);
     try {
       ws.close(safeCode, reason);
     } catch {
