@@ -12,7 +12,7 @@ services:
     env_file:
       - ./apps/api/.env.production # ← contains PRIVATE_KEY_B64 already
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     networks:
       - platform
     healthcheck:
@@ -31,7 +31,7 @@ services:
     env_file:
       - ./apps/hub/.env.production
     ports:
-      - "9001:9001"
+      - "127.0.0.1:9001:9001"
     networks:
       - platform
     healthcheck:
