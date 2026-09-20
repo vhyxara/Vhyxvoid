@@ -36,3 +36,6 @@ apps/api/keys/*certbot/
 vhyxconfig.md
 .claude
 internal-tools
+# Private keys and certificates — never commit
+/certbot/
+/apps/api/keys/
