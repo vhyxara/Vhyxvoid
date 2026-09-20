@@ -1,3 +1,7 @@
+# Pinned so the project name (and so the black-server_platform network and
+# image names) stays stable if the checkout directory is renamed.
+name: black-server
+
 services:
   api:
     build:
