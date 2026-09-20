@@ -30,6 +30,12 @@ services:
       - "9001:9001"
     networks:
       - platform
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:9001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
       api:
         condition: service_healthy
@@ -47,6 +53,8 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
     depends_on:
       api:
+        condition: service_healthy
+      hub:
         condition: service_healthy
     networks:
       - platform
