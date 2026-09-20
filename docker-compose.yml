@@ -54,6 +54,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./cloudflare-ips.conf:/etc/nginx/cloudflare-ips.conf:ro
+      - ./cloudflare-allow.conf:/etc/nginx/cloudflare-allow.conf:ro
       - ./certbot/www:/var/www/certbot:ro
       - ./certbot/conf:/etc/letsencrypt:ro
     depends_on:
