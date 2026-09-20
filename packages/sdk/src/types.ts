@@ -9,7 +9,7 @@ export interface TunnelClientConfig {
   secret: string;
   /** Target tunnel label (optional — defaults to first connected agent) */
   label?: string;
-  /** Per-request timeout in ms (default: 30000) */
+  /** Per-request timeout in ms (default: protocol TIMING.REQUEST_TIMEOUT_MS, 120000) */
   timeout?: number;
   /** Enable local agent discovery for sub-1ms local-to-local calls (default: true) */
   localDiscovery?: boolean;

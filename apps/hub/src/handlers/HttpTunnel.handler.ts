@@ -30,9 +30,7 @@ import type { Socket } from 'net';
 // import { WsConnectionRegistry } from '@/registry/WsConnection.registry';
 import { WebSocketServer, WebSocket } from 'ws';
 import { debugLog } from '@/utils/debug';
-
-// How long to wait for the agent to respond before returning 504
-const REQUEST_TIMEOUT_MS = 30_000;
+import { getTunnelRequestTimeoutMs } from '@/utils/tunnelTimeout';
 
 // Max request body size — 10MB
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
@@ -185,6 +183,9 @@ export class HttpTunnelHandler {
       }
     }
 
+    // How long to wait for the agent to respond before returning 504
+    const requestTimeoutMs = getTunnelRequestTimeoutMs();
+
     // Build forward message
     const requestId = `req_${randomUUID().replace(/-/g, '')}`;
 
@@ -201,7 +202,7 @@ export class HttpTunnelHandler {
       headers: forwardHeaders,
       body: body,
       bodyEncoding,
-      timeoutMs: REQUEST_TIMEOUT_MS - 2000,
+      timeoutMs: requestTimeoutMs - 2000,
     };
 
     // Enqueue pending request — resolve/reject when agent responds
@@ -209,7 +210,7 @@ export class HttpTunnelHandler {
       const timer = setTimeout(() => {
         this.pendingRegistry.reject(requestId, 'AGENT_TIMEOUT', 'Agent did not respond in time');
         outerResolve();
-      }, REQUEST_TIMEOUT_MS);
+      }, requestTimeoutMs);
 
       this.pendingRegistry.enqueue({
         requestId,

@@ -35,6 +35,7 @@ export class BackendProxy {
   constructor(private readonly port: number) {
     this.client = axios.create({
       baseURL: `http://127.0.0.1:${port}`,
+      // Fallback only — forward() passes the hub's per-request timeoutMs.
       timeout: 28_000,
       maxContentLength: LIMITS.MAX_PAYLOAD_BYTES,
       maxBodyLength: LIMITS.MAX_PAYLOAD_BYTES,
@@ -89,6 +90,8 @@ export class BackendProxy {
       url,
       headers: this.sanitizeInboundHeaders(msg.headers),
       data: requestData,
+      // Honor the hub's per-request budget (an older hub omits it → fallback).
+      ...(msg.timeoutMs ? { timeout: msg.timeoutMs } : {}),
     });
 
     const bodyBuffer = response.data as Buffer;

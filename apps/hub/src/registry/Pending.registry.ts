@@ -4,7 +4,7 @@
 
 import type { Redis } from '@upstash/redis';
 import type { TunnelResponseMsg, TunnelErrorCode } from '@vhyxvoid/protocol';
-import { TIMING } from '@vhyxvoid/protocol';
+import { getPendingTtlMs } from '@/utils/tunnelTimeout';
 
 export interface PendingRequest {
   requestId: string;
@@ -32,7 +32,7 @@ export class PendingRegistry {
           agentLabel: req.agentLabel,
           ts: req.enqueuedAt,
         }),
-        { px: TIMING.PENDING_TTL_MS },
+        { px: getPendingTtlMs() },
       )
       .catch(() => {});
   }

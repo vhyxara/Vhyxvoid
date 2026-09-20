@@ -20,7 +20,6 @@ import {
   HubRegisteredMsg,
   SdkRegisteredMsg,
   TunnelForwardMsg,
-  TIMING,
   LIMITS,
   TunnelWsMessageMsg,
   TunnelWsCloseMsg,
@@ -47,6 +46,7 @@ import { SdkRegistry } from '@/registry/Sdk.registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from '@/handlers/HttpTunnel.handler';
 import { debugLog } from '@/utils/debug';
+import { getTunnelRequestTimeoutMs } from '@/utils/tunnelTimeout';
 
 export class MessageRouter {
   constructor(
@@ -508,7 +508,7 @@ export class MessageRouter {
           'AGENT_TIMEOUT',
           'Request timed out waiting for agent response',
         );
-      }, TIMING.REQUEST_TIMEOUT_MS),
+      }, getTunnelRequestTimeoutMs()),
     });
 
     // 5. Forward to agent
@@ -521,7 +521,7 @@ export class MessageRouter {
       query: msg.query,
       headers: msg.headers,
       body: msg.body,
-      timeoutMs: TIMING.REQUEST_TIMEOUT_MS - 2000,
+      timeoutMs: getTunnelRequestTimeoutMs() - 2000,
     };
     this.sendToWs(agent.ws, forward);
 

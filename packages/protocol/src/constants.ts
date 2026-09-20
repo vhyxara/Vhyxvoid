@@ -5,10 +5,13 @@
 export const PROTOCOL_VERSION = "1" as const;
 
 export const TIMING = {
-  /** How long hub waits for agent response before timing out the SDK request */
-  REQUEST_TIMEOUT_MS: 30_000,
+  /**
+   * Default for how long hub waits for an agent response before timing out a
+   * tunneled request. The hub overrides this via TUNNEL_REQUEST_TIMEOUT_MS.
+   */
+  REQUEST_TIMEOUT_MS: 120_000,
   /** Buffer over REQUEST_TIMEOUT_MS for hub:pending Redis TTL */
-  PENDING_TTL_MS: 32_000,
+  PENDING_TTL_MS: 122_000,
   /** Hub pings every N ms */
   HEARTBEAT_INTERVAL_MS: 15_000,
   /** Miss this many pings → agent evicted */
