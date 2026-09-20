@@ -2,8 +2,8 @@
 title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
-  date: "2026-09-19"
-  commit: 7f81b9d
+  date: "2026-09-21"
+  commit: 2b854f2
   packages:
     "@vhyxvoid/agent": "1.0.19"
     "@vhyxvoid/sdk": "1.1.0"
@@ -23,7 +23,7 @@ sources:
 
 ## Requests don't survive agent disconnects
 
-If your agent loses its connection to VhyxVoid and a request arrives before it reconnects, that request is not held and replayed afterwards. The caller gets a `504` after the 30 second timeout.
+If your agent loses its connection to VhyxVoid and a request arrives before it reconnects, that request is not held and replayed afterwards. The caller gets an error instead: a `503` if the hub already knows the agent is gone, or a `502` or `504` if the connection dropped while the request was in flight.
 
 - **`GET` and other safe requests:** retrying is fine.
 - **`POST`, `PUT`, `PATCH`, `DELETE`:** a request that was already handed to your server can still be processed after the caller has been told it failed. Retrying may apply the change twice. Make these handlers idempotent (for example with an idempotency key) if a duplicate would cause harm.
@@ -45,6 +45,16 @@ An earlier version of this page, and other descriptions of the SDK, called the W
 - **In a browser, call your tunnel URL directly.** It is a public URL that needs no key, so plain `fetch` works. Don't put an API key or secret in client-side code.
 - **What `TunnelClient` is for.** A Node.js process that wants one persistent WebSocket connection to the hub instead of a new HTTPS request per call. Keep its key ID and secret on the server, in environment variables. The HTTP client (`createClient`) is the default choice and needs no key at all.
 
+## WebSockets through a tunnel are partial
+
+A WebSocket connection to a tunnel URL is carried to your server, and a simple connection that sends and receives a few messages works. It is **not yet reliable** for the tools that rely on it:
+
+- Vite hot reload fails, because the relay doesn't handle WebSocket subprotocols. The browser sees the connection close with code `1011`.
+- A message sent right after the connection opens can be lost, which makes socket.io fall back to long polling.
+- There is no cap on connections and no keep-alive.
+
+Fixes for messages lost in bursts and for sockets left open after a disconnect are in the repository but not in any released agent yet. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
+
 ## Cached responses
 
 The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero, and it marks responses with an `x-vhyxvoid-cache: HIT` or `MISS` header.
@@ -61,4 +71,4 @@ Requests reach your server with `Host` (and `x-forwarded-host`) set to `127.0.0.
 ## Request size and time
 
 - Request bodies are limited to **10 MB**. Larger requests get `413`.
-- Your server has **30 seconds** to respond. After that the caller gets `504`.
+- The hub waits **120 seconds** by default for an answer (whoever operates the hub can set 5 to 600 seconds), but `@vhyxvoid/agent` 1.0.19 and earlier stop waiting for your server after **28 seconds**, and the caller then gets `502`. See [Environment variables](/reference/environment-variables#tunnel-request-timeout).

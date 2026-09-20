@@ -1,9 +1,41 @@
 ---
 title: Tunnels
-description: Reading the tunnels table and usage.
-stub: true
+description: See which agents are connected right now, and the history of past connections.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/views/org/tunnels/TunnelsView.tsx
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+Open **Tunnels** under your organization in the sidebar. The page is read-only: it shows connections, and you start and stop tunnels with the [agent](/cli/reference) or an [integration](/integrations/nextjs), not from here. Everyone in the organization can see it.
+
+## Active tunnels
+
+A card at the top lists the agents connected right now. It refreshes every 30 seconds, so a tunnel can take up to that long to appear or disappear.
+
+For each connected agent it shows the **label** you started it with, the agent's ID, the **name of the API key** it connected with, and the time it connected. The badge at the top of the card says how many are connected (`0 connected` when there are none, with **No active tunnels** in the card).
+
+## Session history
+
+Below it, **Session history** is a table with one row per connection an agent has made:
+
+| Column | Shows |
+| --- | --- |
+| Agent | The label and the agent's ID. |
+| Status | `CONNECTED`, `DISCONNECTED`, or `EVICTED` (the connection was dropped because the agent stopped responding). |
+| API key | The name of the key it used. |
+| Connected | When the session started. |
+| Duration | How long it lasted, as milliseconds, seconds or minutes. A dash means no duration has been recorded, for example while the session is still running. |
+
+You can search, filter by status, and sort by agent, status or connection time. A restart of the agent, or a dropped connection that reconnects, starts a new row.
+
+## What the page doesn't show
+
+There is no list of individual requests, no request inspector, and no usage charts here. The page tells you whether an agent is connected and for how long, not what passed through the tunnel. To see requests, run the agent with `--debug`; see the [CLI reference](/cli/reference).
+
+## When a tunnel isn't listed
+
+If your agent prints its public URL but is missing from **Active tunnels**, wait for the next 30 second refresh and reload. If the agent isn't running, or has stopped reconnecting, requests to its URL get a `503`. See [Troubleshooting](/troubleshooting).

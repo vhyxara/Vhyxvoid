@@ -1,9 +1,133 @@
 ---
 title: Troubleshooting
-description: Symptom-to-cause guide.
-stub: true
+description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/sdk": "1.1.0"
+    "@vhyxvoid/middleware": "1.0.4"
+    "@vhyxvoid/next": "1.0.4"
+sources:
+  - packages/agent/src/AgentClient.ts
+  - packages/agent/src/cli.ts
+  - packages/agent/src/proxy/BackendProxy.ts
+  - packages/agent/src/cache/ResponseCache.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/router/Message.router.ts
+  - apps/hub/src/services/HubAuth.service.ts
+  - apps/hub/src/utils/tunnelTimeout.ts
+  - packages/middleware/src/config.ts
+  - packages/next/src/index.ts
+  - packages/sdk/src/client.ts
+  - packages/sdk/src/TunnelClient.ts
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+Start with the agent's own output, then the status code a caller sees. Run the agent with `--debug` if you need more. It prints one or more lines per message and per request, and never prints your secret.
+
+## The agent won't connect
+
+| The agent prints | Cause and fix |
+| --- | --- |
+| `❌ Fatal error: API key not found` and then `Agent stopped.` | The key ID is not one VhyxVoid knows. Copy the **key ID** again from the [API keys page](/dashboard/api-keys), including the `vhyxvoid_dev_` or `vhyxvoid_live_` prefix. Checked against the live service. |
+| `hub error { code: 'INVALID_SIGNATURE', message: 'HMAC signature verification failed' }`, over and over | The key ID exists but the **secret is wrong**: a typo, a secret from a different key, or the old secret after a [rotation](/dashboard/api-keys#rotate-a-key) once its one hour grace period ended. Press Ctrl+C, then fix `VHYXVOID_SECRET`. If you have lost the secret, rotate the key to get a new one. |
+| `hub error { code: 'SCOPE_MISSING', message: 'Key missing tunnel:connect scope' }`, over and over | The key was created without the `tunnel:connect` scope. Create a new key with it; scopes can't be added to an existing key. See [scopes](/reference/scopes). |
+| `❌ Fatal error: Account is not active` | The hub only accepts agents for an account whose status is `ACTIVE`. Check the status in the **My organizations** table. A failed payment puts an account in `PAST_DUE`; see [Billing](/dashboard/billing#when-a-payment-fails). |
+| `❌ Fatal error: API key is not active` | The key was revoked or has expired. Create a new key. |
+| `hub error { code: 'AGENT_LIMIT_REACHED', message: 'Maximum 5 agents allowed on your plan' }`, over and over | Your account already has five agents connected, on any plan. Stop one, or check for agents left running in another terminal. |
+| `API key required.` / `Secret required.` | The agent found no key or secret. Check the file name (`.env.vhyxvoid`, `.env.local` or `.env`), that you run the command from the same directory, and the variable names. See the [CLI reference](/cli/reference). |
+| `error: too many arguments for 'start'…` | A typo in a command name; see the [CLI reference](/cli/reference#when-it-cant-start). |
+| `Disconnected from hub — reconnecting automatically...` | The connection dropped. The agent retries on its own with a growing delay, and requests that arrive meanwhile are not replayed; see [Limitations](/limitations). If it never stops, check your network and any proxy that blocks WebSockets. |
+
+With agent 1.0.19, a wrong secret or a missing scope isn't treated as fatal: the agent retries about once a second until you stop it. That is expected today, and pressing Ctrl+C is the fix.
+
+## The agent connects but doesn't show a public URL
+
+If it prints only `Local` and `Label` lines, the hub found no account slug for the key, so there is no public URL to show. Check that the key belongs to the account you expect. Your URL has the shape `https://<slug>--<label>.vhyxvoid.com`.
+
+## The tunnel URL returns an error
+
+Look at the body. If it is JSON with `"tunnel": true`, VhyxVoid produced it; without that field, it is your own server's response.
+
+| Status | Usual cause | What to do |
+| --- | --- | --- |
+| `404` with `tunnel: true` | No agent is registered for that slug and label. | Start the agent, and check the label in the URL against the one you started it with. |
+| `503` | The label is registered but the agent isn't connected right now. | Restart the agent; look at its output for one of the errors above. |
+| `502` `Local backend on port N is not responding` | The agent is running but your server isn't answering it. | Start your server, and make sure it listens on the port you gave the agent. The text after the colon is the reason (`connect ECONNREFUSED`, or a timeout). |
+| `502` `Agent disconnected while processing your request` | The agent lost its connection mid-request. | Retry once it is back. |
+| `413` | The request body is over 10 MB. | Send less, or upload another way. |
+| `400` | The hostname isn't in the `slug--label.vhyxvoid.com` form. | Use the URL the agent printed. |
+
+The full list is on [HTTP status codes](/reference/http-status-codes).
+
+## The request is slow or times out
+
+**What changed.** The hub used to wait 30 seconds for your server. In the current hub code its default is **120 seconds**, and whoever operates the hub can set it between 5 and 600 seconds (`TUNNEL_REQUEST_TIMEOUT_MS`). You can't set it yourself, and a hub that hasn't been updated still waits 30 seconds.
+
+**What you will actually see depends on where the wait ends.** Several limits apply, and the shortest one fires first:
+
+| Where | Limit | What the caller sees |
+| --- | --- | --- |
+| The agent waiting for your local server | 28 seconds in `@vhyxvoid/agent` 1.0.19 and earlier. Later releases use the hub's budget (its timeout minus two seconds). | A `502` with `Local backend on port 3000 is not responding: timeout of 28000ms exceeded`. |
+| The hub waiting for the agent | 120 seconds by default. | A `504` with `Agent did not respond in time`. Rare: it means the agent didn't answer at all, not that your server was slow. |
+| `createClient` in the SDK | 30 seconds by default (`timeout` option). | A `TimeoutError`: `The operation was aborted due to timeout`. Not a `ClientError`. |
+| `TunnelClient` in the SDK | 30 seconds in 1.1.0. | `TunnelTimeoutError` with code `AGENT_TIMEOUT`, marked retryable. |
+
+So on today's agent, a slow route fails with a `502` at 28 seconds, not a `504` at 30 or 120. To keep a slow request alive longer, upgrade the agent once a release with the change is published, and raise `timeout` on any SDK client you call it from. Meanwhile, answer long work quickly and finish it in the background. For webhooks, that is best practice anyway.
+
+## WebSockets and hot reload through a tunnel
+
+WebSocket connections through a tunnel URL are **partly working, and not yet supported for tools like Vite, socket.io or Next.js hot reload.** In detail:
+
+- **Works:** a single WebSocket that sends and receives a few messages, for example an echo connection, opens through the tunnel and relays both ways.
+- **Vite hot reload fails.** Vite's `vite-hmr` connection uses a WebSocket subprotocol, and the relay doesn't pass it on correctly: the browser sees the connection close with code `1011` and `Server sent a subprotocol but none was requested`. Any client that asks for a subprotocol fails the same way (GraphQL over WebSocket, for example).
+- **The first message right after connecting can be lost**, because the tunnel accepts the connection before your server has. socket.io sends such a message; it usually recovers by quietly falling back to HTTP long polling, so it looks fine and isn't using a WebSocket.
+- **A server that refuses the connection is hidden.** If your server rejects the upgrade (a `401`, `403` or `404`), the browser still sees the connection open, and then it closes at once with code `1011` and the error text (for a refused connection, that text includes your local port). You don't get the HTTP status.
+- **No limits and no keep-alive yet.** There is no cap on connections and no ping to close dead ones.
+
+Fixes for lost messages in bursts, messages arriving after a close, sockets left open after a disconnect and connections that never close after an abnormal shutdown are in the repository as of 2026-09-20 but **not in any released agent** (1.0.19 is the latest at the time of writing), and this page can't confirm whether the hub you are talking to already has its half. The subprotocol and early-message problems above are not fixed yet.
+
+Next.js and other frameworks' hot reload over the tunnel has **not been tested**. To develop against the tunnel without hot reload trouble, open your app on `localhost` and use the tunnel URL only for what needs a public address, such as a webhook. A tunnelled WebSocket is exactly as public as the tunnel's HTTP; see [Limitations](/limitations).
+
+## Framework integrations
+
+- **Nothing happens and no URL appears (Express, Fastify).** The middleware warns `Missing VHYXVOID_API_KEY or VHYXVOID_SECRET — tunnel not started` and does nothing else. It also stays off when `NODE_ENV` is `production`. It reads `process.env` only, not `.env.vhyxvoid`, so load your file before the call. See [Express](/integrations/express#development-only).
+- **`Could not locate the bindings file` when the server starts.** You have `@vhyxvoid/middleware` 1.0.3, which crashed at startup. Upgrade to 1.0.4 or later.
+- **`Cannot find module 'better-sqlite3'` from `@vhyxvoid/next` or `@vhyxvoid/middleware`.** Same cause, in version 1.0.3 of either. Upgrade to 1.0.4 or later; you don't need to install `better-sqlite3` yourself.
+- **`Cross origin request detected to /_next/* resource` in the Next.js terminal.** Add `allowedDevOrigins: ['*.vhyxvoid.com']` to your Next config; see [Next.js](/integrations/nextjs).
+- **`npm install @vhyxvoid/agent` fails while building `better-sqlite3`.** That module compiles on platforms without a prebuilt binary and then needs a C++ toolchain; see [Installation](/getting-started/installation).
+
+## Agent version problems
+
+Several problems were fixed in the current releases, so when in doubt run `npx @vhyxvoid/agent --version` and update.
+
+| You have | Symptom | Fix |
+| --- | --- | --- |
+| Agent 1.0.18 | `vhyxvoid init` exits silently after the secret prompt and writes nothing; `--version` prints 1.0.16. | Upgrade to 1.0.19. |
+| Agent 1.0.18 or earlier | A response cached for one caller can be sent to another. | Upgrade to 1.0.19; see [Limitations](/limitations#cached-responses). |
+| `@vhyxvoid/sdk` 1.0.1 | `import { createClient } from '@vhyxvoid/sdk'` fails with `ERR_MODULE_NOT_FOUND`, and binary responses come back as garbled text. | Upgrade to 1.1.0. |
+
+## Your server behaves differently through the tunnel
+
+- **Stale data.** The agent answers repeat `GET` requests from memory when your server sends `Cache-Control` with `max-age` above zero. Look for `x-vhyxvoid-cache: HIT`. Send `Cache-Control: no-store` for responses that must never be cached. See [Any stack (CLI)](/integrations/standalone-cli#things-to-know).
+- **Wrong absolute URLs, redirects to `localhost`, or a signature that fails.** Your server sees `Host: 127.0.0.1:<port>`, not the public hostname. See [Limitations](/limitations#your-server-sees-a-local-host-header).
+- **A webhook signature doesn't match.** Verify against the raw body, not a re-serialized one; see [Webhooks](/integrations/webhooks).
+- **Port 4242 is already in use.** That is the agent's local discovery port. Pass `--no-local-discovery`.
+
+## The SDK
+
+- **`createClient requires accountSlug or baseUrl`.** Set `VHYXVOID_ACCOUNT_SLUG` or pass `accountSlug`. It is the part of your tunnel URL before `--`.
+- **`Not connected to hub. Call connect() first.`** You called a `TunnelClient` method before `await tunnel.connect()`, or the connection has dropped. It doesn't reconnect by itself.
+- **`AUTH_FAILED` with a timestamp message.** The clock on the machine running the SDK is more than 60 seconds off. Fix the clock.
+- **It fails in the browser with `Could not resolve "crypto"`.** The SDK is Node.js only; see [Limitations](/limitations#the-sdk-is-nodejs-only).
+
+## The dashboard
+
+- **There is no API Keys link in the sidebar.** The sidebar lists organizations, not your personal account. If you have none, it shows **Create organization**; create one and its API Keys link appears. See [Accounts and organizations](/dashboard/account-and-organizations).
+- **The Create API key button is missing.** Only admins and owners can create keys.
+- **`Your plan does not allow PROD environment keys`.** Free accounts can create only development keys. See [Plans and limits](/reference/plans-and-limits).
+- **An invitation says `Invitation email does not match user`.** Open the link while signed in as the account with the invited email address.
+
+Still stuck? Use the **Send feedback** button in the dashboard and include the agent version, the status code and the agent's output. See [Feedback](/dashboard/feedback-and-notifications).

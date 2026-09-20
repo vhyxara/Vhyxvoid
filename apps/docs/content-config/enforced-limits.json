@@ -1,0 +1,36 @@
+{
+  "_comment": "Classification of every key of PLAN_LIMITS (apps/api/src/modules/billing/domain/enums/index.ts). scripts/generate.mjs fails if PLAN_LIMITS gains a key that is not listed here, so the enforcement question is asked the first time someone adds a limit. Only keys under `enforced` reach the public reference page. Re-verified 2026-09-21.",
+  "enforced": {
+    "maxApiKeys": {
+      "label": "Active API keys",
+      "evidence": "apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts",
+      "note": "Counts active keys; revoked keys do not count."
+    },
+    "maxScopesPerKey": {
+      "label": "Scopes per key",
+      "evidence": "apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts",
+      "note": "Checked when a key is created and when its scopes are changed."
+    },
+    "prodKeysAllowed": {
+      "label": "Production (PROD) keys",
+      "evidence": "apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts",
+      "note": "Free accounts can only create DEV keys."
+    },
+    "rotationAllowed": {
+      "label": "Key rotation",
+      "evidence": "apps/api/src/modules/key-management/application/use-cases/RotateApiKey.usecase.ts",
+      "note": ""
+    }
+  },
+  "notEnforced": {
+    "maxAgents": "Declared per plan, but the hub applies a single limit (PLAN_AGENT_LIMITS.PRO) to every account; see the flat limits table.",
+    "maxRequestsPerMonth": "No enforcement site.",
+    "maxMembers": "CheckPlanLimitsService exists but nothing calls it when members are added.",
+    "customDomains": "No enforcement site; no custom-domain feature exists.",
+    "prioritySupport": "Not a technical limit.",
+    "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests, and only while the key's cache entry still holds the plan value (5 minutes); agents and the tunnel URL are never rate limited. See docs decision 2026-09-21.",
+    "allowedEnvironments": "Unused; prodKeysAllowed is what is checked.",
+    "expiryAllowed": "No enforcement site; the dashboard lets any plan set an expiry date.",
+    "analyticsRetentionDays": "No enforcement site."
+  }
+}

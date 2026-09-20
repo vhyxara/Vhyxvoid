@@ -1,0 +1,38 @@
+{
+  "_comment": "Meaning of each ApiScope value (apps/api/src/core/constant/apikey.constant.ts). scripts/generate.mjs fails on an enum value with no entry here. `checked` is what really consumes the scope today (verified 2026-09-21: only tunnel:connect is required by anything).",
+  "tunnel:connect": {
+    "description": "Connect an agent to the hub, and register a `TunnelClient` session.",
+    "checked": "Yes. The hub requires it for agent registration and for `TunnelClient` connections and requests.",
+    "inDashboard": true
+  },
+  "tunnel:read": {
+    "description": "Read tunnel status.",
+    "checked": "No. Accepted when creating a key; nothing requires it yet.",
+    "inDashboard": true
+  },
+  "tunnel:write": {
+    "description": "Create or configure tunnels.",
+    "checked": "No. Accepted by the API when creating a key; nothing requires it yet.",
+    "inDashboard": false
+  },
+  "webhook:receive": {
+    "description": "Receive inbound webhooks.",
+    "checked": "No. There is no webhook inspection feature; nothing requires it.",
+    "inDashboard": false
+  },
+  "webhook:inspect": {
+    "description": "Inspect webhook history.",
+    "checked": "No. There is no webhook inspector; nothing requires it.",
+    "inDashboard": false
+  },
+  "metrics:read": {
+    "description": "Read usage metrics.",
+    "checked": "No. Accepted when creating a key; nothing requires it yet.",
+    "inDashboard": true
+  },
+  "*": {
+    "description": "Every scope.",
+    "checked": "Satisfies any scope check. Only an organization's owner can create a key that has it.",
+    "inDashboard": false
+  }
+}

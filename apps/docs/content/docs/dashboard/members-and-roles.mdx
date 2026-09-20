@@ -1,9 +1,75 @@
 ---
 title: Members and roles
-description: Invite teammates and manage roles.
-stub: true
+description: Invite people to an organization, change their roles, transfer ownership, and remove them.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/views/members/MembersTable.tsx
+  - apps/web/src/views/members/InviteMemberDialog.tsx
+  - apps/web/src/views/members/ChangeRoleDialog.tsx
+  - apps/web/src/views/members/TransferOwnershipDialog.tsx
+  - apps/web/src/views/org/InvitationsTab.tsx
+  - apps/web/src/views/org/OrgSettingsView.tsx
+  - apps/web/src/views/org/AcceptInvitationView.tsx
+  - apps/web/src/api/application/hooks/usePermissions.ts
+  - apps/api/src/modules/identity/application/use-cases/account/InviteMember.usecase.ts
+  - apps/api/src/modules/identity/application/use-cases/account/AcceptInvitation.usecase.ts
 ---
 
+An organization has three roles. The **Members** page lists everyone in it and is where you manage them. Admins and owners can also open **Settings**, which has the same table on a **Members** tab and an **Invitations** tab.
+
+## The three roles
+
+| Role | Can do |
+| --- | --- |
+| **Owner** | Everything an admin can, plus billing and invoices, and transferring ownership. |
+| **Admin** | Create API keys, invite members, rename the organization, and manage members below them. Sees every key. |
+| **Member** | See the organization, its tunnels and the members, and use the keys they created. |
+
+A person can only manage people ranked below them, and can only give roles below their own. So an admin can make someone a member, and only the owner can make someone an admin.
+
+## The members table
+
+Each row shows the person's name and email (with a **You** badge on your own row), whether their email is **Verified** or **Pending**, their **Role**, and when they **Joined**. You can search, filter by role, and sort by role or joined date.
+
+The action buttons on a row are:
+
+| Button | What it does | Available |
+| --- | --- | --- |
+| Shield | **Change role** | For people you can manage. Never on your own row. |
+| Crown | **Transfer ownership** | Only for the owner, on rows that aren't the owner. |
+| Trash | **Remove member** | For people you can manage. Never on your own row. |
+
+If a button is greyed out, the server decided you can't manage that person.
+
+## Invite someone
+
+Admins and owners see **Invite member**.
+
+1. Choose **Invite member**, enter their email address, and choose a role. The list only offers roles you're allowed to give: **Member** or **Admin** for an owner, and **Member** for an admin.
+2. Choose **Send invite**. VhyxVoid emails them a link.
+
+The **Invitations** tab under **Settings** (admins and owners only) shows every invitation with the email, role, who sent it, when it expires, and its status (`PENDING` and others). A pending invitation has a button to cancel it. An invitation link is valid for **three days**.
+
+### Accepting an invitation
+
+The invited person opens the link in the email. They need to be signed in with the account that has the **same email address** the invitation was sent to; otherwise it fails with `Invitation email does not match user`. On success they see "You're in!" and are taken to their dashboard, where the organization now appears. An expired or already-used link shows an error, and you can send a new invitation.
+
+## Change a role
+
+Choose the shield button, pick the new role from the list, and choose **Save**. The dialog offers the roles you may assign, which are always below your own.
+
+## Transfer ownership
+
+Only the owner can do this. Choose the crown button on the person who should become the owner and confirm **Transfer ownership**.
+
 <Callout type="warn">
-This page hasn't been written yet.
+  There is no second confirmation step. One click completes it: they become the Owner and you become an Admin, so you can't reverse it yourself.
 </Callout>
+
+## Remove a member
+
+Choose the trash button and confirm **Remove**. The dialog says "This cannot be undone": to bring the person back you have to invite them again.

@@ -1,9 +1,106 @@
 ---
 title: WebSocket client
-description: TunnelClient, and why you should read its security note first.
-stub: true
+description: TunnelClient, a signed, persistent connection from a Node.js process to the hub.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/sdk": "1.1.0"
+sources:
+  - packages/sdk/src/TunnelClient.ts
+  - packages/sdk/src/types.ts
+  - packages/sdk/src/index.ts
+  - packages/sdk/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+`TunnelClient` keeps one WebSocket open to the hub and sends every call over it, signed with your API key. Reach for it when a Node.js process makes many calls and you would rather hold one connection than open a new HTTPS request each time. For everything else use the [HTTP client](/sdk/http-client), which needs no key.
+
+<Callout type="error" title="Node.js only, and keep the secret on the server">
+  `TunnelClient` is configured with your API key ID and secret. Put them in environment variables of a server process. Never put them in a browser bundle: anyone who loads the page would get the secret. The SDK can't be bundled for a browser anyway (it uses Node's `crypto` and `http` modules), so the page's advice for a browser is to call the tunnel URL with `fetch`. See [Limitations](/limitations#the-sdk-is-nodejs-only).
 </Callout>
+
+## Use it
+
+```ts
+import { TunnelClient } from '@vhyxvoid/sdk'
+
+const tunnel = new TunnelClient({
+  hubUrl: 'wss://hub.vhyxvoid.com/sdk',
+  keyId: process.env.VHYXVOID_API_KEY!,
+  secret: process.env.VHYXVOID_SECRET!,
+  label: 'default',
+})
+
+await tunnel.connect()
+
+const res = await tunnel.get('/users', { query: 'page=2' })
+console.log(res.status, res.body, res.isLocal)
+
+tunnel.disconnect()
+```
+
+How it behaves:
+
+- **You must call `connect()` first.** A request on a client that isn't connected rejects with a `TunnelError` whose code is `AGENT_NOT_FOUND` and message `Not connected to hub. Call connect() first.` (checked on 1.1.0). If the connection itself fails, `connect()` rejects with a plain `Error` such as `Hub connection failed: connect ECONNREFUSED …`.
+- **Local shortcut.** Unless you pass `localDiscovery: false`, each request first checks for an agent on the same machine (port 4242). If one answers, the request goes straight to the local server that agent forwards to, without passing through the hub or being signed, and `res.isLocal` is `true`. The check does not look at your `label` or account, so with a different agent running locally the request goes to that one's server. Pass `localDiscovery: false` when you want the hub to route the call.
+- **Requests are JSON.** `post`, `put` and `patch` serialize their body with `JSON.stringify`.
+- **Errors.** Failures reject with a [`TunnelError`](/sdk/errors#tunnelerror). A request that gets no answer in time rejects with `TunnelTimeoutError` (code `AGENT_TIMEOUT`). If the hub connection drops, every request still waiting is rejected with `AGENT_DISCONNECTED` (marked retryable). The client does not reconnect for you; call `connect()` again.
+
+## Reference
+
+Generated from the package's public types.
+
+{/* generated:begin sdk-ws · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+### TunnelClient
+
+```ts
+class TunnelClient {
+  constructor(config: TunnelClientConfig)
+
+  connect(): Promise<void>
+  disconnect(): void
+  request(params: { method: string; path: string; query?: string; headers?: Record<string, string>; body?: unknown; label?: string; timeout?: number; }): Promise<TunnelResponse>
+  get(path: string, opts?: RequestOptions): Promise<TunnelResponse>
+  post(path: string, body: unknown, opts?: RequestOptions): Promise<TunnelResponse>
+  put(path: string, body: unknown, opts?: RequestOptions): Promise<TunnelResponse>
+  patch(path: string, body: unknown, opts?: RequestOptions): Promise<TunnelResponse>
+  delete(path: string, opts?: RequestOptions): Promise<TunnelResponse>
+  isConnected(): boolean
+  getSessionId(): string | null
+  pendingCount(): number
+}
+```
+
+<Callout type="warn">
+Node.js only, and it takes your API key secret. See [Limitations](/limitations#the-sdk-is-nodejs-only).
+</Callout>
+
+### TunnelClientConfig
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `hubUrl` | `string` | Hub WebSocket URL, for example `wss://hub.vhyxvoid.com/sdk`. |
+| `keyId` | `string` | API key ID (public) |
+| `secret` | `string` | Raw secret returned at key creation. |
+| `label?` | `string` | Target tunnel label (optional — defaults to first connected agent) |
+| `timeout?` | `number` | Per-request timeout in milliseconds. The published `@vhyxvoid/sdk` 1.1.0 defaults to 30000 (30 seconds). The source has moved to 120000, in step with the hub's default request timeout, and that applies from the next SDK release. |
+| `localDiscovery?` | `boolean` | Look for an agent on the same machine (port 4242) and send requests to it directly instead of through the hub. Default: `true`. Set `false` to always go through the hub. |
+
+### TunnelResponse
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `status` | `number` |  |
+| `headers` | `Record<string, string>` |  |
+| `body` | `string \| Buffer \| null` | A text response (JSON, HTML, plain text) is a `string`. A binary response (image, PDF, audio, `application/octet-stream`) is a `Buffer` with the original bytes. `null` when the response has no body. |
+| `durationMs` | `number` |  |
+| `isLocal` | `boolean` | true = response came from local agent (bypassed hub) |
+
+### RequestOptions
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `headers?` | `Record<string, string>` | Extra headers for this request. |
+| `query?` | `string` | Query string, without the leading `?`. |
+| `timeout?` | `number` | Timeout for this request in milliseconds. Overrides the client's. |
+{/* generated:end sdk-ws */}

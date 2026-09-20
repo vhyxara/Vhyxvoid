@@ -1,9 +1,43 @@
 ---
 title: HTTP status codes
-description: Status codes the tunnel returns.
-stub: true
+description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/router/Message.router.ts
+  - apps/hub/src/registry/Pending.registry.ts
+  - apps/hub/src/utils/tunnelTimeout.ts
+  - packages/agent/src/AgentClient.ts
+  - packages/agent/src/proxy/BackendProxy.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+A request to `https://<slug>--<label>.vhyxvoid.com` is answered by your server, or by VhyxVoid when it can't reach your server. Anything your server returns, including its own `404` or `500`, passes through unchanged. The statuses below are the ones VhyxVoid itself produces.
+
+When VhyxVoid answers, the body is JSON of this shape, and that is how you tell it from a reply of your own:
+
+```json
+{ "error": "Tunnel is registered but agent is not connected. The agent may have disconnected. Please restart it.", "status": 503, "tunnel": true }
+```
+
+| Status | Message (`error`) | Meaning and what to do |
+| --- | --- | --- |
+| `400` | `Invalid tunnel URL. Expected format: accountslug--label.vhyxvoid.com` | The hostname isn't `<account slug>--<label>.<domain>`. Check the URL the agent printed. |
+| `404` | `No active tunnel found for "<host>". Start the agent with: vhyxvoid …` | Nothing is registered under this slug and label. Start the agent, and check the label. A `404` **without** `"tunnel": true` came from your own server. |
+| `413` | `Request body too large. Maximum is 10MB` | The request declares a body over 10 MB. |
+| `502` | `Local backend on port <port> is not responding: …` | The agent is connected, but your server didn't answer it: it isn't running on that port, refused the connection, or was too slow. With agent 1.0.19 the text ends `timeout of 28000ms exceeded`, because it stops waiting after 28 seconds. |
+| `502` | `Agent disconnected while processing your request` | The agent lost its connection to VhyxVoid while your request was in flight. Retry it, after checking the agent is running. |
+| `502` | `Failed to send request to agent` | The hub couldn't hand the request to the agent. Retry. |
+| `503` | `Tunnel is registered but agent is not connected. …` | The label is known but the agent isn't connected right now, for instance while it reconnects. Restart it if it stays down. |
+| `504` | `Agent did not respond in time` | The agent didn't answer within the hub's request timeout (120 seconds by default) at all. This is unusual. A slow server gives a `502` as above. |
+
+`OPTIONS` requests are answered by the hub itself with `204` and CORS headers that allow the request's own `Origin` with credentials. They never reach your server.
+
+Requests that were in flight when an agent dropped are not replayed afterwards; see [Limitations](/limitations#requests-dont-survive-agent-disconnects). For symptoms and fixes see [Troubleshooting](/troubleshooting).
+
+## Timing
+
+The hub's default request timeout is 120 seconds and can be set anywhere from 5 to 600 seconds by whoever operates the hub, with `TUNNEL_REQUEST_TIMEOUT_MS`. It is not something you can change. The agent stops waiting for your server slightly earlier than the hub does (28 seconds for agent 1.0.19 and earlier, so a slow handler fails there first). See [Environment variables](/reference/environment-variables#tunnel-request-timeout).

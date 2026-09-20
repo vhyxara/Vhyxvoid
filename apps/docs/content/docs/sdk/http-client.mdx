@@ -1,9 +1,120 @@
 ---
 title: HTTP client
-description: Call your tunneled backend with createClient.
-stub: true
+description: createClient and VhyxvoidClient, the default way to call your tunnelled server from Node.js.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/sdk": "1.1.0"
+sources:
+  - packages/sdk/src/client.ts
+  - packages/sdk/src/index.ts
+  - packages/sdk/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+`createClient` builds a client that sends HTTP requests to your tunnel URL. It uses Node's built-in `fetch`, needs no API key, and adds nothing to the request except the headers you configure and `Content-Type: application/json`.
+
+<Callout type="warn" title="Node.js only">
+  Use it from Node.js. It can't be bundled for a browser; call the tunnel URL with `fetch` there. See [Limitations](/limitations#the-sdk-is-nodejs-only).
 </Callout>
+
+## Use it
+
+```ts
+import { createClient } from '@vhyxvoid/sdk'
+
+// Reads VHYXVOID_ACCOUNT_SLUG and VHYXVOID_LABEL from the environment.
+const api = createClient()
+
+const { data, status } = await api.get('/users', { page: '2' })   // GET /users?page=2
+await api.post('/orders', { sku: 'abc', qty: 2 })                   // JSON body
+await api.delete('/orders/17')
+```
+
+Or pass everything explicitly:
+
+```ts
+const api = createClient({
+  accountSlug: 'acme',   // https://acme--default.vhyxvoid.com
+  label: 'default',
+  timeout: 60_000,       // see the note on timeouts below
+  headers: { 'x-team': 'payments' },
+})
+```
+
+The client needs either `accountSlug` (with the environment) or a `baseUrl`. With neither, `createClient()` throws `[vhyxvoid] createClient requires accountSlug or baseUrl.` Your account slug is the part of your public URL before `--`; the agent prints it when it connects.
+
+What you get back and what can go wrong, all checked against `@vhyxvoid/sdk@1.1.0`:
+
+- **The body.** Request bodies are sent as JSON. A response with a JSON content type is parsed, a text response is a `string`, and a binary response (an image, a PDF) is a `Buffer` with the original bytes.
+- **Errors.** A response that isn't 2xx throws a [`ClientError`](/sdk/errors#clienterror) with the `status`, the parsed `data` and the `url`. For a 404 from your server that looks like `HTTP 404 from https://acme--default.vhyxvoid.com/missing`.
+- **Timeouts.** After `timeout` milliseconds (30 000 by default) `fetch` is aborted and the call throws a `TimeoutError` with the message `The operation was aborted due to timeout`. This is not a `ClientError`, so it has no `status`. This limit is measured in your process, separate from the hub's own timeout; raise `timeout` for slow endpoints. See [Troubleshooting](/troubleshooting#the-request-is-slow-or-times-out).
+- **Injecting headers.** `onRequest` runs before every request and can change `req.headers`, for example to add a token.
+
+## Reference
+
+Generated from the package's public types.
+
+{/* generated:begin sdk-http · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+### createClient()
+
+```ts
+function createClient(config?: ClientConfig): VhyxvoidClient
+```
+
+Create an HTTP client that routes requests through your tunnel.
+
+```ts
+// Reads VHYXVOID_ACCOUNT_SLUG and VHYXVOID_LABEL from env
+const api = createClient()
+const { data } = await api.get('/admin/users')
+
+// Explicit config
+const api = createClient({ accountSlug: 'acme', label: 'default' })
+
+// With auth header
+const api = createClient({
+  accountSlug: 'acme',
+  onRequest: async (req) => {
+    req.headers['Authorization'] = `Bearer ${await getToken()}`
+  }
+})
+```
+
+### VhyxvoidClient
+
+```ts
+class VhyxvoidClient {
+  constructor(config?: ClientConfig)
+
+  request<T = unknown>(method: string, path: string, options?: { body?: unknown; headers?: Record<string, string>; query?: Record<string, string>; }): Promise<ClientResponse<T>>
+  get<T = unknown>(path: string, query?: Record<string, string>, headers?: Record<string, string>): Promise<ClientResponse<T>>
+  post<T = unknown>(path: string, body?: unknown, headers?: Record<string, string>): Promise<ClientResponse<T>>
+  put<T = unknown>(path: string, body?: unknown, headers?: Record<string, string>): Promise<ClientResponse<T>>
+  patch<T = unknown>(path: string, body?: unknown, headers?: Record<string, string>): Promise<ClientResponse<T>>
+  delete<T = unknown>(path: string, headers?: Record<string, string>): Promise<ClientResponse<T>>
+  getBaseUrl(): string
+}
+```
+
+### ClientConfig
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `accountSlug?` | `string` | Your account slug: the part of your tunnel URL before `--`. The agent prints your full URL when it connects. Env: `VHYXVOID_ACCOUNT_SLUG`. |
+| `label?` | `string` | Which tunnel to call: the part of the tunnel URL after `--`. Default: `default`. Env: `VHYXVOID_LABEL`. |
+| `baseUrl?` | `string` | Use this URL instead of building one from `accountSlug`, `label` and `hubDomain`. Handy for tests. |
+| `hubDomain?` | `string` | Domain the tunnel URL is built from. Default: `vhyxvoid.com`. Env: `VHYXVOID_HUB_DOMAIN`. |
+| `headers?` | `Record<string, string>` | Headers added to every request. |
+| `timeout?` | `number` | Request timeout in milliseconds. Default: `30000`. This is the client's own limit, measured by your process, and it is separate from the hub's request timeout (see [Tunnel request timeout](/reference/environment-variables#tunnel-request-timeout)). A slow route fails at 30 seconds here even if the hub would still be waiting, so raise it for slow endpoints. |
+| `onRequest?` | `(req: RequestInit & { url: string; }) => void \| Promise<void>` | Called before every request, with the request that is about to be sent. It can change `req.headers`, for example to add a token. |
+
+### ClientResponse
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `data` | `T` |  |
+| `status` | `number` |  |
+| `headers` | `Record<string, string>` |  |
+| `ok` | `boolean` |  |
+{/* generated:end sdk-http */}

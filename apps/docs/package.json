@@ -9,7 +9,9 @@
     "start": "next start -p 4002",
     "typecheck": "next typegen && tsc --noEmit",
     "check:fresh": "node scripts/check-fresh.mjs",
-    "sync-tokens": "node scripts/sync-tokens.mjs"
+    "sync-tokens": "node scripts/sync-tokens.mjs",
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check"
   },
   "dependencies": {
     "fumadocs-core": "16.15.11",

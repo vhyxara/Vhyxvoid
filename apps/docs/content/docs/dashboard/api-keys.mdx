@@ -1,9 +1,78 @@
 ---
 title: API keys
-description: Create, scope, rotate, and revoke keys.
-stub: true
+description: Create, scope, rotate, and revoke API keys in the dashboard.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/views/org/api-keys/ApiKeysView.tsx
+  - apps/web/src/views/org/api-keys/CreateApiKeyDialog.tsx
+  - apps/web/src/views/org/api-keys/RotateApiKeyDialog.tsx
+  - apps/web/src/views/org/api-keys/ApiKeySecretDialog.tsx
+  - apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts
+  - apps/api/src/modules/key-management/application/use-cases/RotateApiKey.usecase.ts
+  - apps/api/src/modules/key-management/application/use-cases/RevokeApiKey.usecase.ts
+  - apps/api/src/modules/key-management/application/use-cases/ListApiKeys.usecase.ts
+  - apps/api/src/core/constant/apikey.constant.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+An API key is what an agent, an integration or the SDK's `TunnelClient` uses to connect to VhyxVoid. A key has a public **key ID** and a **secret**. Open **API Keys** under your organization in the sidebar.
+
+## The key list
+
+Each row is one key:
+
+| Column | Shows |
+| --- | --- |
+| Name | The name you gave it, and its description under it. |
+| Key ID | The ID with most characters hidden. The copy button copies the whole ID. |
+| Env | `DEV` or `PROD`. |
+| Status | `ACTIVE`, `REVOKED` or `EXPIRED`. |
+| Scopes | The first three scopes, and `+N` for any more. |
+| Last used | The date it last connected, or `Never`. |
+| Expires | The expiry date (red when it has passed), or `Never`. |
+
+You can search by name and filter by status and environment. **Admins and owners see every key in the organization; members see only the keys they created.**
+
+## Create a key
+
+Admins and owners can create keys; the **Create API key** button is hidden for members.
+
+1. Choose **Create API key**.
+2. Give it a **name** (2 to 64 characters) and, if you like, a description.
+3. Pick the environment, **Development** (`DEV`) or **Production** (`PROD`). On the FREE plan only Development is accepted.
+4. Choose the scopes. `tunnel:connect` is selected already, and it is the only one the agent needs. The dialog offers `tunnel:connect`, `tunnel:read` and `metrics:read`; see [API key scopes](/reference/scopes) for what they do. At least one scope is required.
+5. Optionally set an **Expiry date**. Leave it empty for a key that doesn't expire.
+6. Choose **Create key**.
+
+The number of keys, and the number of scopes per key, depend on your plan. The API refuses a key over the limit with a message such as `API key limit reached (3). Revoke an existing key or upgrade your plan.` See [Plans and limits](/reference/plans-and-limits).
+
+## Save the secret
+
+<Callout type="warn" title="The secret is shown once">
+  The dialog that appears next shows the secret. VhyxVoid stores only a hash of it, so it can't be shown again. Copy it now and keep it in a password manager or a secrets store.
 </Callout>
+
+The dialog also shows the key name and the full key ID. It can't be closed until you tick **I have copied and stored the secret key safely**, and then choose **Done**. If you lose a secret, [rotate](#rotate-a-key) the key to get a new one.
+
+Use the key ID and secret with the agent as `VHYXVOID_API_KEY` and `VHYXVOID_SECRET`; see the [Quickstart](/getting-started/quickstart).
+
+## Rotate a key
+
+Rotation gives a key a new secret without changing its key ID, and keeps the old secret working for **one hour** so you can update the services that use it.
+
+1. In the key's row, choose the rotate button (the circular arrows). It is disabled for keys that aren't active.
+2. Read the warning and choose **Rotate key**.
+3. The dialog shows the new secret and a line saying when the old one stops working ("Your old key will continue working until …"). Save the secret as above.
+
+Rotation is a paid feature: on the FREE plan the API refuses it with `Key rotation is not available on your plan. Upgrade to Pro.` Admins and owners can rotate any key; a member can rotate only a key they created.
+
+## Revoke a key
+
+Choose the trash button in the key's row and confirm **Revoke key**. Revoking cannot be undone, and anything using that key **stops working immediately**. Admins and owners can revoke any key; a member can revoke only a key they created. A revoked key stays in the list with the status `REVOKED`, and no longer counts toward your plan's key limit.
+
+## What isn't in the dashboard
+
+You can't edit a key's name, scopes or expiry after it is created, or view its usage history. To change scopes, create a new key and revoke the old one.

@@ -2,8 +2,8 @@
 title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
-  date: "2026-09-19"
-  commit: 7f81b9d
+  date: "2026-09-21"
+  commit: 2b854f2
   packages:
     "@vhyxvoid/agent": "1.0.19"
     "@vhyxvoid/sdk": "1.1.0"
@@ -94,7 +94,8 @@ If it doesn't work, these are the responses VhyxVoid itself produces:
 | `404` | No agent is registered for that URL. Start the agent, and check the slug and label. |
 | `503` | The URL is registered but its agent is not connected right now. Restart the agent. |
 | `413` | The request body was over 10 MB. |
-| `504` | Your server didn't answer within 30 seconds. |
+| `502` | The agent is connected but your server didn't answer it: it isn't running on that port, or it took too long (the agent gives up after 28 seconds). |
+| `504` | The agent didn't answer at all within the hub's timeout (120 seconds by default). Unusual. |
 
 Anything else is your own server's response.
 
@@ -131,7 +132,7 @@ The HTTP client is a plain `fetch` to your tunnel URL and sends no VhyxVoid cred
 
 ## A note on retries
 
-Requests sent to the tunnel while the agent is reconnecting can fail with `504` even though your server may have handled them. Retrying a `GET` is safe. Retrying a `POST` or `DELETE` can apply the change twice, so make those handlers idempotent if a duplicate would hurt. Details are on the [Limitations](/limitations) page.
+Requests sent to the tunnel while the agent is reconnecting can fail with an error (`502`, `503` or `504`) even though your server may have handled them. Retrying a `GET` is safe. Retrying a `POST` or `DELETE` can apply the change twice, so make those handlers idempotent if a duplicate would hurt. Details are on the [Limitations](/limitations) page.
 
 ## Next steps
 

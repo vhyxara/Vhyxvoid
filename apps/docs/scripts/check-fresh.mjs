@@ -5,9 +5,12 @@
 //   2. Every `sources` path exists in the repo (catches renamed/deleted files).
 //   3. `verified.packages` matches each package's current package.json version.
 //   4. No commit touched any `sources` path after `verified.commit` (git log).
+//   5. Generated blocks (scripts/generate.mjs) are up to date with the source they
+//      are generated from, and every plan limit / scope / env var / SDK export is
+//      classified. Needs packages/agent built (`pnpm --filter @vhyxvoid/agent build`).
 //
-// Not implemented yet (see internal-tools/docs/backlog.md): generated-content
-// no-diff check, code-sample typechecking, PR-scoped "warn" mode.
+// Not implemented yet (see internal-tools/docs/backlog.md): code-sample
+// typechecking, PR-scoped "warn" mode.
 //
 // Run: pnpm --filter @vhyxvoid/docs check:fresh   Exit 1 on any finding.
 import { execFileSync } from 'node:child_process'
@@ -93,6 +96,12 @@ for (const file of walk(contentDir)) {
   } catch (err) {
     findings.push(`${page}: could not run git log from ${verified.commit} (${err.message.split('\n')[0]})`)
   }
+}
+
+try {
+  execFileSync('node', [join(docsRoot, 'scripts/generate.mjs'), '--check'], { encoding: 'utf8', stdio: 'pipe' })
+} catch (err) {
+  findings.push(`generated content: ${`${err.stderr ?? ''}${err.stdout ?? ''}`.trim() || err.message}`)
 }
 
 console.log(`[check:fresh] ${checked} page(s) checked, ${stubs} stub(s) skipped`)

@@ -1,9 +1,52 @@
 ---
 title: FAQ
-description: Short answers.
-stub: true
+description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/sdk": "1.1.0"
+sources:
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/router/Message.router.ts
+  - packages/sdk/src/client.ts
+  - packages/agent/src/cli.ts
+  - apps/web/src/views/org/tunnels/TunnelsView.tsx
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+## Is my tunnel URL private?
+
+No. Anyone who knows or guesses the URL can send requests to your local server, and VhyxVoid checks nothing on it. Tunnel a development server, not anything with real data, and protect sensitive routes in your own app. See [Limitations](/limitations#tunnel-urls-are-public).
+
+## Where do I find my account slug?
+
+It is the part of your tunnel URL before `--`, and the agent prints the whole URL when it connects (the `Public:` line). The dashboard doesn't display the slug on its own. See the [Quickstart](/getting-started/quickstart).
+
+## How many tunnels can I run?
+
+Each running agent is one tunnel, with its own label and URL. An account can have **five agents connected at once**, on every plan today. See [Plans and limits](/reference/plans-and-limits#limits-that-are-the-same-for-everyone).
+
+## Can I see the requests that came through?
+
+Not in the dashboard. The **Tunnels** page shows which agents are connected and their history, not individual requests, and there is no request inspector. Run the agent with `--debug` for per-request lines in your terminal. See [Tunnels](/dashboard/tunnels).
+
+## How long can a request take?
+
+The hub's default wait is 120 seconds, but the agent you run today (1.0.19) gives up on your server after 28 seconds, and the SDK clients have their own 30 second defaults. So plan on under half a minute for now. See [Troubleshooting](/troubleshooting#the-request-is-slow-or-times-out).
+
+## Do WebSockets work through the tunnel?
+
+Partly. A simple connection can work, but Vite hot reload and socket.io don't reliably. See [WebSockets and hot reload](/troubleshooting#websockets-and-hot-reload-through-a-tunnel) and [Limitations](/limitations#websockets-through-a-tunnel-are-partial).
+
+## Can I use the SDK in the browser?
+
+No. It runs on Node.js only, and its WebSocket client takes your API key secret, which must never reach a browser. In a browser, call the tunnel URL with `fetch`. See [SDK overview](/sdk/overview).
+
+## What happens to requests while my agent reconnects?
+
+They are not held and replayed: the caller gets an error, and a `POST` may or may not have reached your server. Make handlers idempotent. See [Limitations](/limitations#requests-dont-survive-agent-disconnects).
+
+## I lost my API key secret. Can I see it again?
+
+No, it is shown once and only a hash is stored. [Rotate the key](/dashboard/api-keys#rotate-a-key) to get a new secret (a paid-plan feature), or create a new key.

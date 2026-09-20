@@ -1,0 +1,138 @@
+{
+  "_comment": "Hand-authored manifest for reference/environment-variables. scripts/generate.mjs --check greps packages/{agent,middleware,next,sdk}/src for VHYXVOID_* and fails on any name missing here or listed here but no longer read. Add a row here when a package starts reading a new variable.",
+  "vars": [
+    {
+      "name": "VHYXVOID_API_KEY",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "none, required",
+      "flag": "--key",
+      "description": "API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`)."
+    },
+    {
+      "name": "VHYXVOID_SECRET",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "none, required",
+      "flag": "--secret",
+      "description": "API key secret, shown once when the key is created."
+    },
+    {
+      "name": "VHYXVOID_PORT",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "`3000`. `@vhyxvoid/next` looks for `-p` / `--port` in the command that started Next first, then this variable, then `PORT`, then `3000`.",
+      "flag": "--port",
+      "description": "Local port the tunnel forwards to."
+    },
+    {
+      "name": "VHYXVOID_LABEL",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next",
+        "sdk"
+      ],
+      "default": "`default`. `@vhyxvoid/next` uses `app`.",
+      "flag": "--label",
+      "description": "Tunnel label: the part of the tunnel URL after `--`. In the SDK it picks which tunnel `createClient` targets.",
+      "cliDescription": "Tunnel label: the part of the tunnel URL after `--`. Run one agent per label to expose several servers."
+    },
+    {
+      "name": "VHYXVOID_HUB_URL",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "`wss://hub.vhyxvoid.com/agent`",
+      "flag": "--hub",
+      "description": "WebSocket URL of the hub the agent connects to."
+    },
+    {
+      "name": "VHYXVOID_QUEUE_PATH",
+      "usedBy": [
+        "agent"
+      ],
+      "default": "`~/.vhyxvoid/queue.db`",
+      "flag": "--queue-path",
+      "description": "Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue."
+    },
+    {
+      "name": "VHYXVOID_WRITE_ENV",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "off",
+      "flag": "--write-env",
+      "description": "A file name. When set, the agent writes the public URL into that file after it connects (see `VHYXVOID_ENV_KEY`).",
+      "cliDescription": "After connecting, write the public URL into a file. Give a file name, or none for `.env.local`."
+    },
+    {
+      "name": "VHYXVOID_ENV_KEY",
+      "usedBy": [
+        "agent",
+        "middleware",
+        "next"
+      ],
+      "default": "`NEXT_PUBLIC_TUNNEL_URL`",
+      "flag": "--env-key",
+      "description": "Name of the variable that `VHYXVOID_WRITE_ENV` writes."
+    },
+    {
+      "name": "VHYXVOID_DEBUG_LOGGING",
+      "usedBy": [
+        "agent"
+      ],
+      "default": "off",
+      "flag": "--debug",
+      "description": "Only the exact value `true` turns on detailed diagnostics. The in-process integrations embed the agent, so the variable affects them too.",
+      "cliDescription": "Print detailed diagnostics: one or more lines per message and per request. Off by default."
+    },
+    {
+      "name": "VHYXVOID_ACCOUNT_SLUG",
+      "usedBy": [
+        "sdk",
+        "agent"
+      ],
+      "default": "none; `createClient` needs this or `baseUrl`",
+      "flag": null,
+      "description": "Your account slug, the part of the tunnel URL before `--`. The SDK reads it; the CLI's `init` offers it as the default answer and writes it into `.env.vhyxvoid`, but the agent itself never uses it."
+    },
+    {
+      "name": "VHYXVOID_HUB_DOMAIN",
+      "usedBy": [
+        "sdk"
+      ],
+      "default": "`vhyxvoid.com`",
+      "flag": null,
+      "description": "Domain that `createClient` builds the tunnel URL from."
+    }
+  ],
+  "hub": [
+    {
+      "name": "TUNNEL_REQUEST_TIMEOUT_MS",
+      "readIn": "apps/hub/src/utils/tunnelTimeout.ts",
+      "boundsFrom": {
+        "file": "apps/hub/src/utils/tunnelTimeout.ts",
+        "min": "MIN_TIMEOUT_MS",
+        "max": "MAX_TIMEOUT_MS"
+      },
+      "defaultFrom": {
+        "file": "packages/protocol/src/constants.ts",
+        "constant": "REQUEST_TIMEOUT_MS"
+      }
+    }
+  ]
+}

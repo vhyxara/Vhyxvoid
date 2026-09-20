@@ -1,9 +1,63 @@
 ---
 title: Environment variables
-description: Every VHYXVOID_* variable.
-stub: true
+description: Every environment variable the agent, the framework integrations and the SDK read, plus the hub's request timeout.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/sdk": "1.1.0"
+    "@vhyxvoid/middleware": "1.0.4"
+    "@vhyxvoid/next": "1.0.4"
+sources:
+  - packages/agent/src/cli.ts
+  - packages/agent/src/debug.ts
+  - packages/middleware/src/config.ts
+  - packages/next/src/index.ts
+  - packages/sdk/src/client.ts
+  - apps/hub/src/utils/tunnelTimeout.ts
+  - packages/protocol/src/constants.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+The table is generated from a list that is cross-checked against the source of `@vhyxvoid/agent`, `@vhyxvoid/middleware`, `@vhyxvoid/next` and `@vhyxvoid/sdk`: the build fails if a package starts reading a `VHYXVOID_*` variable that isn't listed here, or if a listed one is no longer read.
+
+{/* generated:begin env-vars · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+| Variable | Used by | Default | Meaning |
+| --- | --- | --- | --- |
+| `VHYXVOID_API_KEY` | CLI agent, Express / Fastify, Next.js | none, required | API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`). |
+| `VHYXVOID_SECRET` | CLI agent, Express / Fastify, Next.js | none, required | API key secret, shown once when the key is created. |
+| `VHYXVOID_PORT` | CLI agent, Express / Fastify, Next.js | `3000`. `@vhyxvoid/next` looks for `-p` / `--port` in the command that started Next first, then this variable, then `PORT`, then `3000`. | Local port the tunnel forwards to. |
+| `VHYXVOID_LABEL` | CLI agent, Express / Fastify, Next.js, SDK | `default`. `@vhyxvoid/next` uses `app`. | Tunnel label: the part of the tunnel URL after `--`. In the SDK it picks which tunnel `createClient` targets. |
+| `VHYXVOID_HUB_URL` | CLI agent, Express / Fastify, Next.js | `wss://hub.vhyxvoid.com/agent` | WebSocket URL of the hub the agent connects to. |
+| `VHYXVOID_QUEUE_PATH` | CLI agent | `~/.vhyxvoid/queue.db` | Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue. |
+| `VHYXVOID_WRITE_ENV` | CLI agent, Express / Fastify, Next.js | off | A file name. When set, the agent writes the public URL into that file after it connects (see `VHYXVOID_ENV_KEY`). |
+| `VHYXVOID_ENV_KEY` | CLI agent, Express / Fastify, Next.js | `NEXT_PUBLIC_TUNNEL_URL` | Name of the variable that `VHYXVOID_WRITE_ENV` writes. |
+| `VHYXVOID_DEBUG_LOGGING` | CLI agent | off | Only the exact value `true` turns on detailed diagnostics. The in-process integrations embed the agent, so the variable affects them too. |
+| `VHYXVOID_ACCOUNT_SLUG` | SDK, CLI agent | none; `createClient` needs this or `baseUrl` | Your account slug, the part of the tunnel URL before `--`. The SDK reads it; the CLI's `init` offers it as the default answer and writes it into `.env.vhyxvoid`, but the agent itself never uses it. |
+| `VHYXVOID_HUB_DOMAIN` | SDK | `vhyxvoid.com` | Domain that `createClient` builds the tunnel URL from. |
+{/* generated:end env-vars */}
+
+## Where the agent looks
+
+- **CLI (`vhyxvoid`)** reads `.env`, `.env.local` and `.env.vhyxvoid` from the directory you run it in. Later files win, and all of them override variables already in your shell. Flags override everything. See the [CLI reference](/cli/reference).
+- **`@vhyxvoid/next`** reads the same three files but never overrides a variable that is already set. Its options win over the environment.
+- **`@vhyxvoid/middleware`** (Express and Fastify) reads only `process.env`. It does not read `.env.vhyxvoid`, so load your file yourself (for example with `dotenv`) before you call it.
+- **The SDK** reads only `process.env`, and only when you don't pass the option.
+
+## Tunnel request timeout
+
+How long the hub waits for your server to answer a tunnelled request is set on the hub, with `TUNNEL_REQUEST_TIMEOUT_MS`. It isn't a setting for the agent, the SDK or the dashboard: you can't change it from your side.
+
+{/* generated:begin env-timeout · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+| Variable | Default | Allowed range |
+| --- | --- | --- |
+| `TUNNEL_REQUEST_TIMEOUT_MS` | 120000 ms (120 s) | 5000 to 600000 ms (5 s to 600 s); anything else is ignored with a warning and the default is used |
+{/* generated:end env-timeout */}
+
+The hub's default is 120 seconds. Whoever operates the hub can set it anywhere in the range; a value outside the range is ignored with a warning and the default applies.
+
+Three things to know about it in practice:
+
+- **Your server's own limit can be shorter.** `@vhyxvoid/agent` 1.0.19 and earlier stop waiting for your local server after 28 seconds, whatever the hub allows. A later agent release uses the time the hub sends with each request (the hub's timeout minus two seconds).
+- **What a caller sees.** If your server is too slow, the caller gets a `502` whose message says `Local backend on port 3000 is not responding: timeout of 28000ms exceeded`. A `504` (`Agent did not respond in time`) means the agent didn't answer at all. See [HTTP status codes](/reference/http-status-codes).
+- **The SDK has its own timeouts.** The HTTP client's `timeout` (30 s by default) and `TunnelClient`'s (30 s in 1.1.0) are measured in your process. See [SDK errors](/sdk/errors).

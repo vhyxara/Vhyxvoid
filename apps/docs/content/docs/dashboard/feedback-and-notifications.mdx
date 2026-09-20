@@ -1,9 +1,46 @@
 ---
 title: Feedback and notifications
-description: Send feedback and read notifications.
-stub: true
+description: Send feedback from anywhere in the dashboard, follow it up, and read your notifications.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/views/feedback/FeedbackButton.tsx
+  - apps/web/src/views/feedback/FeedbackDetailDrawer.tsx
+  - apps/web/src/views/profile/FeedbackHistoryTab.tsx
+  - apps/web/src/views/notification/NotificationBell.tsx
+  - apps/web/src/api/domain/identity/schemas/feedback.schema.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+## Send feedback
+
+A round button stays in the bottom-right corner of the dashboard pages. Its tooltip says **Send feedback**.
+
+Choose a type:
+
+| Type | For |
+| --- | --- |
+| **Bug report** | Something is broken or not working as expected |
+| **Feature request** | A new feature or improvement |
+| **UI issue** | A visual or layout problem in the interface |
+| **General feedback** | Anything else |
+
+Then fill in:
+
+- **Title**, from 3 to 150 characters.
+- **Description**, from 10 to 5,000 characters.
+- For a bug report or UI issue, three optional fields appear: **Steps to reproduce**, **Expected behavior** and **Actual behavior**.
+
+Choose **Submit feedback**. The dialog says "Thank you!" and closes on its own after two seconds.
+
+For a problem with a tunnel or an agent, include the agent version (`vhyxvoid --version`), the status code the caller saw, and what the agent printed. Never paste an API secret.
+
+## Your feedback history
+
+On **My profile**, below your details, the feedback list shows everything you have sent: **Type**, **Title**, **Status**, **Priority**, when it was **Submitted**, and when it was **Resolved**. Each row has an action that opens the full text and any notes the team added.
+
+## Notifications
+
+The bell icon at the top of the dashboard shows in-app notifications. A red badge counts the unread ones (shown as `99+` above 99). Click a notification to mark it read, or use **Mark all as read**.

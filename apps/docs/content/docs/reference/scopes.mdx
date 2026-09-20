@@ -1,9 +1,30 @@
 ---
 title: API key scopes
-description: What each API key scope allows.
-stub: true
+description: The scopes an API key can carry and which of them anything actually checks.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/api/src/core/constant/apikey.constant.ts
+  - apps/hub/src/services/HubAuth.service.ts
+  - apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts
+  - apps/web/src/views/org/api-keys/CreateApiKeyDialog.tsx
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+An API key carries a list of scopes. Today the only one that anything checks is **`tunnel:connect`**, and it is the only one you need for the agent, the framework integrations and the SDK's `TunnelClient`. The dashboard preselects it when you create a key.
+
+{/* generated:begin scopes · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+| Scope | Meaning | Checked by VhyxVoid today? | In the dashboard’s create dialog? |
+| --- | --- | --- | --- |
+| `tunnel:connect` | Connect an agent to the hub, and register a `TunnelClient` session. | Yes. The hub requires it for agent registration and for `TunnelClient` connections and requests. | Yes |
+| `tunnel:read` | Read tunnel status. | No. Accepted when creating a key; nothing requires it yet. | Yes |
+| `tunnel:write` | Create or configure tunnels. | No. Accepted by the API when creating a key; nothing requires it yet. | No |
+| `webhook:receive` | Receive inbound webhooks. | No. There is no webhook inspection feature; nothing requires it. | No |
+| `webhook:inspect` | Inspect webhook history. | No. There is no webhook inspector; nothing requires it. | No |
+| `metrics:read` | Read usage metrics. | No. Accepted when creating a key; nothing requires it yet. | Yes |
+| `*` | Every scope. | Satisfies any scope check. Only an organization's owner can create a key that has it. | No |
+{/* generated:end scopes */}
+
+A key's scope count is limited by your plan; see [Plans and limits](/reference/plans-and-limits). Choose scopes when you [create a key](/dashboard/api-keys#create-a-key). You can't add scopes to an existing key from the dashboard's table, so create a new key if you need different ones.

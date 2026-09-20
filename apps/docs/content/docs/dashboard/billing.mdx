@@ -1,9 +1,56 @@
 ---
 title: Billing
-description: Plans, checkout, and invoices.
-stub: true
+description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/views/org/billing/BillingView.tsx
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
+  - apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts
+  - apps/api/src/modules/billing/infrastructure/workers/GracePeriod.worker.ts
+  - apps/api/src/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories.ts
+  - apps/hub/src/services/HubAuth.service.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+Every account, personal or organization, has its own plan: **FREE**, **PRO** or **ENTERPRISE**. Plans are flat-rate, billed monthly through Stripe. Nothing is metered, so there is no charge per request. What each plan allows is on [Plans and limits](/reference/plans-and-limits).
+
+The **Billing** link is in the sidebar for **owners**. Other members can open the page by its address and see the plan, but the invoice history is for owners only ("Invoice history is only visible to organization owners.").
+
+## The plan card
+
+**Current plan** shows a badge for the plan and, once you have a subscription, a second one for its status, such as `TRIALING`, `ACTIVE`, `PAST_DUE` or `CANCELED`. For a paid plan it also shows **Next billing date** (or **Cancels on**, if the subscription is set to end) and **Trial ends** if you are on a trial.
+
+## Upgrade
+
+On the FREE plan the card has an **Upgrade** button.
+
+1. Choose **Upgrade** and pick **Pro** or **Enterprise**. The dialog shows each plan's monthly price.
+2. Choose **Continue to checkout**. You are sent to Stripe's payment page; VhyxVoid never sees your card details.
+3. After paying you come back to **Billing** with a banner: "Plan upgraded successfully. Welcome to your new plan!"
+
+The plan applies to the account you upgraded from, not to your other accounts.
+
+## Manage or cancel
+
+With a paid plan, **Manage subscription** opens Stripe's customer portal, where you update the payment method, see invoices, and cancel or resume. When a subscription is set to cancel, the card shows a warning: "Your subscription will cancel at end of the current period."
+
+## Invoices
+
+Owners see **Invoice history**. Each row has the billing period (or "One-time payment"), a status (`PAID`, `OPEN`, `DRAFT`, `UNCOLLECTIBLE` or `VOID`), the date it was paid, and the amount. A **PDF** button downloads the invoice, and an unpaid invoice has a **Pay now** button.
+
+## When a payment fails
+
+When Stripe reports a failed payment:
+
+1. The subscription and the account move to `PAST_DUE`, and the owner is emailed. The plan card turns red with "Payment failed. Please update your payment method to avoid service interruption." and an **Update payment** button that opens the Stripe portal.
+2. Your plan's limits stay in force for a **seven day grace period**.
+3. If it isn't resolved within that time, the account is `SUSPENDED` (a check runs hourly) and gets the FREE plan's limits.
+
+<Callout type="warn" title="Agents need an active account to connect">
+  The hub only accepts an agent's connection when the account's status is `ACTIVE`. An agent that connects, or has to reconnect, while the account is `PAST_DUE` or `SUSPENDED` is refused with `Account is not active` and stops. The grace period protects your plan's limits, not your ability to connect. This comes from reading the current hub code, not from a test with a real overdue account. Fix the payment method first, then restart the agent.
 </Callout>
+
+Once a payment succeeds the account goes back to `ACTIVE`. You can see the account's status in the **My organizations** table on the [dashboard](/dashboard/account-and-organizations).

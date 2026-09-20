@@ -2,8 +2,8 @@
 title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
-  date: "2026-09-19"
-  commit: 7f81b9d
+  date: "2026-09-21"
+  commit: 2b854f2
   packages:
     "@vhyxvoid/agent": "1.0.19"
 sources:
@@ -69,22 +69,7 @@ It asks for the key ID, the secret (shown as `*`), the port, the label, the hub 
 
 ## Commands and flags
 
-`vhyxvoid` with no command is the same as `vhyxvoid start`.
-
-| Flag | Environment variable | Default | Meaning |
-| --- | --- | --- | --- |
-| `-k, --key <keyId>` | `VHYXVOID_API_KEY` | none, required | API key ID. |
-| `-s, --secret <secret>` | `VHYXVOID_SECRET` | none, required | API key secret. |
-| `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port to forward to. Must be 1 to 65535. |
-| `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label, the part of the URL after `--`. |
-| `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
-| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where the agent keeps its on-disk queue. |
-| `--no-local-discovery` | none | discovery on | Turn off the local discovery server. |
-| `--debug` | `VHYXVOID_DEBUG_LOGGING=true` | off | Print detailed diagnostics: one or more lines per message and per request. |
-| `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off; `.env.local` if no file is given | Write the public URL into a file after connecting. |
-| `--env-key <key>` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name that `--write-env` writes. |
-
-A complete reference generated from the command definitions will replace this table later.
+`vhyxvoid` with no command is the same as `vhyxvoid start`. Every flag, its environment variable and its default are listed in the [CLI reference](/cli/reference), which is generated from the command itself. The ones you will use most are `--key`, `--secret`, `--port` and `--label`.
 
 ### Writing the URL to a file
 

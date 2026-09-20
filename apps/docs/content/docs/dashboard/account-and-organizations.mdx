@@ -1,9 +1,68 @@
 ---
 title: Accounts and organizations
-description: Personal and organization accounts.
-stub: true
+description: Where things are in the dashboard, and how to create and rename an organization.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
+  - apps/web/src/views/org/MyAccountsTable.tsx
+  - apps/web/src/views/org/CreateOrgDialog.tsx
+  - apps/web/src/views/org/OrgSettingsView.tsx
+  - apps/web/src/views/profile/ProfileView.tsx
+  - apps/web/src/api/domain/identity/schemas/createOrg.schema.ts
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+This page describes the dashboard as it works today, from the code of the dashboard itself. Screens change; where a button or label matters, the page quotes it.
+
+## Finding your way around
+
+After you sign in you land on **Dashboard**, a table called **My organizations**. Every account you belong to has a row:
+
+| Column | Shows |
+| --- | --- |
+| Organization | The name (a personal account shows as **Personal account**), and under it the type (`PERSONAL` or `ORGANIZATION`) and status (for example `ACTIVE`). |
+| Your role | Owner, Admin or Member. |
+| Joined | When you joined. |
+| Actions | An arrow that opens the account. |
+
+You can search the table, filter it by role, and sort it. The arrow opens that account's **Members** page.
+
+The sidebar on the left has **Dashboard**, then **Organizations**, then **My profile**. Under **Organizations**, each organization you belong to expands into these links:
+
+| Link | Who sees it |
+| --- | --- |
+| Members | Everyone in the organization |
+| API Keys | Everyone in the organization |
+| Tunnels | Everyone in the organization |
+| Billing | Owners |
+| Settings | Admins and owners |
+
+An Owner or Admin badge appears next to the organization's name in the sidebar.
+
+<Callout type="info" title="Your personal account isn't in the sidebar">
+  The sidebar lists organizations only. If you don't belong to one, it shows a **Create organization** link instead, and you have no sidebar links to API keys or tunnels until you create one. Your personal account is still in the **My organizations** table, and its arrow opens it.
 </Callout>
+
+## Personal accounts and organizations
+
+There are two kinds of account. A **personal account** is yours alone. An **organization** is shared: you can invite people, give them roles, and share its keys, tunnels and billing. Plans and billing belong to the account, so each organization has its own plan. See [Members and roles](/dashboard/members-and-roles) for what each role can do.
+
+## Create an organization
+
+Anyone can create one.
+
+1. On **Dashboard**, choose **New organization**.
+2. Enter a name of 2 to 64 characters (for example `Acme Corp`) and choose **Create**.
+
+You become its Owner, and the dashboard opens it. It starts on the FREE plan; see [Billing](/dashboard/billing).
+
+## Rename an organization
+
+Admins and owners can rename an organization. Open **Settings** in the sidebar, edit **Organization name** under **Rename organization**, and choose **Save**. The same page shows the member count and the number of active API keys, and holds the **Members** and **Invitations** tabs described in [Members and roles](/dashboard/members-and-roles).
+
+## Your profile
+
+**My profile** shows your name and whether your email is verified. You can edit your first and last name; the email address is read-only. It also lists your organization memberships, a form to change your password, and your [feedback history](/dashboard/feedback-and-notifications#your-feedback-history).

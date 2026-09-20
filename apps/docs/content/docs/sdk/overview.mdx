@@ -1,9 +1,67 @@
 ---
 title: SDK overview
-description: Choosing between the HTTP client and the WebSocket client.
-stub: true
+description: The two clients in @vhyxvoid/sdk, which to use, and everything the package exports.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/sdk": "1.1.0"
+sources:
+  - packages/sdk/src/index.ts
+  - packages/sdk/src/client.ts
+  - packages/sdk/src/TunnelClient.ts
+  - packages/sdk/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
+`@vhyxvoid/sdk` lets code call your tunnelled server. It has two clients that do the same job in different ways.
+
+<Callout type="warn" title="Node.js only">
+  The SDK runs on Node.js. It can't be bundled for a browser, and the WebSocket client takes your API key secret, which must never reach client-side code. In a browser, call the tunnel URL with `fetch`. Details are in [Limitations](/limitations#the-sdk-is-nodejs-only).
 </Callout>
+
+```bash
+npm install @vhyxvoid/sdk
+```
+
+Both `import { createClient } from '@vhyxvoid/sdk'` and `require('@vhyxvoid/sdk')` work. This was checked against `@vhyxvoid/sdk@1.1.0` from npm.
+
+## Which client to use
+
+| | [`createClient`](/sdk/http-client) (HTTP) | [`TunnelClient`](/sdk/websocket-client) (WebSocket) |
+| --- | --- | --- |
+| How it works | A plain `fetch` to your tunnel URL, `https://<slug>--<label>.vhyxvoid.com` | One long-lived WebSocket to the hub; each call is signed with your API key |
+| Credentials | None. It sends no VhyxVoid credentials at all | API key ID and secret |
+| Setup | Your account slug, or a `baseUrl` | Hub URL, key ID and secret, and a `connect()` call |
+| Good for | Almost everything: scripts, tests, server-to-server calls | A Node.js process that makes many calls and wants one persistent connection |
+
+Start with `createClient`. Use `TunnelClient` only if you have a reason to keep a connection open.
+
+<Callout type="info">
+  The tunnel URL is public: anyone who knows it can call your server, and `createClient` adds no authentication of its own. Anything sensitive needs protecting in your own application. See [Limitations](/limitations#tunnel-urls-are-public).
+</Callout>
+
+## Everything the package exports
+
+This list is generated from the package's entry point, so it contains exactly what you can import and nothing else.
+
+{/* generated:begin sdk-exports · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+| Export | Kind | Documented in |
+| --- | --- | --- |
+| `TunnelClient` | class | [WebSocket client](/sdk/websocket-client) |
+| `TunnelClientConfig` | type | [WebSocket client](/sdk/websocket-client) |
+| `TunnelResponse` | type | [WebSocket client](/sdk/websocket-client) |
+| `RequestOptions` | type | [WebSocket client](/sdk/websocket-client) |
+| `TunnelError` | class | [SDK errors](/sdk/errors) |
+| `TunnelTimeoutError` | class | [SDK errors](/sdk/errors) |
+| `createClient` | function | [HTTP client](/sdk/http-client) |
+| `VhyxvoidClient` | class | [HTTP client](/sdk/http-client) |
+| `ClientError` | class | [SDK errors](/sdk/errors) |
+| `ClientConfig` | type | [HTTP client](/sdk/http-client) |
+| `ClientResponse` | type | [HTTP client](/sdk/http-client) |
+{/* generated:end sdk-exports */}
+
+Types are erased at run time, so an `import` of a runtime value gives you six names: `createClient`, `VhyxvoidClient`, `ClientError`, `TunnelClient`, `TunnelError` and `TunnelTimeoutError`. That was checked against the installed 1.1.0 package.
+
+## Configuration from the environment
+
+`createClient` reads `VHYXVOID_ACCOUNT_SLUG`, `VHYXVOID_LABEL` and `VHYXVOID_HUB_DOMAIN` when you don't pass the matching option. `TunnelClient` reads nothing from the environment. See [Environment variables](/reference/environment-variables).

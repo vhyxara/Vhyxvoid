@@ -1,9 +1,118 @@
 ---
 title: CLI reference
-description: Commands, flags, and environment variables of the vhyxvoid CLI.
-stub: true
+description: Commands, flags, and environment variables of the vhyxvoid command.
+verified:
+  date: "2026-09-21"
+  commit: 2b854f2
+  packages:
+    "@vhyxvoid/agent": "1.0.19"
+sources:
+  - packages/agent/src/cli.ts
+  - packages/agent/package.json
 ---
 
-<Callout type="warn">
-This page hasn't been written yet.
-</Callout>
+The `vhyxvoid` command is installed by [`@vhyxvoid/agent`](/getting-started/installation). This page lists every command, flag and environment variable. For a walkthrough see [Any stack (CLI)](/integrations/standalone-cli), and for the first run see the [Quickstart](/getting-started/quickstart).
+
+The flag table and the help output below are generated from the built CLI (`vhyxvoid --help`, `start --help`, `init --help`), and were checked to be identical to what `@vhyxvoid/agent@1.0.19` from npm prints.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `vhyxvoid start` | Connects your local server to VhyxVoid and prints the public URL. This is the default command, so `vhyxvoid --port 3000` means `vhyxvoid start --port 3000`. |
+| `vhyxvoid init` | Asks for your key ID, secret, port, label, hub URL and an optional account slug, then writes `.env.vhyxvoid` and adds it to `.gitignore`. It takes no flags. |
+| `vhyxvoid --version` | Prints the version of the installed package. |
+| `vhyxvoid help [command]` | Prints help. `vhyxvoid start --help` and `vhyxvoid help start` print the same thing. |
+
+## Flags for `start`
+
+Every flag has an environment variable except `--no-local-discovery`. Precedence, highest first: the flag, then `.env.vhyxvoid`, `.env.local` and `.env` in the current directory (the last of these to define a variable wins, and all three override variables already set in your shell), then the default.
+
+{/* generated:begin cli-flags · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+| Flag | Environment variable | Default | Meaning |
+| --- | --- | --- | --- |
+| `-k, --key <keyId>` | `VHYXVOID_API_KEY` | none, required | API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`). |
+| `-s, --secret <secret>` | `VHYXVOID_SECRET` | none, required | API key secret, shown once when the key is created. |
+| `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port the tunnel forwards to. |
+| `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label: the part of the tunnel URL after `--`. Run one agent per label to expose several servers. |
+| `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | WebSocket URL of the hub the agent connects to. |
+| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue. |
+| `--no-local-discovery` | none | discovery on | Disable local discovery on port 4242. |
+| `--debug` | `VHYXVOID_DEBUG_LOGGING=true` | off | Print detailed diagnostics: one or more lines per message and per request. Off by default. |
+| `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off | After connecting, write the public URL into a file. Give a file name, or none for `.env.local`. |
+| `--env-key <key>` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Name of the variable that `VHYXVOID_WRITE_ENV` writes. |
+{/* generated:end cli-flags */}
+
+Two details the table can't show:
+
+- `--write-env` takes an optional file name. With no name it writes to `.env.local`. It writes the variable named by `--env-key` (`NEXT_PUBLIC_TUNNEL_URL` unless you change it), replacing an existing line with the same name.
+- `--port` must be a whole number from 1 to 65535. The agent checks this before it connects.
+
+## When it can't start
+
+The agent prints a message and exits with status 1 in these cases:
+
+| You see | Cause |
+| --- | --- |
+| `API key required.` | No key from `--key`, `VHYXVOID_API_KEY` or an env file. |
+| `Secret required.` | No secret from `--secret`, `VHYXVOID_SECRET` or an env file. |
+| `Invalid port: "abc"` | `--port` (or `VHYXVOID_PORT`) is not a number from 1 to 65535. |
+| `error: too many arguments for 'start'. Expected 0 arguments but got 1.` | You typed a word that isn't a command, such as `vhyxvoid bogus`. Because `start` is the default command, anything that isn't `init`, `start` or `help` is passed to it as an extra argument. Check the spelling of the command. |
+
+Once it is running: Ctrl+C (or `SIGTERM`) stops it cleanly, a dropped connection is retried automatically with a growing delay, and an uncaught exception is logged instead of ending the process.
+
+## Full help output
+
+{/* generated:begin cli-help · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
+```text title="vhyxvoid --help"
+Usage: vhyxvoid [options] [command]
+
+Platform tunnel agent — connects your local server to the platform.
+
+Options:
+  -V, --version    output the version number
+  -h, --help       display help for command
+
+Commands:
+  init             Interactive setup — saves credentials to .env.vhyxvoid
+  start [options]  Start the tunnel agent
+  help [command]   display help for command
+```
+
+```text title="vhyxvoid start --help"
+Usage: vhyxvoid start [options]
+
+Start the tunnel agent
+
+Options:
+  -k, --key <keyId>      API key ID. Env: VHYXVOID_API_KEY
+  -s, --secret <secret>  API key secret. Env: VHYXVOID_SECRET
+  -p, --port <port>      Local port. Env: VHYXVOID_PORT (default: "3000")
+  -l, --label <label>    Tunnel label. Env: VHYXVOID_LABEL (default: "default")
+  --hub <url>            Hub WebSocket URL. Env: VHYXVOID_HUB_URL (default:
+                         "wss://hub.vhyxvoid.com/agent")
+  --queue-path <path>    SQLite queue path.
+  --no-local-discovery   Disable local discovery on port 4242
+  --debug                Print verbose diagnostics. Env:
+                         VHYXVOID_DEBUG_LOGGING=true
+  --write-env [file]     Write tunnel URL to .env.local after connect. Env:
+                         VHYXVOID_WRITE_ENV
+  --env-key <key>        Env var name to write tunnel URL into (default:
+                         "NEXT_PUBLIC_TUNNEL_URL")
+  -h, --help             display help for command
+```
+
+```text title="vhyxvoid init --help"
+Usage: vhyxvoid init [options]
+
+Interactive setup — saves credentials to .env.vhyxvoid
+
+Options:
+  -h, --help  display help for command
+```
+{/* generated:end cli-help */}
+
+## See also
+
+- [Environment variables](/reference/environment-variables) lists these variables together with the ones the SDK and the framework integrations read.
+- [Any stack (CLI)](/integrations/standalone-cli) covers env files, several tunnels, the queue and local discovery.
