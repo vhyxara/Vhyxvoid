@@ -17,6 +17,28 @@ export const requestIdHook = (
   done();
 };
 
+const CLIENT_ERROR_CODES: Record<number, string> = {
+  400: "BAD_REQUEST",
+  401: "UNAUTHORIZED",
+  403: "FORBIDDEN",
+  404: "NOT_FOUND",
+  409: "CONFLICT",
+  413: "PAYLOAD_TOO_LARGE",
+  415: "UNSUPPORTED_MEDIA_TYPE",
+  429: "TOO_MANY_REQUESTS",
+};
+
+const clientErrorStatus = (error: unknown): number | undefined => {
+  const status = (error as { statusCode?: unknown } | null)?.statusCode;
+  return error instanceof Error &&
+    typeof status === "number" &&
+    Number.isInteger(status) &&
+    status >= 400 &&
+    status < 500
+    ? status
+    : undefined;
+};
+
 export const errorHandler = (
   error: unknown,
   request: FastifyRequest,
@@ -41,6 +63,20 @@ export const errorHandler = (
       message: "Invalid request data",
       data: null,
       errors: error.issues.map((e) => ({ path: e.path, message: e.message })),
+      requestId,
+    });
+  }
+
+  // Fastify's own client errors (invalid JSON body, oversized body, unsupported
+  // media type, ...) are plain Errors carrying a 4xx statusCode. They are the
+  // caller's fault, so answer with that status instead of the 500 fallback.
+  const clientStatus = clientErrorStatus(error);
+  if (clientStatus !== undefined) {
+    return reply.status(clientStatus).send({
+      success: false,
+      code: CLIENT_ERROR_CODES[clientStatus] ?? "BAD_REQUEST",
+      message: (error as Error).message,
+      data: null,
       requestId,
     });
   }
