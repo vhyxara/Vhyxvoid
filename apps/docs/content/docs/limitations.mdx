@@ -3,12 +3,12 @@ title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
   date: "2026-09-21"
-  commit: 8c74574
+  commit: 377c924
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
-    "@vhyxvoid/middleware": "1.0.4"
-    "@vhyxvoid/next": "1.0.4"
+    "@vhyxvoid/middleware": "1.0.5"
+    "@vhyxvoid/next": "1.0.5"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/registry/Pending.registry.ts
@@ -53,7 +53,7 @@ A WebSocket connection to a tunnel URL is carried to your server, and a simple c
 - A message sent right after the connection opens can be lost, which makes socket.io fall back to long polling.
 - There is no cap on connections and no keep-alive.
 
-Fixes for messages lost in bursts and for sockets left open after a disconnect are in the repository but not in any released agent yet. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
+`@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` and `@vhyxvoid/middleware` 1.0.5) fixed messages lost or reordered in bursts, messages arriving after a close, sockets left open after a disconnect and unsendable close codes. Those fixes come in two halves, one in the agent and one in the hub, and this page can't tell you which hub you are talking to. The two problems above are not fixed. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
 
 ## Cached responses
 
@@ -71,4 +71,4 @@ Requests reach your server with `Host` (and `x-forwarded-host`) set to `127.0.0.
 ## Request size and time
 
 - Request bodies are limited to **10 MB**. Larger requests get `413`.
-- The hub waits **120 seconds** by default for an answer (whoever operates the hub can set 5 to 600 seconds), but `@vhyxvoid/agent` 1.0.19 and earlier stop waiting for your server after **28 seconds**, and the caller then gets `502`. See [Environment variables](/reference/environment-variables#tunnel-request-timeout).
+- The hub waits **120 seconds** by default for an answer (whoever operates the hub can set 5 to 600 seconds), and `@vhyxvoid/agent` 1.0.20 and later wait for your server for as long as the hub allows, minus two seconds (118 seconds on the default). `@vhyxvoid/agent` 1.0.19 and earlier stop waiting after **28 seconds**, and the caller then gets `502`. The in-process integrations bundle the agent, so `@vhyxvoid/next` and `@vhyxvoid/middleware` need 1.0.5 or later for the same. See [Environment variables](/reference/environment-variables#tunnel-request-timeout).

@@ -5,7 +5,7 @@ verified:
   date: "2026-09-21"
   commit: 8c74574
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
 sources:
   - packages/agent/src/cli.ts
@@ -94,7 +94,7 @@ If it doesn't work, these are the responses VhyxVoid itself produces:
 | `404` | No agent is registered for that URL. Start the agent, and check the slug and label. |
 | `503` | The URL is registered but its agent is not connected right now. Restart the agent. |
 | `413` | The request body was over 10 MB. |
-| `502` | The agent is connected but your server didn't answer it: it isn't running on that port, or it took too long (the agent gives up after 28 seconds). |
+| `502` | The agent is connected but your server didn't answer it: it isn't running on that port, or it took too long (agent 1.0.20 and later wait as long as the hub allows minus two seconds, 118 seconds on the default; 1.0.19 and earlier gave up after 28). |
 | `504` | The agent didn't answer at all within the hub's timeout (120 seconds by default). Unusual. |
 
 Anything else is your own server's response.

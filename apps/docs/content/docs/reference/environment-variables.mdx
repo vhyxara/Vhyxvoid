@@ -5,10 +5,10 @@ verified:
   date: "2026-09-21"
   commit: 8c74574
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
-    "@vhyxvoid/middleware": "1.0.4"
-    "@vhyxvoid/next": "1.0.4"
+    "@vhyxvoid/middleware": "1.0.5"
+    "@vhyxvoid/next": "1.0.5"
 sources:
   - packages/agent/src/cli.ts
   - packages/agent/src/debug.ts
@@ -58,6 +58,6 @@ The hub's default is 120 seconds. Whoever operates the hub can set it anywhere i
 
 Three things to know about it in practice:
 
-- **Your server's own limit can be shorter.** `@vhyxvoid/agent` 1.0.19 and earlier stop waiting for your local server after 28 seconds, whatever the hub allows. A later agent release uses the time the hub sends with each request (the hub's timeout minus two seconds).
-- **What a caller sees.** If your server is too slow, the caller gets a `502` whose message says `Local backend on port 3000 is not responding: timeout of 28000ms exceeded`. A `504` (`Agent did not respond in time`) means the agent didn't answer at all. See [HTTP status codes](/reference/http-status-codes).
+- **Your server's own limit can be shorter.** `@vhyxvoid/agent` 1.0.19 and earlier stop waiting for your local server after 28 seconds, whatever the hub allows. From 1.0.20 the agent uses the time the hub sends with each request (the hub's timeout minus two seconds, so 118 seconds on the default). `@vhyxvoid/next` and `@vhyxvoid/middleware` bundle the agent and have this from 1.0.5.
+- **What a caller sees.** If your server is too slow, the caller gets a `502` whose message says `Local backend on port 3000 is not responding: timeout of 118000ms exceeded` (the number is the agent's wait in milliseconds; `28000` on 1.0.19 and earlier). A `504` (`Agent did not respond in time`) means the agent didn't answer at all. See [HTTP status codes](/reference/http-status-codes).
 - **The SDK has its own timeouts.** The HTTP client's `timeout` (30 s by default) and `TunnelClient`'s (30 s in 1.1.0) are measured in your process. See [SDK errors](/sdk/errors).

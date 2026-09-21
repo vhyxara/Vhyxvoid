@@ -5,10 +5,10 @@ verified:
   date: "2026-09-21"
   commit: 8c74574
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
-    "@vhyxvoid/middleware": "1.0.4"
-    "@vhyxvoid/next": "1.0.4"
+    "@vhyxvoid/middleware": "1.0.5"
+    "@vhyxvoid/next": "1.0.5"
 sources:
   - packages/agent/src/AgentClient.ts
   - packages/agent/src/cli.ts
@@ -41,7 +41,7 @@ Start with the agent's own output, then the status code a caller sees. Run the a
 | `error: too many arguments for 'start'…` | A typo in a command name; see the [CLI reference](/cli/reference#when-it-cant-start). |
 | `Disconnected from hub — reconnecting automatically...` | The connection dropped. The agent retries on its own with a growing delay, and requests that arrive meanwhile are not replayed; see [Limitations](/limitations). If it never stops, check your network and any proxy that blocks WebSockets. |
 
-With agent 1.0.19, a wrong secret or a missing scope isn't treated as fatal: the agent retries about once a second until you stop it. That is expected today, and pressing Ctrl+C is the fix.
+With agent 1.0.19 and 1.0.20, a wrong secret or a missing scope isn't treated as fatal: the agent retries about once a second until you stop it. That is expected today, and pressing Ctrl+C is the fix.
 
 ## The agent connects but doesn't show a public URL
 
@@ -70,12 +70,12 @@ The full list is on [HTTP status codes](/reference/http-status-codes).
 
 | Where | Limit | What the caller sees |
 | --- | --- | --- |
-| The agent waiting for your local server | 28 seconds in `@vhyxvoid/agent` 1.0.19 and earlier. Later releases use the hub's budget (its timeout minus two seconds). | A `502` with `Local backend on port 3000 is not responding: timeout of 28000ms exceeded`. |
+| The agent waiting for your local server | The hub's budget for the request, which is its timeout minus two seconds (118 seconds on the default), in `@vhyxvoid/agent` 1.0.20 and later. 28 seconds in 1.0.19 and earlier, and against a hub that hasn't been updated. | A `502` with `Local backend on port 3000 is not responding: timeout of 118000ms exceeded` (the number is the budget in milliseconds; `28000` on the old limit). |
 | The hub waiting for the agent | 120 seconds by default. | A `504` with `Agent did not respond in time`. Rare: it means the agent didn't answer at all, not that your server was slow. |
 | `createClient` in the SDK | 30 seconds by default (`timeout` option). | A `TimeoutError`: `The operation was aborted due to timeout`. Not a `ClientError`. |
 | `TunnelClient` in the SDK | 30 seconds in 1.1.0. | `TunnelTimeoutError` with code `AGENT_TIMEOUT`, marked retryable. |
 
-So on today's agent, a slow route fails with a `502` at 28 seconds, not a `504` at 30 or 120. To keep a slow request alive longer, upgrade the agent once a release with the change is published, and raise `timeout` on any SDK client you call it from. Meanwhile, answer long work quickly and finish it in the background. For webhooks, that is best practice anyway.
+So with agent 1.0.20 or later, a slow route fails with a `502` a little before the hub's own limit (at 118 seconds on the default), not a `504`. With 1.0.19 or earlier it fails at 28 seconds. To keep a slow request alive longer, upgrade the agent (`@vhyxvoid/next` and `@vhyxvoid/middleware` to 1.0.5 or later, since they bundle it), and raise `timeout` on any SDK client you call it from: the SDK's 30 second default is now the shortest limit. Even so, answer long work quickly and finish it in the background. For webhooks, that is best practice anyway.
 
 ## WebSockets and hot reload through a tunnel
 
@@ -87,7 +87,7 @@ WebSocket connections through a tunnel URL are **partly working, and not yet sup
 - **A server that refuses the connection is hidden.** If your server rejects the upgrade (a `401`, `403` or `404`), the browser still sees the connection open, and then it closes at once with code `1011` and the error text (for a refused connection, that text includes your local port). You don't get the HTTP status.
 - **No limits and no keep-alive yet.** There is no cap on connections and no ping to close dead ones.
 
-Fixes for lost messages in bursts, messages arriving after a close, sockets left open after a disconnect and connections that never close after an abnormal shutdown are in the repository as of 2026-09-20 but **not in any released agent** (1.0.19 is the latest at the time of writing), and this page can't confirm whether the hub you are talking to already has its half. The subprotocol and early-message problems above are not fixed yet.
+`@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` and `@vhyxvoid/middleware` 1.0.5) fixed lost or reordered messages in bursts, messages arriving after a close, sockets left open after a disconnect and connections that never close after an abnormal shutdown. Upgrade to get them; on 1.0.19 or earlier those problems remain. The fix has a half in the hub too, which this page can't check for the hub you are talking to. The subprotocol and early-message problems above are not fixed yet.
 
 Next.js and other frameworks' hot reload over the tunnel has **not been tested**. To develop against the tunnel without hot reload trouble, open your app on `localhost` and use the tunnel URL only for what needs a public address, such as a webhook. A tunnelled WebSocket is exactly as public as the tunnel's HTTP; see [Limitations](/limitations).
 

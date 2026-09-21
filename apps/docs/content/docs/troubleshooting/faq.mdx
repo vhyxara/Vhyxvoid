@@ -5,7 +5,7 @@ verified:
   date: "2026-09-21"
   commit: 8c74574
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
@@ -33,7 +33,7 @@ Not in the dashboard. The **Tunnels** page shows which agents are connected and 
 
 ## How long can a request take?
 
-The hub's default wait is 120 seconds, but the agent you run today (1.0.19) gives up on your server after 28 seconds, and the SDK clients have their own 30 second defaults. So plan on under half a minute for now. See [Troubleshooting](/troubleshooting#the-request-is-slow-or-times-out).
+The hub's default wait is 120 seconds, and agent 1.0.20 and later wait for your server for as long as the hub allows minus two seconds (118 seconds on the default). Agent 1.0.19 and earlier gave up after 28 seconds. The SDK clients have their own 30 second defaults, so raise `timeout` on any client you call a slow route from. See [Troubleshooting](/troubleshooting#the-request-is-slow-or-times-out).
 
 ## Do WebSockets work through the tunnel?
 

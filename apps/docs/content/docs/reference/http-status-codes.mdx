@@ -5,7 +5,7 @@ verified:
   date: "2026-09-21"
   commit: 8c74574
   packages:
-    "@vhyxvoid/agent": "1.0.19"
+    "@vhyxvoid/agent": "1.0.20"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/router/Message.router.ts
@@ -28,7 +28,7 @@ When VhyxVoid answers, the body is JSON of this shape, and that is how you tell 
 | `400` | `Invalid tunnel URL. Expected format: accountslug--label.vhyxvoid.com` | The hostname isn't `<account slug>--<label>.<domain>`. Check the URL the agent printed. |
 | `404` | `No active tunnel found for "<host>". Start the agent with: vhyxvoid …` | Nothing is registered under this slug and label. Start the agent, and check the label. A `404` **without** `"tunnel": true` came from your own server. |
 | `413` | `Request body too large. Maximum is 10MB` | The request declares a body over 10 MB. |
-| `502` | `Local backend on port <port> is not responding: …` | The agent is connected, but your server didn't answer it: it isn't running on that port, refused the connection, or was too slow. With agent 1.0.19 the text ends `timeout of 28000ms exceeded`, because it stops waiting after 28 seconds. |
+| `502` | `Local backend on port <port> is not responding: …` | The agent is connected, but your server didn't answer it: it isn't running on that port, refused the connection, or was too slow. For a slow server the text ends `timeout of <n>ms exceeded`, where `<n>` is the time the agent waited: the hub's timeout minus two seconds with agent 1.0.20 and later (`118000` on the default), and `28000` with 1.0.19 and earlier. |
 | `502` | `Agent disconnected while processing your request` | The agent lost its connection to VhyxVoid while your request was in flight. Retry it, after checking the agent is running. |
 | `502` | `Failed to send request to agent` | The hub couldn't hand the request to the agent. Retry. |
 | `503` | `Tunnel is registered but agent is not connected. …` | The label is known but the agent isn't connected right now, for instance while it reconnects. Restart it if it stays down. |
@@ -40,4 +40,4 @@ Requests that were in flight when an agent dropped are not replayed afterwards; 
 
 ## Timing
 
-The hub's default request timeout is 120 seconds and can be set anywhere from 5 to 600 seconds by whoever operates the hub, with `TUNNEL_REQUEST_TIMEOUT_MS`. It is not something you can change. The agent stops waiting for your server slightly earlier than the hub does (28 seconds for agent 1.0.19 and earlier, so a slow handler fails there first). See [Environment variables](/reference/environment-variables#tunnel-request-timeout).
+The hub's default request timeout is 120 seconds and can be set anywhere from 5 to 600 seconds by whoever operates the hub, with `TUNNEL_REQUEST_TIMEOUT_MS`. It is not something you can change. The agent stops waiting for your server slightly earlier than the hub does (two seconds earlier with agent 1.0.20 and later; a fixed 28 seconds for 1.0.19 and earlier, so a slow handler fails there first). See [Environment variables](/reference/environment-variables#tunnel-request-timeout).
