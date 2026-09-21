@@ -32,7 +32,7 @@ function roleBadgeVariant(level: RoleLevel) {
   return 'default' as const
 }
 
-function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAccount, any>[] {
+function buildColumns(onNavigate: (row: MyAccount) => void): ColumnDef<MyAccount, any>[] {
   return [
     // col.accessor('accountId', {
     //   header: 'Account ID',
@@ -92,7 +92,7 @@ function buildColumns(onNavigate: (accountId: string) => void): ColumnDef<MyAcco
             type: 'click',
             icon: <i className='tabler-arrow-right' />,
             color: 'primary',
-            onClick: r => onNavigate(r.accountId)
+            onClick: r => onNavigate(r)
           }
         ]
 
@@ -108,7 +108,11 @@ export function MyAccountsTable() {
   const [createOpen, setCreateOpen] = useState(false)
   const router = useRouter()
 
-  const columns = buildColumns(accountId => router.push(`/organizations/${accountId}/members`))
+  // A personal account is a single-owner workspace: its Members page is a dead
+  // end (Billing/Settings aren't offered for it either), so open API Keys.
+  const columns = buildColumns(row =>
+    router.push(`/organizations/${row.accountId}/${row.accountType === 'PERSONAL' ? 'api-keys' : 'members'}`)
+  )
 
   // Owns the real query now — GenericServerTable no longer fetches its own
   // data. `serverTable`'s params drive `useMyAccountsTableList`, which wraps

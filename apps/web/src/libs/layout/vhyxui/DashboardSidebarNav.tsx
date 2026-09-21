@@ -40,6 +40,11 @@ function NavLink({
   )
 }
 
+// The account a user gets automatically at signup (`PERSONAL`) is a single-owner
+// workspace: it can hold API keys and tunnels like any account, but its name
+// can't be changed (the API rejects it), and Members/Billing/Settings have no
+// agreed meaning for it yet, so its sub-nav offers only the two that do. See
+// decision.md, 2026-09-21, "Personal accounts get a sidebar entry".
 function RoleBadge({ roleLevel }: { roleLevel: RoleLevel }) {
   if (roleLevel === RoleLevel.OWNER) {
     return (
@@ -70,9 +75,10 @@ function OrgSubNav({
   onNavigate?: () => void
 }) {
   const [open, setOpen] = useState(true)
+  const isPersonal = account.accountType === 'PERSONAL'
   const isAdmin = account.roleLevel >= RoleLevel.ADMIN
   const isOwner = account.roleLevel === RoleLevel.OWNER
-  const orgName = account.accountName ?? 'Unnamed organization'
+  const orgName = account.accountName ?? (isPersonal ? 'Personal workspace' : 'Unnamed organization')
   const id = account.accountId
 
   // Sub-items only ever render when labels are visible — there's no flyout-
@@ -89,29 +95,31 @@ function OrgSubNav({
         onClick={() => setOpen(o => !o)}
         aria-expanded={expanded}
       >
-        <i className='tabler-building' />
+        <i className={isPersonal ? 'tabler-user' : 'tabler-building'} />
         <span className={styles.orgName}>{orgName}</span>
-        <RoleBadge roleLevel={account.roleLevel} />
+        {!isPersonal && <RoleBadge roleLevel={account.roleLevel} />}
         <i className={`tabler-chevron-right ${styles.chevron}`} data-open={expanded} />
       </button>
 
       {expanded && (
         <div className={styles.subItems}>
-          <NavLink href={`/organizations/${id}/members`} icon='tabler-users' onNavigate={onNavigate}>
-            Members
-          </NavLink>
+          {!isPersonal && (
+            <NavLink href={`/organizations/${id}/members`} icon='tabler-users' onNavigate={onNavigate}>
+              Members
+            </NavLink>
+          )}
           <NavLink href={`/organizations/${id}/api-keys`} icon='tabler-key' onNavigate={onNavigate}>
             API Keys
           </NavLink>
           <NavLink href={`/organizations/${id}/tunnels`} icon='tabler-plug' onNavigate={onNavigate}>
             Tunnels
           </NavLink>
-          {isOwner && (
+          {isOwner && !isPersonal && (
             <NavLink href={`/organizations/${id}/billing`} icon='tabler-credit-card' onNavigate={onNavigate}>
               Billing
             </NavLink>
           )}
-          {isAdmin && (
+          {isAdmin && !isPersonal && (
             <NavLink href={`/organizations/${id}/settings`} icon='tabler-settings' onNavigate={onNavigate}>
               Settings
             </NavLink>
@@ -141,6 +149,7 @@ export interface DashboardSidebarNavProps {
 
 export function DashboardSidebarNav({ showLabels, onNavigate }: DashboardSidebarNavProps) {
   const { data: accounts, isLoading } = useMyAccounts()
+  const personalAccounts = accounts?.filter(a => a.accountType === 'PERSONAL') ?? []
   const orgAccounts = accounts?.filter(a => a.accountType === 'ORGANIZATION') ?? []
 
   return (
@@ -148,6 +157,15 @@ export function DashboardSidebarNav({ showLabels, onNavigate }: DashboardSidebar
       <NavLink href='/dashboard' icon='tabler-smart-home' onNavigate={onNavigate}>
         Dashboard
       </NavLink>
+
+      {personalAccounts.length > 0 && (
+        <>
+          <div className={styles.sectionLabel}>Personal workspace</div>
+          {personalAccounts.map(account => (
+            <OrgSubNav key={account.accountId} account={account} showLabels={showLabels} onNavigate={onNavigate} />
+          ))}
+        </>
+      )}
 
       <div className={styles.sectionLabel}>Organizations</div>
       {isLoading ? (
