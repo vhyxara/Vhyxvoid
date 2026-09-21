@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
+
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 import { useRouter } from 'next/navigation'
 
-import { Badge } from '@vhyxui/react'
+import { Badge, Button } from '@vhyxui/react'
 
 import { Typography } from '@/components/vhyxui-shims'
 import { GenericServerTable } from '@/libs/table/GenericServerTable'
@@ -13,6 +15,7 @@ import type { RowAction } from '@/libs/table/type'
 import { useAdminUsersTableList, useDisableAdmin, useEnableAdmin } from '@/api/application/hooks/useAdminUsers'
 import { useAdminAuthStore } from '@/api/domain/auth/auth.store'
 import type { AdminUserSummary } from '@/api/domain/admin-users/admin-user.types'
+import { CreateAdminDialog } from './CreateAdminDialog'
 
 function formatLastLogin(value: string | null): string {
   if (!value) return 'Never'
@@ -127,6 +130,7 @@ function buildColumns(args: {
 
 export function AdminUsersTable() {
   const router = useRouter()
+  const [createOpen, setCreateOpen] = useState(false)
   const currentAdminId = useAdminAuthStore(s => s.admin?.id)
 
   const serverTable = useServerTable('admin-users')
@@ -143,25 +147,34 @@ export function AdminUsersTable() {
   })
 
   return (
-    <GenericServerTable<AdminUserSummary>
-      title='Admin Users'
-      columns={columns}
-      serverTable={serverTable}
-      data={data?.items ?? []}
-      isLoading={isLoading}
-      error={error}
-      total={data?.total ?? 0}
-      enableSearch
-      filtersConfig={[
-        {
-          key: 'status',
-          label: 'Status',
-          options: [
-            { label: 'Active', value: 'true' },
-            { label: 'Disabled', value: 'false' }
-          ]
-        }
-      ]}
-    />
+    <>
+      <GenericServerTable<AdminUserSummary>
+        title='Admin Users'
+        columns={columns}
+        serverTable={serverTable}
+        data={data?.items ?? []}
+        isLoading={isLoading}
+        error={error}
+        total={data?.total ?? 0}
+        enableSearch
+        renderToolbar={() => (
+          <Button size='sm' icon={<i className='tabler-plus' />} onClick={() => setCreateOpen(true)}>
+            Create admin
+          </Button>
+        )}
+        filtersConfig={[
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { label: 'Active', value: 'true' },
+              { label: 'Disabled', value: 'false' }
+            ]
+          }
+        ]}
+      />
+
+      <CreateAdminDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+    </>
   )
 }

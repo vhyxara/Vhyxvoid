@@ -14,6 +14,7 @@ import {
   useRevokeRoleFromAdmin
 } from '@/api/application/hooks/useAdminUsers'
 import { useAdminRolesList } from '@/api/application/hooks/useAdminRoles'
+import { EditAdminProfileCard } from './EditAdminProfileCard'
 
 function formatLastLogin(value: string | null): string {
   if (!value) return 'Never'
@@ -90,6 +91,8 @@ export function AdminUserDetailView({ id }: { id: string }) {
           <Typography variant='body1'>{formatLastLogin(admin.lastLoginAt)}</Typography>
         </div>
       </Card>
+
+      <EditAdminProfileCard admin={admin} />
 
       <Card className='p-6 flex flex-col gap-4'>
         <Typography variant='h6'>Roles</Typography>

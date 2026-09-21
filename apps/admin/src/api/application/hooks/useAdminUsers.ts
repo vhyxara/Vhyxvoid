@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { FetchParams } from '@/libs/table/GenericServerTable'
 import { cleanTableParams } from '@/libs/table/tableUtility'
 import { adminUserKeys } from '@/api/infrastructure/query-keys/admin-user.keys'
-import { adminUserService, type CreateAdminDTO } from '@/api/infrastructure/admin-user.service'
+import { adminUserService, type CreateAdminDTO, type UpdateAdminProfileDTO } from '@/api/infrastructure/admin-user.service'
+import { useAdminAuthStore } from '@/api/domain/auth/auth.store'
 import { parseStatusFilter, paginateAdminUsers } from './adminUsersTable.util'
 
 // The real, server-backed query -- GET /admin/identity/users?status=...
@@ -58,6 +59,25 @@ export function useCreateAdmin() {
     mutationFn: (data: CreateAdminDTO) => adminUserService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.all })
+    }
+  })
+}
+
+// PUT /admin/identity/users/:id -- name only (see UpdateAdminProfileDTO). The
+// signed-in admin's own name lives in the auth store too (DashboardShell shows
+// it), so editing yourself must update it or the header keeps the old name.
+export function useUpdateAdmin(id: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: UpdateAdminProfileDTO) => adminUserService.update(id, data),
+    onSuccess: updated => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.all })
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(id) })
+
+      useAdminAuthStore.setState(state =>
+        state.admin?.id === id ? { admin: { ...state.admin, fullName: updated.fullName } } : state
+      )
     }
   })
 }

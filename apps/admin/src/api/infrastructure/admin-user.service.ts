@@ -9,6 +9,24 @@ export type CreateAdminDTO = {
   lastName: string
 }
 
+// PUT /admin/identity/users/:id (updateAdminSchema): firstName/lastName only,
+// both optional. The route silently IGNORES anything else (email, password --
+// confirmed live, 2026-09-21: a 200 with the email and password unchanged) and
+// silently ignores a blank name (AdminUser.updateProfile keeps the old value),
+// so callers must not offer those fields and must reject blank names themselves.
+export type UpdateAdminProfileDTO = {
+  firstName?: string
+  lastName?: string
+}
+
+export type UpdatedAdminProfile = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  fullName: string
+}
+
 export const adminUserService = {
   // GET /admin/identity/users' only real server param is `status` --
   // confirmed by reading listAdminsSchema directly (admin.dto.ts). Built
@@ -30,6 +48,13 @@ export const adminUserService = {
     httpClient<{ id: string; email: string; fullName: string }>({
       url: ADMIN_USER_ENDPOINTS.CREATE,
       method: 'POST',
+      data
+    }),
+
+  update: (id: string, data: UpdateAdminProfileDTO) =>
+    httpClient<UpdatedAdminProfile>({
+      url: ADMIN_USER_ENDPOINTS.UPDATE(id),
+      method: 'PUT',
       data
     }),
 
