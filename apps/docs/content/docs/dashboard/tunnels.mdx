@@ -3,14 +3,15 @@ title: Tunnels
 description: See which agents are connected right now, and the history of past connections.
 verified:
   date: "2026-09-21"
-  commit: 8c74574
+  commit: dc922f8
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/web/src/views/org/tunnels/TunnelsView.tsx
 ---
 
-Open **Tunnels** under your organization in the sidebar. The page is read-only: it shows connections, and you start and stop tunnels with the [agent](/cli/reference) or an [integration](/integrations/nextjs), not from here. Everyone in the organization can see it.
+Open **Tunnels** under your personal workspace or under an organization in the sidebar. The page is read-only: it shows connections, and you start and stop tunnels with the [agent](/cli/reference) or an [integration](/integrations/nextjs), not from here. Everyone in an organization can see its page.
 
 ## Active tunnels
 

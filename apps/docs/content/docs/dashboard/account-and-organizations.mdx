@@ -3,7 +3,7 @@ title: Accounts and organizations
 description: Where things are in the dashboard, and how to create and rename an organization.
 verified:
   date: "2026-09-21"
-  commit: 8c74574
+  commit: dc922f8
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -23,14 +23,14 @@ After you sign in you land on **Dashboard**, a table called **My organizations**
 
 | Column | Shows |
 | --- | --- |
-| Organization | The name (a personal account shows as **Personal account**), and under it the type (`PERSONAL` or `ORGANIZATION`) and status (for example `ACTIVE`). |
+| Organization | The name (your personal account is called `<First name>'s Workspace`, or `Personal Workspace` if you gave no first name), and under it the type (`PERSONAL` or `ORGANIZATION`) and status (for example `ACTIVE`). |
 | Your role | Owner, Admin or Member. |
 | Joined | When you joined. |
 | Actions | An arrow that opens the account. |
 
-You can search the table, filter it by role, and sort it. The arrow opens that account's **Members** page.
+You can search the table, filter it by role, and sort it. The arrow opens an organization's **Members** page, and your personal account's **API Keys** page.
 
-The sidebar on the left has **Dashboard**, then **Organizations**, then **My profile**. Under **Organizations**, each organization you belong to expands into these links:
+The sidebar on the left has **Dashboard**, then **Personal workspace**, then **Organizations**, then **My profile**. Under **Organizations**, each organization you belong to expands into these links:
 
 | Link | Who sees it |
 | --- | --- |
@@ -42,9 +42,7 @@ The sidebar on the left has **Dashboard**, then **Organizations**, then **My pro
 
 An Owner or Admin badge appears next to the organization's name in the sidebar.
 
-<Callout type="info" title="Your personal account isn't in the sidebar">
-  The sidebar lists organizations only. If you don't belong to one, it shows a **Create organization** link instead, and you have no sidebar links to API keys or tunnels until you create one. Your personal account is still in the **My organizations** table, and its arrow opens it.
-</Callout>
+Under **Personal workspace** is your personal account, which every user gets automatically when they verify their email. It expands into **API Keys** and **Tunnels**, so you can create a key and connect an agent without creating an organization. It has no **Members**, **Billing** or **Settings** link, and its name can't be changed. If you don't belong to an organization, **Organizations** shows a **Create organization** link.
 
 ## Personal accounts and organizations
 

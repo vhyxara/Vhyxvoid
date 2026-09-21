@@ -3,11 +3,12 @@ title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
   date: "2026-09-21"
-  commit: 8c74574
+  commit: dc922f8
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
 sources:
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - packages/agent/src/cli.ts
   - packages/agent/src/AgentClient.ts
   - packages/sdk/src/client.ts
@@ -22,7 +23,7 @@ By the end of this page you'll have a local server reachable at a public HTTPS U
 ## 1. Create an account and an API key
 
 1. Sign up in the <Dash to="/register">dashboard</Dash> and follow the verification email.
-2. In the sidebar, open your organization and choose **API Keys**, then **Create API key**. The sidebar lists organizations only: if it shows just **Create organization**, create one first from the Dashboard (**New organization**). See [Accounts and organizations](/dashboard/account-and-organizations).
+2. In the sidebar, open **API Keys** under your personal workspace (or under an organization, if you use one), then choose **Create API key**. You don't need to create an organization first. See [Accounts and organizations](/dashboard/account-and-organizations).
 3. Give the key a name, pick the **DEV** environment, and keep the **`tunnel:connect`** scope selected. It is the only scope the agent needs.
 4. Copy the **key ID** and the **secret** from the dialog that appears.
 

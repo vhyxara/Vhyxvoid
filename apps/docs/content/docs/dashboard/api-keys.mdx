@@ -3,10 +3,11 @@ title: API keys
 description: Create, scope, rotate, and revoke API keys in the dashboard.
 verified:
   date: "2026-09-21"
-  commit: 8c74574
+  commit: dc922f8
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
+  - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/web/src/views/org/api-keys/ApiKeysView.tsx
   - apps/web/src/views/org/api-keys/CreateApiKeyDialog.tsx
   - apps/web/src/views/org/api-keys/RotateApiKeyDialog.tsx
@@ -18,7 +19,7 @@ sources:
   - apps/api/src/core/constant/apikey.constant.ts
 ---
 
-An API key is what an agent, an integration or the SDK's `TunnelClient` uses to connect to VhyxVoid. A key has a public **key ID** and a **secret**. Open **API Keys** under your organization in the sidebar.
+An API key is what an agent, an integration or the SDK's `TunnelClient` uses to connect to VhyxVoid. A key has a public **key ID** and a **secret**. Open **API Keys** under your personal workspace or under an organization in the sidebar.
 
 ## The key list
 
