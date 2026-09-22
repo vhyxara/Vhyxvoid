@@ -341,7 +341,17 @@ export class HandleStripeWebhookUseCase {
           accountId,
           new Date(Date.now() + GRACE_PERIOD_MS),
         );
+      } else if (accountStatus === "ACTIVE") {
+        // Guarded to PAST_DUE -> ACTIVE only (see markActiveFromPastDue):
+        // any Stripe event that merely touches the subscription object maps
+        // here (a plan change, a metadata update, a routine renewal), so
+        // this is a weak signal — nowhere near strong enough to also
+        // resurrect a SUSPENDED/RESTRICTED/CANCELED/DELETED account. Used to
+        // call updateBillingStatus unconditionally, which did exactly that.
+        await this.accountBillingRepo.markActiveFromPastDue(accountId);
       } else if (accountStatus) {
+        // CANCELED — a genuine terminal state from Stripe; unconditional on
+        // purpose, unlike the ACTIVE case above.
         await this.accountBillingRepo.updateBillingStatus(accountId, {
           status: accountStatus,
           graceEndsAt: null,
@@ -455,16 +465,23 @@ export class HandleStripeWebhookUseCase {
             );
         }
         if (sub?.isPastDue()) {
-          // Payment recovered — reactivate account
+          // Payment recovered — mirror the Subscription row back to Stripe's
+          // real status (unchanged from before).
           sub.applyStripeUpdate({
             ...sub.toPersistence(),
             status: SubscriptionStatus.ACTIVE,
           } as any);
           await this.subscriptionRepo.save(sub);
-          await this.accountBillingRepo.updateBillingStatus(sub.accountId, {
-            status: "ACTIVE",
-            graceEndsAt: null,
-          });
+          // The account side is guarded separately (markActiveFromPastDue,
+          // PAST_DUE -> ACTIVE only): sub.isPastDue() reflects the
+          // Subscription row's own last-known Stripe status, not
+          // Account.status, and the two can disagree — GracePeriodWorker
+          // suspends the Account without touching the Subscription row, so a
+          // worker-suspended account's subscription still reads PAST_DUE
+          // here. Guarding on the account's real, current status (not the
+          // Subscription entity's) is what actually protects a SUSPENDED
+          // account from being reactivated by this same payment.
+          await this.accountBillingRepo.markActiveFromPastDue(sub.accountId);
         }
       }
     }

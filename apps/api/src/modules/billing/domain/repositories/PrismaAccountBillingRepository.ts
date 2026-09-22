@@ -79,6 +79,19 @@ export class PrismaAccountBillingRepository implements AccountBillingRepository 
     };
   }
 
+  async markActiveFromPastDue(accountId: string): Promise<{ activated: boolean }> {
+    // One conditional UPDATE — the guard is the whole point: an account that
+    // is SUSPENDED, RESTRICTED, CANCELED or DELETED (for any reason, billing
+    // or otherwise) is left exactly as it is. An already-ACTIVE account also
+    // doesn't match, so this is a safe no-op on the common "subscription
+    // touched but nothing changed" case, not just on the ones it must refuse.
+    const result = await this.prisma.account.updateMany({
+      where: { id: accountId, status: "PAST_DUE" },
+      data: { status: "ACTIVE", graceEndsAt: null, updatedAt: new Date() },
+    });
+    return { activated: result.count > 0 };
+  }
+
   async getAccountOwnerEmail(accountId: string): Promise<string | null> {
     const member = await this.prisma.accountMember.findFirst({
       where: { accountId, roleLevel: 100 }, // OWNER

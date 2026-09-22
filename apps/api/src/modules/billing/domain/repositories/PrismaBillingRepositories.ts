@@ -79,6 +79,20 @@ export interface AccountBillingRepository {
     graceEndsAt: Date,
   ): Promise<{ started: boolean; graceEndsAt: Date | null }>;
 
+  /**
+   * Move the account back to ACTIVE — but only from PAST_DUE. This is the
+   * billing-recovery transition (a failed-payment account started paying
+   * again); it must never resurrect a SUSPENDED, RESTRICTED, CANCELED or
+   * DELETED account, since those aren't necessarily billing-caused (there is
+   * no field on Account today that says why it's in that state — see
+   * shared/decision.md, "SUSPENDED-reactivation gap"). Un-suspending one of
+   * those is a deliberate, explicit action, not something an unrelated
+   * Stripe event should do.
+   *
+   * `activated` is true only when this call actually moved the account.
+   */
+  markActiveFromPastDue(accountId: string): Promise<{ activated: boolean }>;
+
   // Get the account owner's email
   getAccountOwnerEmail(accountId: string): Promise<string | null>;
 }

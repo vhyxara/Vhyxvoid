@@ -206,7 +206,16 @@ describe("an account the worker already suspended is not resurrected by a later 
     expect(h.notifications.sendPaymentFailed.execute).toHaveBeenCalledTimes(1);
   });
 
-  it("paying afterwards still reactivates it", async () => {
+  it("paying afterwards does NOT reactivate it on its own — un-suspending is a deliberate action, not automatic", async () => {
+    // Changed by the SUSPENDED-reactivation-gap fix (shared/decision.md,
+    // 2026-09-22, "Answers to the E1-E7 open questions" and its follow-up
+    // fix entry): this test used to assert the opposite ("paying afterwards
+    // still reactivates it"), which was the bug itself — Account.status has
+    // no field saying *why* an account is SUSPENDED (billing lapse vs.
+    // admin action), so the only safe rule until one exists is that nothing
+    // auto-reactivates a SUSPENDED account. See
+    // tests/e2e/suspendedReactivationGuard.test.ts for the dedicated
+    // coverage of this guard, including the case this test used to encode.
     const h = makeBillingHarness();
     await h.events.subscriptionCreated("active");
     await h.events.paymentFailed();
@@ -216,7 +225,6 @@ describe("an account the worker already suspended is not resurrected by a later 
 
     await h.events.paymentSucceeded();
 
-    expect(h.account().status).toBe("ACTIVE");
-    expect(h.account().graceEndsAt).toBeNull();
+    expect(h.account().status).toBe("SUSPENDED");
   });
 });
