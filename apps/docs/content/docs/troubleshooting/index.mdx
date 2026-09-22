@@ -3,7 +3,7 @@ title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
   date: "2026-09-22"
-  commit: a967c03
+  commit: 2465450
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
@@ -17,6 +17,8 @@ sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/router/Message.router.ts
   - apps/hub/src/services/HubAuth.service.ts
+  - apps/hub/src/services/AccountStatusSweep.service.ts
+  - packages/shared/src/accountStatus.ts
   - apps/hub/src/utils/tunnelTimeout.ts
   - packages/middleware/src/config.ts
   - packages/next/src/index.ts
@@ -34,7 +36,7 @@ Start with the agent's own output, then the status code a caller sees. Run the a
 | `❌ Fatal error: API key not found` and then `Agent stopped.` | The key ID is not one VhyxVoid knows. Copy the **key ID** again from the [API keys page](/dashboard/api-keys), including the `vhyxvoid_dev_` or `vhyxvoid_live_` prefix. Checked against the live service. |
 | `hub error { code: 'INVALID_SIGNATURE', message: 'HMAC signature verification failed' }`, over and over | The key ID exists but the **secret is wrong**: a typo, a secret from a different key, or the old secret after a [rotation](/dashboard/api-keys#rotate-a-key) once its one hour grace period ended. Press Ctrl+C, then fix `VHYXVOID_SECRET`. If you have lost the secret, rotate the key to get a new one. |
 | `hub error { code: 'SCOPE_MISSING', message: 'Key missing tunnel:connect scope' }`, over and over | The key was created without the `tunnel:connect` scope. Create a new key with it; scopes can't be added to an existing key. See [scopes](/reference/scopes). |
-| `❌ Fatal error: Account is not active` | The hub only accepts agents for an account whose status is `ACTIVE`. Check the status in the **My organizations** table. A failed payment puts an account in `PAST_DUE`; see [Billing](/dashboard/billing#when-a-payment-fails). |
+| `❌ Fatal error: Account is not active` | The hub accepts agents for an account whose status is `ACTIVE` or `PAST_DUE` (the seven-day grace period after a failed payment keeps tunnels running, not just plan limits) — anything else is refused. You can see this either when the agent tries to connect, or, if it was already connected, within about a minute of the account becoming non-connectable (the hub checks every connected account's status roughly once a minute and disconnects it the same way). Check the status in the **My organizations** table. See [Billing](/dashboard/billing#when-a-payment-fails). |
 | `❌ Fatal error: API key is not active` | The key was revoked or has expired. Create a new key. |
 | `hub error { code: 'AGENT_LIMIT_REACHED', message: 'Maximum 1 agent allowed on your FREE plan' }` (the number and plan name match your account), over and over | Your account already has as many agents connected as your plan allows (FREE 1, PRO 5, ENTERPRISE unlimited — see [Plans and limits](/reference/plans-and-limits)). A reconnect of an already-connected agent is not counted against this. Stop one, check for agents left running in another terminal, or upgrade. |
 | `API key required.` / `Secret required.` | The agent found no key or secret. Check the file name (`.env.vhyxvoid`, `.env.local` or `.env`), that you run the command from the same directory, and the variable names. See the [CLI reference](/cli/reference). |

@@ -3,7 +3,7 @@ title: Billing
 description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
 verified:
   date: "2026-09-22"
-  commit: 069f3d9
+  commit: 2465450
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -14,6 +14,8 @@ sources:
   - apps/api/src/modules/billing/infrastructure/workers/GracePeriod.worker.ts
   - apps/api/src/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories.ts
   - apps/hub/src/services/HubAuth.service.ts
+  - apps/hub/src/services/AccountStatusSweep.service.ts
+  - packages/shared/src/accountStatus.ts
 ---
 
 Every account, personal or organization, has its own plan: **FREE**, **PRO** or **ENTERPRISE**. Plans are flat-rate, billed monthly through Stripe. Nothing is metered, so there is no charge per request. What each plan allows is on [Plans and limits](/reference/plans-and-limits).
@@ -54,8 +56,10 @@ When Stripe reports a failed payment:
   Until a fix dated 2026-09-22 is deployed, step 2's seven-day deadline is never actually recorded, so step 3's scheduled check finds nothing to suspend and a `PAST_DUE` account stays `PAST_DUE` indefinitely. This is being corrected server-side; nothing to do on your end. Read from the code, not tested against a real overdue account.
 </Callout>
 
-<Callout type="warn" title="Agents need an active account to connect">
-  The hub only accepts an agent's connection when the account's status is `ACTIVE`. An agent that connects, or has to reconnect, while the account is `PAST_DUE` or `SUSPENDED` is refused with `Account is not active` and stops. The grace period protects your plan's limits, not your ability to connect. This comes from reading the current hub code, not from a test with a real overdue account. Fix the payment method first, then restart the agent.
+<Callout type="info" title="Fixed 2026-09-22, not yet deployed: the grace period now keeps agents connected too">
+  Until this ships, the hub only accepts an agent's connection when the account's status is `ACTIVE`, so `PAST_DUE` is refused exactly like `SUSPENDED` — the paragraph below describes the behavior once it's live, not today's. Read from the code, not tested against a real overdue account.
 </Callout>
+
+The hub accepts an agent's connection while the account is `ACTIVE` or `PAST_DUE` — the seven-day grace period keeps your tunnels running, not just your plan's limits. Once an account reaches `SUSPENDED` (or any other non-connectable status), a new connection is refused with `Account is not active`, and the hub also checks every **already-connected** agent's account roughly once a minute: an agent that was connected before the suspension gets disconnected within about a minute, with the same `Account is not active` reason, rather than continuing to run until it happens to reconnect on its own.
 
 **While the account is `PAST_DUE`**, paying takes it back to `ACTIVE` automatically. **Once it reaches `SUSPENDED`**, paying alone no longer does: reactivating a suspended account is a deliberate step, not something a Stripe event does on its own (fixed 2026-09-22, not yet deployed — the account status doesn't currently record *why* it was suspended, so nothing can safely tell "suspended for non-payment" apart from any other kind of suspension). If your account is `SUSPENDED`, updating your payment method is still worth doing, but it won't reactivate the account by itself. You can see the account's status in the **My organizations** table on the [dashboard](/dashboard/account-and-organizations).
