@@ -79,6 +79,6 @@ export function registerBillingUseCases(container: Container) {
 
   container.register(
     CheckPlanLimitsService,
-    (c) => new CheckPlanLimitsService(c.resolve(PrismaSubscriptionRepository)),
+    (c) => new CheckPlanLimitsService(c.resolve(PrismaClient)),
   );
 }

@@ -133,6 +133,10 @@ export class PrismaMembershipRepository implements MembershipRepository {
     });
   }
 
+  async count(accountId: string): Promise<number> {
+    return this.prisma.accountMember.count({ where: { accountId } });
+  }
+
   async delete(accountId: string, userId: string): Promise<void> {
     await this.prisma.accountMember.delete({
       where: { userId_accountId: { userId, accountId } },

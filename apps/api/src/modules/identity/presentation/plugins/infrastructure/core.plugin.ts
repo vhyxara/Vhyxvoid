@@ -6,6 +6,7 @@ import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/B
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { resolveRsaKey } from "@/core/utils/key.util";
+import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
 
 export default fp(async (fastify) => {
   // const privateKeyPath = path.resolve(process.env.PRIVATE_KEY!);
@@ -52,6 +53,20 @@ export default fp(async (fastify) => {
 
   container.register(BcryptPasswordHasher, () => {
     return new BcryptPasswordHasher();
+  });
+
+  // Registered here (not in billing/registerBillingUseCases.ts, which is
+  // never called -- see registerModules in module.module.ts) so the account
+  // module's InviteMember/AcceptInvitation use cases can resolve it via the
+  // container, the same way billing.plugin.ts decorates
+  // fastify.checkPlanLimitsService for the API-key limit guard. Both now
+  // construct the same class the same way, just through two different entry
+  // points (DI container vs. direct fastify decoration) -- not two copies.
+  container.register(CheckPlanLimitsService, () => {
+    if (!fastify.prisma) {
+      throw new Error("Prisma client not found on Fastify instance");
+    }
+    return new CheckPlanLimitsService(fastify.prisma);
   });
 
   container.register(CryptoTokenGenerator, () => {

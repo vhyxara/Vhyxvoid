@@ -177,7 +177,7 @@ export const billingPlugin = fp(
 
     fastify.decorate(
       "checkPlanLimitsService",
-      new CheckPlanLimitsService(subscriptionRepo),
+      new CheckPlanLimitsService(fastify.prisma),
     );
 
     // ── Background workers ───────────────────────────────────────

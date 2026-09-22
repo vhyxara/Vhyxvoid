@@ -43,6 +43,8 @@ export interface MembershipRepository {
    */
   findOwnerPersonalAccount(userId: string): Promise<string | null>;
   countOwners(accountId: string): Promise<number>;
+  /** Total member count (includes the owner, who is a real membership row). */
+  count(accountId: string): Promise<number>;
   delete(accountId: string, userId: string): Promise<void>;
 }
 

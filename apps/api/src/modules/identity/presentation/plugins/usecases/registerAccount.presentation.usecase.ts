@@ -9,6 +9,7 @@ import { TransferOwnershipUseCase } from "@/modules/identity/application/use-cas
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
 
 export function registerAccountUseCases(container: Container) {
   container.register(
@@ -23,6 +24,7 @@ export function registerAccountUseCases(container: Container) {
         c.resolve(PrismaUnitOfWork),
         c.resolve(CryptoTokenGenerator),
         c.resolve(NotificationService),
+        c.resolve(CheckPlanLimitsService),
       ),
   );
 
@@ -32,6 +34,7 @@ export function registerAccountUseCases(container: Container) {
       new AcceptInvitationUseCase(
         c.resolve(PrismaUnitOfWork),
         c.resolve(NotificationService),
+        c.resolve(CheckPlanLimitsService),
       ),
   );
 

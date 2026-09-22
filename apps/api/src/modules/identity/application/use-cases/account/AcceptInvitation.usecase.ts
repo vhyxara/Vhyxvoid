@@ -4,17 +4,20 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  PlanLimitExceededError,
 } from "@/core/errors/error.format";
 import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 import { NotificationType } from "@/modules/notification/domain/enums";
+import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
 
 export class AcceptInvitationUseCase {
   constructor(
     private uow: PrismaUnitOfWork,
     private notificationService: NotificationService, // ← add
+    private checkPlanLimitsService: CheckPlanLimitsService,
   ) {}
 
   async execute(params: {
@@ -62,6 +65,37 @@ export class AcceptInvitationUseCase {
 
         if (existingMembership)
           throw new ConflictError("You are already a member of this account");
+
+        // 4️⃣.5 Plan limit — the real backstop, not just InviteMember's
+        // best-effort check at invite time. The account may have been
+        // downgraded since the invitation was sent, or two invitations sent
+        // while under the limit could both be accepted close enough
+        // together that InviteMember's own check for the second one already
+        // saw the first invitation as pending (correctly refusing it) --
+        // but an invitation InviteMember already approved and sent stays
+        // valid for 3 days, so this is the check that actually holds the
+        // line at accept time, counting only current members (the person
+        // accepting is about to become one; pending invitations don't
+        // matter here, only whether there's room for one more real member
+        // right now).
+        const currentMemberCount = await membershipRepository.count(
+          invitation.accountId,
+        );
+        const canAccept = await this.checkPlanLimitsService.canAddMember(
+          invitation.accountId,
+          currentMemberCount,
+        );
+        if (!canAccept) {
+          const limits = await this.checkPlanLimitsService.getLimits(
+            invitation.accountId,
+          );
+          throw new PlanLimitExceededError({
+            limit: limits.maxMembers,
+            current: currentMemberCount,
+            limitKey: "maxMembers",
+            plan: limits.plan,
+          });
+        }
 
         // Look up the Role entity so membership is created with proper roleId
         const role = await roleRepository.findById(invitation.roleId);

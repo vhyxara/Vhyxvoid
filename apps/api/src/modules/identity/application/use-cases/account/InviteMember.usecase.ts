@@ -3,19 +3,22 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  PlanLimitExceededError,
 } from "@/core/errors/error.format";
-import { RoleLevel } from "@/core/constant/account.constant";
+import { RoleLevel, InvitationStatus } from "@/core/constant/account.constant";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { AccountInvitation } from "@/modules/identity/domain/entities/account/AccountInvitation.entities";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
 
 export class InviteMemberUseCase {
   constructor(
     private uow: PrismaUnitOfWork,
     private tokenGenerator: CryptoTokenGenerator,
     private notificationService: NotificationService,
+    private checkPlanLimitsService: CheckPlanLimitsService,
   ) {}
 
   async execute(params: {
@@ -55,6 +58,40 @@ export class InviteMemberUseCase {
         }
 
         const account = await accountRepository.findById(params.accountId); // ← add this
+
+        // 1️⃣.5 Plan limit — count existing members AND pending invitations,
+        // not just members. Without counting pending invitations, an account
+        // right at its limit could send several invitations before any of
+        // them are accepted (each individual invite looks fine against the
+        // current member count alone), and accepting all of them later would
+        // overshoot the limit — AcceptInvitation's own guard (below) would
+        // then have to reject a real, already-sent invitation instead of
+        // this one being refused up front. maxMembers counts the owner too
+        // (the owner is a real AccountMembership row, and the confirmed
+        // product answer for FREE's maxMembers: 1 is "no invites at all" —
+        // the owner alone already occupies the limit).
+        const [currentMemberCount, pendingInvitations] = await Promise.all([
+          membershipRepository.count(params.accountId),
+          invitationRepository.findByAccountId(params.accountId, {
+            status: InvitationStatus.PENDING,
+          }),
+        ]);
+        const projectedCount = currentMemberCount + pendingInvitations.length;
+        const canInvite = await this.checkPlanLimitsService.canAddMember(
+          params.accountId,
+          projectedCount,
+        );
+        if (!canInvite) {
+          const limits = await this.checkPlanLimitsService.getLimits(
+            params.accountId,
+          );
+          throw new PlanLimitExceededError({
+            limit: limits.maxMembers,
+            current: projectedCount,
+            limitKey: "maxMembers",
+            plan: limits.plan,
+          });
+        }
 
         // 2️⃣ Prevent duplicate pending invite
         const existing = await invitationRepository.findPendingByEmail(
