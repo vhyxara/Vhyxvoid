@@ -6,6 +6,7 @@
 
 import { PrismaClient } from '@/generated/prisma';
 import { randomUUID } from 'crypto';
+import { resolvePlanForAccount, PLAN_LIMITS, type Plan, type PlanPrismaLike } from '@vhyxvoid/shared';
 
 export type TunnelSessionStatus = 'CONNECTED' | 'DISCONNECTED' | 'EVICTED';
 
@@ -126,6 +127,17 @@ export class TunnelSessionRepository {
     });
     return row?.slug ?? null;
   }
+  /**
+   * The account's real plan and its concurrent-agent limit, by the same rule
+   * API-key creation uses (resolvePlanForAccount in @vhyxvoid/shared).
+   */
+  async findPlanLimitsForAccount(
+    accountId: string,
+  ): Promise<{ plan: Plan; maxAgents: number }> {
+    const plan = await resolvePlanForAccount(this.prisma as unknown as PlanPrismaLike, accountId);
+    return { plan, maxAgents: PLAN_LIMITS[plan].maxAgents };
+  }
+
   async evictStaleForInstance(hubInstanceId: string): Promise<void> {
     await this.prisma.tunnelSession.updateMany({
       where: { hubInstanceId, status: 'CONNECTED' },

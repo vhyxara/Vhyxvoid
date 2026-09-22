@@ -1,6 +1,11 @@
 {
-  "_comment": "Classification of every key of PLAN_LIMITS (apps/api/src/modules/billing/domain/enums/index.ts). scripts/generate.mjs fails if PLAN_LIMITS gains a key that is not listed here, so the enforcement question is asked the first time someone adds a limit. Only keys under `enforced` reach the public reference page. Re-verified 2026-09-21.",
+  "_comment": "Classification of every key of PLAN_LIMITS (packages/shared/src/planLimits.ts, moved from apps/api 2026-09-22 — see shared/decision.md, \"S3\"). scripts/generate.mjs fails if PLAN_LIMITS gains a key that is not listed here, so the enforcement question is asked the first time someone adds a limit. Only keys under `enforced` reach the public reference page. Re-verified 2026-09-22.",
   "enforced": {
+    "maxAgents": {
+      "label": "Concurrent agents per account",
+      "evidence": "apps/hub/src/router/Message.router.ts, apps/hub/src/repositories/TunnelSession.repository.ts, packages/shared/src/planResolver.ts",
+      "note": "The hub looks up the account's real plan and applies that plan's limit; a same-label reconnect does not count against it. Was a single limit (PRO's) applied to every plan until 2026-09-22."
+    },
     "maxApiKeys": {
       "label": "Active API keys",
       "evidence": "apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts",
@@ -23,14 +28,13 @@
     }
   },
   "notEnforced": {
-    "maxAgents": "Declared per plan, but the hub applies a single limit (PLAN_AGENT_LIMITS.PRO) to every account; see the flat limits table.",
-    "maxRequestsPerMonth": "No enforcement site.",
-    "maxMembers": "CheckPlanLimitsService exists but nothing calls it when members are added.",
+    "maxRequestsPerMonth": "No enforcement site. Decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce, once built (session S5) — not built yet.",
+    "maxMembers": "CheckPlanLimitsService exists but nothing calls it when members are added. Session S2, not built yet.",
     "customDomains": "No enforcement site; no custom-domain feature exists.",
     "prioritySupport": "Not a technical limit.",
-    "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests, and only while the key's cache entry still holds the plan value (5 minutes); agents and the tunnel URL are never rate limited. See docs decision 2026-09-21.",
+    "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the tunnel URL are never rate limited (by design for the tunnel URL — public webhook callers hold no key). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke); the majority-of-traffic gap (agents, tunnel URL) is unchanged and is session S5. See shared/decision.md, \"S3\".",
     "allowedEnvironments": "Unused; prodKeysAllowed is what is checked.",
     "expiryAllowed": "No enforcement site; the dashboard lets any plan set an expiry date.",
-    "analyticsRetentionDays": "No enforcement site."
+    "analyticsRetentionDays": "No enforcement site. No retention job is scheduled (decided 2026-09-22, shared/decision.md)."
   }
 }

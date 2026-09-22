@@ -35,7 +35,7 @@ import {
 // } from '../services';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { PLAN_AGENT_LIMITS } from '@vhyxvoid/protocol';
+import { Plan, PLAN_LIMITS } from '@vhyxvoid/shared';
 import { HeartbeatService } from '@/services/Heartbeat.service';
 import { HubAuthService, HubAuthError } from '@/services/HubAuth.service';
 import { HubPubSub } from '@/services/HubPubSub';
@@ -224,22 +224,9 @@ export class MessageRouter {
       throw err;
     }
 
-    // 2. Plan limit check
-    const agentCount = this.agentRegistry.countByAccount(auth.accountId);
-    const limit = PLAN_AGENT_LIMITS.PRO;
-    if (agentCount >= limit) {
-      this.sendToWs(
-        ws,
-        this.buildHubError(
-          'AGENT_LIMIT_REACHED',
-          `Maximum ${limit} agents allowed on your plan`,
-          undefined,
-          true,
-        ),
-      );
-      ws.close();
-      return;
-    }
+    // 2. Which plan's agent limit applies (the count itself is checked at step
+    // 5, synchronously with register(); see there).
+    const agentLimit = await this.resolveAgentLimit(auth.accountId);
 
     // 3. Resolve internal apiKey UUID
     const apiKey = await this.sessionRepo.findApiKeyByPublicId(auth.keyId);
@@ -281,6 +268,28 @@ export class MessageRouter {
     // session, so onAgentClose never runs for it. Close its tunnel WebSockets
     // here instead, or they would be orphaned.
     const replaced = this.agentRegistry.find(apiKey.accountId, msg.label);
+
+    // Plan limit. A same-label registration REPLACES the existing session, so
+    // it must not count against the limit: once the limit is really 1 (FREE), a
+    // reconnect before the old socket has been evicted (up to ~90 s of missed
+    // heartbeats) would otherwise be refused as a "second" agent. The check
+    // sits here, with no await between it and register() below, so two
+    // registrations racing each other cannot both pass at the limit.
+    const agentCount = this.agentRegistry.countByAccount(apiKey.accountId) - (replaced ? 1 : 0);
+    if (agentCount >= agentLimit.limit) {
+      this.sendToWs(
+        ws,
+        this.buildHubError(
+          'AGENT_LIMIT_REACHED',
+          `Maximum ${agentLimit.limit} agent${agentLimit.limit === 1 ? '' : 's'} allowed on your ${agentLimit.planName} plan`,
+          undefined,
+          true,
+        ),
+      );
+      ws.close();
+      return;
+    }
+
     if (replaced) {
       this.httpTunnelHandler.closeAllForAgent(replaced.agentId, 1012, 'Tunnel agent replaced');
     }
@@ -348,6 +357,27 @@ export class MessageRouter {
           '[router] ❌ session upsert failed — agent works but dashboard will not show it',
         );
       });
+  }
+
+  /**
+   * Concurrent-agent limit of the account's real plan (FREE 1, PRO 5,
+   * ENTERPRISE unlimited), via the shared plan resolver: the same rule API-key
+   * creation uses. If the lookup itself fails the previous behavior applies
+   * (the PRO limit) instead of refusing a paying account over a database
+   * hiccup, and the failure is logged; the very next step of registration
+   * needs the same database, so this only matters for a very short window.
+   */
+  private async resolveAgentLimit(accountId: string): Promise<{ limit: number; planName: string }> {
+    try {
+      const { plan, maxAgents } = await this.sessionRepo.findPlanLimitsForAccount(accountId);
+      return { limit: maxAgents, planName: plan };
+    } catch (err) {
+      console.error(
+        { err: (err as Error).message, accountId },
+        '[router] plan lookup failed; applying the PRO agent limit',
+      );
+      return { limit: PLAN_LIMITS[Plan.PRO].maxAgents, planName: Plan.PRO };
+    }
   }
 
   private handleAgentPong(msg: AgentPongMsg): void {

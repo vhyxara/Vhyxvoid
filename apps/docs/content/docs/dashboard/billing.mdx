@@ -2,14 +2,15 @@
 title: Billing
 description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
 verified:
-  date: "2026-09-21"
-  commit: dc922f8
+  date: "2026-09-22"
+  commit: PENDING_S3_COMMIT
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
   - apps/web/src/views/org/billing/BillingView.tsx
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts
+  - apps/api/src/modules/billing/domain/repositories/PrismaAccountBillingRepository.ts
   - apps/api/src/modules/billing/infrastructure/workers/GracePeriod.worker.ts
   - apps/api/src/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories.ts
   - apps/hub/src/services/HubAuth.service.ts
@@ -48,6 +49,10 @@ When Stripe reports a failed payment:
 1. The subscription and the account move to `PAST_DUE`, and the owner is emailed. The plan card turns red with "Payment failed. Please update your payment method to avoid service interruption." and an **Update payment** button that opens the Stripe portal.
 2. Your plan's limits stay in force for a **seven day grace period**.
 3. If it isn't resolved within that time, the account is `SUSPENDED` (a check runs hourly) and gets the FREE plan's limits.
+
+<Callout type="info" title="Fixed in source, not yet deployed">
+  Until a fix dated 2026-09-22 is deployed, step 2's seven-day deadline is never actually recorded, so step 3's scheduled check finds nothing to suspend and a `PAST_DUE` account stays `PAST_DUE` indefinitely. This is being corrected server-side; nothing to do on your end. Read from the code, not tested against a real overdue account.
+</Callout>
 
 <Callout type="warn" title="Agents need an active account to connect">
   The hub only accepts an agent's connection when the account's status is `ACTIVE`. An agent that connects, or has to reconnect, while the account is `PAST_DUE` or `SUSPENDED` is refused with `Account is not active` and stops. The grace period protects your plan's limits, not your ability to connect. This comes from reading the current hub code, not from a test with a real overdue account. Fix the payment method first, then restart the agent.

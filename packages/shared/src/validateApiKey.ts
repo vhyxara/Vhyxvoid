@@ -46,6 +46,24 @@ const KEY_CACHE_TTL_SEC = 5 * 60; // 5 minutes
 const REPLAY_WINDOW_MS = 60 * 1_000; // 1 minute
 const SIGNATURE_WINDOW_MS = 60 * 1_000; // 1 minute
 
+/**
+ * A cached per-minute limit as the number the check uses. Only a finite,
+ * non-negative number is a limit. -1 is the documented "unlimited"; null,
+ * NaN, a missing field or any other negative value is treated the same way,
+ * rather than as "0 requests allowed" (which is what a JSON-serialised
+ * Infinity, i.e. null, used to mean here: every request was rejected).
+ */
+function toRateLimit(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : Infinity;
+}
+
+export function toStoredRateLimit(value: number | undefined): number {
+  const limit = toRateLimit(value);
+  return limit === Infinity ? -1 : limit;
+}
+
 // ── Implementation ────────────────────────────────────────────────────────────
 
 class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
@@ -170,8 +188,7 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
     }
 
     // 7. Rate limit — Redis INCR with 65s TTL window
-    const rateLimit =
-      cached.rateLimitPerMinute === -1 ? Infinity : cached.rateLimitPerMinute;
+    const rateLimit = toRateLimit(cached.rateLimitPerMinute);
 
     if (rateLimit !== Infinity) {
       const count = await this.incrementRateLimit(params.keyId);
@@ -216,7 +233,10 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
       accountId: row.accountId,
       accountStatus: row.accountStatus,
       scopes: row.scopes,
-      rateLimitPerMinute: -1, // TODO: read from plan/subscription when billing built
+      // The plan's limit when the loader supplied it (buildDbApiKeyLoader
+      // does); unlimited (-1) otherwise. Infinity is stored as -1 because JSON
+      // turns it into null.
+      rateLimitPerMinute: toStoredRateLimit(row.rateLimitPerMinute),
       expiresAt: row.expiresAt?.getTime() ?? null,
     };
   }

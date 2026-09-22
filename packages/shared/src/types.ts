@@ -19,6 +19,13 @@ export interface ApiKeyRow {
   accountStatus: string;
   scopes: string[];
   expiresAt: Date | null;
+  /**
+   * Requests per minute allowed by the account's plan; -1 (or absent) means
+   * unlimited. Supplied by the loader (buildDbApiKeyLoader reads the plan);
+   * a loader that does not know the plan leaves it out and the key is treated
+   * as unlimited, which is what every reload did before 2026-09-22.
+   */
+  rateLimitPerMinute?: number;
 }
 
 /**

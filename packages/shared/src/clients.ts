@@ -7,6 +7,9 @@
 
 import { Redis } from "@upstash/redis";
 import type { DbApiKeyLoader, ApiKeyRow } from "./types";
+import { PLAN_LIMITS } from "./planLimits";
+import { resolvePlanForAccount } from "./planResolver";
+import { toStoredRateLimit } from "./validateApiKey";
 
 // ── Redis factory ─────────────────────────────────────────────────────────────
 
@@ -70,6 +73,22 @@ export function buildDbApiKeyLoader(prisma: any): DbApiKeyLoader {
 
       if (!row) return null;
 
+      // The plan's per-minute rate limit, by the same rule API-key creation
+      // uses, so a cache reload (after the 5-minute TTL, a rotation, an update,
+      // a revoke...) yields the same limit CreateApiKey cached. If the plan
+      // lookup fails the key is left unlimited, as every reload was before.
+      let rateLimitPerMinute: number | undefined;
+      try {
+        const plan = await resolvePlanForAccount(prisma, row.accountId);
+        // ENTERPRISE's limit is Infinity; store the same -1 convention
+        // rowToCache below uses, rather than leaving Infinity on the row for
+        // whatever JSON.stringifies it next to turn into null (E2b's class
+        // of bug).
+        rateLimitPerMinute = toStoredRateLimit(PLAN_LIMITS[plan].rateLimitPerMinute);
+      } catch {
+        rateLimitPerMinute = undefined;
+      }
+
       return {
         keyId: row.keyId,
         secretHash: row.secretHash,
@@ -80,6 +99,7 @@ export function buildDbApiKeyLoader(prisma: any): DbApiKeyLoader {
         accountStatus: row.account.status,
         scopes: row.scopes.map((s: { scope: string }) => s.scope),
         expiresAt: row.expiresAt ?? null,
+        rateLimitPerMinute,
       } satisfies ApiKeyRow;
     } catch {
       return null;

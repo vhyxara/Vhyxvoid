@@ -2,17 +2,22 @@
 title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
-  date: "2026-09-21"
-  commit: 8c74574
+  date: "2026-09-22"
+  commit: PENDING_S3_COMMIT
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
+  - packages/shared/src/planLimits.ts
+  - packages/shared/src/planResolver.ts
+  - packages/shared/src/clients.ts
+  - packages/shared/src/validateApiKey.ts
   - apps/api/src/modules/billing/domain/enums/index.ts
   - apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts
   - apps/api/src/modules/key-management/application/use-cases/UpdateApiKey.usecase.ts
   - apps/api/src/modules/key-management/application/use-cases/RotateApiKey.usecase.ts
   - apps/api/src/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories.ts
   - apps/hub/src/router/Message.router.ts
+  - apps/hub/src/repositories/TunnelSession.repository.ts
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/utils/tunnelTimeout.ts
   - packages/protocol/src/constants.ts
@@ -25,13 +30,14 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 {/* generated:begin plans-enforced · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
 | Limit | FREE | PRO | ENTERPRISE |
 | --- | --- | --- | --- |
+| Concurrent agents per account. The hub looks up the account's real plan and applies that plan's limit; a same-label reconnect does not count against it. Was a single limit (PRO's) applied to every plan until 2026-09-22. | 1 | 5 | Unlimited |
 | Active API keys. Counts active keys; revoked keys do not count. | 3 | 20 | Unlimited |
 | Scopes per key. Checked when a key is created and when its scopes are changed. | 2 | 10 | Unlimited |
 | Production (PROD) keys. Free accounts can only create DEV keys. | No | Yes | Yes |
 | Key rotation | No | Yes | Yes |
 {/* generated:end plans-enforced */}
 
-When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.`
+When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying; see [Troubleshooting](/troubleshooting#the-agent-wont-connect).
 
 An account that is suspended, restricted, canceled or deleted gets the FREE limits whatever plan it was on. An account with a payment overdue keeps its plan during the seven day grace period; see [Billing](/dashboard/billing#when-a-payment-fails).
 
@@ -40,7 +46,6 @@ An account that is suspended, restricted, canceled or deleted gets the FREE limi
 {/* generated:begin plans-flat · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
 | Limit | Value |
 | --- | --- |
-| Concurrent agents per account | 5. The same on every plan today: the hub applies the Pro figure to every account. |
 | Request body through a tunnel URL | 10 MB. Larger requests get `413`. |
 | Time the hub waits for your server | 120 s by default, set by the hub operator between 5 s and 600 s. See [Tunnel request timeout](/reference/environment-variables#tunnel-request-timeout). |
 | Rotation grace period | 1 hour. After a rotation the old secret keeps working for this long. |
@@ -48,6 +53,6 @@ An account that is suspended, restricted, canceled or deleted gets the FREE limi
 
 ## Not listed here
 
-Plans describe more than the two tables above, and the dashboard's upgrade dialog lists some of it. Those figures are left out on purpose, because nothing applies them today: a monthly request allowance, a cap on team members, custom domains, how long usage data is kept, and the number of agents per plan (every account gets the same agent limit, shown above). Don't plan around them until this page lists them.
+Plans describe more than the table above, and the dashboard's upgrade dialog lists some of it. Those figures are left out on purpose, because nothing applies them today: a monthly request allowance, a cap on team members, custom domains, and how long usage data is kept. Don't plan around them until this page lists them.
 
-The per-minute **rate limit** is left out too, because it doesn't hold up in practice. It is only checked for requests made with the SDK's [`TunnelClient`](/sdk/websocket-client), never for agents or for calls to your tunnel URL, and even for `TunnelClient` it only applies for a few minutes after a key is created or rotated. Don't rely on being limited, or on not being.
+The per-minute **rate limit** is left out too, because it doesn't hold up in practice. It is only checked for requests made with the SDK's [`TunnelClient`](/sdk/websocket-client) — never for agents or for calls to your tunnel URL, which is most traffic. For `TunnelClient` requests it now holds at your plan's real value indefinitely (it used to reset to unlimited a few minutes after a key was created, rotated, updated or revoked; fixed 2026-09-22). Don't rely on being limited outside `TunnelClient` calls, or on not being.

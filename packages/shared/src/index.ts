@@ -8,7 +8,10 @@
 //   - buildValidateApiKeyUseCase factory (wires dependencies, hub calls this in main.ts)
 //   - Re-exports of all types the hub needs from the identity module
 //   - Shared Redis + Prisma client factories
+//   - PLAN_LIMITS and the plan resolver (apps/api and apps/hub both need the real plan)
 
 export * from "./validateApiKey";
 export * from "./types";
 export * from "./clients";
+export * from "./planLimits";
+export * from "./planResolver";

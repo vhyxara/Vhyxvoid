@@ -163,7 +163,6 @@ export interface HubAuthResult {
   accountId: string;
   keyId: string;
   scopes: string[];
-  rateLimitPerMinute: number;
 }
 
 export class HubAuthError extends Error {
@@ -241,7 +240,6 @@ export class HubAuthService {
       accountId: key.accountId,
       keyId: msg.keyId,
       scopes: key.scopes,
-      rateLimitPerMinute: -1,
     };
   }
   /**
@@ -269,7 +267,6 @@ export class HubAuthService {
       accountId: result.accountId,
       keyId: msg.keyId,
       scopes: result.scopes,
-      rateLimitPerMinute: result.rateLimitPerMinute,
     };
   }
 
@@ -299,7 +296,6 @@ export class HubAuthService {
       accountId: result.accountId,
       keyId: msg.keyId,
       scopes: result.scopes,
-      rateLimitPerMinute: result.rateLimitPerMinute,
     };
   }
 

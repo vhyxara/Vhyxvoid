@@ -42,8 +42,5 @@ export const LIMITS = {
   QUEUE_MAX_ATTEMPTS_INBOUND: 5,
 } as const;
 
-export const PLAN_AGENT_LIMITS = {
-  FREE: 1,
-  PRO: 5,
-  ENTERPRISE: Infinity,
-} as const;
+// PLAN_AGENT_LIMITS was removed 2026-09-22: it duplicated PLAN_LIMITS[plan].maxAgents,
+// which now lives in packages/shared (planLimits.ts) and is what the hub reads.

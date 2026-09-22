@@ -351,7 +351,10 @@ function sdkBlocksOut() {
 // ── Plans, limits, constants ─────────────────────────────────────────────────
 
 function planBlocks() {
-  const limits = loadTs(join(repoRoot, 'apps/api/src/modules/billing/domain/enums/index.ts')).PLAN_LIMITS
+  // Moved from apps/api to packages/shared 2026-09-22 so apps/hub can use the
+  // real plan's limits too (shared/decision.md, "S3"); apps/api's enums file
+  // now just re-exports it.
+  const limits = loadTs(join(repoRoot, 'packages/shared/src/planLimits.ts')).PLAN_LIMITS
   const cfg = readJson('enforced-limits.json')
   const plans = ['FREE', 'PRO', 'ENTERPRISE']
   const keys = Object.keys(limits.FREE)
@@ -377,8 +380,11 @@ function planBlocks() {
   const bodyMb = (Number(body[1]) * Number(body[2]) * Number(body[3])) / 1024 / 1024
   const t = timeoutBounds()
 
+  // Concurrent agents per account moved from here into the per-plan
+  // 'plans-enforced' table 2026-09-22: the hub now looks up the account's
+  // real plan (packages/shared's resolvePlanForAccount) instead of applying
+  // PRO's figure to everyone. See shared/decision.md, "S3".
   const flatRows = [
-    ['Concurrent agents per account', `${constants.PLAN_AGENT_LIMITS.PRO}. The same on every plan today: the hub applies the Pro figure to every account.`],
     ['Request body through a tunnel URL', `${bodyMb} MB. Larger requests get \`413\`.`],
     ['Time the hub waits for your server', `${fmtSeconds(constants.TIMING.REQUEST_TIMEOUT_MS)} by default, set by the hub operator between ${fmtSeconds(t.min)} and ${fmtSeconds(t.max)}. See [Tunnel request timeout](/reference/environment-variables#tunnel-request-timeout).`],
     ['Rotation grace period', `${loadTs(join(repoRoot, 'apps/api/src/core/constant/apikey.constant.ts')).ROTATION_GRACE_MS / 3600000} hour. After a rotation the old secret keeps working for this long.`]
