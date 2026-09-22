@@ -590,11 +590,12 @@ export class MessageRouter {
     };
     this.sendToWs(agent.ws, forward);
 
-    // 6. Usage counter — fire and forget
-    // auth.keyId = public keyId string — fine for Redis counter (not a FK)
-    this.usageService.increment(auth.accountId, auth.keyId, 'requests', 1);
-
-    // 7. Audit record — fire and forget
+    // 6. Audit record — fire and forget
+    // Usage counting for this request already happened inside
+    // authenticateRequest() (ValidateApiKeyUseCase.incrementUsage, step 1) —
+    // a second increment here used to double-count every successfully
+    // forwarded sdk:request into the same Redis key. See shared/decision.md,
+    // 2026-09-22, "S5 investigation and proposal", Part 3.
     // FIX: Use agent.keyId (internal UUID) not auth.keyId (public string)
     //      agent.keyId was resolved from public → internal in handleAgentRegister()
     //      agent.accountId is the verified accountId from DB (not from JWT)
