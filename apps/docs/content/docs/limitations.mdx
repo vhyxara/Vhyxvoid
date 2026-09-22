@@ -2,8 +2,8 @@
 title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
-  date: "2026-09-21"
-  commit: 377c924
+  date: "2026-09-22"
+  commit: 3bbada4
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
@@ -30,7 +30,7 @@ If your agent loses its connection to VhyxVoid and a request arrives before it r
 
 ## Tunnel URLs are public
 
-Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application.
+Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application. There is a per-account rate limit on this path (see [Plans and limits](/reference/plans-and-limits)), but it exists to catch abuse, not to authenticate or authorize a caller.
 
 ## The SDK is Node.js only
 

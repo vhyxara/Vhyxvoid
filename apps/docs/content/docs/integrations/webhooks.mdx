@@ -2,8 +2,8 @@
 title: Webhooks
 description: Receive Stripe, GitHub, and other webhooks on your local machine, using your tunnel URL as the endpoint.
 verified:
-  date: "2026-09-21"
-  commit: 8c74574
+  date: "2026-09-22"
+  commit: 3bbada4
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -129,11 +129,11 @@ These points matter when a signature check or your code depends on the request's
 - **Method, path, query string, body and headers arrive unchanged**, including `stripe-signature` and `content-type`. A signed JSON body with non-ASCII characters and odd whitespace verified correctly on the other side.
 - **`Host` is rewritten** to `127.0.0.1:<port>`, and `x-forwarded-host` is set to the same, with `x-forwarded-by: vhyxvoid`. Signature schemes that sign the body, like Stripe's and GitHub's, are unaffected. A scheme that signs the request URL or host would fail, because your server never sees the public hostname.
 - **Bodies with a binary content type** (images, PDFs, audio, video, fonts, zip, `application/octet-stream`) are carried as base64 and restored, so they arrive intact. Text bodies are carried as UTF-8 text, so a webhook whose body isn't valid UTF-8 under a text content type such as `application/json` would not survive; this is unusual in practice.
-- **Limits:** request bodies up to 10 MB, and your server should answer well within the agent's wait (118 seconds on the default hub with agent 1.0.20 or later, 28 seconds with 1.0.19 or earlier; see [timeouts](/reference/environment-variables#tunnel-request-timeout)), and check your provider's own delivery timeout. Answer quickly and do slow work afterwards.
+- **Limits:** request bodies up to 10 MB, your account's tunnel URLs combined can receive up to a per-minute request cap that depends on your plan (see [Plans and limits](/reference/plans-and-limits)), and your server should answer well within the agent's wait (118 seconds on the default hub with agent 1.0.20 or later, 28 seconds with 1.0.19 or earlier; see [timeouts](/reference/environment-variables#tunnel-request-timeout)), and check your provider's own delivery timeout. Answer quickly and do slow work afterwards.
 
 ## Failures and retries
 
-If your agent isn't connected, the tunnel URL answers `503` (or `404` if it was never registered). If your server is slow, it answers `502` once the agent's wait runs out. Most providers retry failed deliveries on their own schedule, so events sent while you were offline may arrive later. Check your provider's retry policy.
+If your agent isn't connected, the tunnel URL answers `503` (or `404` if it was never registered). If your server is slow, it answers `502` once the agent's wait runs out. If your account's tunnel URLs are getting more requests per minute than your plan allows, it answers `429` with a `Retry-After` header — a provider that retries aggressively after a burst of failed deliveries could hit this; see [HTTP status codes](/reference/http-status-codes). Most providers retry failed deliveries on their own schedule, so events sent while you were offline may arrive later. Check your provider's retry policy.
 
 Requests that arrive while your agent is reconnecting are not held and replayed by VhyxVoid, and a request that reaches you can be retried by the provider after you already processed it. Make handlers **idempotent**: record each event's `id` (Stripe's `evt_…`) and ignore one you have already seen. See [Limitations](/limitations).
 

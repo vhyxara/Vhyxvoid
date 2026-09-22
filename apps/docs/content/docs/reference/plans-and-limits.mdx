@@ -3,7 +3,7 @@ title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
   date: "2026-09-22"
-  commit: 2465450
+  commit: "3bbada4"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -22,8 +22,10 @@ sources:
   - apps/hub/src/router/Message.router.ts
   - apps/hub/src/repositories/TunnelSession.repository.ts
   - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/services/PublicPathUsageLimiter.service.ts
   - apps/hub/src/utils/tunnelTimeout.ts
   - packages/protocol/src/constants.ts
+  - packages/shared/src/publicUsage.ts
 ---
 
 This page lists only limits that VhyxVoid checks today. It is generated from the plan definitions and filtered through a list of what is really enforced, so a limit appears here because something applies it, not because a plan describes it. There are three plans: **FREE**, **PRO** and **ENTERPRISE**. For how plans, upgrades and payment failures work in the dashboard, see [Billing](/dashboard/billing).
@@ -39,6 +41,7 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | Production (PROD) keys. Free accounts can only create DEV keys. | No | Yes | Yes |
 | Key rotation | No | Yes | Yes |
 | Account members. Counts current members plus pending invitations when one is sent, so an account can't send more invitations than it has room for; checked again when an invitation is accepted, since the limit or the membership can change while an invitation is pending. An account already over its limit from before this was enforced keeps its existing members — only the next new member is blocked. | 1 | 10 | Unlimited |
+| Public tunnel-URL requests per minute. Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Added 2026-09-22 (session S5). | 100 | 3,000 | Unlimited |
 {/* generated:end plans-enforced */}
 
 When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` The member limit answers with a plainer `Plan limit reached` rather than a number-specific message. A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying; see [Troubleshooting](/troubleshooting#the-agent-wont-connect).
@@ -57,6 +60,8 @@ An account that is suspended, restricted, canceled or deleted gets the FREE limi
 
 ## Not listed here
 
-Plans describe more than the table above, and the dashboard's upgrade dialog lists some of it. Those figures are left out on purpose, because nothing applies them today: a monthly request allowance, custom domains, and how long usage data is kept. Don't plan around them until this page lists them.
+Plans describe more than the table above, and the dashboard's upgrade dialog lists some of it. Custom domains and how long usage data is kept are left out on purpose, because nothing applies them today. **Planned, not yet available.** Don't plan around them until this page lists them.
 
-The per-minute **rate limit** is left out too, because it doesn't hold up in practice. It is only checked for requests made with the SDK's [`TunnelClient`](/sdk/websocket-client) — never for agents or for calls to your tunnel URL, which is most traffic. For `TunnelClient` requests it now holds at your plan's real value indefinitely (it used to reset to unlimited a few minutes after a key was created, rotated, updated or revoked; fixed 2026-09-22). Don't rely on being limited outside `TunnelClient` calls, or on not being.
+A monthly request allowance is counted (both SDK requests and, as of 2026-09-22, requests to your tunnel URL) but not enforced — going over it doesn't get you blocked. There is no dashboard warning for it yet either. It may become a real limit once there's enough real usage to calibrate the plan figures against.
+
+The per-minute **rate limit** row above (`rateLimitPerMinute`, checked per API key) is left out of the table because it doesn't hold up in practice for most traffic. It is only checked for requests made with the SDK's [`TunnelClient`](/sdk/websocket-client) — never for agents. For `TunnelClient` requests it now holds at your plan's real value indefinitely (it used to reset to unlimited a few minutes after a key was created, rotated, updated or revoked; fixed 2026-09-22). Don't rely on being limited by it outside `TunnelClient` calls, or on not being. Calls to your **tunnel URL** are a separate case, and now have their own real limit — see "Public tunnel-URL requests per minute" in the table above.

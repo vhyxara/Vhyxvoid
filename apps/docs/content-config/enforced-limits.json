@@ -30,13 +30,18 @@
       "label": "Account members",
       "evidence": "apps/api/src/modules/identity/application/use-cases/account/InviteMember.usecase.ts, apps/api/src/modules/identity/application/use-cases/account/AcceptInvitation.usecase.ts",
       "note": "Counts current members plus pending invitations when one is sent, so an account can't send more invitations than it has room for; checked again when an invitation is accepted, since the limit or the membership can change while an invitation is pending. An account already over its limit from before this was enforced keeps its existing members — only the next new member is blocked."
+    },
+    "publicPathRateLimitPerMinute": {
+      "label": "Public tunnel-URL requests per minute",
+      "evidence": "apps/hub/src/services/PublicPathUsageLimiter.service.ts, apps/hub/src/handlers/HttpTunnel.handler.ts",
+      "note": "Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Added 2026-09-22 (session S5)."
     }
   },
   "notEnforced": {
-    "maxRequestsPerMonth": "No enforcement site. Decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce, once built (session S5) — not built yet.",
+    "maxRequestsPerMonth": "Counted (both the SDK/API-key path and, as of 2026-09-22 session S5, the public tunnel-URL path) but not blocking — decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce. The counting mechanism now exists; nothing reads it back to warn a user yet.",
     "customDomains": "No enforcement site; no custom-domain feature exists.",
     "prioritySupport": "Not a technical limit.",
-    "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the tunnel URL are never rate limited (by design for the tunnel URL — public webhook callers hold no key). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke); the majority-of-traffic gap (agents, tunnel URL) is unchanged and is session S5. See shared/decision.md, \"S3\".",
+    "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the public tunnel URL are never rate limited by this per-key field, by design — a tunnel URL has no key to check (public webhook callers hold none). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke). See shared/decision.md, \"S3\". The public tunnel-URL path now has its own, separate, per-account limit instead — see publicPathRateLimitPerMinute below (session S5).",
     "allowedEnvironments": "Unused; prodKeysAllowed is what is checked.",
     "expiryAllowed": "No enforcement site; the dashboard lets any plan set an expiry date.",
     "analyticsRetentionDays": "No enforcement site. No retention job is scheduled (decided 2026-09-22, shared/decision.md)."
