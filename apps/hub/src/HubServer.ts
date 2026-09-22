@@ -13,6 +13,7 @@ import { TunnelWsRegistry } from '@/registry/TunnelWs.registry';
 import { MessageRouter } from '@/router/Message.router';
 import { HubAuthService } from '@/services/HubAuth.service';
 import { HeartbeatService } from '@/services/Heartbeat.service';
+import { AccountStatusSweepService } from '@/services/AccountStatusSweep.service';
 import { HubUsageService } from '@/services/HubUsage.service';
 import { HubPubSub } from '@/services/HubPubSub';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
@@ -71,6 +72,7 @@ export class HubServer {
   private readonly sdkRegistry: SdkRegistry;
   private readonly pendingRegistry: PendingRegistry;
   private readonly heartbeat: HeartbeatService;
+  private readonly statusSweep: AccountStatusSweepService;
   private readonly usageService: HubUsageService;
   private readonly pubsub: HubPubSub;
   private readonly router: MessageRouter;
@@ -116,6 +118,17 @@ export class HubServer {
       this.pendingRegistry,
       config.hubDomain,
       new TunnelWsRegistry(),
+    );
+
+    // context.md Known Risk #57 (E6): closes the "no status check exists on
+    // live traffic" gap — a connected agent's account was never re-checked
+    // after the handshake. See shared/decision.md, 2026-09-22, "S4".
+    this.statusSweep = new AccountStatusSweepService(
+      this.agentRegistry,
+      this.pendingRegistry,
+      config.tunnelSessionRepo,
+      this.httpTunnelHandler,
+      config.redis,
     );
 
     // ── Router ───────────────────────────────────────────────────────────────
@@ -169,6 +182,7 @@ export class HubServer {
 
     await this.pubsub.start();
     this.heartbeat.start();
+    this.statusSweep.start();
 
     const server = createServer(async (req, res) => {
       // ── Health check ──────────────────────────────────────────
@@ -368,6 +382,7 @@ export class HubServer {
 
   async stop(): Promise<void> {
     this.heartbeat.stop();
+    this.statusSweep.stop();
     await this.pubsub.stop();
     this.agentRegistry.evictAll();
 

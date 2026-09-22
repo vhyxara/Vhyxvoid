@@ -111,14 +111,19 @@ export function makeBillingHarness(
   };
 
   const accountBillingRepo = new PrismaAccountBillingRepository(db.prisma as any);
+  // Trackable fake — S4 (E6) tests assert on this to confirm every status
+  // change actually invalidates the account's cached gateway/hub entries,
+  // not just that Account.status changed in Postgres.
+  const cacheInvalidator = { invalidate: vi.fn(async (_accountId: string) => {}) };
   const useCase = new HandleStripeWebhookUseCase(
     stripe,
     subscriptionRepo,
     invoiceRepo,
     accountBillingRepo,
     notifications as any,
+    cacheInvalidator,
   );
-  const worker = new GracePeriodWorker(db.prisma as any);
+  const worker = new GracePeriodWorker(db.prisma as any, cacheInvalidator);
 
   const stripeSub = (status: string) => ({
     id: SUB_ID,
@@ -155,6 +160,7 @@ export function makeBillingHarness(
     account: () => db.get(ACCOUNT_ID),
     notifications,
     worker,
+    cacheInvalidator,
     /** Events, as Stripe sends them. */
     events: {
       subscriptionCreated: (status = "active") => send("customer.subscription.created", stripeSub(status)),

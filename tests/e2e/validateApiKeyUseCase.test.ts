@@ -180,7 +180,7 @@ describe("buildValidateApiKeyUseCase — canonical ValidateApiKeyUseCase", () =>
     if (!result.valid) expect(result.code).toBe("EXPIRED_KEY");
   });
 
-  it("rejects a key whose account is not ACTIVE", async () => {
+  it("rejects a key whose account is SUSPENDED", async () => {
     const redis = makeFakeRedis();
     const loadKey = vi.fn(async () => makeRow({ accountStatus: "SUSPENDED" }));
     const useCase = buildValidateApiKeyUseCase({ redis: redis as any, loadKey });
@@ -189,6 +189,36 @@ describe("buildValidateApiKeyUseCase — canonical ValidateApiKeyUseCase", () =>
     expect(result.valid).toBe(false);
     if (!result.valid) expect(result.code).toBe("SUSPENDED_ACCOUNT");
   });
+
+  // Added 2026-09-22 (S4, E6, CONNECTABLE_ACCOUNT_STATUSES): PAST_DUE is
+  // deliberately allowed here now — the seven-day grace period is meant to
+  // keep service running, not just plan limits — while RESTRICTED/CANCELED/
+  // DELETED stay refused, same as before. This is the SDK (TunnelClient)
+  // request path's half of the shared status check; hubConnectableStatus
+  // .test.ts covers the agent-handshake half.
+  it("accepts a key whose account is PAST_DUE (the grace period keeps service running)", async () => {
+    const redis = makeFakeRedis();
+    const loadKey = vi.fn(async () => makeRow({ accountStatus: "PAST_DUE" }));
+    const useCase = buildValidateApiKeyUseCase({ redis: redis as any, loadKey });
+
+    const result = await useCase.execute(baseParams());
+
+    expect(result.valid).toBe(true);
+  });
+
+  it.each(["RESTRICTED", "CANCELED", "DELETED"])(
+    "still rejects a key whose account is %s",
+    async (accountStatus) => {
+      const redis = makeFakeRedis();
+      const loadKey = vi.fn(async () => makeRow({ accountStatus }));
+      const useCase = buildValidateApiKeyUseCase({ redis: redis as any, loadKey });
+
+      const result = await useCase.execute(baseParams());
+
+      expect(result.valid).toBe(false);
+      if (!result.valid) expect(result.code).toBe("SUSPENDED_ACCOUNT");
+    },
+  );
 
   it("rejects a request missing the required scope", async () => {
     const redis = makeFakeRedis();

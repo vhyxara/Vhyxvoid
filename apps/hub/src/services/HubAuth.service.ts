@@ -154,7 +154,7 @@
 // This is the integration point between the hub and the identity module.
 // No Prisma. No HTTP. Shared code import — fast path (~1ms Redis cache hit).
 
-import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
+import { IValidateApiKeyUseCase, isConnectableAccountStatus } from '@vhyxvoid/shared';
 import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@vhyxvoid/protocol';
 import crypto from 'crypto';
 import { debugLog } from '@/utils/debug';
@@ -207,7 +207,12 @@ export class HubAuthService {
       throw new HubAuthError('AUTH_FAILED', 'API key is not active');
     }
 
-    if (key.accountStatus !== 'ACTIVE') {
+    // PAST_DUE is deliberately allowed (the seven-day grace period is meant
+    // to keep service running, not just plan limits) — CONNECTABLE_ACCOUNT_STATUSES
+    // is the one shared definition apps/hub's sweep also checks against, so
+    // the two can never disagree about what "connectable" means. See
+    // shared/decision.md, 2026-09-22, "S4".
+    if (!isConnectableAccountStatus(key.accountStatus)) {
       throw new HubAuthError('AUTH_FAILED', 'Account is not active');
     }
 

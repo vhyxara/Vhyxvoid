@@ -83,6 +83,10 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
     }
   }
 
+  async invalidateAllForAccount(keyIds: string[]): Promise<void> {
+    await Promise.all(keyIds.map((keyId) => this.invalidate(keyId)));
+  }
+
   async invalidate(keyId: string): Promise<void> {
     try {
       await this.redis.del(NS.apiKey(keyId));

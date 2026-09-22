@@ -7,11 +7,20 @@
 // Register this in your billingPlugin after the Fastify setup.
 
 import { PrismaClient } from "@/generated/prisma";
+import { AccountKeyCacheInvalidator } from "@/modules/billing/domain/services/AccountKeyCacheInvalidator.service";
 
 export class GracePeriodWorker {
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    // Optional — no-op default keeps the pre-2026-09-22 constructor call
+    // (`new GracePeriodWorker(prisma)`, still used by the 2026-09-14 test)
+    // working unchanged.
+    private readonly cacheInvalidator: Pick<AccountKeyCacheInvalidator, "invalidate"> = {
+      invalidate: async () => {},
+    },
+  ) {}
 
   start(): void {
     // Run once immediately, then every hour
@@ -63,6 +72,12 @@ export class GracePeriodWorker {
           { accountId: account.id },
           "[billing] account suspended — grace period expired",
         );
+        // Close the cache lag: without this, a connected agent or a warm
+        // gateway cache entry for this account could keep working for up
+        // to 5 more minutes despite the suspension. Failures here are
+        // logged and swallowed (see AccountKeyCacheInvalidator) — never
+        // let a Redis hiccup abort or retry the suspension itself.
+        await this.cacheInvalidator.invalidate(account.id);
       } catch (err) {
         console.error(
           { accountId: account.id, err },

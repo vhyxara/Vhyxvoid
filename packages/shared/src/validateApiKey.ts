@@ -17,6 +17,7 @@ import type {
   GatewayValidationFailure,
   DbApiKeyLoader,
 } from "./types";
+import { isConnectableAccountStatus } from "./accountStatus";
 
 // ── Redis cache data shape ─────────────────────────────────────────────────────
 // Flat, primitive-only shape stored as JSON in Redis.
@@ -118,7 +119,12 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
         cached.accountId,
       );
     }
-    if (cached.accountStatus !== "ACTIVE") {
+    // PAST_DUE is deliberately allowed here too — see
+    // CONNECTABLE_ACCOUNT_STATUSES's own header comment; this is the SDK
+    // (TunnelClient) request path's copy of the same test apps/hub's agent
+    // handshake makes, now sharing one definition instead of two hand-
+    // written `!== "ACTIVE"` checks.
+    if (!isConnectableAccountStatus(cached.accountStatus)) {
       return this.fail(
         "SUSPENDED_ACCOUNT",
         "Account is not active",

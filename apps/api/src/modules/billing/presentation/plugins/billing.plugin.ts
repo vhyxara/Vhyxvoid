@@ -18,6 +18,9 @@ import { PrismaSubscriptionRepository } from "@/modules/billing/domain/repositor
 import { PrismaInvoiceRepository } from "@/modules/billing/domain/repositories/PrismaInvoiceRepository";
 import { PrismaAccountBillingRepository } from "@/modules/billing/domain/repositories/PrismaAccountBillingRepository";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import { AccountKeyCacheInvalidator } from "@/modules/billing/domain/services/AccountKeyCacheInvalidator.service";
+import { PrismaApiKeyRepository } from "@/modules/key-management/domain/repositories/ApiKey.repositories";
+import { RedisApiKeyCacheService } from "@/modules/key-management/domain/services/RedisApiKeyCache.service";
 
 // export const billingPlugin = fp(
 // //   async (fastify: FastifyInstance) => {
@@ -142,6 +145,16 @@ export const billingPlugin = fp(
     );
     const notificationService = fastify.container.resolve(NotificationService);
 
+    // Closes context.md Known Risk #57's E6 cache-staleness gap: constructed
+    // directly here (not resolved from fastify.apiKeyRepository, which the
+    // key-management plugin decorates but never declares on fastify.d.ts —
+    // see api/backlog.md) rather than via the DI container, matching this
+    // plugin's own established "build infrastructure directly" convention.
+    const accountKeyCacheInvalidator = new AccountKeyCacheInvalidator(
+      new PrismaApiKeyRepository(fastify.prisma),
+      new RedisApiKeyCacheService(fastify.redis),
+    );
+
     // ── Wire use cases ─────────────────────────────────────────
     fastify.decorate(
       "createCheckoutSessionUseCase",
@@ -172,6 +185,7 @@ export const billingPlugin = fp(
         invoiceRepo,
         accountBillingRepo,
         notificationService,
+        accountKeyCacheInvalidator,
       ),
     );
 
@@ -188,7 +202,10 @@ export const billingPlugin = fp(
     // accounts the same way any other restart would — no separate
     // backfill/migration step needed. See decision.md, 2026-09-14,
     // "Schedule GracePeriodWorker".
-    const gracePeriodWorker = new GracePeriodWorker(fastify.prisma);
+    const gracePeriodWorker = new GracePeriodWorker(
+      fastify.prisma,
+      accountKeyCacheInvalidator,
+    );
     gracePeriodWorker.start();
     fastify.addHook("onClose", async () => {
       gracePeriodWorker.stop();

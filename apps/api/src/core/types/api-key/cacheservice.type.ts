@@ -28,6 +28,16 @@ export interface ApiKeyCacheService {
    */
   invalidate(keyId: string): Promise<void>;
 
+  /**
+   * Invalidate every cached entry for a set of keys in one call. Used when
+   * something account-level changes (a Stripe webhook event, the grace-
+   * period worker suspending an account) rather than one specific key —
+   * the caller is responsible for resolving the account's key ids first.
+   * Added 2026-09-22 (S4, E6) to close the up-to-5-minute lag between an
+   * account's real status changing and the hub/gateway noticing.
+   */
+  invalidateAllForAccount(keyIds: string[]): Promise<void>;
+
   // ── Rate limiting ──────────────────────────────────────────────────────────
 
   /**

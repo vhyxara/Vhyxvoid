@@ -27,6 +27,11 @@ import {
 // } from "@/modules/billing/domain/repositories";
 import { IStripeService } from "@/modules/billing/domain/services/Stripe.service";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import { AccountKeyCacheInvalidator } from "@/modules/billing/domain/services/AccountKeyCacheInvalidator.service";
+
+const NOOP_CACHE_INVALIDATOR: Pick<AccountKeyCacheInvalidator, "invalidate"> = {
+  invalidate: async () => {},
+};
 
 export class HandleStripeWebhookUseCase {
   constructor(
@@ -36,6 +41,13 @@ export class HandleStripeWebhookUseCase {
 
     private readonly accountBillingRepo: AccountBillingRepository,
     private readonly notificationService?: NotificationService, // optional — fire-and-forget
+    // Optional, defaults to a no-op so every existing construction (dead
+    // registerBillingUseCases.ts included, and every test harness) still
+    // compiles unchanged. billing.plugin.ts (the live site) passes a real one.
+    private readonly cacheInvalidator: Pick<
+      AccountKeyCacheInvalidator,
+      "invalidate"
+    > = NOOP_CACHE_INVALIDATOR,
   ) {}
 
   async execute(
@@ -336,11 +348,13 @@ export class HandleStripeWebhookUseCase {
       // before 2026-09-22) wiped the deadline that invoice.payment_failed had
       // just set, so GracePeriodWorker never found an expired account.
       const accountStatus = this.subscriptionStatusToAccountStatus(status);
+      let accountChanged = false;
       if (accountStatus === "PAST_DUE") {
-        await this.accountBillingRepo.markPastDue(
+        const { started } = await this.accountBillingRepo.markPastDue(
           accountId,
           new Date(Date.now() + GRACE_PERIOD_MS),
         );
+        accountChanged = started;
       } else if (accountStatus === "ACTIVE") {
         // Guarded to PAST_DUE -> ACTIVE only (see markActiveFromPastDue):
         // any Stripe event that merely touches the subscription object maps
@@ -348,15 +362,26 @@ export class HandleStripeWebhookUseCase {
         // this is a weak signal — nowhere near strong enough to also
         // resurrect a SUSPENDED/RESTRICTED/CANCELED/DELETED account. Used to
         // call updateBillingStatus unconditionally, which did exactly that.
-        await this.accountBillingRepo.markActiveFromPastDue(accountId);
+        const { activated } =
+          await this.accountBillingRepo.markActiveFromPastDue(accountId);
+        accountChanged = activated;
       } else if (accountStatus) {
         // CANCELED — a genuine terminal state from Stripe; unconditional on
-        // purpose, unlike the ACTIVE case above.
+        // purpose, unlike the ACTIVE case above. No changed-signal exists
+        // for this one (updateBillingStatus is a plain write), so this
+        // always invalidates — a repeat CANCELED event is rare enough that
+        // an occasional harmless extra invalidation isn't worth a bigger
+        // change to updateBillingStatus's return shape.
         await this.accountBillingRepo.updateBillingStatus(accountId, {
           status: accountStatus,
           graceEndsAt: null,
         });
+        accountChanged = true;
       }
+      // Only invalidate when something actually changed — a Stripe retry of
+      // an event that no-ops (already PAST_DUE with a deadline, already
+      // ACTIVE) shouldn't churn the cache on every delivery.
+      if (accountChanged) await this.cacheInvalidator.invalidate(accountId);
 
       console.info(
         {
@@ -401,6 +426,7 @@ export class HandleStripeWebhookUseCase {
       status: "CANCELED",
       graceEndsAt: null,
     });
+    await this.cacheInvalidator.invalidate(sub.accountId);
     const ownerEmail = await this.accountBillingRepo.getAccountOwnerEmail?.(
       sub.accountId,
     );
@@ -482,6 +508,7 @@ export class HandleStripeWebhookUseCase {
           // Subscription entity's) is what actually protects a SUSPENDED
           // account from being reactivated by this same payment.
           await this.accountBillingRepo.markActiveFromPastDue(sub.accountId);
+          await this.cacheInvalidator.invalidate(sub.accountId);
         }
       }
     }
@@ -520,6 +547,7 @@ export class HandleStripeWebhookUseCase {
             new Date(Date.now() + GRACE_PERIOD_MS),
           );
         if (!started || !graceEndsAt) return;
+        await this.cacheInvalidator.invalidate(sub.accountId);
 
         // Send payment failed email — fire and forget
         const ownerEmail = await this.accountBillingRepo.getAccountOwnerEmail?.(

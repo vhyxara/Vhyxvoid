@@ -138,6 +138,23 @@ export class TunnelSessionRepository {
     return { plan, maxAgents: PLAN_LIMITS[plan].maxAgents };
   }
 
+  /**
+   * Real current status for a set of accounts, in one query — used by the
+   * eviction sweep (Sweep.service.ts) to check every connected account's
+   * live status without one query per session. Missing accountIds simply
+   * aren't in the returned map; the caller decides what that means.
+   */
+  async findStatusesByAccountIds(
+    accountIds: string[],
+  ): Promise<Map<string, string>> {
+    if (accountIds.length === 0) return new Map();
+    const rows = await this.prisma.account.findMany({
+      where: { id: { in: accountIds } },
+      select: { id: true, status: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.status]));
+  }
+
   async evictStaleForInstance(hubInstanceId: string): Promise<void> {
     await this.prisma.tunnelSession.updateMany({
       where: { hubInstanceId, status: 'CONNECTED' },
