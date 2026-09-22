@@ -25,11 +25,15 @@
       "label": "Key rotation",
       "evidence": "apps/api/src/modules/key-management/application/use-cases/RotateApiKey.usecase.ts",
       "note": ""
+    },
+    "maxMembers": {
+      "label": "Account members",
+      "evidence": "apps/api/src/modules/identity/application/use-cases/account/InviteMember.usecase.ts, apps/api/src/modules/identity/application/use-cases/account/AcceptInvitation.usecase.ts",
+      "note": "Counts current members plus pending invitations when one is sent, so an account can't send more invitations than it has room for; checked again when an invitation is accepted, since the limit or the membership can change while an invitation is pending. An account already over its limit from before this was enforced keeps its existing members — only the next new member is blocked."
     }
   },
   "notEnforced": {
     "maxRequestsPerMonth": "No enforcement site. Decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce, once built (session S5) — not built yet.",
-    "maxMembers": "CheckPlanLimitsService exists but nothing calls it when members are added. Session S2, not built yet.",
     "customDomains": "No enforcement site; no custom-domain feature exists.",
     "prioritySupport": "Not a technical limit.",
     "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the tunnel URL are never rate limited (by design for the tunnel URL — public webhook callers hold no key). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke); the majority-of-traffic gap (agents, tunnel URL) is unchanged and is session S5. See shared/decision.md, \"S3\".",

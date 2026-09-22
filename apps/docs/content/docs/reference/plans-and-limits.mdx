@@ -3,7 +3,7 @@ title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
   date: "2026-09-22"
-  commit: a967c03
+  commit: 9f246be
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -16,6 +16,9 @@ sources:
   - apps/api/src/modules/key-management/application/use-cases/UpdateApiKey.usecase.ts
   - apps/api/src/modules/key-management/application/use-cases/RotateApiKey.usecase.ts
   - apps/api/src/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories.ts
+  - apps/api/src/modules/billing/domain/services/CheckPlanLimits.service.ts
+  - apps/api/src/modules/identity/application/use-cases/account/InviteMember.usecase.ts
+  - apps/api/src/modules/identity/application/use-cases/account/AcceptInvitation.usecase.ts
   - apps/hub/src/router/Message.router.ts
   - apps/hub/src/repositories/TunnelSession.repository.ts
   - apps/hub/src/handlers/HttpTunnel.handler.ts
@@ -35,9 +38,10 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | Scopes per key. Checked when a key is created and when its scopes are changed. | 2 | 10 | Unlimited |
 | Production (PROD) keys. Free accounts can only create DEV keys. | No | Yes | Yes |
 | Key rotation | No | Yes | Yes |
+| Account members. Counts current members plus pending invitations when one is sent, so an account can't send more invitations than it has room for; checked again when an invitation is accepted, since the limit or the membership can change while an invitation is pending. An account already over its limit from before this was enforced keeps its existing members — only the next new member is blocked. | 1 | 10 | Unlimited |
 {/* generated:end plans-enforced */}
 
-When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying; see [Troubleshooting](/troubleshooting#the-agent-wont-connect).
+When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` The member limit answers with a plainer `Plan limit reached` rather than a number-specific message. A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying; see [Troubleshooting](/troubleshooting#the-agent-wont-connect).
 
 An account that is suspended, restricted, canceled or deleted gets the FREE limits whatever plan it was on. An account with a payment overdue keeps its plan during the seven day grace period; see [Billing](/dashboard/billing#when-a-payment-fails).
 
@@ -53,6 +57,6 @@ An account that is suspended, restricted, canceled or deleted gets the FREE limi
 
 ## Not listed here
 
-Plans describe more than the table above, and the dashboard's upgrade dialog lists some of it. Those figures are left out on purpose, because nothing applies them today: a monthly request allowance, a cap on team members, custom domains, and how long usage data is kept. Don't plan around them until this page lists them.
+Plans describe more than the table above, and the dashboard's upgrade dialog lists some of it. Those figures are left out on purpose, because nothing applies them today: a monthly request allowance, custom domains, and how long usage data is kept. Don't plan around them until this page lists them.
 
 The per-minute **rate limit** is left out too, because it doesn't hold up in practice. It is only checked for requests made with the SDK's [`TunnelClient`](/sdk/websocket-client) — never for agents or for calls to your tunnel URL, which is most traffic. For `TunnelClient` requests it now holds at your plan's real value indefinitely (it used to reset to unlimited a few minutes after a key was created, rotated, updated or revoked; fixed 2026-09-22). Don't rely on being limited outside `TunnelClient` calls, or on not being.

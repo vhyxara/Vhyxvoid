@@ -2,8 +2,8 @@
 title: Members and roles
 description: Invite people to an organization, change their roles, transfer ownership, and remove them.
 verified:
-  date: "2026-09-21"
-  commit: 8c74574
+  date: "2026-09-22"
+  commit: 9f246be
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -51,6 +51,8 @@ Admins and owners see **Invite member**.
 
 1. Choose **Invite member**, enter their email address, and choose a role. The list only offers roles you're allowed to give: **Member** or **Admin** for an owner, and **Member** for an admin.
 2. Choose **Send invite**. VhyxVoid emails them a link.
+
+The number of members, current plus pending invitations, depends on your plan (see [Plans and limits](/reference/plans-and-limits)). Sending an invite over the limit fails with `Plan limit reached`; on FREE, where the limit is one, this means the owner can't invite anyone until upgrading. An invitation already sent can still fail to be accepted if the account is over its limit by then (a downgrade, or another invitation accepted first) — the invited person sees the same error and the invitation stays pending, usable once there's room. Fixed 2026-09-22 — sending and accepting invitations past the limit previously both succeeded.
 
 The **Invitations** tab under **Settings** (admins and owners only) shows every invitation with the email, role, who sent it, when it expires, and its status (`PENDING` and others). A pending invitation has a button to cancel it. An invitation link is valid for **three days**.
 
