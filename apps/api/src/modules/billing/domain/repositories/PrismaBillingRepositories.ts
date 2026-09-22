@@ -61,6 +61,24 @@ export interface AccountBillingRepository {
     },
   ): Promise<void>;
 
+  /**
+   * Put the account in PAST_DUE with a grace deadline, keeping any deadline
+   * it already has (set-if-absent). Webhook events arrive in either order and
+   * Stripe retries a failed payment several times, so this must be idempotent:
+   * only the first call starts the clock.
+   *
+   * Only ACTIVE and PAST_DUE accounts are touched. A SUSPENDED / RESTRICTED /
+   * CANCELED / DELETED account is left alone; otherwise a later Stripe retry
+   * would turn an account the grace-period worker already suspended back into
+   * PAST_DUE with a fresh grace period, forever.
+   *
+   * `started` is true only when this call set the deadline.
+   */
+  markPastDue(
+    accountId: string,
+    graceEndsAt: Date,
+  ): Promise<{ started: boolean; graceEndsAt: Date | null }>;
+
   // Get the account owner's email
   getAccountOwnerEmail(accountId: string): Promise<string | null>;
 }

@@ -67,7 +67,11 @@ export function buildCachePayload(
     accountId: key.accountId,
     accountStatus,
     scopes: key.scopes, // ApiKey.scopes returns string[] via getter
-    rateLimitPerMinute,
+    // Redis holds this as JSON, where Infinity becomes null and the gateway
+    // would then read it as a limit of 0. -1 is the documented "unlimited".
+    rateLimitPerMinute: Number.isFinite(rateLimitPerMinute)
+      ? rateLimitPerMinute
+      : -1,
     expiresAt: key.expiresAt?.getTime() ?? null,
   };
 }

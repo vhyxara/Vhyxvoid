@@ -28,6 +28,7 @@
     "seed:roles": "tsx src/modules/identity/infrastructure/scripts/seed-roles.ts",
     "seed:admin": "tsx src/modules/identity/infrastructure/scripts/seed-super-admin.ts",
     "seed:all": "tsx src/modules/identity/infrastructure/scripts/seed.ts",
+    "backfill:grace-ends-at": "tsx src/modules/billing/infrastructure/scripts/backfill-grace-ends-at.ts",
     "seed:reset": "npx prisma db push --force-reset && npm run seed",
     "clean": "rm -rf dist"
   },

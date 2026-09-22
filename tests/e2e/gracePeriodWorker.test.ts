@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { GracePeriodWorker } from "../../apps/api/src/modules/billing/infrastructure/workers/GracePeriod.worker";
+import { DAY_MS, makeBillingHarness } from "./billingHarness";
 
 // Covers context.md item 41: GracePeriodWorker was fully written and
 // correct but never instantiated or scheduled anywhere — a PAST_DUE
@@ -93,5 +94,80 @@ describe("GracePeriodWorker", () => {
     expect(prisma.account.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "acct_1" } }),
     );
+  });
+});
+
+// Added 2026-09-22 (shared/decision.md, session S1). Everything above feeds
+// the worker rows that ALREADY carry a graceEndsAt, which is why that suite
+// passed while the worker could never fire in production: the Stripe webhook
+// never left a deadline set (context.md Known Risk #57, E7). Here the deadline
+// is whatever the real webhook use case wrote, in each realistic Stripe event
+// order, and the worker sweeps that same table.
+describe("GracePeriodWorker on state written by the real Stripe webhook", () => {
+  const NOW = new Date("2026-09-22T12:00:00.000Z");
+
+  beforeEach(() => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const orders: Array<[string, (h: ReturnType<typeof makeBillingHarness>) => Promise<void>]> = [
+    ["payment_failed, then subscription.updated(past_due)", async (h) => {
+      await h.events.paymentFailed();
+      await h.events.subscriptionUpdated("past_due");
+    }],
+    ["subscription.updated(past_due), then payment_failed", async (h) => {
+      await h.events.subscriptionUpdated("past_due");
+      await h.events.paymentFailed();
+    }],
+    ["payment_failed only", async (h) => {
+      await h.events.paymentFailed();
+    }],
+  ];
+
+  it.each(orders)("suspends the account once the 7-day deadline passes (%s)", async (_name, fail) => {
+    const h = makeBillingHarness();
+    await h.events.subscriptionCreated("active");
+    await fail(h);
+
+    // Inside the grace period: nothing happens.
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * DAY_MS - 60_000));
+    await h.sweep();
+    expect(h.account().status).toBe("PAST_DUE");
+
+    // Just past the deadline: suspended, deadline cleared by the worker.
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * DAY_MS + 60_000));
+    await h.sweep();
+    expect(h.account().status).toBe("SUSPENDED");
+    expect(h.account().graceEndsAt).toBeNull();
+  });
+
+  it("never suspends an account that paid within the grace period", async () => {
+    const h = makeBillingHarness();
+    await h.events.subscriptionCreated("active");
+    await h.events.paymentFailed();
+    await h.events.subscriptionUpdated("past_due");
+    await h.events.paymentSucceeded();
+
+    vi.setSystemTime(new Date(NOW.getTime() + 30 * DAY_MS));
+    await h.sweep();
+
+    expect(h.account().status).toBe("ACTIVE");
+  });
+
+  it("does not suspend an ACTIVE account, or one whose checkout never completed", async () => {
+    const h = makeBillingHarness();
+    await h.events.subscriptionUpdated("incomplete");
+
+    vi.setSystemTime(new Date(NOW.getTime() + 30 * DAY_MS));
+    await h.sweep();
+
+    expect(h.account().status).toBe("ACTIVE");
   });
 });

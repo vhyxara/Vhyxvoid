@@ -49,6 +49,36 @@ export class PrismaAccountBillingRepository implements AccountBillingRepository 
     });
   }
 
+  async markPastDue(
+    accountId: string,
+    graceEndsAt: Date,
+  ): Promise<{ started: boolean; graceEndsAt: Date | null }> {
+    const now = new Date();
+
+    // Each step is one conditional UPDATE, so two webhook events racing each
+    // other cannot both start the clock.
+    const fromActive = await this.prisma.account.updateMany({
+      where: { id: accountId, status: "ACTIVE" },
+      data: { status: "PAST_DUE", graceEndsAt, updatedAt: now },
+    });
+    if (fromActive.count > 0) return { started: true, graceEndsAt };
+
+    const missingDeadline = await this.prisma.account.updateMany({
+      where: { id: accountId, status: "PAST_DUE", graceEndsAt: null },
+      data: { graceEndsAt, updatedAt: now },
+    });
+    if (missingDeadline.count > 0) return { started: true, graceEndsAt };
+
+    const existing = await this.prisma.account.findUnique({
+      where: { id: accountId },
+      select: { status: true, graceEndsAt: true },
+    });
+    return {
+      started: false,
+      graceEndsAt: existing?.status === "PAST_DUE" ? existing.graceEndsAt : null,
+    };
+  }
+
   async getAccountOwnerEmail(accountId: string): Promise<string | null> {
     const member = await this.prisma.accountMember.findFirst({
       where: { accountId, roleLevel: 100 }, // OWNER

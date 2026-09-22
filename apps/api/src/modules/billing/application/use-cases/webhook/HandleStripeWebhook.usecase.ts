@@ -331,10 +331,22 @@ export class HandleStripeWebhookUseCase {
 
       await this.subscriptionRepo.save(sub);
 
-      await this.accountBillingRepo.updateBillingStatus(accountId, {
-        status: this.subscriptionStatusToAccountStatus(status),
-        graceEndsAt: null,
-      });
+      // The grace deadline is only ever cleared by a transition to ACTIVE or
+      // CANCELED. Writing null on every subscription update (as this did
+      // before 2026-09-22) wiped the deadline that invoice.payment_failed had
+      // just set, so GracePeriodWorker never found an expired account.
+      const accountStatus = this.subscriptionStatusToAccountStatus(status);
+      if (accountStatus === "PAST_DUE") {
+        await this.accountBillingRepo.markPastDue(
+          accountId,
+          new Date(Date.now() + GRACE_PERIOD_MS),
+        );
+      } else if (accountStatus) {
+        await this.accountBillingRepo.updateBillingStatus(accountId, {
+          status: accountStatus,
+          graceEndsAt: null,
+        });
+      }
 
       console.info(
         {
@@ -470,14 +482,28 @@ export class HandleStripeWebhookUseCase {
       const sub = await this.subscriptionRepo.findByStripeSubscriptionId(
         stripeInvoice.subscription,
       );
-      if (sub && !sub.isPastDue()) {
-        sub.applyStripeUpdate({
-          ...sub.toPersistence(),
-          status: SubscriptionStatus.PAST_DUE,
-        } as any);
-        await this.subscriptionRepo.save(sub);
+      if (sub) {
+        if (!sub.isPastDue()) {
+          sub.applyStripeUpdate({
+            ...sub.toPersistence(),
+            status: SubscriptionStatus.PAST_DUE,
+          } as any);
+          await this.subscriptionRepo.save(sub);
+        }
 
-        const graceEndsAt = new Date(Date.now() + GRACE_PERIOD_MS);
+        // Set-if-absent, whatever order this event and
+        // customer.subscription.updated(past_due) arrive in, and however many
+        // times Stripe retries the payment: only the first call starts the
+        // clock (and sends the email). Previously the whole block was skipped
+        // when the subscription was already PAST_DUE, so if the subscription
+        // event came first no deadline was ever set.
+        const { started, graceEndsAt } =
+          await this.accountBillingRepo.markPastDue(
+            sub.accountId,
+            new Date(Date.now() + GRACE_PERIOD_MS),
+          );
+        if (!started || !graceEndsAt) return;
+
         // Send payment failed email — fire and forget
         const ownerEmail = await this.accountBillingRepo.getAccountOwnerEmail?.(
           sub.accountId,
@@ -500,11 +526,6 @@ export class HandleStripeWebhookUseCase {
               console.error("[notifications] payment failed email failed", err),
             );
         }
-
-        await this.accountBillingRepo.updateBillingStatus(sub.accountId, {
-          status: "PAST_DUE",
-          graceEndsAt,
-        });
       }
     }
   }
@@ -611,9 +632,21 @@ export class HandleStripeWebhookUseCase {
     return map[stripeStatus] ?? SubscriptionStatus.INCOMPLETE;
   }
 
+  /**
+   * Account status a subscription status implies, or `null` for "this event
+   * says nothing about the account, leave its status and grace deadline as
+   * they are".
+   *
+   * INCOMPLETE (a checkout whose first payment has not succeeded, incl.
+   * incomplete_expired), PAUSED and any status Stripe adds later return null.
+   * They used to fall into `default -> PAST_DUE`, which gave a failed first
+   * checkout a 7-day grace period. Returning ACTIVE instead would be wrong
+   * too: it would reactivate an account that is genuinely PAST_DUE or
+   * SUSPENDED just because a second, unpaid subscription appeared.
+   */
   private subscriptionStatusToAccountStatus(
     status: SubscriptionStatus,
-  ): "ACTIVE" | "PAST_DUE" | "SUSPENDED" | "CANCELED" {
+  ): "ACTIVE" | "PAST_DUE" | "CANCELED" | null {
     switch (status) {
       case SubscriptionStatus.ACTIVE:
       case SubscriptionStatus.TRIALING:
@@ -624,7 +657,7 @@ export class HandleStripeWebhookUseCase {
       case SubscriptionStatus.CANCELED:
         return "CANCELED";
       default:
-        return "PAST_DUE";
+        return null;
     }
   }
 }
