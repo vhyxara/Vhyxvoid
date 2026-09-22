@@ -31,6 +31,7 @@ import type { Socket } from 'net';
 import { WebSocketServer, WebSocket } from 'ws';
 import { debugLog } from '@/utils/debug';
 import { getTunnelRequestTimeoutMs } from '@/utils/tunnelTimeout';
+import type { PublicPathUsageLimiter } from '@/services/PublicPathUsageLimiter.service';
 
 // Max request body size — 10MB
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
@@ -45,6 +46,11 @@ export class HttpTunnelHandler {
     // HubServer owns its lifetime like every other registry. The default keeps
     // callers that only exercise the HTTP path (tests) unchanged.
     private readonly tunnelWsRegistry: TunnelWsRegistry = new TunnelWsRegistry(),
+    // Optional so every existing test that constructs this with 4-5 args
+    // keeps compiling unchanged; absent means no rate limiting or usage
+    // counting happens on this path (only ever true in a test). See
+    // shared/decision.md, 2026-09-22, "S5 investigation and proposal".
+    private readonly usageLimiter?: PublicPathUsageLimiter,
   ) {}
 
   /**
@@ -143,6 +149,25 @@ export class HttpTunnelHandler {
           `Start the agent with: vhyxvoid --key YOUR_KEY --secret YOUR_SECRET --port YOUR_PORT --label ${label}`,
         ].join(' '),
       );
+    }
+
+    // Per-account abuse limit on the public path — checked before the agent
+    // lookup so a flood aimed at a URL with no agent connected is still
+    // capped, not just one with a live agent behind it. See
+    // shared/decision.md, 2026-09-22, "S5 investigation and proposal".
+    if (this.usageLimiter) {
+      const rateCheck = await this.usageLimiter.checkRequest(entry.accountId);
+      if (!rateCheck.allowed) {
+        return this.sendError(
+          res,
+          429,
+          `Rate limit exceeded: ${rateCheck.limitPerMinute} requests/min for this account's plan`,
+          {
+            headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) },
+            body: { retryAfterSeconds: rateCheck.retryAfterSeconds },
+          },
+        );
+      }
     }
 
     // Get the agent's live WebSocket connection
@@ -516,15 +541,22 @@ export class HttpTunnelHandler {
     }
   }
 
-  private sendError(res: ServerResponse, status: number, message: string): void {
+  private sendError(
+    res: ServerResponse,
+    status: number,
+    message: string,
+    extra?: { headers?: Record<string, string>; body?: Record<string, unknown> },
+  ): void {
     const body = JSON.stringify({
       error: message,
       status,
       tunnel: true,
+      ...(extra?.body ?? {}),
     });
     res.writeHead(status, {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
+      ...(extra?.headers ?? {}),
     });
     res.end(body);
   }

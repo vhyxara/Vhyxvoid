@@ -31,7 +31,8 @@ export type PlanKeyEnvironment = "DEV" | "PROD";
 export interface PlanLimits {
   // ── Account / tunnel limits (new billing module) ────────────────────────
   maxAgents: number; // concurrent tunnel agents
-  maxRequestsPerMonth: number; // total tunnel requests per billing period
+  maxRequestsPerMonth: number; // total tunnel requests per calendar month (soft — counted and shown, not enforced; see decision.md 2026-09-22 "Answers to the E1-E7 open questions" #6)
+  publicPathRateLimitPerMinute: number; // abuse limiter for the public tunnel-URL path (no API key involved), per account across all its agents — see decision.md 2026-09-22 "S5 investigation and proposal"
   maxMembers: number; // account members
   customDomains: boolean; // can use custom domains
   prioritySupport: boolean; // priority support tier
@@ -51,7 +52,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   [Plan.FREE]: {
     // Account / tunnel
     maxAgents: 1,
-    maxRequestsPerMonth: 1_000,
+    maxRequestsPerMonth: 10_000,
+    publicPathRateLimitPerMinute: 100,
     maxMembers: 1,
     customDomains: false,
     prioritySupport: false,
@@ -69,6 +71,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     // Account / tunnel
     maxAgents: 5,
     maxRequestsPerMonth: 50_000,
+    publicPathRateLimitPerMinute: 3_000,
     maxMembers: 10,
     customDomains: true,
     prioritySupport: true,
@@ -86,6 +89,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     // Account / tunnel
     maxAgents: Infinity,
     maxRequestsPerMonth: Infinity,
+    publicPathRateLimitPerMinute: Infinity,
     maxMembers: Infinity,
     customDomains: true,
     prioritySupport: true,

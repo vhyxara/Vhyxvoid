@@ -7,6 +7,7 @@ import {
   CachedApiKeyData,
 } from "@/core/types/api-key/cacheservice.type";
 import { Redis } from "@upstash/redis";
+import { PUBLIC_USAGE_SENTINEL } from "@vhyxvoid/shared";
 // import type { Redis } from 'ioredis';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,7 +197,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
 
   async drainUsageCounters(accountId: string): Promise<
     Array<{
-      apiKeyId: string;
+      apiKeyId: string | null;
       metric: string;
       periodStart: Date;
       quantity: bigint;
@@ -215,7 +216,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
     > | null;
 
     const counters: Array<{
-      apiKeyId: string;
+      apiKeyId: string | null;
       metric: string;
       periodStart: Date;
       quantity: bigint;
@@ -230,7 +231,14 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
       const parts = key.split(":");
       if (parts.length < 5) continue;
 
-      const apiKeyId = parts[2];
+      // The public tunnel-URL path has no API key — the hub writes
+      // PUBLIC_USAGE_SENTINEL in the apiKeyId slot instead. Map it back to
+      // null here, UsageAggregate's own "account-level rollup" shape,
+      // rather than storing the sentinel string as if it were a real key id
+      // (which would violate ApiKey's foreign key on write).
+      const rawApiKeyId = parts[2];
+      const apiKeyId =
+        rawApiKeyId === PUBLIC_USAGE_SENTINEL ? null : rawApiKeyId;
       const metric = parts[3];
       const bucketStr = parts[4]; // yyyyMMddHHmm (5-min bucket)
       const periodStart = parseBucket(bucketStr);

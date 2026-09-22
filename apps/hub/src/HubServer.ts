@@ -15,6 +15,7 @@ import { HubAuthService } from '@/services/HubAuth.service';
 import { HeartbeatService } from '@/services/Heartbeat.service';
 import { AccountStatusSweepService } from '@/services/AccountStatusSweep.service';
 import { HubUsageService } from '@/services/HubUsage.service';
+import { PublicPathUsageLimiter } from '@/services/PublicPathUsageLimiter.service';
 import { HubPubSub } from '@/services/HubPubSub';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
 import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
@@ -74,6 +75,7 @@ export class HubServer {
   private readonly heartbeat: HeartbeatService;
   private readonly statusSweep: AccountStatusSweepService;
   private readonly usageService: HubUsageService;
+  private readonly publicPathUsageLimiter: PublicPathUsageLimiter;
   private readonly pubsub: HubPubSub;
   private readonly router: MessageRouter;
   // private listenSocket: any = null;
@@ -112,12 +114,22 @@ export class HubServer {
 
     this.subdomainRegistry = new SubdomainRegistry(config.redis);
 
+    // context.md Known Risk #57 (E3, E5): per-account rate limiting and
+    // usage counting for the public tunnel-URL path, which has no API key
+    // to hang either on. See shared/decision.md, 2026-09-22, "S5
+    // investigation and proposal".
+    this.publicPathUsageLimiter = new PublicPathUsageLimiter(
+      config.tunnelSessionRepo,
+      this.usageService,
+    );
+
     this.httpTunnelHandler = new HttpTunnelHandler(
       this.subdomainRegistry,
       this.agentRegistry,
       this.pendingRegistry,
       config.hubDomain,
       new TunnelWsRegistry(),
+      this.publicPathUsageLimiter,
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on
@@ -183,6 +195,7 @@ export class HubServer {
     await this.pubsub.start();
     this.heartbeat.start();
     this.statusSweep.start();
+    this.publicPathUsageLimiter.start();
 
     const server = createServer(async (req, res) => {
       // ── Health check ──────────────────────────────────────────
@@ -383,6 +396,12 @@ export class HubServer {
   async stop(): Promise<void> {
     this.heartbeat.stop();
     this.statusSweep.stop();
+    // Flush any usage accumulated since the last 30s interval before
+    // stopping — a graceful shutdown can afford this; a crash can't, and
+    // that's an accepted, documented gap for this soft counter (see
+    // PublicPathUsageLimiter's own header comment).
+    this.publicPathUsageLimiter.flush();
+    this.publicPathUsageLimiter.stop();
     await this.pubsub.stop();
     this.agentRegistry.evictAll();
 

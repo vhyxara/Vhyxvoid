@@ -16,3 +16,4 @@ export * from "./clients";
 export * from "./planLimits";
 export * from "./planResolver";
 export * from "./accountStatus";
+export * from "./publicUsage";

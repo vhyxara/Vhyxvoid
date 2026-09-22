@@ -71,11 +71,13 @@ export interface ApiKeyCacheService {
 
   /**
    * Read all usage counters for an account since a given time.
-   * Used by the flush worker.
+   * Used by the flush worker. apiKeyId is null for the public tunnel-URL
+   * path's account-level rollup (PUBLIC_USAGE_SENTINEL, mapped back to null
+   * here) — every other bucket has a real key.
    */
   drainUsageCounters(accountId: string): Promise<
     Array<{
-      apiKeyId: string;
+      apiKeyId: string | null;
       metric: string;
       periodStart: Date;
       quantity: bigint;
