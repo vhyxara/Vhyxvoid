@@ -3,7 +3,7 @@ title: Billing
 description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
 verified:
   date: "2026-09-22"
-  commit: a967c03
+  commit: 069f3d9
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -58,4 +58,4 @@ When Stripe reports a failed payment:
   The hub only accepts an agent's connection when the account's status is `ACTIVE`. An agent that connects, or has to reconnect, while the account is `PAST_DUE` or `SUSPENDED` is refused with `Account is not active` and stops. The grace period protects your plan's limits, not your ability to connect. This comes from reading the current hub code, not from a test with a real overdue account. Fix the payment method first, then restart the agent.
 </Callout>
 
-Once a payment succeeds the account goes back to `ACTIVE`. You can see the account's status in the **My organizations** table on the [dashboard](/dashboard/account-and-organizations).
+**While the account is `PAST_DUE`**, paying takes it back to `ACTIVE` automatically. **Once it reaches `SUSPENDED`**, paying alone no longer does: reactivating a suspended account is a deliberate step, not something a Stripe event does on its own (fixed 2026-09-22, not yet deployed — the account status doesn't currently record *why* it was suspended, so nothing can safely tell "suspended for non-payment" apart from any other kind of suspension). If your account is `SUSPENDED`, updating your payment method is still worth doing, but it won't reactivate the account by itself. You can see the account's status in the **My organizations** table on the [dashboard](/dashboard/account-and-organizations).
