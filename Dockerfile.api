@@ -26,6 +26,21 @@ COPY apps/api/ ./apps/api/
 COPY apps/hub/ ./apps/hub/
 COPY apps/api/prisma/ ./apps/api/prisma/
 
+# Guard against stray/incomplete migration directories in the build context
+# (e.g. a local `prisma migrate dev` that was interrupted before writing
+# migration.sql). Git doesn't track empty directories, so one of these can
+# sit untracked on disk indefinitely and get silently COPYed into the image,
+# where Prisma's P3015 check then crash-loops the container on deploy. Fail
+# the build loudly instead.
+RUN set -e; \
+    for d in apps/api/prisma/migrations/*/; do \
+      [ -d "$d" ] || continue; \
+      if [ ! -f "$d/migration.sql" ]; then \
+        echo "ERROR: invalid Prisma migration directory (missing migration.sql): $d" >&2; \
+        exit 1; \
+      fi; \
+    done
+
 COPY tsconfig.api.json ./
 
 RUN cd apps/api && npx prisma generate

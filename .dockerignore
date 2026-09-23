@@ -1,4 +1,5 @@
 apps/api/src/keys/
+apps/api/keys/
 apps/api/.env
 apps/api/.env.*
 apps/hub/.env
