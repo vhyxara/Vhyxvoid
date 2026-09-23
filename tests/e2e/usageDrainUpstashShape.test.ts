@@ -170,3 +170,83 @@ describe("FlushUsageWorker.runForPendingAccounts — accounts come from Redis, n
     expect(filter).not.toHaveBeenCalled();
   });
 });
+
+// ── Keyed counters: public keyId -> ApiKey.id ────────────────────────────────
+//
+// The SDK path (ValidateApiKeyUseCase.incrementUsage) writes the PUBLIC keyId
+// into the counter key, but UsageAggregate.apiKeyId is a foreign key to
+// ApiKey.id. Passing the public id straight through failed that constraint on
+// every keyed counter — seen live 2026-09-24 against the local dev database:
+// "Foreign key constraint violated on the constraint: UsageAggregate_apiKeyId_fkey".
+
+function makeKeyRepo(keys: Array<{ id: string; keyId: string; accountId: string }>) {
+  return {
+    findByKeyId: vi.fn(async (keyId: string) => keys.find((k) => k.keyId === keyId) ?? null),
+    findById: vi.fn(async (id: string) => keys.find((k) => k.id === id) ?? null),
+  };
+}
+
+describe("FlushUsageWorker writes keyed counters under ApiKey.id, not the public keyId", () => {
+  it("resolves the public keyId to the key's row id", async () => {
+    const store = new Map([["usage:acct_a:vhyxvoid_dev_abc:requests:202609240000", "3"]]);
+    const repo = makeUsageRepo();
+    const worker = new FlushUsageWorker(
+      new RedisApiKeyCacheService(makeSharedRedis(store) as any),
+      repo as any,
+      makeKeyRepo([{ id: "row-uuid-1", keyId: "vhyxvoid_dev_abc", accountId: "acct_a" }]) as any,
+    );
+
+    await worker.run(["acct_a"]);
+
+    expect(repo.upserts).toEqual([{ accountId: "acct_a", apiKeyId: "row-uuid-1", quantity: 3n }]);
+  });
+
+  it("records an unknown key, or another account's key, in the account-level rollup instead of dropping it", async () => {
+    const store = new Map([
+      ["usage:acct_a:vhyxvoid_dev_gone:requests:202609240000", "2"],
+      ["usage:acct_a:vhyxvoid_dev_other:requests:202609240000", "5"],
+    ]);
+    const repo = makeUsageRepo();
+    const worker = new FlushUsageWorker(
+      new RedisApiKeyCacheService(makeSharedRedis(store) as any),
+      repo as any,
+      makeKeyRepo([{ id: "row-b", keyId: "vhyxvoid_dev_other", accountId: "acct_b" }]) as any,
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await worker.run(["acct_a"]);
+    warn.mockRestore();
+
+    expect(repo.upserts.map((u) => [u.apiKeyId, u.quantity]).sort()).toEqual([
+      [null, 2n],
+      [null, 5n],
+    ]);
+  });
+
+  it("one failing write does not abort the remaining counters or accounts in the tick", async () => {
+    const store = new Map([
+      ["usage:acct_a:_public:requests:202609240000", "1"],
+      ["usage:acct_a:_public:requests:202609240005", "2"],
+      ["usage:acct_b:_public:requests:202609240000", "4"],
+    ]);
+    const repo = makeUsageRepo();
+    let calls = 0;
+    repo.upsertQuantity.mockImplementation(async (p: any) => {
+      if (calls++ === 0) throw new Error("db blip");
+      repo.upserts.push({ accountId: p.accountId, apiKeyId: p.apiKeyId, quantity: p.quantity });
+    });
+    const worker = new FlushUsageWorker(
+      new RedisApiKeyCacheService(makeSharedRedis(store) as any),
+      repo as any,
+      makeKeyRepo([]) as any,
+    );
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await worker.run(["acct_a", "acct_b"]);
+    err.mockRestore();
+
+    expect(repo.upsertQuantity).toHaveBeenCalledTimes(3);
+    expect(repo.upserts).toHaveLength(2);
+    expect(repo.upserts.some((u) => u.accountId === "acct_b" && u.quantity === 4n)).toBe(true);
+  });
+});

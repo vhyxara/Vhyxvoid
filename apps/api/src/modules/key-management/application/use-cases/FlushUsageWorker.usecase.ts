@@ -47,6 +47,7 @@ export class FlushUsageWorker {
 
       const BUCKET_MINUTES = 5;
       const periodEnd = new Date();
+      const resolvedKeyIds = new Map<string, string | null>();
 
       for (const counter of counters) {
         const periodStart = new Date(
@@ -54,15 +55,70 @@ export class FlushUsageWorker {
             (counter.periodStart.getTime() % (BUCKET_MINUTES * 60_000)),
         );
 
-        await this.usageRepository.upsertQuantity({
-          accountId,
-          apiKeyId: counter.apiKeyId,
-          metric: counter.metric as any,
-          periodStart,
-          periodEnd,
-          quantity: counter.quantity,
-        });
+        // The drain has already deleted these Redis keys, so a failed write
+        // loses only this one counter — it must not abort every counter and
+        // account after it in this tick.
+        try {
+          const apiKeyId =
+            counter.apiKeyId === null
+              ? null
+              : await this.resolveApiKeyRowId(
+                  accountId,
+                  counter.apiKeyId,
+                  resolvedKeyIds,
+                );
+
+          await this.usageRepository.upsertQuantity({
+            accountId,
+            apiKeyId,
+            metric: counter.metric as any,
+            periodStart,
+            periodEnd,
+            quantity: counter.quantity,
+          });
+        } catch (err) {
+          console.error(
+            {
+              err: (err as Error).message,
+              accountId,
+              apiKeyId: counter.apiKeyId,
+              metric: counter.metric,
+              periodStart,
+              quantity: counter.quantity.toString(),
+            },
+            "[FlushUsageWorker] failed to write a usage counter; it is lost",
+          );
+        }
       }
     }
+  }
+
+  /**
+   * Redis counters carry the PUBLIC keyId (`vhyxvoid_dev_…`, what
+   * ValidateApiKeyUseCase and the hub know), but UsageAggregate.apiKeyId is a
+   * foreign key to ApiKey.id. Writing the public id straight through failed
+   * that constraint on every keyed counter. A key that no longer resolves to
+   * this account (deleted, or not this account's) falls back to the
+   * account-level rollup (null) rather than dropping the count.
+   */
+  private async resolveApiKeyRowId(
+    accountId: string,
+    counterKeyId: string,
+    cache: Map<string, string | null>,
+  ): Promise<string | null> {
+    if (cache.has(counterKeyId)) return cache.get(counterKeyId)!;
+
+    const key =
+      (await this.apiKeyRepository.findByKeyId(counterKeyId)) ??
+      (await this.apiKeyRepository.findById(counterKeyId));
+    const rowId = key && key.accountId === accountId ? key.id : null;
+    if (rowId === null) {
+      console.warn(
+        { accountId, counterKeyId },
+        "[FlushUsageWorker] usage counter's key not found for this account; recording it in the account-level rollup",
+      );
+    }
+    cache.set(counterKeyId, rowId);
+    return rowId;
   }
 }
