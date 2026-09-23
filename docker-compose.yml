@@ -4,7 +4,7 @@ name: black-server
 
 services:
   api:
-    image: ghcr.io/vhyxara/vhyxvoid-api:latest
+    image: ghcr.io/vhyxara/vhyxvoid-api:0095ebe
     container_name: platform-api
     restart: unless-stopped
     env_file:
@@ -21,7 +21,7 @@ services:
       start_period: 40s
 
   hub:
-    image: ghcr.io/vhyxara/vhyxvoid-hub:latest
+    image: ghcr.io/vhyxara/vhyxvoid-hub:0095ebe
     container_name: platform-hub
     restart: unless-stopped
     env_file:
