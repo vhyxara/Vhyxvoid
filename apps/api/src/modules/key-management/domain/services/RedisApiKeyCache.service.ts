@@ -262,6 +262,15 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
     return counters;
   }
 
+  async listAccountIdsWithPendingUsage(): Promise<string[]> {
+    const keys = await this.scanKeys("usage:*");
+    const accountIds = new Set<string>();
+    for (const key of keys) {
+      const parts = key.split(":");
+      if (parts.length >= 5 && parts[1]) accountIds.add(parts[1]);
+    }
+    return [...accountIds];
+  }
 
   // ── Private helpers ────────────────────────────────────────────────────────
 

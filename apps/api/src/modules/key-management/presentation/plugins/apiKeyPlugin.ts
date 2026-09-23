@@ -205,13 +205,13 @@ export default fp(async (fastify: FastifyInstance) => {
 
   const flushInterval = setInterval(async () => {
     try {
-      const result = await fastify.prisma.apiKey.findMany({
-        where: { status: "ACTIVE" },
-        select: { accountId: true },
-        distinct: ["accountId"],
+      await flushWorker.runForPendingAccounts(async (accountIds) => {
+        const known = await fastify.prisma.account.findMany({
+          where: { id: { in: accountIds } },
+          select: { id: true },
+        });
+        return known.map((a) => a.id);
       });
-      const accountIds = result.map((r: any) => r.accountId);
-      await flushWorker.run(accountIds);
     } catch (err) {
       fastify.log.error({ err }, "[FlushUsageWorker] failed");
     }

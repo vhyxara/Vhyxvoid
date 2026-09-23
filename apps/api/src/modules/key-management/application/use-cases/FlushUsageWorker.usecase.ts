@@ -17,6 +17,28 @@ export class FlushUsageWorker {
     private apiKeyRepository: ApiKeyRepository,
   ) {}
 
+  /**
+   * Flush every account that actually has pending counters in Redis.
+   *
+   * Accounts come from Redis itself rather than from "accounts with an
+   * ACTIVE key": an agent keeps serving public tunnel traffic after its key
+   * is revoked or expires (the hub only re-checks account status on a live
+   * connection), and the last few minutes of counts before a key goes
+   * inactive would otherwise sit in Redis until their 25h TTL deletes them.
+   *
+   * `filterKnownAccounts` must return only the ids that exist in this
+   * environment's database. Local dev and production share one Upstash
+   * instance; draining another environment's account would delete its
+   * counters and then fail the UsageAggregate foreign key here.
+   */
+  async runForPendingAccounts(
+    filterKnownAccounts: (accountIds: string[]) => Promise<string[]>,
+  ): Promise<void> {
+    const pending = await this.cacheService.listAccountIdsWithPendingUsage();
+    if (pending.length === 0) return;
+    await this.run(await filterKnownAccounts(pending));
+  }
+
   async run(accountIds: string[]): Promise<void> {
     for (const accountId of accountIds) {
       const counters = await this.cacheService.drainUsageCounters(accountId);

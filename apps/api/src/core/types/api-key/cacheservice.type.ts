@@ -83,6 +83,16 @@ export interface ApiKeyCacheService {
       quantity: bigint;
     }>
   >;
+
+  /**
+   * Every accountId that currently has at least one usage:* counter in
+   * Redis, whatever wrote it (SDK path, public tunnel path) and whether or
+   * not the account still has an ACTIVE key. Not filtered to accounts this
+   * environment knows about: local dev and production share one Upstash
+   * instance, so callers must intersect with their own database before
+   * draining.
+   */
+  listAccountIdsWithPendingUsage(): Promise<string[]>;
 }
 
 // core/types/api-key/cacheService.ts
