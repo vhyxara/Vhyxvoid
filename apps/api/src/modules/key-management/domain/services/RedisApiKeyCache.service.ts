@@ -209,11 +209,14 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
 
     if (keys.length === 0) return [];
 
+    // @upstash/redis's pipeline().exec() returns one plain value per command,
+    // in order — NOT ioredis's [err, value] tuples. With the client's default
+    // automaticDeserialization an INCRBY counter comes back as a number; with
+    // it off, as a string. Reading results[i][1] (the ioredis shape) silently
+    // dropped every counter. See api/decision.md, 2026-09-24.
     const pipeline = this.redis.pipeline();
     for (const key of keys) pipeline.get(key);
-    const results = (await pipeline.exec()) as Array<
-      [null, string | null]
-    > | null;
+    const results = (await pipeline.exec()) as unknown[];
 
     const counters: Array<{
       apiKeyId: string | null;
@@ -224,8 +227,8 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
-      const raw = results?.[i]?.[1] as string | null;
-      if (!raw) continue;
+      const quantity = toCounterQuantity(results?.[i]);
+      if (quantity === null) continue;
 
       // Parse key: usage:{accountId}:{apiKeyId}:{metric}:{bucket}
       const parts = key.split(":");
@@ -247,7 +250,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
         apiKeyId,
         metric,
         periodStart,
-        quantity: BigInt(raw),
+        quantity,
       });
     }
 
@@ -258,6 +261,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
 
     return counters;
   }
+
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
@@ -357,4 +361,21 @@ function parseBucket(bucket: string): Date {
 
 function pad2(n: number): string {
   return n.toString().padStart(2, "0");
+}
+
+// A counter value exactly as Upstash's pipeline returns it: a number (default
+// deserialization), a digit string (deserialization off), or null (key gone
+// between SCAN and GET). Anything else, zero, or negative isn't a counter.
+function toCounterQuantity(value: unknown): bigint | null {
+  let quantity: bigint;
+  // Past 2^53 the number is already imprecise from JSON parsing; still keep
+  // it rather than drop a key that is about to be deleted.
+  if (typeof value === "number" && Number.isInteger(value)) {
+    quantity = BigInt(value);
+  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+    quantity = BigInt(value);
+  } else {
+    return null;
+  }
+  return quantity > 0n ? quantity : null;
 }

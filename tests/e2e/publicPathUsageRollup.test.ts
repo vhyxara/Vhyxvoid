@@ -10,13 +10,27 @@ import { PUBLIC_USAGE_SENTINEL } from "../../packages/shared/src/publicUsage";
 // "account-level rollup" shape, and the only value that shape's foreign key
 // on ApiKey.id can actually accept.
 
+// Shaped like the real @upstash/redis client, recorded against the real
+// instance on 2026-09-24 (api/decision.md, same date): scan() returns
+// [cursor-as-string, keys], and pipeline().exec() returns one plain,
+// deserialized value per command — an INCRBY counter comes back as a
+// number. This mock used to return ioredis's [err, value] tuples, which is
+// exactly how the drain's results[i][1] bug passed these tests.
+function upstashDeserialize(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function makeFakeRedis(store: Map<string, string> = new Map()) {
   return {
     store,
     scan: vi.fn(async (_cursor: number, opts: { match: string }) => {
       const prefix = opts.match.replace(/\*$/, "");
       const keys = [...store.keys()].filter((k) => k.startsWith(prefix));
-      return [0, keys];
+      return ["0", keys];
     }),
     pipeline: vi.fn(() => {
       const queued: string[] = [];
@@ -24,7 +38,8 @@ function makeFakeRedis(store: Map<string, string> = new Map()) {
         get: (k: string) => {
           queued.push(k);
         },
-        exec: async () => queued.map((k) => [null, store.get(k) ?? null]),
+        exec: async () =>
+          queued.map((k) => (store.has(k) ? upstashDeserialize(store.get(k)!) : null)),
       };
     }),
     del: vi.fn(async (...keys: string[]) => {
