@@ -4,9 +4,7 @@ name: black-server
 
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+    image: ghcr.io/vhyxara/vhyxvoid-api:latest
     container_name: platform-api
     restart: unless-stopped
     env_file:
@@ -23,9 +21,7 @@ services:
       start_period: 40s
 
   hub:
-    build:
-      context: .
-      dockerfile: Dockerfile.hub
+    image: ghcr.io/vhyxara/vhyxvoid-hub:latest
     container_name: platform-hub
     restart: unless-stopped
     env_file:

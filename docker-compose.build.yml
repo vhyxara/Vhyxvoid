@@ -1,0 +1,14 @@
+# Local-only override that restores the build: context for api and hub.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.build.yml build
+# Not needed to just run the stack — docker-compose.yml alone pulls the
+# published ghcr.io images.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+
+  hub:
+    build:
+      context: .
+      dockerfile: Dockerfile.hub
