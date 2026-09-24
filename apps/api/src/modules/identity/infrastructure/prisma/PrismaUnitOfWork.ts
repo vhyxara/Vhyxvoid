@@ -122,6 +122,27 @@ export class PrismaUnitOfWork {
     );
   }
 
+  /**
+   * Run fn in a REAL database transaction.
+   *
+   * execute() below never opens one: Prisma 6's generated client constructor
+   * returns a proxy, so `this.prisma instanceof PrismaClient` is false even
+   * for the root client and execute() always takes its "already in a
+   * transaction" branch, running each statement on its own (verified
+   * 2026-09-24; api/context.md item 63). Fixing execute() changes the
+   * behaviour of every caller (some write then throw and rely on the write
+   * surviving), so it's a separate job; this is used only where a
+   * transaction is required (refresh rotation, audit H10). A transaction
+   * client has no $transaction, which is how an already-open one is detected.
+   */
+  async transaction<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
+    const client = this.prisma as any;
+    if (typeof client.$transaction !== "function") return fn(this);
+    return client.$transaction(async (tx: Prisma.TransactionClient) =>
+      fn(new PrismaUnitOfWork(tx)),
+    );
+  }
+
   async execute<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
     // If already in a transaction, just execute
     if (this.prisma instanceof PrismaClient === false) {

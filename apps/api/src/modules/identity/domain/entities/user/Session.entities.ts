@@ -11,6 +11,9 @@ export interface SessionProps {
   createdAt: Date;
   ipAddress: string;
   userAgent: string;
+  /** Set by rotate(): the successor session, and its raw token encrypted. Audit H10. */
+  replacedById?: string | null;
+  replacementTokenCipher?: string | null;
 }
 
 export class Session {
@@ -71,6 +74,26 @@ export class Session {
   get userAgent(): string {
     return this.props.userAgent;
   }
+  get replacedById(): string | null {
+    return this.props.replacedById ?? null;
+  }
+  get replacementTokenCipher(): string | null {
+    return this.props.replacementTokenCipher ?? null;
+  }
+
+  /**
+   * True if this session was replaced by rotation (not logged out) no more
+   * than graceMs ago: a second refresh presenting its token in that window
+   * is a concurrent refresh from the same client (e.g. two tabs), not reuse.
+   */
+  wasRotatedWithin(now: Date, graceMs: number): boolean {
+    return (
+      this.props.revokedAt !== null &&
+      !!this.props.replacedById &&
+      !!this.props.replacementTokenCipher &&
+      now.getTime() - this.props.revokedAt.getTime() <= graceMs
+    );
+  }
 
   // ── Business Logic ─────────────────────────────────────────
 
@@ -105,14 +128,22 @@ export class Session {
    * The old session record is saved as revoked; new one is inserted.
    */
 
-  rotate(newTokenHash: string, ttlMs: number, now: Date): Session {
+  rotate(
+    newTokenHash: string,
+    ttlMs: number,
+    now: Date,
+    successorTokenCipher?: string,
+  ): Session {
     this.revoke(now); // revoke current token
-    return Session.create({
+    const successor = Session.create({
       userId: this.props.userId,
       tokenHash: newTokenHash,
       ttlMs,
       ipAddress: this.props.ipAddress,
       userAgent: this.props.userAgent,
     });
+    this.props.replacedById = successor.id;
+    this.props.replacementTokenCipher = successorTokenCipher ?? null;
+    return successor;
   }
 }

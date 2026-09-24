@@ -11,6 +11,13 @@ export const AdminTTL = {
   ADMIN_REFRESH_TOKEN_TTL_MS: 60 * 60 * 24 * 30 * 1000, // 30 days
 } as const;
 
+// A refresh token presented again within this long after it was ROTATED gets
+// the same successor back instead of triggering reuse detection: covers two
+// tabs (or a retried request) refreshing with the same cookie at once. Past
+// it, a rotated token is treated as stolen and every session is revoked.
+// Audit H10.
+export const REFRESH_ROTATION_GRACE_MS = 30 * 1000;
+
 export const REFRESH_COOKIE_NAME = "refresh_token";
 
 export const SIGNATURE_TTL_MS = 5 * 60 * 1000; // 5 minutes

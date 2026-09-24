@@ -175,6 +175,14 @@ model Session {
   ipAddress String
   userAgent String
 
+  // Set when this session was ROTATED (not logged out): the session that
+  // replaced it, and that successor's raw refresh token encrypted with a
+  // server-side key (never stored in plain text). Lets a refresh that
+  // presents this token again within the rotation grace window get the same
+  // successor instead of triggering reuse detection. Audit H10.
+  replacedById           String?
+  replacementTokenCipher String?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId]) // FIX [7]: missing index — queries by userId were full table scans

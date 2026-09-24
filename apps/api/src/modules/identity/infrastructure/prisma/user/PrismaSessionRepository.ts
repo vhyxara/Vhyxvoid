@@ -19,6 +19,8 @@ export class PrismaSessionRepository implements SessionRepository {
         tokenHash: p.tokenHash,
         expiresAt: p.expiresAt,
         revokedAt: p.revokedAt,
+        replacedById: p.replacedById ?? null,
+        replacementTokenCipher: p.replacementTokenCipher ?? null,
       },
       create: {
         id: p.id,
@@ -39,6 +41,30 @@ export class PrismaSessionRepository implements SessionRepository {
     // if (!data) return null;
     // return Session.rehydrate(data);
     return data ? Session.rehydrate(data as SessionProps) : null;
+  }
+
+  /**
+   * findByTokenHash with the row locked (SELECT ... FOR UPDATE) until the
+   * surrounding transaction ends. Two concurrent refreshes of the same token
+   * used to both read it as not-yet-rotated and both mint a successor; the
+   * second now waits and then sees the first's rotation. Audit H10.
+   */
+  async findByTokenHashForUpdate(tokenHash: string): Promise<Session | null> {
+    await this.prisma.$queryRaw`SELECT id FROM "Session" WHERE "tokenHash" = ${tokenHash} FOR UPDATE`;
+    return this.findByTokenHash(tokenHash);
+  }
+
+  async findById(id: string): Promise<Session | null> {
+    const data = await this.prisma.session.findUnique({ where: { id } });
+    return data ? Session.rehydrate(data as SessionProps) : null;
+  }
+
+  /** Drop successor ciphertexts older than the grace window: they are never read again. */
+  async purgeRotationCiphers(userId: string, olderThan: Date): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: { userId, replacementTokenCipher: { not: null }, revokedAt: { lt: olderThan } },
+      data: { replacementTokenCipher: null },
+    });
   }
 
   async revokeById(id: string): Promise<void> {
@@ -64,6 +90,11 @@ export class PrismaSessionRepository implements SessionRepository {
       data: {
         revokedAt: now,
       },
+    });
+    // No successor is live after a revoke-all, so no ciphertext is useful.
+    await this.prisma.session.updateMany({
+      where: { userId, replacementTokenCipher: { not: null } },
+      data: { replacementTokenCipher: null },
     });
   }
 
