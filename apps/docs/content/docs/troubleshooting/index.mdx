@@ -2,8 +2,8 @@
 title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
-  date: "2026-09-22"
-  commit: "3bbada4"
+  date: "2026-09-24"
+  commit: "ffb80a0"
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
@@ -115,6 +115,7 @@ Several problems were fixed in the current releases, so when in doubt run `npx @
 
 - **Stale data.** The agent answers repeat `GET` requests from memory when your server sends `Cache-Control` with `max-age` above zero. Look for `x-vhyxvoid-cache: HIT`. Send `Cache-Control: no-store` for responses that must never be cached. See [Any stack (CLI)](/integrations/standalone-cli#things-to-know).
 - **Wrong absolute URLs, redirects to `localhost`, or a signature that fails.** Your server sees `Host: 127.0.0.1:<port>`, not the public hostname. See [Limitations](/limitations#your-server-sees-a-local-host-header).
+- **A CORS error in the browser, or a cookie that isn't kept.** The tunnel passes your server's own CORS headers and `Set-Cookie` through unchanged and forwards preflight `OPTIONS` requests to it, so a page on another origin needs your server to allow that origin (with credentials, if it sends cookies). This changed 2026-09-24 and is not deployed yet; see [HTTP status codes](/reference/http-status-codes).
 - **A webhook signature doesn't match.** Verify against the raw body, not a re-serialized one; see [Webhooks](/integrations/webhooks).
 - **Port 4242 is already in use.** That is the agent's local discovery port. Pass `--no-local-discovery`.
 

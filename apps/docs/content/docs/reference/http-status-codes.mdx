@@ -2,8 +2,8 @@
 title: HTTP status codes
 description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
 verified:
-  date: "2026-09-22"
-  commit: 3bbada4
+  date: "2026-09-24"
+  commit: "ffb80a0"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -36,7 +36,7 @@ When VhyxVoid answers, the body is JSON of this shape, and that is how you tell 
 | `503` | `Tunnel is registered but agent is not connected. …` | The label is known but the agent isn't connected right now, for instance while it reconnects. Restart it if it stays down. |
 | `504` | `Agent did not respond in time` | The agent didn't answer within the hub's request timeout (120 seconds by default) at all. This is unusual. A slow server gives a `502` as above. |
 
-`OPTIONS` requests are answered by the hub itself with `204` and CORS headers that allow the request's own `Origin` with credentials. They never reach your server.
+`OPTIONS` requests (CORS preflights) are forwarded to your server like any other request, and your server's CORS headers, `Vary` and `Set-Cookie` reach the caller unchanged. VhyxVoid adds no CORS headers of its own and doesn't rewrite cookies, so cross-origin browser calls to a tunnel work only if your server allows them. Changed 2026-09-24 and not deployed yet: until then the hub answers `OPTIONS` itself with `204` and CORS headers allowing the request's own `Origin` with credentials, replaces your server's CORS headers the same way, and rewrites every cookie to `Domain=.vhyxvoid.com; SameSite=None; Secure`.
 
 Requests that were in flight when an agent dropped are not replayed afterwards; see [Limitations](/limitations#requests-dont-survive-agent-disconnects). For symptoms and fixes see [Troubleshooting](/troubleshooting).
 
