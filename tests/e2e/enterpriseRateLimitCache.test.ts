@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { buildCanonical as protocolCanonical } from "../../packages/protocol/src/canonical";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { buildCachePayload } from "../../apps/api/src/modules/key-management/application/helpers/keymanagement.utils";
 import { buildValidateApiKeyUseCase } from "../../packages/shared/src/validateApiKey";
@@ -28,7 +29,7 @@ function fakeKey(): any {
 function signedParams() {
   const requestId = randomUUID();
   const timestamp = Date.now();
-  const canonical = ["GET", "/x", "", "", requestId, timestamp.toString()].join("|");
+  const canonical = protocolCanonical({ method: "GET", path: "/x", query: "", body: "", requestId, ts: timestamp });
   return {
     keyId: "key_ent",
     signature: createHmac("sha256", SECRET_HASH).update(canonical).digest("hex"),

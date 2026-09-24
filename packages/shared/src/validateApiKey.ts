@@ -18,6 +18,7 @@ import type {
   DbApiKeyLoader,
 } from "./types";
 import { isConnectableAccountStatus } from "./accountStatus";
+import { buildCanonical, TIMING } from "@vhyxvoid/protocol";
 
 // ── Redis cache data shape ─────────────────────────────────────────────────────
 // Flat, primitive-only shape stored as JSON in Redis.
@@ -40,12 +41,17 @@ interface CachedKeyData {
 const NS = {
   apiKey: (keyId: string) => `apikey:data:${keyId}`,
   rateLimit: (keyId: string, w: string) => `apikey:rate:${keyId}:${w}`,
-  replay: (requestId: string) => `apikey:replay:${requestId}`,
+  // Per key: one key's requestIds can't collide with (or pre-burn) another's.
+  replay: (keyId: string, requestId: string) =>
+    `apikey:replay:${keyId}:${requestId}`,
 } as const;
 
 const KEY_CACHE_TTL_SEC = 5 * 60; // 5 minutes
-const REPLAY_WINDOW_MS = 60 * 1_000; // 1 minute
-const SIGNATURE_WINDOW_MS = 60 * 1_000; // 1 minute
+// Shared with the hub's own handshake check and the SDK (packages/protocol).
+// The replay window covers the full 2 x signature window a request can stay
+// valid; see TIMING.REPLAY_WINDOW_MS (audit H8).
+const REPLAY_WINDOW_MS = TIMING.REPLAY_WINDOW_MS;
+const SIGNATURE_WINDOW_MS = TIMING.SIGNATURE_WINDOW_MS;
 
 /**
  * A cached per-minute limit as the number the check uses. Only a finite,
@@ -81,15 +87,6 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
       return this.fail(
         "INVALID_SIGNATURE",
         "Request timestamp outside acceptable window",
-      );
-    }
-
-    // 2. Replay protection — Redis SET NX (atomic, sub-1ms)
-    const isNew = await this.markRequestId(params.requestId);
-    if (!isNew) {
-      return this.fail(
-        "REPLAY_ATTACK",
-        "Duplicate requestId — possible replay attack",
       );
     }
 
@@ -144,21 +141,16 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
       );
     }
 
-    // 6. HMAC-SHA256 signature verification (timing-safe)
-    // canonical = METHOD|PATH|QUERY|BODY_SHA256|REQUEST_ID|TIMESTAMP_MS
-    // MUST match buildCanonical() in packages/protocol/src/canonical.ts exactly
-    const bodyHash = params.body
-      ? crypto.createHash("sha256").update(params.body, "utf8").digest("hex")
-      : "";
-
-    const canonical = [
-      params.method.toUpperCase(),
-      params.path,
-      "", // query — hub auth calls use empty query string
-      bodyHash,
-      params.requestId,
-      params.timestamp.toString(),
-    ].join("|");
+    // 6. HMAC-SHA256 signature verification (timing-safe), over the same
+    // canonical string the SDK signs (packages/protocol), query included.
+    const canonical = buildCanonical({
+      method: params.method,
+      path: params.path,
+      query: params.query ?? "", // typed as required; untyped callers may omit it
+      body: params.body,
+      requestId: params.requestId,
+      ts: params.timestamp,
+    });
 
     const verify = (hash: string): boolean => {
       try {
@@ -189,6 +181,18 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
       return this.fail(
         "INVALID_SIGNATURE",
         "HMAC signature verification failed",
+        cached.accountId,
+      );
+    }
+
+    // 6b. Replay protection — Redis SET NX, only once the signature is known
+    // good. Marking before any check (as it was) let unauthenticated garbage
+    // cost a Redis write each and pre-burn a legitimate client's requestIds.
+    const isNew = await this.markRequestId(params.keyId, params.requestId);
+    if (!isNew) {
+      return this.fail(
+        "REPLAY_ATTACK",
+        "Duplicate requestId — possible replay attack",
         cached.accountId,
       );
     }
@@ -267,9 +271,12 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
     }
   }
 
-  private async markRequestId(requestId: string): Promise<boolean> {
+  private async markRequestId(
+    keyId: string,
+    requestId: string,
+  ): Promise<boolean> {
     try {
-      const result = await this.redis.set(NS.replay(requestId), "1", {
+      const result = await this.redis.set(NS.replay(keyId, requestId), "1", {
         px: REPLAY_WINDOW_MS,
         nx: true,
       });

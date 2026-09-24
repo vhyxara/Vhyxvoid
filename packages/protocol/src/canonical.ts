@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // packages/protocol/src/canonical.ts
-// Canonical string builder — identical in Hub (verify) and SDK (sign).
-// Query string is included to prevent query-parameter injection attacks.
+// Canonical string builder — the ONE implementation both the SDK (sign) and
+// packages/shared's ValidateApiKeyUseCase (verify) use. The verifier used to
+// keep its own copy with the query hard-coded to "", so the query was never
+// actually signed (audit H8).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from "crypto";
@@ -15,25 +17,36 @@ export interface CanonicalParams {
   ts: number; // unix milliseconds
 }
 
+/** Leading tag of the canonical string; bump whenever the format changes. */
+export const CANONICAL_VERSION = "vv2";
+
 /**
  * Build the canonical string that both sides sign/verify.
- * Format: METHOD|PATH|QUERY|BODY_SHA256|REQUEST_ID|TIMESTAMP_MS
+ * Format: vv2|<len>:METHOD|<len>:PATH|<len>:QUERY|<len>:BODY_SHA256|<len>:REQUEST_ID|<len>:TIMESTAMP_MS
+ * where <len> is the field's UTF-8 byte length.
  *
- * All fields are always present (empty string if absent).
- * Order is fixed — SDK and Hub must agree exactly.
+ * Every field is length-prefixed, so a "|" inside one (a path such as
+ * "/a|b", or a requestId) can't be read as a boundary: in the old plain
+ * "|"-joined format, path "/x|q=1" + query "" and path "/x" + query "q=1|"
+ * produced the same string. All fields are always present (empty string if
+ * absent); order is fixed.
  */
 export function buildCanonical(params: CanonicalParams): string {
   const bodyHash = params.body
     ? crypto.createHash("sha256").update(params.body, "utf8").digest("hex")
     : "";
 
-  return [
+  const fields = [
     params.method.toUpperCase(),
     params.path,
     params.query,
     bodyHash,
     params.requestId,
     params.ts.toString(),
+  ];
+  return [
+    CANONICAL_VERSION,
+    ...fields.map((f) => `${Buffer.byteLength(f, "utf8")}:${f}`),
   ].join("|");
 }
 

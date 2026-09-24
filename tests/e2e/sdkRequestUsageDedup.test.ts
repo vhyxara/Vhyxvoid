@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { buildCanonical as protocolCanonical } from "../../packages/protocol/src/canonical";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { MessageRouter } from "../../apps/hub/src/router/Message.router";
 import { AgentRegistry } from "../../apps/hub/src/registry/Agent.registry";
@@ -26,17 +27,15 @@ function buildCanonical(p: {
   requestId: string;
   timestamp: number;
 }) {
-  const bodyHash = p.body
-    ? createHash("sha256").update(p.body, "utf8").digest("hex")
-    : "";
-  return [
-    p.method.toUpperCase(),
-    p.path,
-    "",
-    bodyHash,
-    p.requestId,
-    p.timestamp.toString(),
-  ].join("|");
+  // The real canonical format (packages/protocol), not a hand-rolled copy.
+  return protocolCanonical({
+    method: p.method,
+    path: p.path,
+    query: "",
+    body: p.body,
+    requestId: p.requestId,
+    ts: p.timestamp,
+  });
 }
 
 function sign(secret: string, p: Parameters<typeof buildCanonical>[0]) {

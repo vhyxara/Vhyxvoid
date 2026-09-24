@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { buildCanonical as protocolCanonical } from "../../packages/protocol/src/canonical";
 import { buildValidateApiKeyUseCase } from "../../packages/shared/src/validateApiKey";
 import type { ApiKeyRow } from "../../packages/shared/src/types";
 import { createHash, createHmac, randomUUID } from "crypto";
@@ -24,17 +25,15 @@ function buildCanonical(params: {
   requestId: string;
   timestamp: number;
 }): string {
-  const bodyHash = params.body
-    ? createHash("sha256").update(params.body, "utf8").digest("hex")
-    : "";
-  return [
-    params.method.toUpperCase(),
-    params.path,
-    "",
-    bodyHash,
-    params.requestId,
-    params.timestamp.toString(),
-  ].join("|");
+  // The real canonical format (packages/protocol), not a hand-rolled copy.
+  return protocolCanonical({
+    method: params.method,
+    path: params.path,
+    query: "",
+    body: params.body,
+    requestId: params.requestId,
+    ts: params.timestamp,
+  });
 }
 
 function sign(secret: string, canonicalParams: Parameters<typeof buildCanonical>[0]): string {

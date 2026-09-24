@@ -49,6 +49,7 @@ export async function tunnelProxyRoutes(fastify: FastifyInstance) {
           signature: keySecret, // ← use keySecret as signature
           method: request.method,
           path: request.url ?? "/api/v1/tunnelproxy/request",
+          query: "",
           body: JSON.stringify(request.body ?? ""),
           requestId: request.id,
           timestamp: Date.now(),

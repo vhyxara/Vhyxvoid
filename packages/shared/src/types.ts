@@ -71,6 +71,7 @@ export interface ValidateApiKeyParams {
   signature: string;
   method: string;
   path: string;
+  query: string; // query string without "?", empty string if none; signed
   body: string; // raw body string, empty string if none
   requestId: string;
   timestamp: number; // unix ms

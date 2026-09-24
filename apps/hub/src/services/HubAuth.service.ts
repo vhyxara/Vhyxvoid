@@ -259,6 +259,7 @@ export class HubAuthService {
       signature: msg.signature,
       method: 'SDK_REGISTER',
       path: '/sdk/register',
+      query: '',
       body: '',
       requestId: msg.requestId,
       timestamp: msg.ts,
@@ -288,6 +289,9 @@ export class HubAuthService {
       signature: msg.signature,
       method: msg.method,
       path: msg.path,
+      // Signed since audit H8: the query the hub forwards to the agent must be
+      // the one the SDK signed (TunnelClient always included it).
+      query: msg.query ?? '',
       body: msg.body ?? '',
       requestId: msg.requestId,
       timestamp: msg.ts,

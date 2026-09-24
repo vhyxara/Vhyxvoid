@@ -22,8 +22,20 @@ export const TIMING = {
   RECONNECT_INITIAL_MS: 1_000,
   /** Agent reconnect: maximum delay cap */
   RECONNECT_MAX_MS: 300_000,
-  /** Signature timestamp tolerance */
-  SIGNATURE_WINDOW_MS: 60_000,
+  /**
+   * Signature timestamp tolerance: a signed request is accepted while
+   * |now - ts| <= this. A request stamped at the edge (ts = now + window) stays
+   * valid for 2 x window from its first use.
+   */
+  SIGNATURE_WINDOW_MS: 30_000,
+  /**
+   * How long a used requestId is remembered. Must cover the whole 2 x
+   * SIGNATURE_WINDOW_MS a signed request can stay valid, plus a margin for
+   * hub/Redis clock differences and TTL granularity; with it equal to the
+   * window (as it was, 60 s / 60 s) a captured request could be replayed
+   * once its key expired (audit H8).
+   */
+  REPLAY_WINDOW_MS: 2 * 30_000 + 5_000,
   /** MessageBatcher flush window */
   BATCH_WINDOW_MS: 50,
   /** MessageBatcher max items before immediate flush */

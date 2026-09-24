@@ -692,6 +692,9 @@ importers:
       '@upstash/redis':
         specifier: ^1.36.0
         version: 1.36.1
+      '@vhyxvoid/protocol':
+        specifier: workspace:*
+        version: link:../protocol
     devDependencies:
       '@types/node':
         specifier: ^24.10.1

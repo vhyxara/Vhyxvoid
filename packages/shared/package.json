@@ -26,6 +26,7 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
+    "@vhyxvoid/protocol": "workspace:*",
     "@upstash/redis": "^1.36.0",
     "@prisma/client": "^6.7.0"
   },
