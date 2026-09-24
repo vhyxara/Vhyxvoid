@@ -79,6 +79,11 @@ async function main() {
         scopes: parsed.scopes as string[],
         status: parsed.status,
         accountStatus: parsed.accountStatus,
+        // Both cache writers (apps/api buildCachePayload, packages/shared
+        // rowToCache) store these as unix ms / null.
+        expiresAt: parsed.expiresAt ?? null,
+        previousSecretHash: parsed.previousSecretHash ?? null,
+        rotationGraceEndsAt: parsed.rotationGraceEndsAt ?? null,
       };
     }
 
@@ -90,6 +95,9 @@ async function main() {
         accountId: true,
         scopes: true,
         status: true,
+        expiresAt: true,
+        previousSecretHash: true,
+        rotationGraceEndsAt: true,
         account: { select: { status: true } },
       },
     });
@@ -102,6 +110,9 @@ async function main() {
       scopes: row.scopes.map((s: any) => s.scope),
       status: row.status,
       accountStatus: row.account.status,
+      expiresAt: row.expiresAt?.getTime() ?? null,
+      previousSecretHash: row.previousSecretHash ?? null,
+      rotationGraceEndsAt: row.rotationGraceEndsAt?.getTime() ?? null,
     };
   };
 

@@ -263,6 +263,7 @@ export class MessageRouter {
       missedPings: 0,
       agentVersion: msg.agentVersion,
       ip,
+      secretFingerprint: auth.secretFingerprint,
     };
     // A same-label re-registration evicts the previous session inside
     // AgentRegistry.register(); that session's socket close then finds no

@@ -163,6 +163,17 @@ export interface HubAuthResult {
   accountId: string;
   keyId: string;
   scopes: string[];
+  /** Agent handshake only: which stored secret matched (see AgentSession.secretFingerprint). */
+  secretFingerprint?: string;
+}
+
+/**
+ * Short, non-reversible identifier for a stored secret hash, so a live agent
+ * session can remember which secret it authenticated with without keeping
+ * the hash itself.
+ */
+export function secretFingerprint(secretHashHex: string): string {
+  return crypto.createHash('sha256').update(secretHashHex).digest('hex').slice(0, 16);
 }
 
 export class HubAuthError extends Error {
@@ -186,6 +197,12 @@ export class HubAuthService {
       scopes: string[];
       status: string;
       accountStatus: string;
+      // Unix ms or null. Honoured at the handshake since audit H3: an expired
+      // key used to register until ExpireApiKeysWorker marked it EXPIRED, and
+      // the rotation grace window didn't exist for agents.
+      expiresAt?: number | null;
+      previousSecretHash?: string | null;
+      rotationGraceEndsAt?: number | null;
     } | null>,
   ) {}
 
@@ -216,22 +233,36 @@ export class HubAuthService {
       throw new HubAuthError('AUTH_FAILED', 'Account is not active');
     }
 
+    // An expired key is refused here, not only once ExpireApiKeysWorker has
+    // marked it EXPIRED (up to its interval later).
+    if (key.expiresAt != null && key.expiresAt <= Date.now()) {
+      throw new HubAuthError('AUTH_FAILED', 'API key has expired');
+    }
+
     // Verify raw secret — hub applies pepper server-side
     // Never log expectedHash/storedHash/pepper length here, even behind a
     // debug flag — these are secret-adjacent values. See context.md risk #8.
-    const expectedHash = crypto
-      .createHmac('sha256', this.pepper)
-      .update(msg.rawSecret)
-      .digest('hex');
-    const storedHash = Buffer.from(key.secretHash, 'hex');
-    const computedHash = Buffer.from(expectedHash, 'hex');
+    // During a rotation's grace window the previous secret is accepted too,
+    // as the SDK path already did, so an agent restarted with the old secret
+    // keeps working until the window ends (then the sweep evicts it).
+    const computedHash = Buffer.from(
+      crypto.createHmac('sha256', this.pepper).update(msg.rawSecret).digest('hex'),
+      'hex',
+    );
+    const matches = (storedHex: string | null | undefined): boolean => {
+      if (!storedHex) return false;
+      const stored = Buffer.from(storedHex, 'hex');
+      return stored.length === computedHash.length && crypto.timingSafeEqual(stored, computedHash);
+    };
+    const graceActive =
+      key.rotationGraceEndsAt != null && key.rotationGraceEndsAt > Date.now();
 
-    if (storedHash.length !== computedHash.length) {
-      throw new HubAuthError('INVALID_SIGNATURE', 'HMAC signature verification failed');
-    }
-
-    const isValid = crypto.timingSafeEqual(storedHash, computedHash);
-    if (!isValid) {
+    let matchedHash: string;
+    if (matches(key.secretHash)) {
+      matchedHash = key.secretHash;
+    } else if (graceActive && key.previousSecretHash && matches(key.previousSecretHash)) {
+      matchedHash = key.previousSecretHash;
+    } else {
       throw new HubAuthError('INVALID_SIGNATURE', 'HMAC signature verification failed');
     }
 
@@ -245,6 +276,7 @@ export class HubAuthService {
       accountId: key.accountId,
       keyId: msg.keyId,
       scopes: key.scopes,
+      secretFingerprint: secretFingerprint(matchedHash),
     };
   }
   /**

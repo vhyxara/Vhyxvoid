@@ -155,6 +155,49 @@ export class TunnelSessionRepository {
     return new Map(rows.map((r) => [r.id, r.status]));
   }
 
+  /**
+   * Current state of each connected agent's API key (by ApiKey.id), batched:
+   * one query per AccountStatusSweep tick, like findStatusesByAccountIds.
+   * A key id missing from the result no longer exists.
+   */
+  async findKeyStatesByIds(keyIds: string[]): Promise<
+    Map<
+      string,
+      {
+        status: string;
+        expiresAt: Date | null;
+        rotationGraceEndsAt: Date | null;
+        secretHash: string;
+        previousSecretHash: string | null;
+      }
+    >
+  > {
+    if (keyIds.length === 0) return new Map();
+    const rows = await this.prisma.apiKey.findMany({
+      where: { id: { in: keyIds } },
+      select: {
+        id: true,
+        status: true,
+        expiresAt: true,
+        rotationGraceEndsAt: true,
+        secretHash: true,
+        previousSecretHash: true,
+      },
+    });
+    return new Map(
+      rows.map((r) => [
+        r.id,
+        {
+          status: r.status,
+          expiresAt: r.expiresAt,
+          rotationGraceEndsAt: r.rotationGraceEndsAt,
+          secretHash: r.secretHash,
+          previousSecretHash: r.previousSecretHash,
+        },
+      ]),
+    );
+  }
+
   async evictStaleForInstance(hubInstanceId: string): Promise<void> {
     await this.prisma.tunnelSession.updateMany({
       where: { hubInstanceId, status: 'CONNECTED' },

@@ -17,6 +17,11 @@ function makeFakeSessionRepo(statuses: Record<string, string>) {
       for (const id of accountIds) if (id in statuses) map.set(id, statuses[id]);
       return map;
     }),
+    // Every connected key healthy: this file is about account status; key
+    // checks (audit H3) are in agentKeyLifecycle.test.ts.
+    findKeyStatesByIds: vi.fn(async (keyIds: string[]) =>
+      new Map(keyIds.map((id) => [id, { status: "ACTIVE", expiresAt: null, rotationGraceEndsAt: null }])),
+    ),
     markDisconnected: vi.fn(async () => {}),
   } as any;
 }

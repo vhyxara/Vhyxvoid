@@ -134,6 +134,14 @@ export interface AgentSession {
   missedPings: number;
   agentVersion: string;
   ip: string;
+  /**
+   * Fingerprint of the stored secret hash this connection authenticated
+   * against (secretFingerprint() in HubAuth.service). After a rotation, the
+   * sweep keeps a connection whose secret is now the key's previous one only
+   * until the grace window ends, whether it connected before the rotation or
+   * reconnected with the old secret during it (audit H3). Absent: not checked.
+   */
+  secretFingerprint?: string;
 }
 
 type AccountAgents = Map<string, AgentSession>; // label → session
