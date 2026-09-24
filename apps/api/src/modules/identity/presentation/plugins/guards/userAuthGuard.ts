@@ -81,22 +81,14 @@ import { JwtPayload } from "@/core/types/core/jwt";
 // });
 
 /**
- * JWT is self-contained — we verify the signature and trust the payload.
- * No DB call needed on every request.
- *
- * tokenVersion invalidation works like this:
- *   - tokenVersion is embedded in the JWT at sign time (login / token refresh)
- *   - When all sessions are revoked (logout-all / password change / suspicious activity),
- *     user.tokenVersion is incremented in the DB
- *   - Old tokens with a lower tokenVersion are rejected
- *   - This check only costs a DB call on logout-all, not on every request
- *
- * The only time we need a DB call in the guard is if you want to check
- * tokenVersion on EVERY request (true revocation). That's a deliberate
- * trade-off: if you need it, add Redis for an O(1) blocklist instead of
- * a Postgres hit per request.
+ * The JWT's signature and expiry are verified, then the token is checked
+ * against the user's CURRENT auth state (AuthStateCache: one Redis GET per
+ * request, Postgres on a miss): its tokenVersion must still be the user's,
+ * and the user must still be active. Logout, logout-all and password
+ * reset/change bump tokenVersion, so they revoke outstanding access tokens
+ * at once instead of when they expire. Admin tokens are rejected: each
+ * guard accepts only its own token type. See api/decision.md, 2026-09-24, "H2".
  */
-
 export default fp(async (fastify: FastifyInstance) => {
   const container = fastify.container;
   const jwtService = container.resolve(RS256JwtService);
@@ -133,6 +125,17 @@ export default fp(async (fastify: FastifyInstance) => {
 
     if (!payload?.sub || !payload?.email) {
       throw new UnauthorizedError("Malformed token payload");
+    }
+
+    // Only user access tokens (an admin token used to pass as sub=<adminId>).
+    // Tokens issued before this check carried no type and need one refresh.
+    if (payload.type !== "user") {
+      throw new UnauthorizedError("Not a user access token");
+    }
+
+    const state = await fastify.authStateCache.getUser(payload.sub);
+    if (!state || !state.active || state.tokenVersion !== payload.tokenVersion) {
+      throw new UnauthorizedError("Access token has been revoked");
     }
 
     // Attach verified identity to request — no DB call

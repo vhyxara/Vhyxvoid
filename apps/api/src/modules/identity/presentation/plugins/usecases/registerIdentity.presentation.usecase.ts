@@ -15,6 +15,7 @@ import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtSer
 import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import { AuthStateCache } from "@/modules/identity/infrastructure/auth/AuthStateCache.service";
 import { GetAccountMembersUseCase } from "@/modules/identity/application/use-cases/user/GetAccountMembers.usecase";
 import { ResetPasswordUseCase } from "@/modules/identity/application/use-cases/user/ResetPassword.usecase";
 import { RequestPasswordResetUseCase } from "@/modules/identity/application/use-cases/user/RequestPasswordReset.usecase";
@@ -61,12 +62,13 @@ export function registerIdentityUseCases(container: Container) {
 
   container.register(
     LogoutUseCase,
-    (c) => new LogoutUseCase(c.resolve(PrismaUnitOfWork)),
+    (c) => new LogoutUseCase(c.resolve(PrismaUnitOfWork), c.resolve(AuthStateCache)),
   );
 
   container.register(
     LogoutAllUseCase,
-    (c) => new LogoutAllUseCase(c.resolve(PrismaUnitOfWork)),
+    (c) =>
+      new LogoutAllUseCase(c.resolve(PrismaUnitOfWork), c.resolve(AuthStateCache)),
   );
 
   container.register(
@@ -91,6 +93,7 @@ export function registerIdentityUseCases(container: Container) {
         c.resolve(PrismaUnitOfWork),
         c.resolve(BcryptPasswordHasher),
         c.resolve(NotificationService),
+        c.resolve(AuthStateCache),
       ),
   );
 }

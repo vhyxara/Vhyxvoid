@@ -17,6 +17,7 @@ import { RotateApiKeyUseCase } from "@/modules/key-management/application/use-ca
 import { GetApiKeyUsageUseCase } from "@/modules/key-management/application/use-cases/GetApiKeyUsage.usecase";
 import { ValidateApiKeyUseCase } from "@/modules/key-management/application/use-cases/ValidateApiKey.usecase";
 import { Redis } from "@upstash/redis";
+import type { AuthStateCache } from "@/modules/identity/infrastructure/auth/AuthStateCache.service";
 import { CreateCheckoutSessionUseCase } from "@/modules/billing/application/use-cases/billing/CreateCheckoutSession.usecase";
 import { CreateBillingPortalSessionUseCase } from "@/modules/billing/application/use-cases/billing/CreateBillingPortalSession.usecase";
 import { GetSubscriptionUseCase } from "@/modules/billing/application/use-cases/billing/GetSubscription.usecase";
@@ -66,6 +67,7 @@ declare module "fastify" {
     uow: PrismaUnitOfWork;
     jwtService: RS256JwtService;
     redis: Redis;
+    authStateCache: AuthStateCache;
     // tokenGenerator: CryptoTokenGenerator;
     // uow: PrismaUnitOfWork & {
     //   apiKeyRepository?: any;

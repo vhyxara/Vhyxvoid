@@ -147,7 +147,12 @@ export class LoginUseCase {
       await sessionRepository.save(session);
 
       const accessToken = this.jwtService.sign(
-        { sub: user.id, email: user.email, tokenVersion: user.tokenVersion },
+        {
+          sub: user.id,
+          email: user.email,
+          tokenVersion: user.tokenVersion,
+          type: "user",
+        },
         { expiresIn: this.accessTokenTTL },
       );
 

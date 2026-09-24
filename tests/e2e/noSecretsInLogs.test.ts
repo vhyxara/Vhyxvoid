@@ -103,7 +103,9 @@ describe("no secrets reach the logs", () => {
     const hash = TokenHasher.hash(REFRESH);
     const session = { tokenHash: hash, isRevoked: () => false, revoke: () => {} };
     const sessionRepository = { findByTokenHash: vi.fn(async () => session), save: vi.fn() };
-    const useCase = new LogoutUseCase({ execute: (fn: any) => fn({ sessionRepository }) } as any);
+    // userRepository: logout also bumps tokenVersion (audit H2).
+    const userRepository = { findById: vi.fn(async () => ({ incrementTokenVersion: () => {} })), save: vi.fn() };
+    const useCase = new LogoutUseCase({ execute: (fn: any) => fn({ sessionRepository, userRepository }) } as any);
     const printed = captureConsole();
 
     await useCase.execute(REFRESH);

@@ -1,10 +1,13 @@
 export const TTL = {
-  ACCESS_TOKEN_SEC: 6000 * 60, // 100 hours (for testing, can be reduced to 15 min in prod)
+  // 15 min: user and admin access tokens, from login AND refresh (refresh
+  // used to hard-code its own 15 min while login issued 100 h). Revocation is
+  // immediate regardless (AuthStateCache); this bounds a stolen token. Audit H2.
+  ACCESS_TOKEN_SEC: 15 * 60,
   REFRESH_TOKEN_MS: 30 * 24 * 60 * 60 * 1000, // 30 days
 } as const;
 
 export const AdminTTL = {
-  ADMIN_TOKEN_TTL_SECONDS: 6000 * 60, // 100 hours (for testing, can be reduced to 15 min in prod)
+  ADMIN_TOKEN_TTL_SECONDS: 15 * 60, // see TTL.ACCESS_TOKEN_SEC
   ADMIN_REFRESH_TOKEN_TTL_MS: 60 * 60 * 24 * 30 * 1000, // 30 days
 } as const;
 

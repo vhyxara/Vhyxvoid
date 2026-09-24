@@ -1,4 +1,5 @@
 import { UnauthorizedError } from "@/core/errors/error.format";
+import { TTL } from "@/core/constant/ttl.constant";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
@@ -66,14 +67,19 @@ export class RefreshTokenUseCase {
 
       // 5️⃣ Generate new access token
       const accessToken = this.jwtService.sign(
-        { sub: user.id, email: user.email, tokenVersion: user.tokenVersion },
-        { expiresIn: 15 * 60 }, // 15 minutes
+        {
+          sub: user.id,
+          email: user.email,
+          tokenVersion: user.tokenVersion,
+          type: "user",
+        },
+        { expiresIn: TTL.ACCESS_TOKEN_SEC }, // same TTL as login
       );
 
       return {
         accessToken,
         refreshToken: newRawRefreshToken,
-        expiresIn: 15 * 60,
+        expiresIn: TTL.ACCESS_TOKEN_SEC,
         user: {
           id: user.id,
           email: user.email,

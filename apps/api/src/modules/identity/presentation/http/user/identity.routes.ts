@@ -395,6 +395,9 @@ export async function identityRoutes(fastify: FastifyInstance) {
           });
         },
       );
+      // resetPassword() bumped tokenVersion; drop the cached copy so every
+      // access token issued before the change stops working now (audit H2).
+      await fastify.authStateCache.invalidateUser(userId);
 
       return successResponse(
         reply,

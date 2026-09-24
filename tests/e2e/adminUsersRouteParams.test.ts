@@ -65,6 +65,7 @@ function buildFakeFastify() {
     delete: capture("DELETE"),
     requireAbility: () => async () => {},
     adminAuthGuard: async () => {},
+    authStateCache: { invalidateAdmin: vi.fn(async () => {}) }, // disable/enable drop the target's cached state (audit H2)
     uow: { adminUserRepository, adminRoleRepository, adminAuditLogRepository, adminAbilityRepository },
     // Every use-case decorator admin.routes.ts's handlers might touch for
     // the two routes under test -- not exercised by GET/disable, present

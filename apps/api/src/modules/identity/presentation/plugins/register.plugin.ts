@@ -11,6 +11,7 @@ import prismaPlugin from "@/modules/identity/presentation/plugins/prisma.plugin"
 import identity from "@/modules/identity/presentation/plugins/identity.plugin";
 import userUseCases from "@/modules/identity/presentation/plugins/user.plugin";
 import userAuthGuard from "@/modules/identity/presentation/plugins/guards/userAuthGuard";
+import authStatePlugin from "@/modules/identity/presentation/plugins/authState.plugin";
 
 import admin from "@/modules/identity/presentation/plugins/admin.plugin";
 import containerPlugin from "@/core/container/container.plugin";
@@ -31,6 +32,7 @@ export const registerPlugins = async (server: FastifyInstance) => {
   await server.register(prismaPlugin);
   await server.register(corePlugin);
 
+  await server.register(authStatePlugin); // fastify.authStateCache, consulted by both guards
   await server.register(userAuthGuard); // decorates fastify.userAuthGuard
   await server.register(notificationPlugin);
 

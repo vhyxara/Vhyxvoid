@@ -57,7 +57,8 @@ describe("userAuthGuard - the real protection dashboard requests rely on", () =>
     const jwtService = new RS256JwtService(privateKey, publicKey);
 
     validToken = jwtService.sign(
-      { sub: "user-1", email: "test@example.com" },
+      // type + tokenVersion: required since audit H2 (accessTokenRevocation.test.ts).
+      { sub: "user-1", email: "test@example.com", type: "user", tokenVersion: 0 },
       { expiresIn: "15m" },
     );
 
@@ -65,7 +66,9 @@ describe("userAuthGuard - the real protection dashboard requests rely on", () =>
 
     container.register(RS256JwtService, () => jwtService);
 
-    const fakeFastify: any = { container };
+    // The user's current auth state, which the guard checks each token against.
+    const authStateCache = { getUser: async () => ({ tokenVersion: 0, active: true }) };
+    const fakeFastify: any = { container, authStateCache };
 
     fakeFastify.decorate = (name: string, value: unknown) => {
       fakeFastify[name] = value;

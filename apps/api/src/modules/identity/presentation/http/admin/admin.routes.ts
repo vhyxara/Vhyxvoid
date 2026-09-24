@@ -301,6 +301,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const before = targetAdmin.toPersistence();
       targetAdmin.disable(new Date());
       await fastify.uow.adminUserRepository.save(targetAdmin);
+      // The target's access tokens are checked against this state on every
+      // request (AuthStateCache); drop the cached copy so it applies now.
+      await fastify.authStateCache.invalidateAdmin(targetAdmin.id);
       const after = targetAdmin.toPersistence();
 
       // Audit log
@@ -338,6 +341,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const before = targetAdmin.toPersistence();
       targetAdmin.enable(new Date());
       await fastify.uow.adminUserRepository.save(targetAdmin);
+      // The target's access tokens are checked against this state on every
+      // request (AuthStateCache); drop the cached copy so it applies now.
+      await fastify.authStateCache.invalidateAdmin(targetAdmin.id);
       const after = targetAdmin.toPersistence();
 
       // Audit log

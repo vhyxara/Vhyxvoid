@@ -13,12 +13,18 @@ import { PasswordHasher } from "@/modules/identity/domain/services/PasswordHashe
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { NotificationService } from "@/modules/notification/application/use-cases";
+import type { AuthStateCache } from "@/modules/identity/infrastructure/auth/AuthStateCache.service";
 
 export class ResetPasswordUseCase {
   constructor(
     private uow: PrismaUnitOfWork,
     private passwordHasher: PasswordHasher,
     private notificationService?: NotificationService, // ← add
+    // resetPassword() bumps tokenVersion; dropping the cached copy makes that
+    // revoke every outstanding access token at once (audit H2).
+    private authState: Pick<AuthStateCache, "invalidateUser"> = {
+      invalidateUser: async () => {},
+    },
   ) {}
 
   async execute(params: {
@@ -29,8 +35,9 @@ export class ResetPasswordUseCase {
   }): Promise<{ message: string }> {
     const now = new Date();
     const tokenHash = TokenHasher.hash(params.rawToken);
+    let resetUserId: string | null = null;
 
-    return this.uow.execute(
+    const result = await this.uow.execute(
       async ({
         passwordResetTokenRepository,
         userRepository,
@@ -52,6 +59,7 @@ export class ResetPasswordUseCase {
 
         // 4. Update user password + reset lockout state
         user.resetPassword(passwordHash, now);
+        resetUserId = user.id;
 
         // 5. Mark token used — prevents replay
         token.markUsed(now);
@@ -96,5 +104,7 @@ export class ResetPasswordUseCase {
         };
       },
     );
+    if (resetUserId) await this.authState.invalidateUser(resetUserId);
+    return result;
   }
 }
