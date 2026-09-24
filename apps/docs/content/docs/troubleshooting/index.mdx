@@ -3,7 +3,7 @@ title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
   date: "2026-09-24"
-  commit: "58a98f1"
+  commit: "7a71695"
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
@@ -123,7 +123,7 @@ Several problems were fixed in the current releases, so when in doubt run `npx @
 
 - **`createClient requires accountSlug or baseUrl`.** Set `VHYXVOID_ACCOUNT_SLUG` or pass `accountSlug`. It is the part of your tunnel URL before `--`.
 - **`Not connected to hub. Call connect() first.`** You called a `TunnelClient` method before `await tunnel.connect()`, or the connection has dropped. It doesn't reconnect by itself.
-- **`AUTH_FAILED` with a timestamp message.** The clock on the machine running the SDK is more than 60 seconds off. Fix the clock.
+- **`AUTH_FAILED` with a timestamp message.** The clock on the machine running the SDK is more than 30 seconds off. Fix the clock.
 - **It fails in the browser with `Could not resolve "crypto"`.** The SDK is Node.js only; see [Limitations](/limitations#the-sdk-is-nodejs-only).
 
 ## The dashboard

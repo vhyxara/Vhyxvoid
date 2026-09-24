@@ -3,7 +3,7 @@ title: SDK errors
 description: The errors the two SDK clients throw and what each code means.
 verified:
   date: "2026-09-22"
-  commit: "3bbada4"
+  commit: "7a71695"
   packages:
     "@vhyxvoid/sdk": "1.1.0"
 sources:
@@ -52,8 +52,9 @@ Note that a `ClientError` with status `502`, `503`, `504` or `404` can come from
 | `BACKEND_UNAVAILABLE` | The agent couldn't get an answer from your local server: it isn't running on that port, or it didn't answer in time. | No |
 | `PAYLOAD_TOO_LARGE` | The request body is over the 10 MB limit. | No |
 | `INVALID_SIGNATURE` | The key ID is unknown, or the secret doesn't match it. | No |
-| `AUTH_FAILED` | The request's timestamp is more than 60 seconds off the hub's clock, or the key isn't accepted. Check the clock on the machine running the SDK. | No |
+| `AUTH_FAILED` | The request's timestamp is more than 30 seconds off the hub's clock, or the key isn't accepted. Check the clock on the machine running the SDK. | No |
 | `SCOPE_MISSING` | The key lacks the `tunnel:connect` scope. | No |
+| `INVALID_MESSAGE` | The request `path` doesn't start with a single `/` (for example, it is a full URL such as `http://…`). Pass a path on your own server, like `/api/orders`. | No |
 | `REPLAY_ATTACK`, `EXPIRED_KEY`, `REVOKED_KEY`, `SUSPENDED_ACCOUNT` | The key was rejected: a request ID was reused, the key expired or was revoked, or the account isn't in a state that can connect. `SUSPENDED_ACCOUNT` no longer fires for an account in its seven-day payment grace period (fixed 2026-09-22) — only once it's actually suspended or worse. | No |
 | `RATE_LIMITED` | The key exceeded its per-minute limit. See [plans and limits](/reference/plans-and-limits#not-listed-here). | No |
 

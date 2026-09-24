@@ -3,7 +3,7 @@ title: HTTP status codes
 description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
 verified:
   date: "2026-09-24"
-  commit: "58a98f1"
+  commit: "7a71695"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -27,6 +27,7 @@ When VhyxVoid answers, the body is JSON of this shape, and that is how you tell 
 | Status | Message (`error`) | Meaning and what to do |
 | --- | --- | --- |
 | `400` | `Invalid tunnel URL. Expected format: accountslug--label.vhyxvoid.com` | The hostname isn't `<account slug>--<label>.<domain>`. Check the URL the agent printed. |
+| `400` | `Invalid request path` | The request target isn't a path starting with a single `/` (for example, a full URL in the request line). Browsers and normal HTTP clients never send this. |
 | `404` | `No active tunnel found for "<host>". Start the agent with: vhyxvoid …` | Nothing is registered under this slug and label. Start the agent, and check the label. A `404` **without** `"tunnel": true` came from your own server. |
 | `413` | `Request body too large. Maximum is 10MB` | The request declares a body over 10 MB. |
 | `429` | `Rate limit exceeded: <n> requests/min for this account's plan` | Your account's tunnel URLs got more requests than your plan allows in one minute (FREE 100, PRO 3,000, ENTERPRISE unlimited — see [Plans and limits](/reference/plans-and-limits)), combined across every agent/label the account has. This is separate from the SDK's own per-key `RATE_LIMITED` error — a tunnel URL has no API key to check. The response includes a `Retry-After` header (seconds) and the same number as `retryAfterSeconds` in the JSON body. |
