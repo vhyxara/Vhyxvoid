@@ -5,7 +5,9 @@
 //   - Lowercase letters, numbers, hyphens only
 //   - Max 32 chars
 //   - No leading or trailing hyphens
-//   - Globally unique — caller must verify and append suffix if taken
+//   - Globally unique — caller must verify, and regenerate if taken
+
+import { randomInt } from "crypto";
 
 /**
  * Convert any string into a URL-safe slug.
@@ -27,15 +29,34 @@ export function slugify(input: string): string {
     .slice(0, 32); // max 32 chars
 }
 
+const SUFFIX_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+export const SLUG_SUFFIX_LENGTH = 8; // ~41 bits
+const SLUG_MAX_LENGTH = 32;
+
 /**
- * Generate a slug with a random 4-char suffix for deduplication.
+ * The slug for a new account: its public tunnel host is
+ * <slug>--<label>.<hubDomain>, so it must not be guessable from the name
+ * (audit H11). A readable prefix from the name, plus a random suffix that is
+ * ALWAYS present, not only on collision:
  *
- * "my-app" → "my-app-a3f9"
+ * "Acme Corp"          → "acme-corp-k3x9p2qa"
+ * "John's Workspace"   → "johns-workspace-7fq2m0zd"
+ * "株式会社" (no ASCII) → "workspace-p81xw3nc"  (an empty prefix would give an
+ *                                                invalid leading "-")
+ *
+ * Callers still check uniqueness and call this again on a (now only random)
+ * collision.
  */
-export function slugifyWithSuffix(input: string): string {
-  const base = slugify(input).slice(0, 27); // leave room for -xxxx
-  const suffix = Math.random().toString(36).slice(2, 6);
-  return `${base}-${suffix}`;
+export function generateAccountSlug(name: string | null | undefined): string {
+  const prefix =
+    slugify(name ?? "")
+      .slice(0, SLUG_MAX_LENGTH - 1 - SLUG_SUFFIX_LENGTH)
+      .replace(/-+$/, "") || "workspace";
+  let suffix = "";
+  for (let i = 0; i < SLUG_SUFFIX_LENGTH; i++) {
+    suffix += SUFFIX_ALPHABET[randomInt(SUFFIX_ALPHABET.length)];
+  }
+  return `${prefix}-${suffix}`;
 }
 
 /**

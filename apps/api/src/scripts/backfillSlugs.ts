@@ -1,5 +1,5 @@
 import { PrismaClient } from "@/generated/prisma";
-import { slugify, slugifyWithSuffix } from "@/core/utils/slug.util";
+import { generateAccountSlug } from "@/core/utils/slug.util";
 
 const prisma = new PrismaClient();
 
@@ -12,11 +12,11 @@ async function backfill() {
   console.log(`Backfilling ${accounts.length} accounts...`);
 
   for (const account of accounts) {
-    const base = slugify(account.name ?? "workspace");
-    const existing = await prisma.account.findUnique({ where: { slug: base } });
-    const slug = existing
-      ? slugifyWithSuffix(account.name ?? "workspace")
-      : base;
+    // Same non-guessable form as new accounts (audit H11).
+    let slug = generateAccountSlug(account.name);
+    while (await prisma.account.findUnique({ where: { slug } })) {
+      slug = generateAccountSlug(account.name);
+    }
 
     await prisma.account.update({
       where: { id: account.id },

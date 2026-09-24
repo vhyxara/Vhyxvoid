@@ -5,12 +5,14 @@
 // import { TokenGenerator } from "../../domain/services/TokenGenerator";
 // import { EmailVerificationToken } from "../../domain/entities/EmailVerificationToken";
 import { NotFoundError } from "@/core/errors/error.format";
-import { slugifyWithSuffix, slugify } from "@/core/utils/slug.util";
+import { generateAccountSlug } from "@/core/utils/slug.util";
 import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
 import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
+
+const MAX_SLUG_ATTEMPTS = 5;
 
 export class VerifyEmailUseCase {
   constructor(private uow: PrismaUnitOfWork) {}
@@ -49,16 +51,16 @@ export class VerifyEmailUseCase {
             user.firstName,
           );
 
-          const baseSlug =
-            personalAccount.slug ?? slugify(user.firstName ?? "workspace");
-          const existing = await accountRepository.findBySlug(baseSlug);
-
-          if (existing) {
-            // Slug taken — generate one with suffix
-            personalAccount.setSlug(
-              slugifyWithSuffix(user.firstName ?? "workspace"),
-              now,
-            );
+          // The slug always carries a random suffix (audit H11), so a taken
+          // one is a random collision: draw again rather than fall back to a
+          // name-derived slug.
+          for (let attempt = 1; ; attempt++) {
+            const slug = personalAccount.slug!;
+            if (!(await accountRepository.findBySlug(slug))) break;
+            if (attempt >= MAX_SLUG_ATTEMPTS) {
+              throw new Error("Could not allocate a unique account slug");
+            }
+            personalAccount.setSlug(generateAccountSlug(personalAccount.name), now);
           }
           await accountRepository.save(personalAccount);
 

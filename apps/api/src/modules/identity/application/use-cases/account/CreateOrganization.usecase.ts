@@ -1,9 +1,11 @@
 import { ForbiddenError } from "@/core/errors/error.format";
-import { slugify, slugifyWithSuffix } from "@/core/utils/slug.util";
+import { generateAccountSlug } from "@/core/utils/slug.util";
 import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
 import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
+
+const MAX_SLUG_ATTEMPTS = 5;
 
 export class CreateOrganizationUseCase {
   constructor(private uow: PrismaUnitOfWork) {}
@@ -35,12 +37,15 @@ export class CreateOrganizationUseCase {
           createdById: params.userId,
         });
 
-        // After building the account, before saving:
-        const baseSlug = slugify(params.name);
-        const existing = await accountRepository.findBySlug(baseSlug);
+        // The slug always carries a random suffix (audit H11), so a taken
+        // one is a random collision: draw again.
         const now = new Date();
-        if (existing) {
-          org.setSlug(slugifyWithSuffix(params.name), now);
+        for (let attempt = 1; ; attempt++) {
+          if (!(await accountRepository.findBySlug(org.slug!))) break;
+          if (attempt >= MAX_SLUG_ATTEMPTS) {
+            throw new Error("Could not allocate a unique account slug");
+          }
+          org.setSlug(generateAccountSlug(params.name), now);
         }
 
         await accountRepository.save(org);

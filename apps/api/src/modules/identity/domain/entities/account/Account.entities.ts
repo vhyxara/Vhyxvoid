@@ -1,4 +1,4 @@
-import { slugify } from "@/core/utils/slug.util";
+import { generateAccountSlug } from "@/core/utils/slug.util";
 import { AccountStatus, AccountType } from "@/generated/prisma";
 
 export interface AccountProps {
@@ -31,7 +31,7 @@ export class Account {
       status: AccountStatus.ACTIVE,
       createdById: ownerUserId, // ← FIX: was silently dropped before
       graceEndsAt: null,
-      slug: slugify(name), // ← ADD (caller must deduplicate)
+      slug: generateAccountSlug(name), // not guessable from the name (audit H11); caller checks uniqueness
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -57,7 +57,7 @@ export class Account {
       status: AccountStatus.ACTIVE,
       createdById: params.createdById,
       graceEndsAt: null,
-      slug: params.slug ?? slugify(params.name.trim()), // ← ADD
+      slug: params.slug ?? generateAccountSlug(params.name.trim()),
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
