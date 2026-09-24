@@ -99,6 +99,14 @@ export class BackendProxy {
     const headers = this.sanitizeOutboundHeaders(
       response.headers as Record<string, any>,
     );
+    // decompress: true inflates gzip/br/deflate and drops content-encoding,
+    // but axios keeps the backend's COMPRESSED content-length. Report the
+    // length of the bytes actually forwarded (audit H5; the hub recomputes it
+    // too, for agents published before this fix). With no body (HEAD, 204,
+    // 304) the backend's value is left alone: it describes a body not sent.
+    if (bodyBuffer.length > 0) {
+      headers["content-length"] = String(bodyBuffer.length);
+    }
     const durationMs = Date.now() - start;
 
     // Previously this always did bodyBuffer.toString("utf8") regardless of

@@ -442,6 +442,16 @@ export class HttpTunnelHandler {
   private writeResponse(res: ServerResponse, response: TunnelResponseMsg): void {
     const headers = response.headers ?? {};
 
+    // Prefer the explicit bodyEncoding the agent now sets (see
+    // context.md risk #21) over content-type sniffing — sniffing stays as
+    // the fallback for an older agent build that predates this field.
+    const isBinary = response.bodyEncoding
+      ? response.bodyEncoding === 'base64'
+      : isBinaryContentType(headers['content-type']);
+    const payload = response.body
+      ? Buffer.from(response.body, isBinary ? 'base64' : 'utf8')
+      : null;
+
     // The backend's headers pass through unmodified (minus hop-by-hop),
     // including its own CORS headers, Vary and Set-Cookie. The hub used to
     // drop the backend's CORS headers and substitute a reflected Origin with
@@ -452,6 +462,14 @@ export class HttpTunnelHandler {
     // shared/context.md Known Risk #60 (C3/C4).
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
+
+      // Content-Length is recomputed from the bytes actually written below.
+      // The agent's copy can be the backend's COMPRESSED length: axios
+      // decompresses gzip/br/deflate but keeps the original header, and every
+      // already-published agent forwards it, which truncated the body at the
+      // caller (audit H5). A body-less response (HEAD, 204, 304) keeps the
+      // agent's value, since there it describes a body that isn't sent.
+      if (payload && key.toLowerCase() === 'content-length') continue;
 
       // The agent joins multiple Set-Cookie values with \n for transport;
       // each goes back out as its own header, byte-for-byte.
@@ -468,26 +486,10 @@ export class HttpTunnelHandler {
     }
 
     res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
+    if (payload) res.setHeader('Content-Length', payload.length);
 
     res.writeHead(response.status ?? 200);
-
-    if (!response.body) {
-      res.end();
-      return;
-    }
-
-    // Prefer the explicit bodyEncoding the agent now sets (see
-    // context.md risk #21) over content-type sniffing — sniffing stays as
-    // the fallback for an older agent build that predates this field.
-    const isBinary = response.bodyEncoding
-      ? response.bodyEncoding === 'base64'
-      : isBinaryContentType(headers['content-type']);
-
-    if (isBinary) {
-      res.end(Buffer.from(response.body, 'base64'));
-    } else {
-      res.end(response.body);
-    }
+    res.end(payload ?? undefined);
   }
 
   private sendError(
