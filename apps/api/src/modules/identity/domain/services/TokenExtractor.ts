@@ -43,18 +43,12 @@ export function extractRefreshToken(body: any): string {
 }
 
 /**
- * Get client IP address from request
- * Handles proxy forwarding via X-Forwarded-For
+ * Get client IP address from request.
+ * request.ip already resolves X-Forwarded-For through the trusted proxies
+ * only (server.ts trustProxy). Never read the header directly: its first
+ * entry is whatever the client sent.
  */
 export function getClientIpAddress(request: FastifyRequest): string {
-  const forwardedFor = request.headers['x-forwarded-for'];
-
-  if (forwardedFor) {
-    // X-Forwarded-For can be comma-separated list, take first
-    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-    return ips.split(',')[0].trim();
-  }
-
   return request.ip || 'unknown';
 }
 

@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { AUTH_RATE_LIMITS } from "@/core/constant/rateLimit.constant";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { RegisterUserDTO } from "@/modules/identity/application/dto/admin.dto";
 import {
@@ -40,6 +41,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
    */
   fastify.post<{ Body: RegisterUserDTO }>(
     "/register",
+    { config: { rateLimit: AUTH_RATE_LIMITS.register } },
     async (request, reply) => {
       // const data = validate<RegisterUserDTO>(
       //   registerSchema,
@@ -73,6 +75,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
    */
   fastify.post<{ Body: ResendVerificationDTO }>(
     "/resend-verification",
+    { config: { rateLimit: AUTH_RATE_LIMITS.resendVerification } },
     async (request, reply) => {
       const { email } = resendVerificationSchema.parse(request.body);
 
@@ -133,26 +136,30 @@ export async function identityRoutes(fastify: FastifyInstance) {
    * Store accessToken in memory. Store refreshToken in httpOnly cookie or
    * secure storage — never localStorage.
    */
-  fastify.post<{ Body: LoginDTO }>("/login", async (request, reply) => {
-    // const data = validate<LoginDTO>(loginSchema, request.body, reply);
-    // if (!data) return errorResponse(reply, "Invalid input"); // stops execution if validation fails
-    const input = loginSchema.parse(request.body);
-    const result = await fastify.loginUseCase.execute(
-      input.email,
-      input.password,
-      request.ip,
-      request.headers["user-agent"] ?? "unknown",
-    );
-    // return reply.send(result);
-    setRefreshCookie(reply, result.refreshToken);
+  fastify.post<{ Body: LoginDTO }>(
+    "/login",
+    { config: { rateLimit: AUTH_RATE_LIMITS.login } },
+    async (request, reply) => {
+      // const data = validate<LoginDTO>(loginSchema, request.body, reply);
+      // if (!data) return errorResponse(reply, "Invalid input"); // stops execution if validation fails
+      const input = loginSchema.parse(request.body);
+      const result = await fastify.loginUseCase.execute(
+        input.email,
+        input.password,
+        request.ip,
+        request.headers["user-agent"] ?? "unknown",
+      );
+      // return reply.send(result);
+      setRefreshCookie(reply, result.refreshToken);
 
-    return successResponse(reply, "Login successful", 200, {
-      accessToken: result.accessToken,
-      expiresIn: result.expiresIn,
-      user: result.user,
-      // refreshToken intentionally omitted from body
-    });
-  });
+      return successResponse(reply, "Login successful", 200, {
+        accessToken: result.accessToken,
+        expiresIn: result.expiresIn,
+        user: result.user,
+        // refreshToken intentionally omitted from body
+      });
+    },
+  );
 
   /**
    * Refresh Token
@@ -267,6 +274,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
    */
   fastify.post<{ Body: ForgotPasswordDTO }>(
     "/forgot-password",
+    { config: { rateLimit: AUTH_RATE_LIMITS.forgotPassword } },
     async (request, reply) => {
       const { email } = forgotPasswordSchema.parse(request.body);
       console.log("email", email);

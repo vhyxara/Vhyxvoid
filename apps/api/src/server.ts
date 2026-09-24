@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import { registerPlugins } from "@/modules/identity/presentation/plugins/register.plugin";
 import registerRoutes from "@/modules/identity/presentation/http/index";
 import rawBody from "fastify-raw-body";
+import { TRUST_PROXY } from "@/core/constant/rateLimit.constant";
 // import { initRedis } from '@/core/redis/RedisClient';
 
 dotenv.config();
@@ -15,7 +16,9 @@ dotenv.config();
 export const buildServer = async () => {
   // console.log("ENV DATABASE_URL:", process.env.DATABASE_URL);
   //   const server = Fastify({ logger: true });
-  const server = Fastify();
+  // Behind Cloudflare + nginx: without this, request.ip is nginx for every
+  // request (one shared rate-limit bucket, meaningless audit IPs).
+  const server = Fastify({ trustProxy: TRUST_PROXY });
   server.register(rawBody, {
     field: "rawBody",
     global: false, // only on routes that opt-in with config.rawBody = true

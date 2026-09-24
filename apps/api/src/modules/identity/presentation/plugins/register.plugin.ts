@@ -6,6 +6,7 @@ import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyCookie from "@fastify/cookie";
 import { fastifyJwt } from "@fastify/jwt";
 import { allowedOrigins } from "@/core/constant/hub.constant";
+import { GLOBAL_RATE_LIMIT } from "@/core/constant/rateLimit.constant";
 import prismaPlugin from "@/modules/identity/presentation/plugins/prisma.plugin";
 import identity from "@/modules/identity/presentation/plugins/identity.plugin";
 import userUseCases from "@/modules/identity/presentation/plugins/user.plugin";
@@ -22,6 +23,10 @@ import { notificationPlugin } from "@/modules/notification/presentation/plugins/
 // import servicesPlugin from "./services.plugin";
 
 export const registerPlugins = async (server: FastifyInstance) => {
+  // First: @fastify/rate-limit attaches to routes through an onRoute hook,
+  // so any route registered before it is never limited (the api-keys routes
+  // were not), and a per-route config.rateLimit is ignored.
+  await server.register(fastifyRateLimit, GLOBAL_RATE_LIMIT);
   await server.register(containerPlugin);
   await server.register(prismaPlugin);
   await server.register(corePlugin);
@@ -42,7 +47,6 @@ export const registerPlugins = async (server: FastifyInstance) => {
   // await server.register(servicesPlugin);
   await server.register(fastifyHelmet);
   await server.register(fastifyCompress);
-  await server.register(fastifyRateLimit, { max: 100, timeWindow: "1 minute" });
   await server.register(fastifyCookie);
   await server.register(fastifyJwt, {
     secret: process.env.JWT_SECRET!,

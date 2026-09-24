@@ -1,6 +1,7 @@
 // identity/presentation/routes/admin/adminRoutes.ts
 
 import { FastifyInstance } from "fastify";
+import { AUTH_RATE_LIMITS } from "@/core/constant/rateLimit.constant";
 
 import {
   getAdminContext,
@@ -40,22 +41,26 @@ export async function adminRoutes(fastify: FastifyInstance) {
    * Admin Login
    * POST /admin/auth/login
    */
-  fastify.post("/auth/login", async (request, reply) => {
-    const input = adminLoginSchema.parse(request.body);
+  fastify.post(
+    "/auth/login",
+    { config: { rateLimit: AUTH_RATE_LIMITS.adminLogin } },
+    async (request, reply) => {
+      const input = adminLoginSchema.parse(request.body);
 
-    const useCase = fastify.adminLoginUseCase;
-    const ipAddress = request.ip;
-    const userAgent = request.headers["user-agent"] ?? "unknown";
+      const useCase = fastify.adminLoginUseCase;
+      const ipAddress = request.ip;
+      const userAgent = request.headers["user-agent"] ?? "unknown";
 
-    const result = await useCase.execute(
-      input.email,
-      input.password,
-      ipAddress,
-      userAgent,
-    );
+      const result = await useCase.execute(
+        input.email,
+        input.password,
+        ipAddress,
+        userAgent,
+      );
 
-    return successResponse(reply, "Login successful", 200, result);
-  });
+      return successResponse(reply, "Login successful", 200, result);
+    },
+  );
 
   /**
    * Admin Refresh Token

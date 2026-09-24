@@ -32,11 +32,8 @@ export function getAuditMetadata(request: FastifyRequest, statusCode: number, re
   };
 }
 
+// request.ip resolves X-Forwarded-For through the trusted proxies only
+// (server.ts trustProxy); the header's first entry is client-controlled.
 function getClientIp(request: FastifyRequest): string {
-  const forwarded = request.headers['x-forwarded-for'];
-  if (forwarded) {
-    const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    return ips.split(',')[0].trim();
-  }
   return request.ip ?? 'unknown';
 }
