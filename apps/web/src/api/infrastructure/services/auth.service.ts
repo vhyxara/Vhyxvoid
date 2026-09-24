@@ -2,6 +2,7 @@
 import type { LoginResponse, AuthTokens, RegisterResponse } from '@/api/domain/identity/types/auth.types'
 import { AUTH_ENDPOINTS } from '../endpoints/auth.endpoints'
 import { httpClient } from '@/api/wrapper/http'
+import { withCrossTabLock } from './crossTabLock'
 
 export type RegisterDTO = {
   email: string
@@ -32,14 +33,18 @@ export const authService = {
       isPublic: true
     }),
 
-  // Called by the interceptor — takes raw refresh token string
+  // Called by the 401 interceptor (http.ts) and the page-load bootstrap
+  // (bootstrapSession.ts). Held under one lock across all tabs so they never
+  // send the same refresh cookie at once (audit H10).
   refresh: () =>
-    httpClient<AuthTokens>({
-      url: AUTH_ENDPOINTS.REFRESH,
-      method: 'POST',
-      data: {},
-      isPublic: true
-    }),
+    withCrossTabLock('vhyxvoid:auth-refresh', () =>
+      httpClient<AuthTokens>({
+        url: AUTH_ENDPOINTS.REFRESH,
+        method: 'POST',
+        data: {},
+        isPublic: true
+      })
+    ),
 
   logout: () =>
     httpClient<void>({
