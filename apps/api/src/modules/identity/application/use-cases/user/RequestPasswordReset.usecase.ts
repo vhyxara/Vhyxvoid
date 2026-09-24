@@ -100,7 +100,6 @@ export class RequestPasswordResetUseCase {
         } else {
           console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
         }
-        console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
       },
     );
 

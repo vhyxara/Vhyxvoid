@@ -335,9 +335,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
       );
       const { id: userId } = getUserContext(request);
       const uow = fastify.container.resolve(PrismaUnitOfWork);
-      console.log("uow", uow);
       const passwordHasher = fastify.container.resolve(BcryptPasswordHasher);
-      console.log("passwordHasher", passwordHasher);
       const user = await uow.userRepository.findById(userId);
       if (!user) {
         throw new NotFoundError("User not found");

@@ -108,7 +108,6 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     }
 
     const data = await this.prisma.adminUser.findMany({ where });
-    console.log("PrismaAdminUserRepository.findAll - data from DB", data);
     return data.map((d) =>
       AdminUser.rehydrate({
         id: d.id,
