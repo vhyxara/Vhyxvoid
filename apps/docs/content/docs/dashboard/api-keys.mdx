@@ -3,7 +3,7 @@ title: API keys
 description: Create, scope, rotate, and revoke API keys in the dashboard.
 verified:
   date: "2026-09-21"
-  commit: dc922f8
+  commit: "621ee3f"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -17,6 +17,8 @@ sources:
   - apps/api/src/modules/key-management/application/use-cases/RevokeApiKey.usecase.ts
   - apps/api/src/modules/key-management/application/use-cases/ListApiKeys.usecase.ts
   - apps/api/src/core/constant/apikey.constant.ts
+  - apps/hub/src/services/AccountStatusSweep.service.ts
+  - apps/hub/src/services/HubAuth.service.ts
 ---
 
 An API key is what an agent, an integration or the SDK's `TunnelClient` uses to connect to VhyxVoid. A key has a public **key ID** and a **secret**. Open **API Keys** under your personal workspace or under an organization in the sidebar.
@@ -68,11 +70,13 @@ Rotation gives a key a new secret without changing its key ID, and keeps the old
 2. Read the warning and choose **Rotate key**.
 3. The dialog shows the new secret and a line saying when the old one stops working ("Your old key will continue working until …"). Save the secret as above.
 
+This includes agents: an agent can connect with the old secret during that hour, and an agent still using it is disconnected within about a minute after the hour ends, with `API key was rotated and the old secret's grace period has ended`. Restart it with the new secret.
+
 Rotation is a paid feature: on the FREE plan the API refuses it with `Key rotation is not available on your plan. Upgrade to Pro.` Admins and owners can rotate any key; a member can rotate only a key they created.
 
 ## Revoke a key
 
-Choose the trash button in the key's row and confirm **Revoke key**. Revoking cannot be undone, and anything using that key **stops working immediately**. Admins and owners can revoke any key; a member can revoke only a key they created. A revoked key stays in the list with the status `REVOKED`, and no longer counts toward your plan's key limit.
+Choose the trash button in the key's row and confirm **Revoke key**. Revoking cannot be undone. Requests signed with that key are refused at once, and an agent already connected with it is disconnected within about a minute (the hub re-checks every connected agent's key roughly once a minute), printing `API key has been revoked`. A key that reaches its expiry date is handled the same way, with `API key has expired`. Admins and owners can revoke any key; a member can revoke only a key they created. A revoked key stays in the list with the status `REVOKED`, and no longer counts toward your plan's key limit.
 
 ## What isn't in the dashboard
 
