@@ -79,35 +79,11 @@ export class HttpTunnelHandler {
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const host = req.headers.host ?? '';
     const hostname = host.split(':')[0];
-    if (req.method === 'OPTIONS') {
-      const origin = req.headers.origin ?? '*';
-      const requestedHeaders =
-        req.headers['access-control-request-headers'] ?? 'Content-Type, Authorization';
-
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': requestedHeaders,
-        'Access-Control-Max-Age': '86400',
-        Vary: 'Origin',
-        'Content-Length': '0',
-      });
-      res.end();
-      return;
-    }
-    // if (req.method === 'OPTIONS') {
-    //   res.writeHead(204, {
-    //     'Access-Control-Allow-Origin': req.headers.origin ?? '*',
-    //     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    //     'Access-Control-Allow-Headers':
-    //       'Content-Type, Authorization, X-Requested-With, X-API-Key, X-API-Secret',
-    //     'Access-Control-Max-Age': '86400',
-    //     'Content-Length': '0',
-    //   });
-    //   res.end();
-    //   return;
-    // }
+    // CORS preflights (OPTIONS) are forwarded to the backend like any other
+    // request, so the backend's own CORS policy decides. The hub used to
+    // answer every preflight itself with the caller's Origin and
+    // Allow-Credentials, letting any website make credentialed requests to
+    // any tunnel. See shared/context.md Known Risk #60 (C4).
 
     // Parse subdomain — format: {label}.{accountSlug}.vhyxvoid.com
     // const subdomain = hostname.slice(0, -(this.hubDomain.length + 1)); // strip .vhyxvoid.com
@@ -249,7 +225,7 @@ export class HttpTunnelHandler {
 
         resolve: (response: TunnelResponseMsg) => {
           clearTimeout(timer);
-          this.writeResponse(res, response, req);
+          this.writeResponse(res, response);
           outerResolve();
         },
 
@@ -463,35 +439,24 @@ export class HttpTunnelHandler {
     return { label, accountSlug };
   }
 
-  private writeResponse(
-    res: ServerResponse,
-    response: TunnelResponseMsg,
-    req: IncomingMessage,
-  ): void {
+  private writeResponse(res: ServerResponse, response: TunnelResponseMsg): void {
     const headers = response.headers ?? {};
 
+    // The backend's headers pass through unmodified (minus hop-by-hop),
+    // including its own CORS headers, Vary and Set-Cookie. The hub used to
+    // drop the backend's CORS headers and substitute a reflected Origin with
+    // credentials, and to rewrite every cookie to Domain=.<hubDomain>;
+    // SameSite=None; Secure, which sent one tenant's cookies to every other
+    // tenant's tunnel. No per-tunnel opt-in to cookie-domain sharing exists
+    // yet; the full fix is a separate tunnel domain (audit A1). See
+    // shared/context.md Known Risk #60 (C3/C4).
     for (const [key, value] of Object.entries(headers)) {
       if (this.isHopByHop(key)) continue;
-      if (key.toLowerCase().startsWith('access-control-')) continue;
-      if (key.toLowerCase() === 'vary') continue;
 
-      // set-cookie must be sent as separate headers — split on \n
+      // The agent joins multiple Set-Cookie values with \n for transport;
+      // each goes back out as its own header, byte-for-byte.
       if (key.toLowerCase() === 'set-cookie') {
-        const cookies = value.split('\n').filter(Boolean);
-        const rewritten = cookies.map((cookie) => {
-          // Remove existing Domain attribute if present
-          const withoutDomain = cookie.replace(/;\s*Domain=[^;]*/gi, '');
-          // Remove existing SameSite — we'll set it correctly
-          const withoutSameSite = withoutDomain.replace(/;\s*SameSite=[^;]*/gi, '');
-          // Inject our domain — makes cookie available across all *.vhyxvoid.com
-          return `${withoutSameSite}; Domain=.${this.hubDomain}; SameSite=None; Secure`;
-        });
-        for (const cookie of rewritten) {
-          res.setHeader('set-cookie', [
-            ...((res.getHeader('set-cookie') as string[]) ?? []),
-            cookie,
-          ]);
-        }
+        res.setHeader('set-cookie', value.split('\n').filter(Boolean));
         continue;
       }
 
@@ -502,22 +467,6 @@ export class HttpTunnelHandler {
       }
     }
 
-    // Hub owns CORS
-    const origin = req.headers.origin;
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      req.headers['access-control-request-headers'] ??
-        'Content-Type, Authorization, X-Requested-With, Cookie',
-    );
-    res.setHeader('Access-Control-Expose-Headers', 'X-Tunnel-Duration');
-    res.setHeader('Vary', 'Origin');
     res.setHeader('X-Tunnel-Duration', `${response.durationMs ?? 0}ms`);
 
     res.writeHead(response.status ?? 200);
