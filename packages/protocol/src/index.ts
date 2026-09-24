@@ -9,6 +9,7 @@ export * from "./constants";
 export * from "./errors";
 export * from "./bodyEncoding";
 export * from "./closeCode";
+export * from "./path";
 
 // // Re-export for consumers that need the constant in canonical.ts
 // import { PROTOCOL_VERSION } from "./constants";

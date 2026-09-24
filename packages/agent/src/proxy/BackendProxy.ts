@@ -8,6 +8,7 @@ import {
   TunnelResponseMsg,
   LIMITS,
   isBinaryContentType,
+  isOriginFormPath,
   toSendableCloseCode,
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
@@ -43,6 +44,9 @@ export class BackendProxy {
       validateStatus: () => true,
       decompress: true,
       responseType: "arraybuffer",
+      // Never let a path replace the base URL (audit H9): without this, an
+      // absolute URL in path sent the request to that host instead.
+      allowAbsoluteUrls: false,
     });
 
     // Periodic cache eviction
@@ -66,6 +70,20 @@ export class BackendProxy {
         body: cached.body,
         bodyEncoding: cached.bodyEncoding,
         durationMs: 0, // served from memory
+      };
+    }
+
+    // ── Path check (audit H9) ────────────────────────────────────────────────
+    // Only an origin-form path ("/…") may reach the local backend. An absolute
+    // or protocol-relative one would make this machine fetch another host.
+    // The hub refuses these too; this is the agent's own line of defense.
+    if (!isOriginFormPath(msg.path)) {
+      return {
+        status: 400,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ error: "Invalid request path", tunnel: true }),
+        bodyEncoding: "utf8",
+        durationMs: 0,
       };
     }
 
@@ -220,6 +238,12 @@ export class BackendProxy {
     onClose: (code: number, reason: string) => void,
     onError: (message: string) => void,
   ): void {
+    // The URL is plain concatenation, so a path not starting with a single
+    // "/" could redirect it ("@evil.com/x" makes 127.0.0.1:<port> userinfo).
+    if (!isOriginFormPath(path)) {
+      onError("Invalid request path");
+      return;
+    }
     const url = `ws://127.0.0.1:${this.port}${path}${query ? "?" + query : ""}`;
 
     // Override host header

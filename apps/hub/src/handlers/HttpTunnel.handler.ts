@@ -25,6 +25,7 @@ import {
   TunnelWsOpenMsg,
   serialize,
   isBinaryContentType,
+  isOriginFormPath,
   toSendableCloseCode,
 } from '@vhyxvoid/protocol';
 import type { Socket } from 'net';
@@ -110,6 +111,14 @@ export class HttpTunnelHandler {
         400,
         'Invalid tunnel URL. Expected format: accountslug--label.vhyxvoid.com',
       );
+    }
+
+    // An absolute-form request target (`GET http://host/… HTTP/1.1`) makes
+    // req.url an absolute URL, which the agent would fetch instead of its
+    // local backend (audit H9). nginx normalises the request line today;
+    // this doesn't rely on it.
+    if (!isOriginFormPath(req.url)) {
+      return this.sendError(res, 400, 'Invalid request path');
     }
 
     const { label, accountSlug } = parsed;
@@ -264,7 +273,7 @@ export class HttpTunnelHandler {
     const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
     const parsed = this.parseSubdomain(subdomain);
 
-    if (!parsed) {
+    if (!parsed || !isOriginFormPath(req.url)) {
       socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
       socket.destroy();
       return;

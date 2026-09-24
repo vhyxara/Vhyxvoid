@@ -23,6 +23,7 @@ import {
   LIMITS,
   TunnelWsMessageMsg,
   TunnelWsCloseMsg,
+  isOriginFormPath,
 } from '@vhyxvoid/protocol';
 // import { WebSocket } from 'uWebSockets.js';
 // import { AgentRegistry, AgentSession, SdkRegistry, PendingRegistry } from '../registry';
@@ -517,6 +518,21 @@ export class MessageRouter {
         this.buildSdkError(
           'PAYLOAD_TOO_LARGE',
           `Payload ${bodyBytes} bytes exceeds ${LIMITS.MAX_PAYLOAD_BYTES} byte limit`,
+          msg.requestId,
+          false,
+        ),
+      );
+    }
+
+    // 2b. Path check (audit H9): only an origin-form path ("/…") may be
+    // forwarded. An absolute URL would make the agent fetch that host from
+    // the developer's machine; the agent refuses it too.
+    if (!isOriginFormPath(msg.path)) {
+      return this.sendToWs(
+        ws,
+        this.buildSdkError(
+          'INVALID_MESSAGE',
+          'Request path must start with a single "/"',
           msg.requestId,
           false,
         ),
