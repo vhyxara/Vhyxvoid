@@ -94,3 +94,22 @@ or is larger than a contained fix:
   remainder, rate limiting of guard-rejected requests, admin logout token
   revocation, admin refresh race, account deletion, notification types,
   and all deploy notes, feature proposals and architecture items.
+
+### 2026-09-25: decisions and end-to-end run (`2026-09-25-decisions-and-e2e`)
+
+Entries CA-0025 to CA-0037. Commits `4a3131f`, `195f405`, `c415239`, `3eecfae`,
+`ea6e1f0`, `42f6652`, `fca13f7`, `3c66040`.
+
+- The four confirmed decisions (CA-0025 to CA-0028).
+- A 53-step end-to-end journey on an isolated local stack (CA-0029). It found
+  a critical pre-verification account takeover (CA-0030), dropped early
+  WebSocket frames (CA-0031), billing without Redis and Stripe webhook
+  problems (CA-0035), and several 500s for client errors.
+- Also fixed: admin token revocation (CA-0032), the super-admin seed
+  (CA-0033), TunnelClient authentication (CA-0034).
+- Added: streaming responses and request cancellation (CA-0036); removed two
+  wasted Redis commands per request (CA-0037).
+
+Gates: unit suite 537 passed / 6 skipped (77 files); journey 53/53 with every
+section on; typecheck 10/10 (web/admin excluded as in CI).
+

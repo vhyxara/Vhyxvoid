@@ -788,3 +788,15 @@ Repo-wide grep, fresh this session: `customDomains` appears nowhere except the `
 7. **Signals.** Re-raise after cleanup only when no other listener exists, so apps with their own graceful shutdown keep control (next dev has its own handlers).
 8. **Left open:** FREE API-key expiry (docs promise it to every plan; `PLAN_LIMITS` says no), middleware port detection (G8: needs a tunnel restart or a public API change), the SQLite queue's future, and the slug P2002 race (needs a same-suffix collision between two concurrent creations).
 **Status:** active.
+
+### 2026-09-25 — Decisions + end-to-end batch: design choices (session 2026-09-25-decisions-and-e2e)
+**Decided by:** the user (the four product decisions), Claude Code (the rest)
+**Context:** The user confirmed four open decisions and asked for a full end-to-end test and production-grade fixes/upgrades. Write-ups in `code-archive/` CA-0025..CA-0037.
+**Decisions:**
+1. **Product (user):** API-key expiry on every plan; middleware adopts the app's real port via `AgentClient.setPort` (no restart); personal workspaces get Billing, never members; the SQLite queue and `better-sqlite3` are removed (old options kept as ignored).
+2. **Account takeover fix.** Login requires a verified address (403, after the password check). Re-registering an unverified address does not re-arm the stored password or send a verification link; the inbox owner gets a set-your-password link that also verifies. Chosen over "update the password on re-register", which still loses a race to an attacker re-registering last.
+3. **TunnelClient auth.** The raw secret travels once per connection over TLS (the agent's model), rather than inventing a derived signing secret: same trust model the product already has, no key-creation changes, old keys work. The hub re-signs verified requests so the validator (replay, rate limit, status, usage) is untouched.
+4. **Streaming/cancel are capability-gated** (`agent:register.capabilities`), not version-gated: explicit, and every old/new combination keeps working. Streamed only when the response is a stream by nature (SSE, NDJSON, chunked without length); everything else stays one message so caching and binary handling are unchanged. Per-caller cap of 8 MB unsent before a stream is cut; agent pauses reading at 4 MB unsent.
+5. **redisPlugin at the root** rather than passing clients around: the encapsulation bug silently disabled billing's cache invalidation, and any future plugin would hit it again.
+6. **Stripe event dedupe fails open** (Redis down → process): handlers are idempotent upserts; the cost of a duplicate is an email, the cost of dropping is a missed billing change.
+**Status:** active.

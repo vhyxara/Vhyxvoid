@@ -1835,3 +1835,65 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-25-decisions-and-e2e",
+  "date": "2026-09-25",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch backlog)",
+  "brief_summary": "Apply the four confirmed decisions, test the whole application end to end from zero, fix what breaks, and ship upgrades that matter against ngrok-class tools.",
+  "status": "completed",
+  "summary": "Applied the decisions (expiry on every plan, middleware port detection, personal workspaces: Billing yes / members no, SQLite queue removed). Built an isolated local stack (Postgres, Redis, an Upstash REST stand-in, no .env files) and a 53-step journey script; it found a critical pre-verification account takeover, dropped early WebSocket frames, billing's missing Redis (cache invalidation never ran), Stripe 500s and duplicate processing, several domain 500s, a hanging TunnelClient.connect(). Also fixed TunnelClient authentication, admin token revocation, the super-admin seed, and added response streaming (SSE/NDJSON/chunked) plus request cancellation. Final full run: 53/53; unit suite 537 passed.",
+  "decisions_made": [
+    "Takeover fix: login needs a verified address; re-registration sends a set-your-password link instead of re-arming the old password",
+    "TunnelClient: raw secret once per connection (agent model), hub re-signs for the unchanged validator",
+    "Streaming/cancel gated on agent-announced capabilities, not versions",
+    "redisPlugin registered at the root instead of inside ApiKeyPlugins",
+    "Stripe events deduped by id in Redis for 7 days, fail open",
+    "hub:pending Redis writes removed (write-only)"
+  ],
+  "bugs_found_fixed": [
+    "Pre-verification account takeover (critical)",
+    "Tunnel WebSocket frames sent right after open dropped",
+    "Billing plugin had no Redis: account key cache invalidation never ran",
+    "Stripe webhook: bad signature 500; duplicates reprocessed",
+    "500s for used invitations, system-role edits, short names, inactive accounts, used tokens",
+    "TunnelClient could never authenticate; connect() hung on refusal",
+    "Admin logout left the access token valid",
+    "Dev emails went to a hardcoded personal Gmail address when DEV_EMAIL was unset",
+    "Responses buffered: SSE/NDJSON/chunked never streamed; abandoned requests kept running"
+  ],
+  "bugs_found_unfixed": [
+    "trial_will_end not emailed (api backlog)",
+    "One Upstash GET per public request for subdomain resolution (hub backlog)",
+    "The e2e journey isn't in CI yet (shared backlog)"
+  ],
+  "files_changed": [
+    "packages/{protocol,agent,sdk,middleware,next,shared}/src",
+    "apps/api/src (identity, billing, notification, feedback), apps/api/prisma (migration 20260925200000_admin_token_version)",
+    "apps/hub/src (auth, router, registries, HTTP handler)",
+    "apps/web/src/{libs/layout/vhyxui/DashboardSidebarNav.tsx,views/org/billing/*}",
+    "apps/docs/content (express, nextjs, standalone-cli, cli, env vars, installation, billing, members, limitations, websocket-client)",
+    "scripts/e2e-journey.mjs (new); tests/e2e: 12 new files",
+    "code-archive CA-0025..CA-0037; internal-tools backlogs/archive"
+  ],
+  "gate_results": {
+    "tests": "77 files passed + 1 skipped; 537 passed + 6 skipped",
+    "e2e": "scripts/e2e-journey.mjs 53/53 on the local stack (all sections, slow steps included)",
+    "typecheck": "10/10 excluding web/admin (their tsc error sets unchanged; sibling repos missing)",
+    "build": "all packages, api, hub; docs build passed earlier this session",
+    "commits": "4a3131f, 195f405, c415239, 3eecfae, ea6e1f0, 42f6652, fca13f7, 3c66040 (+ this record), pushed to origin/backlog"
+  },
+  "open_items_for_next_session": [
+    "Deploy (migration first) and publish agent/middleware/next/sdk; update docs callouts",
+    "Run the e2e journey against staging after deploy; add it to CI",
+    "apps/web and apps/admin need a browser pass with the sibling VhyxUI/vhyx-api-kit repos"
+  ],
+  "context_md_updates_needed": [
+    "shared: protocol capabilities (stream, cancel) and the streaming/cancel messages; TunnelClient's raw-secret handshake",
+    "api: login requires a verified email; redisPlugin is root-level; Stripe event dedupe",
+    "hub: PendingRegistry is in-memory only"
+  ]
+}
+```

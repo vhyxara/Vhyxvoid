@@ -32,3 +32,12 @@ Newest entries at the bottom. One row per entry; the entry file has the details.
 | [CA-0026](shared/CA-0026-middleware-port-detection.md) | 2026-09-25 | shared | Bug fix (DX) | Fixed | @vhyxvoid/middleware assumed port 3000 (audit part2 G8) | `4a3131f` |
 | [CA-0027](api/CA-0027-personal-workspaces.md) | 2026-09-25 | api | Product decision | Fixed | Personal workspaces: Billing shown, members refused | `4a3131f` |
 | [CA-0028](shared/CA-0028-remove-sqlite-queue.md) | 2026-09-25 | shared | Removal | Fixed | Agent SQLite queue and better-sqlite3 removed | `4a3131f` |
+| [CA-0029](shared/CA-0029-e2e-journey-and-local-stack.md) | 2026-09-25 | shared | Tooling | Done | End-to-end journey script and an isolated local stack | `c415239` |
+| [CA-0030](api/CA-0030-pre-verification-account-takeover.md) | 2026-09-25 | api | Security | Fixed | Pre-verification account takeover | `c415239` |
+| [CA-0031](shared/CA-0031-ws-early-frames-dropped.md) | 2026-09-25 | shared | Bug fix | Fixed | Tunnel WebSocket: frames sent right after open were dropped | `c415239` |
+| [CA-0032](api/CA-0032-admin-token-revocation.md) | 2026-09-25 | api | Security | Fixed (in repo; needs deploy + migration) | Admin logout didn't revoke the admin's access token | `3eecfae` |
+| [CA-0033](api/CA-0033-super-admin-seed-credentials.md) | 2026-09-25 | api | Security | Fixed | Super-admin seed had hardcoded credentials | `3eecfae` |
+| [CA-0034](shared/CA-0034-tunnelclient-authentication.md) | 2026-09-25 | shared | Bug fix | Fixed | WebSocket SDK client (TunnelClient) could never authenticate | `ea6e1f0` |
+| [CA-0035](api/CA-0035-billing-redis-and-webhooks.md) | 2026-09-25 | api | Bug fix | Fixed | Billing had no Redis; Stripe webhook 500s and duplicate processing | `42f6652` |
+| [CA-0036](shared/CA-0036-streaming-and-cancel.md) | 2026-09-25 | shared | Addition | Done | Streaming responses (SSE, NDJSON, chunked) and request cancellation | `fca13f7` |
+| [CA-0037](hub/CA-0037-drop-unread-pending-redis-keys.md) | 2026-09-25 | hub | Performance | Fixed | Two wasted Redis commands per tunnelled request | `3c66040` |
