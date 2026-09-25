@@ -13,8 +13,6 @@ questions tracked in context.md's Known Risks/Open Questions. When an item here 
   (`updateAdminSchema` is firstName/lastName only). Backend issue, not
   actionable from this app — see `internal-tools/api/backlog.md`. No UI
   planned for it until the backend has it.
-- [ ] `apps/admin.routes.ts`'s orphaned duplicate JSDoc comment block
-  (lines ~470-484) — backend cleanup, see `internal-tools/api/backlog.md`.
 - [ ] No session-bootstrap-on-reload flow exists — `AdminAuthGuard` only
   checks the zustand store's already-hydrated `isAuthenticated` on mount;
   there's no explicit "verify the stored token is still valid" call
@@ -64,19 +62,6 @@ questions tracked in context.md's Known Risks/Open Questions. When an item here 
   no audit logging on feedback triage updates, 4 extra DB round trips per
   list call for the status counts, and a non-standard `{error: "..."}`
   400 envelope on the empty-update-payload guard.
-- [ ] Same fire-and-forget `.mutate()` pattern that was fixed in apps/web
-  (2026-09-19, `internal-tools/user-frontend/decision.md`, "FeedbackContext
-  removed") is also present here: `AdminUsersTable.tsx`'s disable/enable
-  row actions (`disableAdmin.mutate(row.id)`/`enableAdmin.mutate(row.id)`)
-  and `AdminAbilitiesTable.tsx`'s delete action all call `.mutate()`, not
-  `.mutateAsync()`. apps/admin has no `FeedbackContext`-equivalent global
-  confirm/alert Dialog, so there's no unreachable-Dialog bug here — but the
-  same loading-state-dishonesty class of bug is real: the confirmation
-  dialog's loading spinner clears and the dialog closes the instant the
-  action is invoked, not when the real request actually finishes, since
-  `.mutate()` doesn't return a promise the caller's `await` can meaningfully
-  wait on. Flagged, not fixed — out of scope for the apps/web-only session
-  that found it (2026-09-19).
 - [ ] `DashboardShell` shows only `admin.email`; nothing renders the signed-in admin's name, so `useUpdateAdmin`'s session-store `fullName` sync (kept, tested) is invisible. Show the name (or name + email) in the header if that is wanted; then the sync starts to matter. Found 2026-09-22.
 - [ ] A hard load of a deep link while signed in (e.g. typing `/admin-users`) ends up on `/dashboard`; in-app navigation is fine. Observed in the 2026-09-22 Chrome pass, not root-caused; consistent with the "no session-bootstrap-on-reload" item above. Found 2026-09-22.
 - [ ] Standing test admins in the local dev DB with the shared test password `Admin@123` (a convention set 2026-09-22 for everything created from here on): `ada.verify@company.local` (created through the Create Admin dialog, holds the "Support Agent" role, name edited to "Adaline Verify") and `contract-check@company.local` (created by curl during the contract check, named "Conrad Tracton" by the PUT probe, and with its original password `Contract@1234`, no roles). No delete route exists for admins, so neither can be removed via the API. Found 2026-09-22.

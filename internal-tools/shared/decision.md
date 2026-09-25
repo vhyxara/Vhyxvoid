@@ -774,3 +774,17 @@ Repo-wide grep, fresh this session: `customDomains` appears nowhere except the `
 **G7:** the rule is `@vhyxvoid/next`'s (`NODE_ENV === 'development'`) plus a CI check (`CI` set and not `false`/`0`); explicit `enabled` wins either way. Breaking for anyone relying on the old default, called out in the commit, the source comment and the docs; the version bump is left to the publish session. next itself was not changed (out of scope; backlog).
 **G1:** aliasing in SQL, as the brief suggested, with one shared column list so a future query can't reintroduce the mismatch.
 **Status:** active.
+
+### 2026-09-25 — Backlog sweep: judgment calls (session 2026-09-25-backlog-sweep)
+**Decided by:** Claude Code
+**Context:** A sweep of every component backlog, fixing the contained items. Full write-ups are in `code-archive/` (CA-0001..CA-0024).
+**Decisions:**
+1. **`/internal/proxy` and `tunnelproxy`: removed, not rebuilt.** Neither could ever work (unknown message type; unauthenticatable caller). Rebuilding on `tunnel:forward` with the H9 path check would have been a new feature with no user. `utils/internalAuth.ts` stays for the admin-v2 `/internal/stats` (H4).
+2. **Public-path usage: check and count split.** `checkRequest()` stays before the agent lookup (a flood on a dead URL is still capped, per the S5 decision); `recordForwarded()` counts only after a live agent is found.
+3. **Agent fatal codes.** Stop on `INVALID_SIGNATURE`, `SCOPE_MISSING`, `KEY_REVOKED`, `KEY_EXPIRED` (plus the existing two). `AGENT_LIMIT_REACHED` keeps retrying, since a slot can free up, but the backoff now grows because it resets only on `hub:registered`, not on TCP open. The CLI exits 1 on a stop that was not Ctrl+C/SIGTERM, so scripts and process managers see it.
+4. **ResponseCache.** 50 MB default (the audit's number), LRU, request `no-cache`/`max-age=0`/`Pragma: no-cache` bypasses the cache, invalidation by whole path segments. The audit said a POST to `/users` did not clear `/users/5`; it did (prefix match), the real defect was over-invalidation.
+5. **Validator `countUsage` flag** instead of skipping usage for `method === 'SDK_REGISTER'` inside the validator: the caller knows whether a call is a handshake; the validator shouldn't parse method names.
+6. **`updateAdminSchema` strict.** A blank name or an `email`/`password` field is a 400. apps/admin already sends trimmed, required names.
+7. **Signals.** Re-raise after cleanup only when no other listener exists, so apps with their own graceful shutdown keep control (next dev has its own handlers).
+8. **Left open:** FREE API-key expiry (docs promise it to every plan; `PLAN_LIMITS` says no), middleware port detection (G8: needs a tunnel restart or a public API change), the SQLite queue's future, and the slug P2002 race (needs a same-suffix collision between two concurrent creations).
+**Status:** active.

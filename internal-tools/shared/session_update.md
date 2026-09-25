@@ -1761,3 +1761,77 @@ files by `"date"` — every entry carries its own date and session_id.
   "context_md_updates_needed": []
 }
 ```
+
+```json
+{
+  "session_id": "2026-09-25-backlog-sweep",
+  "date": "2026-09-25",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch backlog)",
+  "brief_summary": "Read internal-tools, create a structured code-archive/ folder, fix every backlog item that is a contained code fix, test, verify, and record each fix in code-archive.",
+  "status": "completed",
+  "summary": "Created code-archive/ (README with rules and session log, INDEX, _TEMPLATE, per-component folders) and fixed 24 items across api, hub, packages, nginx, web, admin and docs, each written up as CA-0001..CA-0024. Fully fixed backlog items were moved to internal-tools/archive with Resolved lines; partly fixed ones got dated update notes. Items that need a product/architecture decision, deploy notes and feature proposals were left open. One backlog item filed as latent (apps/web Confirmation disabled) turned out to be an active bug: two live call sites' guards were being ignored.",
+  "decisions_made": [
+    "Removed /internal/proxy and the api tunnelproxy route instead of rebuilding them on tunnel:forward; kept internalAuth.ts for H4",
+    "Split PublicPathUsageLimiter into checkRequest (rate, before agent lookup) and recordForwarded (usage, after)",
+    "Agent: stop on INVALID_SIGNATURE/SCOPE_MISSING/KEY_REVOKED/KEY_EXPIRED; AGENT_LIMIT_REACHED keeps retrying with exponential backoff; backoff resets on hub:registered; CLI exits 1 on a non-signal stop",
+    "ResponseCache default budget 50 MB (audit's number), LRU, request no-cache honoured, segment-aware invalidation",
+    "updateAdminSchema made strict with non-blank names (400 instead of a no-op 200)",
+    "Validator gets an optional countUsage flag rather than special-casing SDK_REGISTER by method name",
+    "apps/api and apps/hub test scripts delegate to the root suite",
+    "Left API-key expiry on FREE and middleware port detection (G8) open: product/API decisions"
+  ],
+  "bugs_found_fixed": [
+    "Feedback triage not audit-logged; 5 queries per admin feedback list; non-standard 400 envelope",
+    "PUT admin profile: 200 on blank name / ignored email+password",
+    "Usage drain GET-then-DEL window lost increments",
+    "Personal-account rename 500; slugs not validated on write",
+    "PII (email, IP, UA) logged on password reset",
+    "Public-path 503s counted as usage; evictions leaked tunnel:sub keys; sdk:register counted as usage",
+    "Agent retried forever once a second on fatal auth errors",
+    "ResponseCache unbounded in bytes, FIFO, ignored request no-cache",
+    "middleware/next swallowed the first Ctrl+C; next started on CI",
+    "nginx tunnel block trusted client X-Forwarded-For",
+    "apps/web Remove member / Revoke key per-row guards ignored (active, not latent)",
+    "apps/admin confirm dialogs closed before requests finished; disable/enable failures silent",
+    "Flaky wall-clock race test; broken api/hub test scripts; misleading SDK JSDoc"
+  ],
+  "bugs_found_unfixed": [
+    "Usage drain still deletes before the Postgres write (api backlog)",
+    "GET /audit-logs has no total (api backlog)",
+    "HUB_INTERNAL_URL/SECRET now unread (api backlog, new)",
+    "turbo run test runs the root suite twice (shared backlog, new)"
+  ],
+  "files_changed": [
+    "apps/api/src/** (feedback, identity, key-management, billing plugins)",
+    "apps/hub/src/{HubServer,main}.ts, handlers/HttpTunnel.handler.ts, services/{Heartbeat,AccountStatusSweep,HubAuth,PublicPathUsageLimiter}.ts, utils/{releaseSubdomain,internalAuth}.ts",
+    "packages/{agent,middleware,next,sdk,shared}/src",
+    "nginx.conf, apps/{api,hub}/package.json",
+    "apps/web/src/libs/{components/Confirmation.tsx,table/RowAction.tsx,table/type.ts}; apps/admin/src/{libs,views}",
+    "apps/docs/content-config/sdk-notes.json, apps/docs/content/docs/{troubleshooting/index,integrations/express,integrations/nextjs,limitations}.mdx",
+    "tests/e2e: 5 new files, 9 updated",
+    "code-archive/ (new), internal-tools/*/backlog.md, internal-tools/archive/*"
+  ],
+  "gate_results": {
+    "tests": "73 files passed + 1 skipped; 519 passed + 6 skipped (482 before)",
+    "fail_first": "agentFatalHubErrors: 6/7 fail on the old AgentClient",
+    "typecheck": "10/10 excluding web and admin",
+    "build": "8/8 excluding web, admin, docs; docs build 32/32 pages",
+    "web_admin": "tsc error sets identical before/after (pre-existing sibling-repo errors); vitest suites can't load here (same cause)",
+    "nginx": "nginx -t OK; live X-Forwarded-For spoof check: old '6.6.6.6, 127.0.0.1', new '127.0.0.1'",
+    "docs": "generate:check ok; check:fresh flags only pre-existing staleness from 1013714 plus shallow-clone git log limits",
+    "commits": "b9c9f67, 96e9c69, d61f681, fc9612c, fccf1dd (+ the code-archive/internal-tools commit), committed on backlog; push to origin refused with 403 (Claude GitHub App has no access to the repo)"
+  },
+  "open_items_for_next_session": [
+    "Push branch backlog (6 commits) once GitHub access is fixed",
+    "Publish agent/middleware/next/sdk and update the docs' 'not released yet' notes",
+    "Deploy api + hub; recreate nginx for the X-Forwarded-For change",
+    "Product calls: FREE API-key expiry; personal-account Members/Billing",
+    "Decide the G8 port-detection approach"
+  ],
+  "context_md_updates_needed": [
+    "hub context: /internal/proxy no longer exists; HUB_INTERNAL_SECRET unused until H4",
+    "shared context: agent stops on fatal auth codes; ResponseCache byte budget"
+  ]
+}
+```

@@ -59,6 +59,12 @@ the archive at session start; `grep` it when checking whether something
 was already fixed. Only move an item once the fix is confirmed (tests,
 verification), not when a fix is merely attempted.
 
+Every fix, bug fix or addition made in code (backlog item or not) also gets
+a structured entry in `code-archive/<component>/CA-XXXX-<slug>.md` (copy
+`code-archive/_TEMPLATE.md`, next free ID from `code-archive/INDEX.md`) plus a
+row in `INDEX.md`; the archive's `Resolved` line should cite the entry ID. See
+`code-archive/README.md`.
+
 If you find a new small, contained, non-urgent issue that isn't worth a full context.md Known Risks/Gaps entry,
 append a line to that component's backlog.md instead of letting it only
 live in your session's own report.
