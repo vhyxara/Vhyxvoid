@@ -34,8 +34,8 @@ apps/hub/.env.*
 deploy.md
 apps/api/keys/*certbot/
 vhyxconfig.md
-.claude
-internal-tools
+# .claude
+# internal-tools
 # Private keys and certificates — never commit
 /certbot/
 /apps/api/keys/
