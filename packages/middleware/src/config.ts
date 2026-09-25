@@ -10,7 +10,12 @@ export interface VhyxvoidConfig {
   envKey?: string;
   /** Called when tunnel is active with the public URL */
   onConnect?: (tunnelUrl: string) => void;
-  /** Disable tunnel in production. Default: auto (disabled when NODE_ENV=production) */
+  /**
+   * Force the tunnel on (`true`) or off (`false`). Default: on only when
+   * NODE_ENV is "development" and not on CI (CI set to anything but "false"
+   * or "0"), the same rule as @vhyxvoid/next plus the CI check. In 1.0.5
+   * and earlier the default was "on unless NODE_ENV is production".
+   */
   enabled?: boolean;
 }
 
@@ -41,7 +46,11 @@ export function resolveConfig(userConfig: VhyxvoidConfig = {}): {
   const writeEnv = userConfig.writeEnv ?? process.env.VHYXVOID_WRITE_ENV;
 
   // Auto-disable in production unless explicitly enabled
-  const enabled = userConfig.enabled ?? process.env.NODE_ENV !== "production";
+  // Opt-in outside development: a staging box, CI runner or container with
+  // NODE_ENV unset/"test"/"staging" and the key in its environment used to
+  // open a public tunnel silently (audit part2 G7).
+  const enabled =
+    userConfig.enabled ?? (process.env.NODE_ENV === "development" && !isCI());
 
   return {
     key,
@@ -54,4 +63,10 @@ export function resolveConfig(userConfig: VhyxvoidConfig = {}): {
     onConnect: userConfig.onConnect,
     enabled,
   };
+}
+
+/** CI providers set CI (GitHub Actions, GitLab, CircleCI, Travis, ...). */
+function isCI(): boolean {
+  const ci = process.env.CI;
+  return ci !== undefined && ci !== "" && ci !== "false" && ci !== "0";
 }
