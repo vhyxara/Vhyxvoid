@@ -77,6 +77,12 @@ export interface ValidateApiKeyParams {
   timestamp: number; // unix ms
   requiredScope: string;
   ip: string;
+  /**
+   * Count this call as a usage request. Default true. The SDK connection
+   * handshake (sdk:register) passes false: it opens a connection, it is not
+   * a tunnelled request.
+   */
+  countUsage?: boolean;
 }
 
 export interface IValidateApiKeyUseCase {

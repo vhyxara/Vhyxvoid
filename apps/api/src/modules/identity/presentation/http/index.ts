@@ -12,7 +12,6 @@ import {
   adminFeedbackRoutes,
   feedbackRoutes,
 } from "@/modules/feedback/presentation/http/feedback.routes";
-import { tunnelProxyRoutes } from "./user/tunnelProxy.routes";
 
 const registerRoutes = async (server: FastifyInstance) => {
   await server.register(identityRoutes, { prefix: "/api/v1/auth" });
@@ -22,7 +21,6 @@ const registerRoutes = async (server: FastifyInstance) => {
   await server.register(adminRoutes, { prefix: "/api/v1/admin/identity" });
 
   await server.register(tunnelRoutes, { prefix: "/api/v1/tunnel" });
-  await server.register(tunnelProxyRoutes, { prefix: "/api/v1/tunnelproxy" });
 
   await server.register(billingRoutes, { prefix: "/api/v1/billing" });
 

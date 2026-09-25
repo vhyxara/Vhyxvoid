@@ -76,16 +76,16 @@ export class PublicPathUsageLimiter {
   }
 
   /**
-   * Call once per incoming public-path request, before forwarding. Records
-   * the request toward the monthly counter only when it's allowed through —
-   * a 429'd request never reached an agent, so it shouldn't count against
-   * the account's tunnel usage.
+   * Call once per incoming public-path request, before the agent lookup, so
+   * a flood aimed at a URL with no live agent is still capped. Does NOT
+   * count the request toward monthly usage: call recordForwarded() once the
+   * request is actually handed to an agent (a 429 or a 503 "agent not
+   * connected" never reached one).
    */
   async checkRequest(accountId: string): Promise<PublicPathRateLimitResult> {
     const limitPerMinute = await this.getRateLimitPerMinute(accountId);
 
     if (limitPerMinute === Infinity) {
-      this.recordMonthlyUsage(accountId);
       return { allowed: true, limitPerMinute, retryAfterSeconds: 0 };
     }
 
@@ -105,8 +105,15 @@ export class PublicPathUsageLimiter {
       };
     }
 
-    this.recordMonthlyUsage(accountId);
     return { allowed: true, limitPerMinute, retryAfterSeconds: 0 };
+  }
+
+  /** Count one public-path request that was forwarded to a live agent. */
+  recordForwarded(accountId: string): void {
+    this.monthlyAccumulator.set(
+      accountId,
+      (this.monthlyAccumulator.get(accountId) ?? 0) + 1,
+    );
   }
 
   /**
@@ -127,13 +134,6 @@ export class PublicPathUsageLimiter {
       }
     }
     this.monthlyAccumulator.clear();
-  }
-
-  private recordMonthlyUsage(accountId: string): void {
-    this.monthlyAccumulator.set(
-      accountId,
-      (this.monthlyAccumulator.get(accountId) ?? 0) + 1,
-    );
   }
 
   private async getRateLimitPerMinute(accountId: string): Promise<number> {

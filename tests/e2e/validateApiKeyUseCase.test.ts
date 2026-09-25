@@ -10,8 +10,8 @@ import { createHash, createHmac, randomUUID } from "crypto";
 // deleted in favor of this one, so this is now the single test suite that
 // guards the actual security-critical logic (timestamp window, replay
 // protection, key status, scope, HMAC signature incl. rotation grace, rate
-// limiting) shared by the Hub's live gateway path and apps/api's
-// gateway/tunnelproxy routes.
+// limiting) shared by the Hub's live gateway path and apps/api's gateway
+// routes.
 
 const SECRET = "the-real-secret-hash-value";
 const OLD_SECRET = "the-previous-secret-hash-value";
@@ -354,5 +354,48 @@ describe("buildValidateApiKeyUseCase — canonical ValidateApiKeyUseCase", () =>
 
     const result = await useCase.execute(baseParams());
     expect(result.valid).toBe(true);
+  });
+});
+
+// shared backlog, 2026-09-24: each SDK connection's sdk:register handshake
+// was counted as a usage request (2 requests over one connection counted 3).
+describe("usage counting and the countUsage flag", () => {
+  const usageKeys = (store: Map<string, string>) => [...store.keys()].filter((k) => k.startsWith("usage:"));
+
+  it("a valid request increments the usage counter", async () => {
+    const redis = makeFakeRedis();
+    const useCase = buildValidateApiKeyUseCase({ redis: redis as any, loadKey: vi.fn(async () => makeRow()) });
+    expect((await useCase.execute(baseParams())).valid).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(usageKeys(redis.store)).toHaveLength(1);
+  });
+
+  it("countUsage: false (the sdk:register handshake) validates without counting", async () => {
+    const redis = makeFakeRedis();
+    const useCase = buildValidateApiKeyUseCase({ redis: redis as any, loadKey: vi.fn(async () => makeRow()) });
+    expect((await useCase.execute({ ...baseParams(), countUsage: false })).valid).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(usageKeys(redis.store)).toHaveLength(0);
+  });
+});
+
+describe("HubAuthService.authenticateSdkRegister", () => {
+  it("asks the validator not to count the handshake as usage", async () => {
+    const { HubAuthService } = await import("../../apps/hub/src/services/HubAuth.service");
+    const execute = vi.fn(async () => ({
+      valid: true as const,
+      apiKeyId: KEY_ID,
+      accountId: ACCOUNT_ID,
+      scopes: ["tunnel:connect"],
+      rateLimitPerMinute: -1,
+    }));
+    const auth = new HubAuthService({ execute } as any, "pepper", async () => null);
+    await auth
+      .authenticateSdkRegister(
+        { v: "1", type: "sdk:register", keyId: KEY_ID, signature: "sig", requestId: "r1", ts: Date.now() } as any,
+        "127.0.0.1",
+      )
+      .catch(() => {});
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ method: "SDK_REGISTER", countUsage: false }));
   });
 });

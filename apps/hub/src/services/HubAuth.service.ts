@@ -297,6 +297,8 @@ export class HubAuthService {
       timestamp: msg.ts,
       requiredScope: 'tunnel:connect',
       ip,
+      // The handshake opens a connection; only sdk:request counts as usage.
+      countUsage: false,
     });
 
     if (!result.valid) throw new HubAuthError(result.code, result.reason);

@@ -56,7 +56,8 @@ function makeHandler(opts: {
     limitPerMinute: opts.limitPerMinute ?? 100,
     retryAfterSeconds: opts.retryAfterSeconds ?? 0,
   }));
-  const usageLimiter = { checkRequest } as any;
+  const recordForwarded = vi.fn();
+  const usageLimiter = { checkRequest, recordForwarded } as any;
 
   const handler = new HttpTunnelHandler(
     subdomainRegistry as any,
@@ -67,7 +68,7 @@ function makeHandler(opts: {
     usageLimiter,
   );
 
-  return { handler, forwarded, checkRequest };
+  return { handler, forwarded, checkRequest, recordForwarded };
 }
 
 async function startHandlerServer(handler: HttpTunnelHandler): Promise<{
@@ -132,7 +133,7 @@ describe("HttpTunnelHandler — public-path rate limiting", () => {
   });
 
   it("forwards normally when the limiter allows the request", async () => {
-    const { handler, forwarded } = makeHandler({ allowed: true });
+    const { handler, forwarded, recordForwarded } = makeHandler({ allowed: true });
     const server = await startHandlerServer(handler);
 
     const res = await get(server.port);
@@ -140,6 +141,19 @@ describe("HttpTunnelHandler — public-path rate limiting", () => {
 
     expect(res.status).toBe(200);
     expect(forwarded).toHaveLength(1);
+    expect(recordForwarded).toHaveBeenCalledWith("acct_1");
+  });
+
+  // hub backlog, 2026-09-24: a stale subdomain entry's 503 used to count.
+  it("a 503 'agent not connected' is not counted as usage", async () => {
+    const { handler, recordForwarded } = makeHandler({ allowed: true, withAgent: false });
+    const server = await startHandlerServer(handler);
+
+    const res = await get(server.port);
+    await server.close();
+
+    expect(res.status).toBe(503);
+    expect(recordForwarded).not.toHaveBeenCalled();
   });
 
   it("checks the limiter even when no agent is connected (a flood on a dead URL is still capped)", async () => {

@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // apps/hub/src/utils/internalAuth.ts
-// Pure, testable auth check for the /internal/proxy endpoint.
-// See context.md risk #7 and decision.md, 2026-09-12, "internal/proxy
-// authentication".
+// Pure, testable shared-secret check for hub-internal HTTP endpoints.
+// Written for /internal/proxy (context.md risk #7; decision.md, 2026-09-12,
+// "internal/proxy authentication"), which was removed 2026-09-25 as
+// unreachable; kept for the planned admin-v2 /internal/stats (H4).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';

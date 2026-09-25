@@ -211,8 +211,11 @@ class ValidateApiKeyUseCaseImpl implements IValidateApiKeyUseCase {
       }
     }
 
-    // 8. Record usage — fire and forget, never blocks response
-    this.incrementUsage(cached.accountId, params.keyId).catch(() => {});
+    // 8. Record usage — fire and forget, never blocks response. Skipped for
+    // a handshake (countUsage: false), which is not a request.
+    if (params.countUsage !== false) {
+      this.incrementUsage(cached.accountId, params.keyId).catch(() => {});
+    }
 
     return {
       valid: true,

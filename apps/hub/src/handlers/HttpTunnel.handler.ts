@@ -175,6 +175,10 @@ export class HttpTunnelHandler {
       );
     }
 
+    // Counted only now that a live agent will get it (hub backlog,
+    // 2026-09-24: a stale entry's 503s used to count as usage).
+    this.usageLimiter?.recordForwarded(entry.accountId);
+
     // Read request body
     let body: string | null = null;
     let bodyEncoding: 'utf8' | 'base64' | undefined;

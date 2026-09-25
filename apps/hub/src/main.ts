@@ -117,19 +117,10 @@ async function main() {
   };
 
   // ── Start hub ────────────────────────────────────────────────────────────────
-  if (!process.env.HUB_INTERNAL_SECRET) {
-    console.warn(
-      '[hub] HUB_INTERNAL_SECRET is not set — /internal/proxy will reject all requests (503). ' +
-        'This is the safe default: set it (and the matching value on apps/api) only once a real ' +
-        'caller for /internal/proxy exists. See context.md risk #7.',
-    );
-  }
-
   const hub = new HubServer({
     port: Number(process.env.HUB_PORT ?? 9001),
     hubDomain: process.env.HUB_DOMAIN ?? 'vhyxvoid.com',
     pepper: process.env.SERVER_HMAC_PEPPER!,
-    internalSecret: process.env.HUB_INTERNAL_SECRET,
     loadKeyHash, // ← defined here where prisma is in scope
     redis,
     validateKeyUseCase,

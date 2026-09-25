@@ -7,6 +7,7 @@ import type { AgentRegistry } from '@/registry/Agent.registry';
 import type { AgentSession } from '@/registry/Agent.registry';
 import type { PendingRegistry } from '@/registry/Pending.registry';
 import type { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
+import { releaseSubdomain, type SubdomainReleaseDeps } from '@/utils/releaseSubdomain';
 
 export class HeartbeatService {
   private timer: NodeJS.Timeout | null = null;
@@ -17,6 +18,7 @@ export class HeartbeatService {
     private readonly sessionRepo: TunnelSessionRepository,
     private readonly redis: Redis,
     private readonly hubInstanceId: string,
+    private readonly subdomains?: SubdomainReleaseDeps,
   ) {}
 
   start(): void {
@@ -77,6 +79,7 @@ export class HeartbeatService {
 
     this.sessionRepo.markDisconnected(session.agentId, 'EVICTED').catch(() => {});
     this.redis.del(`hub:agent:${session.accountId}:${session.label}`).catch(() => {});
+    void releaseSubdomain(this.subdomains, session);
 
     try {
       session.ws.close();

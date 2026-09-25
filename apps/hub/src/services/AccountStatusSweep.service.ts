@@ -23,6 +23,7 @@ import type { AgentRegistry, AgentSession } from '@/registry/Agent.registry';
 import type { PendingRegistry } from '@/registry/Pending.registry';
 import type { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import type { HttpTunnelHandler } from '@/handlers/HttpTunnel.handler';
+import { releaseSubdomain, type SubdomainReleaseDeps } from '@/utils/releaseSubdomain';
 
 const SWEEP_INTERVAL_MS = 60_000;
 
@@ -66,6 +67,7 @@ export class AccountStatusSweepService {
     private readonly sessionRepo: TunnelSessionRepository,
     private readonly httpTunnelHandler: HttpTunnelHandler,
     private readonly redis: { del: (key: string) => Promise<unknown> },
+    private readonly subdomains?: SubdomainReleaseDeps,
   ) {}
 
   start(): void {
@@ -143,6 +145,7 @@ export class AccountStatusSweepService {
 
     this.sessionRepo.markDisconnected(session.agentId, 'EVICTED').catch(() => {});
     this.redis.del(`hub:agent:${session.accountId}:${session.label}`).catch(() => {});
+    void releaseSubdomain(this.subdomains, session);
 
     try {
       session.ws.close();

@@ -26,7 +26,6 @@ import { WebSocketServer } from 'ws';
 import { SubdomainRegistry } from './services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from './handlers/HttpTunnel.handler';
 import WebSocket from 'ws';
-import { isInternalRequestAuthorized } from '@/utils/internalAuth';
 
 interface WebSocketWithMeta extends WebSocket {
   meta: {
@@ -53,18 +52,6 @@ export interface HubServerConfig {
   validateKeyUseCase: IValidateApiKeyUseCase;
   tunnelSessionRepo: TunnelSessionRepository;
   tunnelRequestRepo: TunnelRequestRepository;
-
-  /**
-   * Shared secret required on every /internal/proxy request (header
-   * `x-hub-internal-secret`), checked with a timing-safe comparison.
-   * No caller exists yet (HUB_INTERNAL_URL in apps/api has no wired-up
-   * caller — see context.md's Configuration table), so this intentionally
-   * fails CLOSED when unset: every /internal/proxy request is rejected
-   * with 503 rather than silently falling back to "no auth required".
-   * See context.md risk #7 and decision.md, 2026-09-12, "internal/proxy
-   * authentication".
-   */
-  internalSecret?: string;
 }
 
 export class HubServer {
@@ -79,7 +66,6 @@ export class HubServer {
   private readonly pubsub: HubPubSub;
   private readonly router: MessageRouter;
   // private listenSocket: any = null;
-  public readonly pendingRequests = new Map<string, (response: unknown) => void>();
   private readonly subdomainRegistry: SubdomainRegistry;
   private readonly httpTunnelHandler: HttpTunnelHandler;
   constructor(private readonly config: HubServerConfig) {
@@ -98,12 +84,19 @@ export class HubServer {
     );
     this.usageService = new HubUsageService(config.redis);
 
+    const subdomainRelease = {
+      findAccountSlug: (accountId: string) => config.tunnelSessionRepo.findAccountSlug(accountId),
+      unregister: (label: string, slug: string, agentId: string) =>
+        this.subdomainRegistry.unregister(label, slug, agentId),
+    };
+
     this.heartbeat = new HeartbeatService(
       this.agentRegistry,
       this.pendingRegistry,
       config.tunnelSessionRepo,
       config.redis,
       this.hubInstanceId,
+      subdomainRelease,
     );
 
     this.pubsub = new HubPubSub(
@@ -141,6 +134,7 @@ export class HubServer {
       config.tunnelSessionRepo,
       this.httpTunnelHandler,
       config.redis,
+      subdomainRelease,
     );
 
     // ── Router ───────────────────────────────────────────────────────────────
@@ -161,26 +155,6 @@ export class HubServer {
     );
   }
 
-  /**
-   * Checks the `x-hub-internal-secret` header against config.internalSecret.
-   * Delegates to the pure, directly-unit-tested isInternalRequestAuthorized()
-   * in utils/internalAuth.ts.
-   */
-  private checkInternalAuth(req: import('http').IncomingMessage): boolean {
-    return isInternalRequestAuthorized(
-      req.headers['x-hub-internal-secret'],
-      this.config.internalSecret,
-    );
-  }
-
-  // ADD TO HubServer class:
-  resolveRequest(requestId: string, response: unknown): void {
-    const resolver = this.pendingRequests.get(requestId);
-    if (resolver) {
-      this.pendingRequests.delete(requestId);
-      resolver(response);
-    }
-  }
   async start(): Promise<void> {
     // Clean up stale CONNECTED sessions from a previous crash of this hub instance
     await this.config.tunnelSessionRepo
@@ -217,84 +191,6 @@ export class HubServer {
       if (req.url === '/metrics') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end(`hub_agents_connected ${this.agentRegistry.totalCount()}`);
-        return;
-      }
-
-      if (req.method === 'POST' && req.url === '/internal/proxy') {
-        if (!this.checkInternalAuth(req)) {
-          res.writeHead(this.config.internalSecret ? 401 : 503, {
-            'Content-Type': 'application/json',
-          });
-          res.end(
-            JSON.stringify({
-              success: false,
-              message: this.config.internalSecret
-                ? 'Unauthorized'
-                : 'Internal proxy endpoint is disabled (HUB_INTERNAL_SECRET not configured)',
-            }),
-          );
-          return;
-        }
-        let rawBody = '';
-        req.on('data', (chunk: Buffer) => {
-          rawBody += chunk.toString();
-        });
-        req.on('end', () => {
-          try {
-            const input = JSON.parse(rawBody) as {
-              agentId: string;
-              method: string;
-              path: string;
-              headers: Record<string, string>;
-              body: unknown;
-            };
-
-            const agent = this.agentRegistry.findByAgentId(input.agentId);
-            if (!agent) {
-              res.writeHead(404, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({ success: false, message: `Agent ${input.agentId} not connected` }),
-              );
-              return;
-            }
-
-            const requestId = `req_${crypto.randomUUID()}`;
-
-            const timeout = setTimeout(() => {
-              this.pendingRequests.delete(requestId);
-              res.writeHead(504, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, message: 'Agent response timeout' }));
-            }, 15000);
-
-            this.pendingRequests.set(requestId, (response: unknown) => {
-              clearTimeout(timeout);
-              const r = response as { status: number; statusText: string; body: unknown };
-              res.writeHead(r.status ?? 200, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({
-                  success: true,
-                  status: r.status,
-                  statusText: r.statusText,
-                  data: r.body,
-                }),
-              );
-            });
-
-            agent.ws.send(
-              JSON.stringify({
-                type: 'http_request',
-                requestId,
-                method: input.method,
-                path: input.path,
-                headers: input.headers,
-                body: input.body,
-              }),
-            );
-          } catch {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, message: 'Invalid request body' }));
-          }
-        });
         return;
       }
 

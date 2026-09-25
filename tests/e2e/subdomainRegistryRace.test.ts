@@ -132,18 +132,34 @@ describe("SubdomainRegistry — onAgentClose cross-connection race", () => {
   });
 
   it("operations on different labels are not serialized against each other", async () => {
-    const redis = makeFakeRedis({ setDelayMs: 20 });
+    // Asserts on overlap, not wall-clock time (the old `elapsed < 35` check
+    // flaked under CPU load; hub backlog, 2026-09-22). Each SET waits until
+    // both are in flight; if the two labels were serialized, the second SET
+    // could never start while the first waits, and the fallback releases
+    // the first alone, so maxInFlight stays 1.
+    const redis = makeFakeRedis();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((r) => (releaseGate = r));
+    const fallback = setTimeout(() => releaseGate(), 1_000);
+    const plainSet = redis.set;
+    redis.set = async (key: string, value: string) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      if (inFlight === 2) releaseGate();
+      await gate;
+      inFlight--;
+      return plainSet(key, value);
+    };
     const registry = new SubdomainRegistry(redis as any);
 
-    const start = Date.now();
     await Promise.all([
       registry.register(makeEntry({ agentId: "agt_a", label: "a" })),
       registry.register(makeEntry({ agentId: "agt_b", label: "b" })),
     ]);
-    const elapsed = Date.now() - start;
+    clearTimeout(fallback);
 
-    // If these were incorrectly serialized against each other, this would
-    // take ~40ms (2x20ms) instead of ~20ms.
-    expect(elapsed).toBeLessThan(35);
+    expect(maxInFlight).toBe(2);
   });
 });

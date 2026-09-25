@@ -28,17 +28,26 @@ function makeFakeUsageService() {
 
 afterEach(() => vi.restoreAllMocks());
 
+
+// The handler's call sequence: rate check first, then count the request once
+// it is forwarded to a live agent.
+async function admit(limiter: PublicPathUsageLimiter, accountId: string) {
+  const r = await limiter.checkRequest(accountId);
+  if (r.allowed) limiter.recordForwarded(accountId);
+  return r;
+}
+
 describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
   it("FREE allows 100 requests/min and refuses the 101st", async () => {
     const sessionRepo = makeFakeSessionRepo({ free1: { plan: "FREE" } });
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
     for (let i = 1; i <= 100; i++) {
-      const r = await limiter.checkRequest("free1");
+      const r = await admit(limiter, "free1");
       expect(r.allowed, `request ${i}`).toBe(true);
       expect(r.limitPerMinute).toBe(100);
     }
-    const refused = await limiter.checkRequest("free1");
+    const refused = await admit(limiter, "free1");
     expect(refused.allowed).toBe(false);
     expect(refused.limitPerMinute).toBe(100);
     expect(refused.retryAfterSeconds).toBeGreaterThan(0);
@@ -50,10 +59,10 @@ describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
     for (let i = 1; i <= 3000; i++) {
-      const r = await limiter.checkRequest("pro1");
+      const r = await admit(limiter, "pro1");
       expect(r.allowed, `request ${i}`).toBe(true);
     }
-    const refused = await limiter.checkRequest("pro1");
+    const refused = await admit(limiter, "pro1");
     expect(refused.allowed).toBe(false);
     expect(refused.limitPerMinute).toBe(3000);
   });
@@ -63,7 +72,7 @@ describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
     for (let i = 1; i <= 4000; i++) {
-      const r = await limiter.checkRequest("ent1");
+      const r = await admit(limiter, "ent1");
       expect(r.allowed, `request ${i}`).toBe(true);
     }
   });
@@ -75,10 +84,10 @@ describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
     });
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
-    for (let i = 1; i <= 100; i++) await limiter.checkRequest("free1");
-    expect((await limiter.checkRequest("free1")).allowed).toBe(false);
+    for (let i = 1; i <= 100; i++) await admit(limiter, "free1");
+    expect((await admit(limiter, "free1")).allowed).toBe(false);
     // pro1 is untouched by free1 having exhausted its own limit
-    expect((await limiter.checkRequest("pro1")).allowed).toBe(true);
+    expect((await admit(limiter, "pro1")).allowed).toBe(true);
   });
 
   it("the per-minute counter resets on the next minute bucket", async () => {
@@ -87,11 +96,11 @@ describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
     const sessionRepo = makeFakeSessionRepo({ free1: { plan: "FREE" } });
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
-    for (let i = 1; i <= 100; i++) await limiter.checkRequest("free1");
-    expect((await limiter.checkRequest("free1")).allowed).toBe(false);
+    for (let i = 1; i <= 100; i++) await admit(limiter, "free1");
+    expect((await admit(limiter, "free1")).allowed).toBe(false);
 
     vi.setSystemTime(new Date("2026-09-22T10:01:00.000Z"));
-    expect((await limiter.checkRequest("free1")).allowed).toBe(true);
+    expect((await admit(limiter, "free1")).allowed).toBe(true);
 
     vi.useRealTimers();
   });
@@ -104,7 +113,7 @@ describe("PublicPathUsageLimiter — per-minute abuse limiter", () => {
     );
     const limiter = new PublicPathUsageLimiter(sessionRepo, makeFakeUsageService());
 
-    const r = await limiter.checkRequest("free1");
+    const r = await admit(limiter, "free1");
     expect(r.limitPerMinute).toBe(3000); // PRO's number, not FREE's 100
     expect(
       errors.mock.calls.some((c) => String(c[1]).includes("plan lookup failed")),
@@ -118,8 +127,8 @@ describe("PublicPathUsageLimiter — batched monthly counter", () => {
     const usageService = makeFakeUsageService();
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
-    await limiter.checkRequest("free1");
-    await limiter.checkRequest("free1");
+    await admit(limiter, "free1");
+    await admit(limiter, "free1");
     expect(usageService.increment).not.toHaveBeenCalled();
 
     limiter.flush();
@@ -137,7 +146,7 @@ describe("PublicPathUsageLimiter — batched monthly counter", () => {
     const usageService = makeFakeUsageService();
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
-    for (let i = 1; i <= 101; i++) await limiter.checkRequest("free1"); // 100 allowed, 1 refused
+    for (let i = 1; i <= 101; i++) await admit(limiter, "free1"); // 100 allowed, 1 refused
 
     limiter.flush();
     expect(usageService.increment).toHaveBeenCalledWith(
@@ -153,7 +162,7 @@ describe("PublicPathUsageLimiter — batched monthly counter", () => {
     const usageService = makeFakeUsageService();
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
-    await limiter.checkRequest("free1");
+    await admit(limiter, "free1");
     limiter.flush();
     expect(usageService.increment).toHaveBeenCalledTimes(1);
 
@@ -169,9 +178,9 @@ describe("PublicPathUsageLimiter — batched monthly counter", () => {
     const usageService = makeFakeUsageService();
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
-    await limiter.checkRequest("free1");
-    await limiter.checkRequest("pro1");
-    await limiter.checkRequest("pro1");
+    await admit(limiter, "free1");
+    await admit(limiter, "pro1");
+    await admit(limiter, "pro1");
 
     limiter.flush();
     expect(usageService.increment).toHaveBeenCalledWith("free1", PUBLIC_USAGE_SENTINEL, "requests", 1);
@@ -183,9 +192,9 @@ describe("PublicPathUsageLimiter — batched monthly counter", () => {
     const usageService = makeFakeUsageService();
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
-    await limiter.checkRequest("ent1");
-    await limiter.checkRequest("ent1");
-    await limiter.checkRequest("ent1");
+    await admit(limiter, "ent1");
+    await admit(limiter, "ent1");
+    await admit(limiter, "ent1");
 
     limiter.flush();
     expect(usageService.increment).toHaveBeenCalledWith("ent1", PUBLIC_USAGE_SENTINEL, "requests", 3);
@@ -200,17 +209,31 @@ describe("PublicPathUsageLimiter — start()/stop()", () => {
     const limiter = new PublicPathUsageLimiter(sessionRepo, usageService);
 
     limiter.start();
-    await limiter.checkRequest("free1");
+    await admit(limiter, "free1");
 
     vi.advanceTimersByTime(30_000);
     expect(usageService.increment).toHaveBeenCalledTimes(1);
 
     limiter.stop();
-    await limiter.checkRequest("free1");
+    await admit(limiter, "free1");
     vi.advanceTimersByTime(60_000);
     // No new flush happened after stop() — still just the one call from before.
     expect(usageService.increment).toHaveBeenCalledTimes(1);
 
     vi.useRealTimers();
+  });
+});
+
+describe("PublicPathUsageLimiter — checking is not counting", () => {
+  it("checkRequest() alone never counts toward monthly usage (a 503'd request is not usage)", async () => {
+    const usageService = makeFakeUsageService();
+    const limiter = new PublicPathUsageLimiter(
+      makeFakeSessionRepo({ free1: { plan: "FREE" } }),
+      usageService,
+    );
+
+    await limiter.checkRequest("free1");
+    limiter.flush();
+    expect(usageService.increment).not.toHaveBeenCalled();
   });
 });
