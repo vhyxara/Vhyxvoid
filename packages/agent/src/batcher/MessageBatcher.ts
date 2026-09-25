@@ -1,6 +1,7 @@
 // packages/agent/src/batcher/MessageBatcher.ts
 // In-memory only. Never written to disk. Never persisted.
-// If WS drops while items are buffered → flush() routes to DurableQueue.
+// If WS drops while items are buffered → flush() hands them to the fallback
+// (AgentClient holds them in memory until re-registered).
 
 import {
   TunnelResponseMsg,
@@ -28,7 +29,7 @@ export class MessageBatcher {
   constructor(
     /** Called with serialized data when WS is available */
     private readonly onFlush: FlushFn,
-    /** Called with individual messages when WS is down — routes to DurableQueue */
+    /** Called with individual messages when WS is down (AgentClient holds them in memory) */
     private readonly onQueueFallback: QueueFallback,
     /** Returns true when WS connection is CONNECTED */
     private readonly isConnected: IsConnected,
@@ -50,7 +51,7 @@ export class MessageBatcher {
   /**
    * Flush the buffer.
    * - If WS is connected: send as batch (or single message if only one item)
-   * - If WS is down: route non-pong messages to DurableQueue
+   * - If WS is down: hand non-pong messages to the fallback
    */
   flush(): void {
     if (this.buffer.length === 0) return;
@@ -90,7 +91,7 @@ export class MessageBatcher {
 
   /**
    * Called on WS close BEFORE reconnect starts.
-   * Moves everything currently in the buffer to DurableQueue.
+   * Hands everything currently in the buffer to the fallback.
    * Pongs are discarded (they are point-in-time, not meaningful after disconnect).
    */
   flushToQueue(): void {

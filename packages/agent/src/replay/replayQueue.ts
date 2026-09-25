@@ -1,12 +1,12 @@
 // packages/agent/src/replay/replayQueue.ts
-// Single replay path. Outbound first, then inbound.
+// Replays queued inbound requests. Outbound responses are not persisted any
+// more (audit part2 G3); leftovers from older agents are deleted unsent.
 
 import { QueueItem } from "../queue/DurableQueue";
 import { BackendProxy } from "../proxy/BackendProxy";
 import {
   TunnelForwardMsg,
   TunnelResponseMsg,
-  TunnelAgentErrorMsg,
   serialize,
   PROTOCOL_VERSION,
 } from "@vhyxvoid/protocol";
@@ -43,12 +43,16 @@ export async function replayQueue(
   let skipped = 0;
 
   for (const item of items) {
+    // Outbound responses are no longer persisted (audit part2 G3): one here
+    // is a leftover from an older agent. It can't match anything the hub is
+    // still waiting for, and its body shouldn't stay on disk: delete, don't send.
+    if (item.direction === "outbound") {
+      queue.markSuccess(item.id);
+      skipped++;
+      continue;
+    }
     try {
-      if (item.direction === "outbound") {
-        await replayOutbound(item, send);
-      } else {
-        await replayInbound(item, send, proxy);
-      }
+      await replayInbound(item, send, proxy);
       queue.markSuccess(item.id);
       succeeded++;
     } catch (err) {
@@ -70,15 +74,6 @@ export async function replayQueue(
 }
 
 // ── Direction handlers ────────────────────────────────────────────────────────
-
-async function replayOutbound(item: QueueItem, send: SendFn): Promise<void> {
-  // Outbound = a response/error the agent computed but couldn't send
-  // because WS was down. Just send it now.
-  const msg = JSON.parse(item.payload) as
-    | TunnelResponseMsg
-    | TunnelAgentErrorMsg;
-  send(serialize(msg as any));
-}
 
 async function replayInbound(
   item: QueueItem,

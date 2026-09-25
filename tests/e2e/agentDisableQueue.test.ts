@@ -76,7 +76,8 @@ describe("NoOpQueue", () => {
 
   it("swallows enqueues instead of throwing", () => {
     const q = new NoOpQueue();
-    expect(() => q.enqueueOutbound({} as never)).not.toThrow();
+    // enqueueOutbound was removed from both queues (audit part2 G3).
+    expect(() => q.enqueueInbound({} as never)).not.toThrow();
     expect(q.drainForReplay()).toEqual([]);
     expect(q.count()).toEqual({ ready: 0, pending: 0, deadLetter: 0 });
   });

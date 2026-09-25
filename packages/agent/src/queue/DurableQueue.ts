@@ -53,6 +53,12 @@ export class DurableQueue {
     this.db.pragma("foreign_keys = ON");
     this.db.pragma("busy_timeout = 5000"); // wait up to 5s on lock contention
     this.migrate();
+    // Older agents wrote outbound responses (full response bodies) here while
+    // offline. They are never persisted any more (audit part2 G3); delete any
+    // left behind so they don't stay on disk.
+    this.db.exec(
+      "DELETE FROM queue WHERE direction = 'outbound'; DELETE FROM dead_letter WHERE direction = 'outbound';",
+    );
   }
 
   private migrate(): void {
@@ -98,22 +104,6 @@ export class DurableQueue {
         JSON.stringify(payload),
         Date.now(),
         LIMITS.QUEUE_MAX_ATTEMPTS_INBOUND,
-      );
-  }
-
-  enqueueOutbound(payload: OutboundPayload): void {
-    this.db
-      .prepare(
-        `
-      INSERT INTO queue (id, direction, payload, ts, attempts, max_attempts, next_retry_at)
-      VALUES (?, 'outbound', ?, ?, 0, ?, 0)
-    `,
-      )
-      .run(
-        randomUUID(),
-        JSON.stringify(payload),
-        Date.now(),
-        LIMITS.QUEUE_MAX_ATTEMPTS_OUTBOUND,
       );
   }
 

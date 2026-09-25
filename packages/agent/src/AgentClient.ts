@@ -36,6 +36,10 @@ import { MessageBatcher } from "./batcher/MessageBatcher";
 import { replayQueue } from "./replay/replayQueue";
 import { LocalDiscoveryServer } from "./discovery/LocalDiscoveryServer";
 
+// Bounds for responses held in memory during a hub outage (see heldResponses).
+const MAX_HELD_RESPONSES = 100;
+const MAX_HELD_BYTES = 20 * 1024 * 1024;
+
 export type AgentState =
   | "IDLE"
   | "CONNECTING"
@@ -96,6 +100,18 @@ export class AgentClient {
   private readonly queue: DurableQueue | NoOpQueue;
   private readonly proxy: BackendProxy;
   private readonly batcher: MessageBatcher;
+  /**
+   * Responses finished while the hub link was down, held IN MEMORY ONLY and
+   * sent after the next hub:registered. They used to be written to the
+   * SQLite queue, which put full response bodies (session tokens, PII) on
+   * disk unencrypted, for as long as the agent stayed offline (audit part2
+   * G3). Holding them still matters: after a half-open drop, a same-label
+   * reconnect replaces the hub's session without rejecting its pending
+   * requests, so a response sent within the hub's pending window is still
+   * delivered. Bounded by count, bytes and that window.
+   */
+  private heldResponses: { msg: TunnelResponseMsg | TunnelAgentErrorMsg; bytes: number; heldAt: number }[] = [];
+  private heldBytes = 0;
   private readonly discovery: LocalDiscoveryServer | null;
   private readonly log: NonNullable<AgentConfig["logger"]>;
 
@@ -120,8 +136,8 @@ export class AgentClient {
     this.batcher = new MessageBatcher(
       // onFlush: send over WS
       (data) => this.sendRaw(data),
-      // onQueueFallback: WS is down, persist to durable queue
-      (msg) => this.queue.enqueueOutbound(msg),
+      // onQueueFallback: WS is down, hold in memory until re-registered
+      (msg) => this.holdResponse(msg),
       // isConnected: checked before every flush
       () => this.state === "CONNECTED",
     );
@@ -152,7 +168,10 @@ export class AgentClient {
   stop(): void {
     this.stopped = true;
     this.setState("STOPPED");
-    this.batcher.flushToQueue(); // save buffered messages to disk
+    // Shutting down: nothing will ever send these.
+    this.batcher.flushToQueue();
+    this.heldResponses = [];
+    this.heldBytes = 0;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close(1000, "agent_stopped");
     this.proxy.stop();
@@ -298,6 +317,8 @@ export class AgentClient {
       },
       "[agent] ✅ tunnel is live",
     );
+
+    this.sendHeldResponses();
 
     // Replay durable queue AFTER state = CONNECTED so sendRaw works
     const counts = this.queue.count();
@@ -449,7 +470,7 @@ export class AgentClient {
     // browser side on its end). Close the backend sockets now, or they stay
     // open on the developer's server with nobody on the other end.
     this.proxy.closeAllWebSockets();
-    this.batcher.flushToQueue(); // save in-memory buffer to SQLite
+    this.batcher.flushToQueue(); // hold buffered responses in memory
     this.setState("RECONNECTING");
     this.scheduleReconnect();
   }
@@ -473,6 +494,38 @@ export class AgentClient {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  private holdResponse(msg: TunnelResponseMsg | TunnelAgentErrorMsg): void {
+    const bytes = Buffer.byteLength(JSON.stringify(msg));
+    this.heldResponses.push({ msg, bytes, heldAt: Date.now() });
+    this.heldBytes += bytes;
+    while (
+      this.heldResponses.length > MAX_HELD_RESPONSES ||
+      (this.heldBytes > MAX_HELD_BYTES && this.heldResponses.length > 1)
+    ) {
+      const dropped = this.heldResponses.shift()!;
+      this.heldBytes -= dropped.bytes;
+    }
+  }
+
+  /** Sends what was held during the outage, minus anything the hub has already given up on. */
+  private sendHeldResponses(): void {
+    const held = this.heldResponses;
+    this.heldResponses = [];
+    this.heldBytes = 0;
+    const cutoff = Date.now() - TIMING.REQUEST_TIMEOUT_MS;
+    let dropped = 0;
+    for (const { msg, heldAt } of held) {
+      if (heldAt < cutoff) {
+        dropped++;
+        continue;
+      }
+      this.batcher.add(msg);
+    }
+    if (held.length > 0) {
+      debugLog("[agent] sent held responses:", held.length - dropped, "expired:", dropped);
+    }
+  }
 
   private sendRaw(data: string): void {
     debugLog(

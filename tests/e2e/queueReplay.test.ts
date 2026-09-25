@@ -10,7 +10,7 @@ import { startFakeBackendServer, FakeBackendServer } from "./testHelpers";
 // no-arg version) from apps/agent/src/utils/queue — wrong path entirely
 // (packages/agent, not apps/agent) and a flat free-function API that
 // doesn't exist anymore. The current design splits this into DurableQueue
-// (a real SQLite-backed class, enqueueInbound/enqueueOutbound/
+// (a real SQLite-backed class, enqueueInbound/
 // drainForReplay/markSuccess/markFailed/count) and a standalone
 // replayQueue(queue, send, proxy) function that drains outbound items
 // first, then inbound. There's no like-for-like REPAIR possible — this
@@ -63,17 +63,25 @@ describe("replayQueue — outbound", () => {
     queue.close();
   });
 
-  it("stores an outbound item and replays (sends) it, then drains the queue", async () => {
-    queue.enqueueOutbound(responseMsg());
+  // Behaviour changed 2026-09-25 (audit part2 G3): outbound responses are no
+  // longer persisted, so an outbound row can only be a leftover from an older
+  // agent. It used to be sent; it is now deleted unsent (it can't match any
+  // request the hub is still waiting for, and its body shouldn't stay on disk).
+  it("deletes a leftover outbound item without sending it", async () => {
+    (queue as any).db
+      .prepare(
+        "INSERT INTO queue (id, direction, payload, ts, attempts, max_attempts, next_retry_at) VALUES ('o1','outbound',?,0,0,10,0)",
+      )
+      .run(JSON.stringify(responseMsg()));
     expect(queue.count().ready).toBe(1);
 
     const send = vi.fn();
-    const proxy = new BackendProxy(0); // unused for outbound-only replay
+    const proxy = new BackendProxy(0);
 
     const result = await replayQueue(queue, send, proxy);
 
-    expect(result).toEqual({ succeeded: 1, failed: 0, skipped: 0 });
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ succeeded: 0, failed: 0, skipped: 1 });
+    expect(send).not.toHaveBeenCalled();
     expect(queue.count()).toEqual({ ready: 0, pending: 0, deadLetter: 0 });
 
     proxy.stop();

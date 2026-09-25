@@ -1,7 +1,6 @@
-import type { QueueItem, InboundPayload, OutboundPayload } from "./DurableQueue";
+import type { QueueItem, InboundPayload } from "./DurableQueue";
 
 export class NoOpQueue {
-  enqueueOutbound(_payload: OutboundPayload): void {}
   enqueueInbound(_payload: InboundPayload): void {}
   drainForReplay(): QueueItem[] { return []; }
   markSuccess(_id: string): void {}
