@@ -65,7 +65,7 @@
       ],
       "default": "`~/.vhyxvoid/queue.db`",
       "flag": "--queue-path",
-      "description": "Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue."
+      "description": "Where agent 1.0.20 and earlier keep their on-disk queue. Accepted but ignored from the next release, which has no queue file. Changed in source 2026-09-25, not released yet."
     },
     {
       "name": "VHYXVOID_WRITE_ENV",

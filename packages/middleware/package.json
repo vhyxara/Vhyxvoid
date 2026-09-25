@@ -13,7 +13,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild src/index.ts --platform=node --bundle --external:better-sqlite3 --external:express --external:fastify --external:fastify-plugin --outfile=dist/index.js && esbuild src/next.ts --platform=node --bundle --external:better-sqlite3 --outfile=dist/next.js && esbuild src/fastify.ts --platform=node --bundle --external:better-sqlite3 --external:fastify --external:fastify-plugin --outfile=dist/fastify.js && node ../../scripts/check-dist.mjs dist/index.js dist/next.js dist/fastify.js",
+    "build": "tsc -b && esbuild src/index.ts --platform=node --bundle --external:express --external:fastify --external:fastify-plugin --outfile=dist/index.js && esbuild src/next.ts --platform=node --bundle --outfile=dist/next.js && esbuild src/fastify.ts --platform=node --bundle --external:fastify --external:fastify-plugin --outfile=dist/fastify.js && node ../../scripts/check-dist.mjs dist/index.js dist/next.js dist/fastify.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },

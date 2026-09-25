@@ -6,4 +6,3 @@ ignoredBuiltDependencies:
   - esbuild
 onlyBuiltDependencies:
   - prisma
-  - better-sqlite3

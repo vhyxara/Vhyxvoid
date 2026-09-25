@@ -41,7 +41,7 @@ describe.each(wrappers)("%s manifest", (dir) => {
   });
 
   it("only leaves external what the consumer provides (peer dependency) or what is lazily loaded", () => {
-    const lazilyLoaded = new Set(["better-sqlite3"]);
+    const lazilyLoaded = new Set<string>();
     const provided = new Set([
       ...Object.keys(pkg.dependencies ?? {}),
       ...Object.keys(pkg.peerDependencies ?? {}),
@@ -128,15 +128,13 @@ describe("packages/agent manifest", () => {
   });
 });
 
-describe("agent: better-sqlite3 stays a lazy, declared dependency", () => {
-  it("is declared by @vhyxvoid/agent itself (the package that really uses the queue)", () => {
-    expect(readJson("packages/agent/package.json").dependencies["better-sqlite3"]).toBeDefined();
-  });
-
-  it("DurableQueue does not require better-sqlite3 at module load", () => {
-    const src = fs.readFileSync(path.join(root, "packages/agent/src/queue/DurableQueue.ts"), "utf8");
-    // `import type` is erased; a value import/require at top level is not.
-    expect(src).not.toMatch(/^import\s+(?!type\b)[^;]*from\s+["']better-sqlite3["']/m);
-    expect(src).not.toMatch(/^(const|let|var)\s+[^=]*=\s*require\(["']better-sqlite3["']\)/m);
+describe("agent: no native dependency", () => {
+  // The SQLite queue (and with it better-sqlite3, the one native module every
+  // Next/Express user had to compile) was removed 2026-09-25: nothing ever
+  // enqueued into it.
+  it("@vhyxvoid/agent declares no better-sqlite3", () => {
+    const pkg = readJson("packages/agent/package.json");
+    expect(pkg.dependencies?.["better-sqlite3"]).toBeUndefined();
+    expect(pkg.scripts.build).not.toContain("better-sqlite3");
   });
 });

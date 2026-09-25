@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { resolveConfig, VhyxvoidConfig } from "./config";
-import { startTunnel } from "./tunnel";
+import { adoptListeningPort, startTunnel } from "./tunnel";
 
 export type { VhyxvoidConfig };
 export { stopTunnel } from "./tunnel";
@@ -22,6 +22,14 @@ export function vhyxvoid(userConfig: VhyxvoidConfig = {}) {
     startTunnel(config);
   }
 
-  // Middleware is a no-op passthrough — tunnel runs in background
-  return (_req: Request, _res: Response, next: NextFunction) => next();
+  // Passthrough; the tunnel runs in the background. The first request tells
+  // us which port the app really listens on (Express has no other way).
+  let portChecked = !config.enabled || config.portExplicit;
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!portChecked) {
+      portChecked = true;
+      adoptListeningPort(req.socket?.localPort, config.portExplicit);
+    }
+    next();
+  };
 }

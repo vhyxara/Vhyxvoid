@@ -34,7 +34,7 @@ npm install --save-dev @vhyxvoid/agent
 You can also run the agent without installing it, with `npx @vhyxvoid/agent`, as the quickstart does.
 
 <Callout title="Native module">
-  Only `@vhyxvoid/agent` depends on `better-sqlite3`, which includes a native component, for the on-disk queue the CLI uses. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. `@vhyxvoid/next` and `@vhyxvoid/middleware` run the agent inside your process without that queue, have no dependencies of their own, and install nothing native.
+  `@vhyxvoid/agent` 1.0.20 and earlier depend on `better-sqlite3`, which includes a native component, for the on-disk queue the CLI uses. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. From the next release the agent has no native dependency at all. Changed in source 2026-09-25, not released yet. `@vhyxvoid/next` and `@vhyxvoid/middleware` run the agent inside your process without that queue, have no dependencies of their own, and install nothing native.
 </Callout>
 
 <Callout type="warn" title="The Next.js integration">

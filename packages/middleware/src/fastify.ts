@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import fp from "fastify-plugin";
 import { resolveConfig, VhyxvoidConfig } from "./config";
-import { startTunnel, stopTunnel } from "./tunnel";
+import { adoptListeningPort, startTunnel, stopTunnel } from "./tunnel";
 
 /**
  * Fastify plugin.
@@ -15,6 +15,27 @@ const plugin: FastifyPluginAsync<VhyxvoidConfig> = async (fastify, opts) => {
 
   if (config.enabled) {
     startTunnel(config);
+  }
+
+  if (config.enabled && !config.portExplicit) {
+    // Once listening, the server knows its real port.
+    const adopt = () => {
+      const addr = fastify.server.address();
+      if (addr && typeof addr === "object") {
+        adoptListeningPort(addr.port, config.portExplicit);
+      }
+    };
+    try {
+      fastify.addHook("onListen" as any, async () => adopt());
+    } catch {
+      // Fastify before onListen existed: fall back to the first request.
+      let checked = false;
+      fastify.addHook("onRequest", async (req) => {
+        if (checked) return;
+        checked = true;
+        adoptListeningPort(req.raw.socket?.localPort, config.portExplicit);
+      });
+    }
   }
 
   fastify.addHook("onClose", async () => {

@@ -8,6 +8,7 @@ import { useCreateCheckout, useSubscription, useCreatePortal, useInvoices } from
 import { RoleLevel } from '@/api/domain/identity/enums/role.enum'
 import { RequireRole } from '@/api/domain/identity/guard/RequireRole'
 import type { Plan, SubscriptionStatus, InvoiceStatus, Invoice } from '@/api/domain/key-management/types/billing.types'
+import { planFeatures, UPGRADE_PLANS } from './billingPlans'
 
 // ── Color helpers — uppercase enums ───────────────────────────────────────
 // planColor/subStatusColor/invoiceStatusColor return MUI-style names.
@@ -55,25 +56,9 @@ function formatCurrency(amount: number, currency: string) {
   }).format(amount / 100)
 }
 
-// ── Checkout dialog — price ID selection ─────────────────────────────────
-// In production replace hardcoded priceIds with your Stripe price IDs
+// ── Checkout dialog: plans and their limits come from billingPlans.ts
 
-const PLANS = [
-  {
-    id: 'pro',
-    label: 'Pro',
-    price: '$29 / month',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID ?? 'price_pro',
-    features: ['5 team members', '50 active tunnels', 'Usage analytics', 'Email support']
-  },
-  {
-    id: 'enterprise',
-    label: 'Enterprise',
-    price: '$99 / month',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID ?? 'price_enterprise',
-    features: ['Unlimited members', 'Unlimited tunnels', 'Priority support', 'Custom SLA']
-  }
-]
+const PLANS = UPGRADE_PLANS
 
 function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: () => void; accountId: string }) {
   const [selectedPriceId, setSelectedPriceId] = useState(PLANS[0].priceId)
@@ -131,7 +116,7 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
                       </Typography>
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 'var(--vhyx-space-4)' }}>
-                      {plan.features.map(f => (
+                      {planFeatures(plan).map(f => (
                         <Typography
                           key={f}
                           component='li'

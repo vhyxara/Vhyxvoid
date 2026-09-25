@@ -8,7 +8,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild src/index.ts --bundle --platform=node --external:next --external:better-sqlite3 --outfile=dist/index.js && node ../../scripts/check-dist.mjs dist/index.js",
+    "build": "tsc -b && esbuild src/index.ts --bundle --platform=node --external:next --outfile=dist/index.js && node ../../scripts/check-dist.mjs dist/index.js",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "npm run build"
   },

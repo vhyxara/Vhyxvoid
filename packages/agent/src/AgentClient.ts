@@ -3,9 +3,6 @@
 
 import WebSocket from "ws";
 // import { randomUUID } from "crypto";
-import path from "path";
-import os from "os";
-import fs from "fs";
 import {
   parseMessage,
   serialize,
@@ -27,13 +24,10 @@ import {
   TunnelWsCloseMsg,
   TunnelWsErrorMsg,
 } from "@vhyxvoid/protocol";
-import { DurableQueue } from "./queue/DurableQueue";
-import { NoOpQueue } from "./queue/NoOpQueue";
 import { AGENT_VERSION } from "./version";
 import { debugLog } from "./debug";
 import { BackendProxy } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
-import { replayQueue } from "./replay/replayQueue";
 import { LocalDiscoveryServer } from "./discovery/LocalDiscoveryServer";
 
 // Bounds for responses held in memory during a hub outage (see heldResponses).
@@ -69,7 +63,10 @@ export interface AgentConfig {
    * (AGENT_VERSION); only override it to report something else on purpose.
    */
   agentVersion?: string;
-  /** SQLite queue file path (default: ~/.vhyxvoid/queue.db) */
+  /**
+   * @deprecated Ignored since the SQLite queue was removed (2026-09-25):
+   * nothing ever enqueued into it. Kept so existing callers still compile.
+   */
   queuePath?: string;
   /** Enable local discovery HTTP server on port 4242 (default: true) */
   localDiscovery?: boolean;
@@ -85,7 +82,7 @@ export interface AgentConfig {
     warn: (obj: object, msg?: string) => void;
     error: (obj: object, msg?: string) => void;
   };
-  /** Disable durable queue (SQLite). Use when running in-process. Default: false */
+  /** @deprecated Ignored: there is no SQLite queue any more (see queuePath). */
   disableQueue?: boolean;
 }
 
@@ -112,7 +109,6 @@ export class AgentClient {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private stopped: boolean = false;
 
-  private readonly queue: DurableQueue | NoOpQueue;
   private readonly proxy: BackendProxy;
   private readonly batcher: MessageBatcher;
   /**
@@ -137,15 +133,6 @@ export class AgentClient {
       error: (obj, msg) => console.error(msg ?? "", obj),
     };
 
-    const useQueue = config.disableQueue !== true;
-    if (useQueue) {
-      const queuePath =
-        config.queuePath ?? path.join(os.homedir(), ".vhyxvoid", "queue.db");
-      fs.mkdirSync(path.dirname(queuePath), { recursive: true });
-      this.queue = new DurableQueue(queuePath);
-    } else {
-      this.queue = new NoOpQueue();
-    }
     this.proxy = new BackendProxy(config.port);
 
     this.batcher = new MessageBatcher(
@@ -191,14 +178,28 @@ export class AgentClient {
     this.ws?.close(1000, "agent_stopped");
     this.proxy.stop();
     this.discovery?.stop();
-    this.queue.close();
   }
 
   getState(): AgentState {
     return this.state;
   }
-  getQueueStatus() {
-    return this.queue.count();
+  /**
+   * Point the agent at a different local port without reconnecting to the
+   * hub (the port is only used for local calls). Used by the framework
+   * integrations once they learn the app's real port (audit part2 G8).
+   */
+  setPort(port: number): void {
+    if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+      throw new Error(`Invalid port: ${port}`);
+    }
+    if (port === this.config.port) return;
+    this.config.port = port;
+    this.proxy.setPort(port);
+    this.discovery?.setPort(port);
+  }
+
+  getPort(): number {
+    return this.config.port;
   }
   getCacheStats() {
     return this.proxy.getCacheStats();
@@ -337,18 +338,6 @@ export class AgentClient {
     );
 
     this.sendHeldResponses();
-
-    // Replay durable queue AFTER state = CONNECTED so sendRaw works
-    const counts = this.queue.count();
-    if (counts.ready > 0) {
-      this.log.info({ items: counts.ready }, "[agent] replaying queue");
-      const result = await replayQueue(
-        this.queue,
-        (data) => this.sendRaw(data),
-        this.proxy,
-      );
-      this.log.info(result, "[agent] queue replay complete");
-    }
   }
 
   private onPing(msg: HubPingMsg): void {
@@ -417,7 +406,7 @@ export class AgentClient {
         message: `Local backend on port ${this.config.port} is not responding: ${(err as Error).message}`,
       };
 
-      // If WS is up, batcher sends it; if down, it goes to durable queue
+      // If WS is up, batcher sends it; if down, it is held in memory
       this.batcher.add(agentError);
     }
   }

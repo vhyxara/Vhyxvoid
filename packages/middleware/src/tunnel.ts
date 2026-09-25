@@ -90,6 +90,32 @@ export function cleanupThenReraise(
   if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
 }
 
+/**
+ * The app's real port, seen from a request or the server's listen address.
+ * When the user didn't set a port, the tunnel started on the 3000 default;
+ * point it at the real one instead of answering every request with a 502
+ * (audit part2 G8). An explicit port is never overridden.
+ */
+export function adoptListeningPort(
+  port: number | undefined,
+  portExplicit: boolean,
+): void {
+  if (!instance || portExplicit || !port) return;
+  const agent = instance as AgentClient & { getPort?: () => number; setPort?: (p: number) => void };
+  if (typeof agent.setPort !== "function" || agent.getPort?.() === port) return;
+  const from = agent.getPort?.();
+  agent.setPort(port);
+  console.log(
+    `[vhyxvoid] Your app listens on port ${port}, not ${from}: forwarding there. ` +
+      `Set VHYXVOID_PORT=${port} to skip this check.`,
+  );
+}
+
+/** The running tunnel's agent, or null (for status checks and tests). */
+export function getTunnelAgent(): AgentClient | null {
+  return instance;
+}
+
 export function stopTunnel(): void {
   instance?.stop();
   instance = null;

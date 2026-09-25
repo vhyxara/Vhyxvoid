@@ -34,7 +34,7 @@ export class BackendProxy {
   private readonly cache = new ResponseCache();
   private evictTimer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly port: number) {
+  constructor(private port: number) {
     this.client = axios.create({
       baseURL: `http://127.0.0.1:${port}`,
       // Fallback only — forward() passes the hub's per-request timeoutMs.
@@ -161,6 +161,14 @@ export class BackendProxy {
       bodyEncoding,
       durationMs,
     };
+  }
+
+  /** Switch to another local port (AgentClient.setPort). Cached responses
+   * came from the old backend, so the cache is cleared. */
+  setPort(port: number): void {
+    this.port = port;
+    this.client.defaults.baseURL = `http://127.0.0.1:${port}`;
+    this.cache.clear();
   }
 
   /** Invalidate cached GETs related to a mutating request path */

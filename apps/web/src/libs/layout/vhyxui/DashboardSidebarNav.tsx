@@ -41,10 +41,11 @@ function NavLink({
 }
 
 // The account a user gets automatically at signup (`PERSONAL`) is a single-owner
-// workspace: it can hold API keys and tunnels like any account, but its name
-// can't be changed (the API rejects it), and Members/Billing/Settings have no
-// agreed meaning for it yet, so its sub-nav offers only the two that do. See
-// decision.md, 2026-09-21, "Personal accounts get a sidebar entry".
+// workspace: it can hold API keys and tunnels like any account and can be
+// upgraded (Billing), but it never has members (the API refuses invites) and
+// its name can't be changed, so Members and Settings are not offered. See
+// decision.md, 2026-09-21, "Personal accounts get a sidebar entry", and
+// shared/decision.md, 2026-09-25 (Billing added).
 function RoleBadge({ roleLevel }: { roleLevel: RoleLevel }) {
   if (roleLevel === RoleLevel.OWNER) {
     return (
@@ -114,7 +115,7 @@ function OrgSubNav({
           <NavLink href={`/organizations/${id}/tunnels`} icon='tabler-plug' onNavigate={onNavigate}>
             Tunnels
           </NavLink>
-          {isOwner && !isPersonal && (
+          {isOwner && (
             <NavLink href={`/organizations/${id}/billing`} icon='tabler-credit-card' onNavigate={onNavigate}>
               Billing
             </NavLink>

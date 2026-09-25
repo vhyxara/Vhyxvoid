@@ -28,6 +28,10 @@ export class LocalDiscoveryServer {
     this.payload = payload;
   }
 
+  setPort(port: number): void {
+    this.payload = { ...this.payload, port };
+  }
+
   /** Update the accountIdHash after hub registration completes */
   setAccountIdHash(hash: string): void {
     this.payload = { ...this.payload, accountIdHash: hash };

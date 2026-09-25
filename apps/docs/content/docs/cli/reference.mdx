@@ -36,7 +36,7 @@ Every flag has an environment variable except `--no-local-discovery`. Precedence
 | `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port the tunnel forwards to. |
 | `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label: the part of the tunnel URL after `--`. Run one agent per label to expose several servers. |
 | `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | WebSocket URL of the hub the agent connects to. |
-| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue. |
+| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where agent 1.0.20 and earlier keep their on-disk queue. Accepted but ignored from the next release, which has no queue file. Changed in source 2026-09-25, not released yet. |
 | `--no-local-discovery` | none | discovery on | Disable local discovery on port 4242. |
 | `--debug` | `VHYXVOID_DEBUG_LOGGING=true` | off | Print detailed diagnostics: one or more lines per message and per request. Off by default. |
 | `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off | After connecting, write the public URL into a file. Give a file name, or none for `.env.local`. |
@@ -91,7 +91,8 @@ Options:
   -l, --label <label>    Tunnel label. Env: VHYXVOID_LABEL (default: "default")
   --hub <url>            Hub WebSocket URL. Env: VHYXVOID_HUB_URL (default:
                          "wss://hub.vhyxvoid.com/agent")
-  --queue-path <path>    SQLite queue path.
+  --queue-path <path>    Deprecated and ignored (the agent no longer keeps a
+                         queue file).
   --no-local-discovery   Disable local discovery on port 4242
   --debug                Print verbose diagnostics. Env:
                          VHYXVOID_DEBUG_LOGGING=true

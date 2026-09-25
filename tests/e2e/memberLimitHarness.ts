@@ -60,6 +60,7 @@ export function makeMemberHarness(opts: {
   accountStatus?: string;
   plan?: string | null; // null/undefined = FREE (no subscription)
   memberUserIds?: string[]; // in addition to the owner, who is always a member
+  accountType?: "ORGANIZATION" | "PERSONAL";
 } = {}) {
   const accounts = new Map<string, FakeAccountRow>([
     [ACCOUNT_ID, { id: ACCOUNT_ID, status: opts.accountStatus ?? "ACTIVE", plan: opts.plan ?? null }],
@@ -132,7 +133,7 @@ export function makeMemberHarness(opts: {
   const account = Account.rehydrate({
     id: ACCOUNT_ID,
     name: "Test Org",
-    type: "ORGANIZATION" as any,
+    type: (opts.accountType ?? "ORGANIZATION") as any,
     status: (opts.accountStatus ?? "ACTIVE") as any,
     createdById: OWNER_ID,
     graceEndsAt: null,

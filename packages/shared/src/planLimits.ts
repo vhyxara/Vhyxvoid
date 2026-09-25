@@ -63,7 +63,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     rateLimitPerMinute: 60,
     allowedEnvironments: ["DEV"],
     rotationAllowed: false,
-    expiryAllowed: false,
+    // Every plan: expiry limits the damage of a leaked key, so it is not a
+    // paid feature (decided 2026-09-25, shared/decision.md).
+    expiryAllowed: true,
     analyticsRetentionDays: 7,
     prodKeysAllowed: false,
   },

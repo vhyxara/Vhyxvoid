@@ -49,7 +49,7 @@ app.listen(3000)
 The URL is `https://<account-slug>--<label>.vhyxvoid.com`; see [Concepts](/getting-started/concepts).
 
 <Callout type="warn" title="Set port to the port you listen on">
-  The middleware cannot see what you pass to `app.listen`. `port` defaults to `VHYXVOID_PORT`, then `3000`. If your server listens elsewhere and you don't set `port`, the tunnel forwards to the wrong place.
+  The middleware cannot see what you pass to `app.listen`. `port` defaults to `VHYXVOID_PORT`, then `3000`. If your server listens elsewhere and you don't set `port`, the tunnel forwards to the wrong place. From the next release the middleware corrects this itself: when neither `port` nor `VHYXVOID_PORT` is set, it switches to the port your app really listens on, with Express as soon as the first request reaches it (it can't see `app.listen` before that) and with Fastify as soon as the server starts listening, and prints one line saying so. A port you set explicitly is never changed. Changed in source 2026-09-25, not released yet.
 </Callout>
 
 ### Credentials
@@ -104,7 +104,7 @@ The tunnel starts once per process. Calling `vhyxvoid()` again logs `tunnel alre
 
 ## Things to know
 
-- **No on-disk queue.** The middleware runs the agent in-process without the SQLite queue and without the local discovery server, so it creates no queue database. The agent reconnects to VhyxVoid by itself if the connection drops.
+- **No on-disk queue.** The middleware runs the agent in-process without the local discovery server and writes nothing to disk. The agent reconnects to VhyxVoid by itself if the connection drops.
 - **Host header.** Requests reach Express with `Host` set to `127.0.0.1:<port>` and `x-forwarded-host` set to the same, not the public hostname. Build absolute URLs from the public URL, not from those headers.
 - **Body parsers.** Signed webhooks need the raw body. Mount `express.raw()` on those routes before any global `express.json()`. See [Webhooks](/integrations/webhooks).
 - **Response caching.** If your server answers a `GET` with `Cache-Control: max-age=…`, the agent may serve repeat requests from memory. Entries are kept per caller: requests with different cookies, `Authorization` or API-key style headers never share one, and responses that set a cookie are not cached. See [Limitations](/limitations#cached-responses).

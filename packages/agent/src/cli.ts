@@ -163,8 +163,8 @@ import { AgentClient } from "./AgentClient";
 import { AGENT_VERSION } from "./version";
 import { config as loadEnv } from "dotenv";
 import * as fs from "fs";
-// import * as path from "path";
-// import * as os from "os";
+import * as path from "path";
+import * as os from "os";
 import { createPrompter } from "./prompt";
 
 // Load .env, .env.local, .env.vhyxvoid in order (last wins)
@@ -291,7 +291,7 @@ program
   )
   .option(
     "--queue-path <path>",
-    "SQLite queue path.",
+    "Deprecated and ignored (the agent no longer keeps a queue file).",
     process.env.VHYXVOID_QUEUE_PATH,
   )
   .option("--no-local-discovery", "Disable local discovery on port 4242")
@@ -341,11 +341,12 @@ program
     console.log(`  Label:  ${opts.label}`);
     console.log(`  Port:   ${port}`);
     console.log(`  Hub:    ${opts.hub}`);
-    console.log(`  Queue:  ${opts.queuePath ?? "~/.vhyxvoid/queue.db"}`);
     console.log(
       `  Local discovery: ${opts.localDiscovery ? "enabled" : "disabled"}`,
     );
     console.log("");
+
+    removeLegacyQueueFile();
 
     let shuttingDown = false;
     const agent = new AgentClient({
@@ -354,7 +355,6 @@ program
       secret: opts.secret,
       label: opts.label,
       port,
-      queuePath: opts.queuePath,
       localDiscovery: opts.localDiscovery,
       onStateChange: (state) => {
         if (state === "RECONNECTING") {
@@ -427,5 +427,21 @@ function writeEnvVar(filePath: string, key: string, value: string): void {
       `[agent] could not write to ${filePath}:`,
       (err as Error).message,
     );
+  }
+}
+
+/**
+ * Agents up to 1.0.20 wrote undelivered responses (full bodies) to
+ * ~/.vhyxvoid/queue.db. The queue is gone, so delete the file and its WAL
+ * side files rather than leave that data on disk. Best effort.
+ */
+function removeLegacyQueueFile(): void {
+  const base = path.join(os.homedir(), ".vhyxvoid", "queue.db");
+  for (const f of [base, `${base}-wal`, `${base}-shm`]) {
+    try {
+      fs.rmSync(f, { force: true });
+    } catch {
+      // not ours to fail on
+    }
   }
 }

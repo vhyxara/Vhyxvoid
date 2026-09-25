@@ -29,7 +29,7 @@ The table is generated from a list that is cross-checked against the source of `
 | `VHYXVOID_PORT` | CLI agent, Express / Fastify, Next.js | `3000`. `@vhyxvoid/next` looks for `-p` / `--port` in the command that started Next first, then this variable, then `PORT`, then `3000`. | Local port the tunnel forwards to. |
 | `VHYXVOID_LABEL` | CLI agent, Express / Fastify, Next.js, SDK | `default`. `@vhyxvoid/next` uses `app`. | Tunnel label: the part of the tunnel URL after `--`. In the SDK it picks which tunnel `createClient` targets. |
 | `VHYXVOID_HUB_URL` | CLI agent, Express / Fastify, Next.js | `wss://hub.vhyxvoid.com/agent` | WebSocket URL of the hub the agent connects to. |
-| `VHYXVOID_QUEUE_PATH` | CLI agent | `~/.vhyxvoid/queue.db` | Where the CLI agent keeps its on-disk queue. The in-process integrations do not use a queue. |
+| `VHYXVOID_QUEUE_PATH` | CLI agent | `~/.vhyxvoid/queue.db` | Where agent 1.0.20 and earlier keep their on-disk queue. Accepted but ignored from the next release, which has no queue file. Changed in source 2026-09-25, not released yet. |
 | `VHYXVOID_WRITE_ENV` | CLI agent, Express / Fastify, Next.js | off | A file name. When set, the agent writes the public URL into that file after it connects (see `VHYXVOID_ENV_KEY`). |
 | `VHYXVOID_ENV_KEY` | CLI agent, Express / Fastify, Next.js | `NEXT_PUBLIC_TUNNEL_URL` | Name of the variable that `VHYXVOID_WRITE_ENV` writes. |
 | `VHYXVOID_DEBUG_LOGGING` | CLI agent | off | Only the exact value `true` turns on detailed diagnostics. The in-process integrations embed the agent, so the variable affects them too. |

@@ -99,3 +99,15 @@ describe("InviteMember respects the account's maxMembers limit", () => {
     expect(h.memberCount()).toBe(2);
   });
 });
+
+// shared/decision.md, 2026-09-25: a personal workspace never has members, on
+// any plan (a PRO personal account's maxMembers of 10 does not apply).
+describe("InviteMember on a personal workspace", () => {
+  it("is refused with a 403 even on PRO, before any invitation is created", async () => {
+    const h = makeMemberHarness({ plan: "PRO", accountType: "PERSONAL" });
+    const err = await h.invite().catch((e: any) => e);
+    expect(err?.statusCode).toBe(403);
+    expect(String(err?.message)).toMatch(/Personal workspaces can't have members/);
+    expect(h.invitations).toHaveLength(0);
+  });
+});

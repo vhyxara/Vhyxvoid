@@ -60,6 +60,14 @@ export class InviteMemberUseCase {
 
         const account = await accountRepository.findById(params.accountId); // ← add this
 
+        // A personal workspace is single-owner by design, on every plan
+        // (decided 2026-09-25, shared/decision.md); teams use an organization.
+        if (account?.isPersonal) {
+          throw new ForbiddenError(
+            "Personal workspaces can't have members. Create an organization to work with a team.",
+          );
+        }
+
         // 1️⃣.5 Plan limit — count existing members AND pending invitations,
         // not just members. Without counting pending invitations, an account
         // right at its limit could send several invitations before any of

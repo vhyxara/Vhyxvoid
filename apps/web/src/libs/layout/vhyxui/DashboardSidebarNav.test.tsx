@@ -43,7 +43,7 @@ describe('DashboardSidebarNav', () => {
   beforeEach(() => useMyAccounts.mockReset())
   afterEach(cleanup)
 
-  it('gives a personal-only user links to API Keys and Tunnels, and nothing that does not apply to a personal account', () => {
+  it('gives a personal-only user API Keys, Tunnels and Billing, and nothing that does not apply to a personal account', () => {
     useMyAccounts.mockReturnValue({ data: [account({})], isLoading: false })
     render(<DashboardSidebarNav showLabels />)
 
@@ -52,7 +52,7 @@ describe('DashboardSidebarNav', () => {
     expect(hrefs()).toContain('/organizations/acc-1/api-keys')
     expect(hrefs()).toContain('/organizations/acc-1/tunnels')
     expect(hrefs()).not.toContain('/organizations/acc-1/members')
-    expect(hrefs()).not.toContain('/organizations/acc-1/billing')
+    expect(hrefs()).toContain('/organizations/acc-1/billing')
     expect(hrefs()).not.toContain('/organizations/acc-1/settings')
 
     // still offered the way to get an organization

@@ -4,17 +4,14 @@ import os from "os";
 import path from "path";
 import WebSocket from "ws";
 import { AgentClient } from "../../packages/agent/src/AgentClient";
-import { DurableQueue } from "../../packages/agent/src/queue/DurableQueue";
-import { replayQueue } from "../../packages/agent/src/replay/replayQueue";
-import { BackendProxy } from "../../packages/agent/src/proxy/BackendProxy";
 
 // Audit part2 G3 (shared/audit-2026-09-24-part2.md): while the hub link was
 // down the agent wrote every tunnel:response (full backend response bodies:
 // session tokens, PII) unencrypted to ~/.vhyxvoid/queue.db, where they stayed
 // until the next successful connect, or forever. Responses are now held in
 // memory only (bounded by count, bytes and the hub's pending window) and sent
-// after re-registering; nothing reaches disk, and rows left by older agents
-// are purged when the queue opens.
+// after re-registering; nothing reaches disk. The queue was later removed
+// outright (2026-09-25) and the CLI deletes an older agent's queue.db.
 
 const tmpDirs: string[] = [];
 const clients: AgentClient[] = [];
@@ -77,16 +74,16 @@ function makeAgent(opts: { queuePath?: string; disableQueue?: boolean }) {
 }
 
 describe("responses produced while the hub link is down", () => {
-  it("are not written to the durable queue on disk", () => {
+  // The SQLite queue itself was removed 2026-09-25 (it had no producer);
+  // queuePath is now ignored, so nothing can reach disk at all.
+  it("never touch disk: no queue file is created even when queuePath is given", () => {
     const queuePath = tmpQueuePath();
-    const { agent, goDown, produceResponse } = makeAgent({ queuePath });
+    const { goDown, produceResponse } = makeAgent({ queuePath });
 
     goDown();
     produceResponse(response("req_disk"));
 
-    expect(agent.queue.count().ready + agent.queue.count().pending).toBe(0);
-    const raw = fs.readFileSync(queuePath).toString("latin1");
-    expect(raw).not.toContain("secret-token-abc");
+    expect(fs.existsSync(queuePath)).toBe(false);
   });
 
   it("are delivered from memory once the agent re-registers", async () => {
@@ -133,50 +130,5 @@ describe("responses produced while the hub link is down", () => {
     expect(ids).toHaveLength(100);
     expect(ids[0]).toBe("req_5");
     expect(ids[99]).toBe("req_104");
-  });
-});
-
-describe("outbound rows left by older agents", () => {
-  it("are purged when the queue opens; inbound rows are kept", () => {
-    const queuePath = tmpQueuePath();
-    const q1 = new DurableQueue(queuePath);
-    q1.enqueueInbound({ v: "1", type: "tunnel:forward", requestId: "in_1", method: "GET", path: "/", query: "", headers: {}, body: null } as any);
-    // What an older agent wrote: a response body in the queue and in dead_letter.
-    const db = (q1 as any).db;
-    db.prepare(
-      "INSERT INTO queue (id, direction, payload, ts, attempts, max_attempts, next_retry_at) VALUES ('out_1','outbound',?,0,0,10,0)",
-    ).run(JSON.stringify(response("old_req")));
-    db.prepare(
-      "INSERT INTO dead_letter (id, direction, payload, ts, attempts, failed_at) VALUES ('out_2','outbound',?,0,10,0)",
-    ).run(JSON.stringify(response("older_req")));
-    q1.close();
-
-    const q2 = new DurableQueue(queuePath);
-    const items = q2.drainForReplay();
-    expect(items.map((i) => i.id)).toEqual([expect.any(String)]);
-    expect(items[0].direction).toBe("inbound");
-    expect(q2.count().deadLetter).toBe(0);
-    q2.close();
-  });
-
-  it("are never sent by replayQueue even if one is handed to it", async () => {
-    const markSuccess = vi.fn();
-    const send = vi.fn();
-    const queue = {
-      drainForReplay: () => [
-        { id: "o1", direction: "outbound", payload: JSON.stringify(response("old")), ts: 0, attempts: 0, maxAttempts: 10, nextRetryAt: 0 },
-      ],
-      markSuccess,
-      markFailed: vi.fn(),
-      count: () => ({ ready: 0, pending: 0, deadLetter: 0 }),
-    };
-    const proxy = new BackendProxy(1);
-
-    const result = await replayQueue(queue as any, send, proxy);
-    proxy.stop();
-
-    expect(send).not.toHaveBeenCalled();
-    expect(markSuccess).toHaveBeenCalledWith("o1"); // deleted, not retried
-    expect(result.skipped).toBe(1);
   });
 });

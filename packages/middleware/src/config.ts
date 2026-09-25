@@ -29,6 +29,8 @@ export function resolveConfig(userConfig: VhyxvoidConfig = {}): {
   envKey: string;
   onConnect?: (url: string) => void;
   enabled: boolean;
+  /** true when the port came from config or VHYXVOID_PORT, not the 3000 default */
+  portExplicit: boolean;
 } {
   const key = userConfig.key ?? process.env.VHYXVOID_API_KEY ?? "";
   const secret = userConfig.secret ?? process.env.VHYXVOID_SECRET ?? "";
@@ -62,6 +64,8 @@ export function resolveConfig(userConfig: VhyxvoidConfig = {}): {
     envKey,
     onConnect: userConfig.onConnect,
     enabled,
+    portExplicit:
+      userConfig.port !== undefined || process.env.VHYXVOID_PORT !== undefined,
   };
 }
 

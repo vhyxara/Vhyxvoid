@@ -4,13 +4,9 @@
 
 export { AgentClient } from "./AgentClient";
 export type { AgentConfig, AgentState } from "./AgentClient";
-export { DurableQueue } from "./queue/DurableQueue";
-export type { QueueItem, QueueDirection } from "./queue/DurableQueue";
 export { BackendProxy } from "./proxy/BackendProxy";
 export { ResponseCache } from "./cache/ResponseCache";
 export type { CachedResponse } from "./cache/ResponseCache";
 export { MessageBatcher } from "./batcher/MessageBatcher";
-export { replayQueue } from "./replay/replayQueue";
-export type { ReplayResult } from "./replay/replayQueue";
 export { LocalDiscoveryServer } from "./discovery/LocalDiscoveryServer";
 export type { DiscoveryPayload } from "./discovery/LocalDiscoveryServer";

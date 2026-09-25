@@ -17,7 +17,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc -b && esbuild src/cli.ts --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --outfile=dist/cli.js && chmod +x dist/cli.js && esbuild src/AgentClient.ts --bundle --platform=node --external:better-sqlite3 --external:ws --external:axios --outfile=dist/AgentClient.js && node ../../scripts/check-dist.mjs dist/AgentClient.js",
+    "build": "tsc -b && esbuild src/cli.ts --bundle --platform=node --external:ws --external:axios --outfile=dist/cli.js && chmod +x dist/cli.js && esbuild src/AgentClient.ts --bundle --platform=node --external:ws --external:axios --outfile=dist/AgentClient.js && node ../../scripts/check-dist.mjs dist/AgentClient.js",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
@@ -25,13 +25,11 @@
   },
   "dependencies": {
     "axios": "^1.13.2",
-    "better-sqlite3": "^12.8.0",
     "commander": "^14.0.3",
     "dotenv": "^17.2.3",
     "ws": "^8.18.3"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/commander": "^2.12.5",
     "@types/node": "^24.10.1",
     "@types/ws": "^8.18.1",
