@@ -57,7 +57,7 @@ export class Account {
     slug?: string; // ← ADD (optional — caller can pass pre-deduplicated slug)
   }): Account {
     if (!params.name || params.name.trim().length < 2) {
-      throw new Error("Organization name must be at least 2 characters");
+      throw new ValidationError("Organization name must be at least 2 characters");
     }
     const now = new Date();
     return new Account({
@@ -160,11 +160,11 @@ export class Account {
   }
 
   ensureActive(): void {
-    if (this.props.deletedAt) throw new Error("Account has been deleted");
+    if (this.props.deletedAt) throw new ForbiddenError("Account has been deleted");
     if (this.props.status === AccountStatus.SUSPENDED)
-      throw new Error("Account is suspended");
+      throw new ForbiddenError("Account is suspended");
     if (this.props.status === AccountStatus.CANCELED)
-      throw new Error("Account is canceled");
+      throw new ForbiddenError("Account is canceled");
   }
 
   // ── Persistence ────────────────────────────────────────────

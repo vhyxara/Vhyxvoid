@@ -20,6 +20,7 @@ import corePlugin from "@/modules/identity/presentation/plugins/infrastructure/c
 import { ApiKeyPlugins } from "@/modules/key-management/presentation/plugins/usecases/api-plugins";
 import { billingPlugin } from "@/modules/billing/presentation/plugins/billing.plugin";
 import { notificationPlugin } from "@/modules/notification/presentation/plugins/notification.plugin";
+import redisPlugin from "@/modules/key-management/presentation/plugins/infrastructure/redisPlugins";
 // import prismaPlugin from "./prisma.plugin";
 // import servicesPlugin from "./services.plugin";
 
@@ -30,6 +31,10 @@ export const registerPlugins = async (server: FastifyInstance) => {
   await server.register(fastifyRateLimit, GLOBAL_RATE_LIMIT);
   await server.register(containerPlugin);
   await server.register(prismaPlugin);
+  // Root level (fastify-plugin), so fastify.redis is visible to every plugin
+  // below, billing included. It used to be registered inside ApiKeyPlugins'
+  // encapsulated context, where only key-management could see it.
+  await server.register(redisPlugin);
   await server.register(corePlugin);
 
   await server.register(authStatePlugin); // fastify.authStateCache, consulted by both guards

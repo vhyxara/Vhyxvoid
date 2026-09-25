@@ -17,6 +17,9 @@
 //   EMAIL_LOG      path to the api's stdout when it uses ConsoleEmailService
 //   UPSTASH_REDIS_REST_URL / _TOKEN   optional: check usage counters directly
 //   E2E_SKIP_SLOW=1  skip the ~70 s revoke-eviction and rate-limit steps
+//   STRIPE_WEBHOOK_SECRET / STRIPE_PRO_PRICE_ID   optional: drive billing
+//                  with signed webhook events (upgrade, invites, past due,
+//                  cancel). Must match the api's own values.
 //   ADMIN_EMAIL / ADMIN_PASSWORD   optional: also run the admin API journey
 //                                  (a super admin, e.g. from seed:admin)
 //
@@ -116,7 +119,21 @@ async function tunnel(host, method, p, { body, headers = {} } = {}) {
   });
 }
 
-function lastEmail(to, subjectRe) {
+// Emails are sent after the transaction commits, so they can land a moment
+// after the HTTP response: poll briefly.
+async function lastEmail(to, subjectRe, waitMs = 5000) {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      return lastEmailNow(to, subjectRe);
+    } catch (e) {
+      if (Date.now() - t0 > waitMs) throw e;
+      await sleep(200);
+    }
+  }
+}
+
+function lastEmailNow(to, subjectRe) {
   assert(EMAIL_LOG, "EMAIL_LOG is not set");
   const lines = fs.readFileSync(EMAIL_LOG, "utf8").split("\n").filter((l) => l.includes("[email:console]"));
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -251,7 +268,7 @@ await step("security: registering someone else's address can't take it over", as
   assert(second.status === 200 || second.status === 201, `second registration ${second.status}`);
   // The inbox owner gets a "finish creating your account" link, not a
   // verification link that would keep the attacker's password.
-  const mail = lastEmail(victim, /finish creating/i);
+  const mail = await lastEmail(victim, /finish creating/i);
   const fin = await api("POST", "/auth/reset-password", { body: { token: tokenFrom(mail), newPassword: victimPw } });
   assert(fin.status === 200, `finish signup ${fin.status}: ${JSON.stringify(fin.json)}`);
   const attacker = await api("POST", "/auth/login", { body: { email: victim, password: attackerPw } });
@@ -263,7 +280,7 @@ await step("security: registering someone else's address can't take it over", as
 });
 
 await step("verify email from the emailed link", async () => {
-  const token = tokenFrom(lastEmail(email, /verify/i));
+  const token = tokenFrom(await lastEmail(email, /verify/i));
   const r = await api("POST", "/auth/verify-email", { body: { token } });
   assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
   const again = await api("POST", "/auth/verify-email", { body: { token } });
@@ -318,6 +335,100 @@ await step("FREE org: inviting a member hits the plan limit (402)", async () => 
   });
   assert(r.status === 402, `status ${r.status}: ${JSON.stringify(r.json)}`);
 });
+
+async function stripeEvent(type, object, id = `evt_${randomBytes(8).toString("hex")}`) {
+  const { createHmac } = await import("node:crypto");
+  const payload = JSON.stringify({ id, object: "event", type, api_version: "2024-06-20", created: Math.floor(Date.now() / 1000), data: { object } });
+  const t = Math.floor(Date.now() / 1000);
+  const sig = createHmac("sha256", process.env.STRIPE_WEBHOOK_SECRET).update(`${t}.${payload}`).digest("hex");
+  const res = await fetch(API + "/billing/webhooks/stripe", {
+    method: "POST",
+    headers: { "content-type": "application/json", "stripe-signature": `t=${t},v1=${sig}` },
+    body: payload,
+  });
+  return { status: res.status, text: await res.text() };
+}
+const stripeSub = (status, extra = {}) => ({
+  id: `sub_e2e_${RUN}`,
+  object: "subscription",
+  customer: `cus_e2e_${RUN}`,
+  status,
+  metadata: { accountId: s.org },
+  items: { data: [{ price: { id: process.env.STRIPE_PRO_PRICE_ID ?? "price_pro_test", product: "prod_pro" }, current_period_start: Math.floor(Date.now() / 1000), current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] },
+  cancel_at_period_end: false,
+  start_date: Math.floor(Date.now() / 1000),
+  ...extra,
+});
+
+if (process.env.STRIPE_WEBHOOK_SECRET) {
+  await step("billing: an unsigned or badly signed webhook is refused", async () => {
+    const r = await fetch(API + "/billing/webhooks/stripe", { method: "POST", headers: { "content-type": "application/json", "stripe-signature": "t=1,v1=00" }, body: "{}" });
+    assert(r.status === 400 || r.status === 401, `status ${r.status}`);
+  });
+
+  await step("billing: subscription.created (PRO) upgrades the organization", async () => {
+    const r = await stripeEvent("customer.subscription.created", stripeSub("active"));
+    assert(r.status === 200, `webhook ${r.status}: ${r.text}`);
+    const sub = await api("GET", `/billing/organizations/${s.org}/billing/subscription`, { token: s.token });
+    assert(JSON.stringify(sub.json).includes("PRO"), `subscription: ${JSON.stringify(sub.json).slice(0, 300)}`);
+  });
+
+  await step("billing: the same event delivered twice is processed once", async () => {
+    const id = `evt_dup_${RUN}`;
+    const a = await stripeEvent("customer.subscription.updated", stripeSub("active"), id);
+    const b = await stripeEvent("customer.subscription.updated", stripeSub("active"), id);
+    assert(a.status === 200 && b.status === 200, `${a.status} ${b.status}`);
+    assert(!a.text.includes("duplicate") && b.text.includes("duplicate"), `${a.text} / ${b.text}`);
+  });
+
+  await step("PRO org: invite -> invitee registers, verifies, accepts from the email", async () => {
+    const bob = `bob.${RUN}@e2e.test`;
+    const inv = await api("POST", `/account/organizations/${s.org}/members/invite`, { token: s.token, body: { email: bob, roleLevel: 10 } });
+    assert(inv.status === 201 || inv.status === 200, `invite ${inv.status}: ${JSON.stringify(inv.json)}`);
+    const inviteToken = tokenFrom(await lastEmail(bob, /invit/i));
+    await api("POST", "/auth/register", { body: { email: bob, password, firstName: "Bob" } });
+    await api("POST", "/auth/verify-email", { body: { token: tokenFrom(await lastEmail(bob, /verify/i)) } });
+    const login = await api("POST", "/auth/login", { body: { email: bob, password } });
+    assert(login.status === 200, `bob login ${login.status}`);
+    s.bob = login.json.data.accessToken;
+    const acc = await api("POST", "/account/invitations/accept", { token: s.bob, body: { token: inviteToken } });
+    assert(acc.status === 200 || acc.status === 201, `accept ${acc.status}: ${JSON.stringify(acc.json)}`);
+    const me = await api("GET", "/account/me", { token: s.bob });
+    assert(me.json.data.accounts.some((a) => a.accountId === s.org), "bob is not a member after accepting");
+    const again = await api("POST", "/account/invitations/accept", { token: s.bob, body: { token: inviteToken } });
+    assert(again.status >= 400 && again.status < 500, `a used invitation must be refused (${again.status})`);
+  });
+
+  await step("members: a MEMBER can't invite or remove; the owner can remove", async () => {
+    const members = await api("GET", `/account/organizations/${s.org}/members`, { token: s.token });
+    const list = members.json.items ?? members.json.data?.items ?? [];
+    const bobRow = list.find((m) => String(m.email).startsWith("bob."));
+    assert(bobRow, `bob not in members: ${JSON.stringify(members.json).slice(0, 200)}`);
+    const inv = await api("POST", `/account/organizations/${s.org}/members/invite`, { token: s.bob, body: { email: `eve.${RUN}@e2e.test`, roleLevel: 10 } });
+    assert(inv.status === 403, `member invited someone (${inv.status})`);
+    const rm = await api("DELETE", `/account/organizations/${s.org}/members/${bobRow.id}`, { token: s.token });
+    assert(rm.status < 300, `remove ${rm.status}: ${JSON.stringify(rm.json)}`);
+    const me = await api("GET", "/account/me", { token: s.bob });
+    assert(!me.json.data.accounts.some((a) => a.accountId === s.org), "bob still a member after removal");
+  });
+
+  await step("billing: past_due keeps the org usable (grace period)", async () => {
+    const r = await stripeEvent("customer.subscription.updated", stripeSub("past_due"));
+    assert(r.status === 200, `webhook ${r.status}: ${r.text}`);
+    const me = await api("GET", "/account/me", { token: s.token });
+    const org = me.json.data.accounts.find((a) => a.accountId === s.org);
+    assert(org?.accountStatus === "PAST_DUE", `account status ${org?.accountStatus}`);
+    const k = await api("POST", `/apikeys/organizations/${s.org}/api-keys`, { token: s.token, body: { name: "grace", environment: "PROD", scopes: ["tunnel:connect"] } });
+    assert(k.status === 201 || k.status === 200, `PRO key during grace ${k.status}: ${JSON.stringify(k.json)}`);
+  });
+
+  await step("billing: subscription.deleted returns the org to FREE limits", async () => {
+    const r = await stripeEvent("customer.subscription.deleted", stripeSub("canceled", { canceled_at: Math.floor(Date.now() / 1000) }));
+    assert(r.status === 200, `webhook ${r.status}: ${r.text}`);
+    const k = await api("POST", `/apikeys/organizations/${s.org}/api-keys`, { token: s.token, body: { name: "after", environment: "PROD", scopes: ["tunnel:connect"] } });
+    assert(k.status === 403 || k.status === 402, `PROD key after cancel: ${k.status}`);
+  });
+}
 
 await step("create an API key with an expiry (allowed on FREE)", async () => {
   const expiresAt = new Date(Date.now() + 7 * 86400_000).toISOString();
@@ -647,7 +758,7 @@ await step("refresh token rotates the session", async () => {
 await step("forgot password -> reset -> login with the new password", async () => {
   const f = await api("POST", "/auth/forgot-password", { body: { email } });
   assert(f.status === 200, `forgot status ${f.status}`);
-  const token = tokenFrom(lastEmail(email, /reset/i));
+  const token = tokenFrom(await lastEmail(email, /reset/i));
   const newPassword = "Brand-New-Pass-7!";
   const r = await api("POST", "/auth/reset-password", { body: { token, newPassword, password: newPassword } });
   assert(r.status === 200, `reset status ${r.status}: ${JSON.stringify(r.json)}`);

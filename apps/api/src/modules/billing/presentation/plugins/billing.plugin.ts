@@ -184,6 +184,7 @@ export const billingPlugin = fp(
         accountBillingRepo,
         notificationService,
         accountKeyCacheInvalidator,
+        redisStripeEventLog(fastify.redis),
       ),
     );
 
@@ -263,3 +264,25 @@ export const billingPlugin = fp(
 //   },
 //   { name: "billing-plugin" },
 // );
+
+/** Stripe event ids in Redis for 7 days (Stripe retries for up to 3). Fails
+ * open: if Redis is down the event is processed (handlers are idempotent
+ * upserts; the risk is only a repeated email). */
+function redisStripeEventLog(redis: {
+  set: (k: string, v: string, o: { nx: true; ex: number }) => Promise<unknown>;
+  del: (k: string) => Promise<unknown>;
+}) {
+  const key = (id: string) => `stripe:evt:${id}`;
+  return {
+    async claim(id: string): Promise<boolean> {
+      try {
+        return (await redis.set(key(id), "1", { nx: true, ex: 7 * 24 * 3600 })) === "OK";
+      } catch {
+        return true;
+      }
+    },
+    async release(id: string): Promise<void> {
+      await redis.del(key(id));
+    },
+  };
+}

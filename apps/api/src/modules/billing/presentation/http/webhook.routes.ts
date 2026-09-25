@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { FastifyInstance } from "fastify";
+import { ValidationError } from "@/core/errors/error.format";
 
 export async function stripeWebhookRoutes(fastify: FastifyInstance) {
   /**
@@ -26,9 +27,7 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
       const signature = request.headers["stripe-signature"];
 
       if (!signature) {
-        return reply
-          .code(400)
-          .send({ error: "Missing stripe-signature header" });
+        throw new ValidationError("Missing stripe-signature header");
       }
 
       // rawBody is the Buffer — never JSON.parse it before here

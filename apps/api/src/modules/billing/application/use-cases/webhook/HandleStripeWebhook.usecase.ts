@@ -1,3 +1,4 @@
+import { ValidationError } from "@/core/errors/error.format";
 // ─────────────────────────────────────────────────────────────────────────────
 // HandleStripeWebhookUseCase
 // THE CORE of the billing module. Processes all Stripe webhook events.
@@ -33,6 +34,19 @@ const NOOP_CACHE_INVALIDATOR: Pick<AccountKeyCacheInvalidator, "invalidate"> = {
   invalidate: async () => {},
 };
 
+/**
+ * Remembers which Stripe event ids were already processed. Stripe delivers
+ * at least once (retries, replays from the dashboard), and a repeated
+ * invoice.payment_failed would resend emails and restart the grace clock.
+ * claim() returns false for an id seen before; release() forgets an id whose
+ * processing failed so Stripe's retry is handled.
+ */
+export interface StripeEventLog {
+  claim(eventId: string): Promise<boolean>;
+  release(eventId: string): Promise<void>;
+}
+const NOOP_EVENT_LOG: StripeEventLog = { claim: async () => true, release: async () => {} };
+
 export class HandleStripeWebhookUseCase {
   constructor(
     private readonly stripeService: IStripeService,
@@ -47,14 +61,26 @@ export class HandleStripeWebhookUseCase {
       AccountKeyCacheInvalidator,
       "invalidate"
     > = NOOP_CACHE_INVALIDATOR,
+    private readonly eventLog: StripeEventLog = NOOP_EVENT_LOG,
   ) {}
 
   async execute(
     payload: Buffer,
     signature: string,
-  ): Promise<{ received: true }> {
-    // 1. Verify signature — throws if invalid (Stripe-signed events only)
-    const event = this.stripeService.constructWebhookEvent(payload, signature);
+  ): Promise<{ received: true; duplicate?: true }> {
+    // 1. Verify signature. A bad one is the caller's fault (400), not ours:
+    // a 500 would make it look like an outage and invite retries.
+    let event: ReturnType<IStripeService["constructWebhookEvent"]>;
+    try {
+      event = this.stripeService.constructWebhookEvent(payload, signature);
+    } catch {
+      throw new ValidationError("Invalid Stripe signature");
+    }
+
+    // 1b. At-least-once delivery: skip an event already processed.
+    if (!(await this.eventLog.claim(event.id))) {
+      return { received: true, duplicate: true };
+    }
 
     // 2. Route to correct handler
     try {
@@ -102,6 +128,7 @@ export class HandleStripeWebhookUseCase {
         { eventType: event.type, err },
         "[billing] webhook handler failed",
       );
+      await this.eventLog.release(event.id).catch(() => {});
       throw err; // re-throw so Stripe gets the 500 and retries
     }
     return { received: true };

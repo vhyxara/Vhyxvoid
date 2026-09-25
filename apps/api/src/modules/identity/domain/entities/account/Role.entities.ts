@@ -5,6 +5,7 @@
 // Additional custom roles can be created per account.
 // ============================================================
 
+import { ForbiddenError, ValidationError } from "@/core/errors/error.format";
 import { RoleLevel } from "@/core/constant/account.constant";
 
 export interface RoleProps {
@@ -110,22 +111,22 @@ export class Role {
   // ── Business Logic ─────────────────────────────────────────
 
   rename(name: string, now: Date): void {
-    if (this.props.isSystem) throw new Error("System roles cannot be renamed");
-    if (!name || name.trim().length < 2) throw new Error("Role name too short");
+    if (this.props.isSystem) throw new ForbiddenError("System roles cannot be renamed");
+    if (!name || name.trim().length < 2) throw new ValidationError("Role name too short");
     this.props.name = name.trim();
     this.props.updatedAt = now;
   }
 
   deactivate(now: Date): void {
     if (this.props.isSystem)
-      throw new Error("System roles cannot be deactivated");
+      throw new ForbiddenError("System roles cannot be deactivated");
     this.props.isActive = false;
     this.props.updatedAt = now;
   }
 
   ensureNotSystem(): void {
     if (this.props.isSystem) {
-      throw new Error("This operation is not permitted on system roles");
+      throw new ForbiddenError("This operation is not permitted on system roles");
     }
   }
 

@@ -1,3 +1,4 @@
+import { ValidationError } from "@/core/errors/error.format";
 import { InvitationStatus } from "@/generated/prisma";
 import crypto from "crypto";
 import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
@@ -87,12 +88,12 @@ export class AccountInvitation {
 
   ensureValid(now: Date): void {
     if (this.props.status !== InvitationStatus.PENDING) {
-      throw new Error(
+      throw new ValidationError(
         `Invitation is no longer valid (status: ${this.props.status})`,
       );
     }
     if (this.props.expiresAt <= now) {
-      throw new Error("Invitation has expired");
+      throw new ValidationError("Invitation has expired");
     }
   }
 
