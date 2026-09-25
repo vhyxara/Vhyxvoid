@@ -34,6 +34,7 @@ export class RegisterUserUseCase {
       async ({
         userRepository,
         emailTokenRepository,
+        afterCommit,
         // accountRepository,
         // roleRepository,
         // membershipRepository,
@@ -61,15 +62,17 @@ export class RegisterUserUseCase {
           });
           await emailTokenRepository.save(verificationToken);
 
-          this.notificationService.sendEmailVerification
-            .execute({
-              to: existing.email,
-              firstName: existing.firstName,
-              rawToken,
-            })
-            .catch((err) =>
-              console.error("[notifications] resend failed", err),
-            );
+          afterCommit(() =>
+            this.notificationService.sendEmailVerification
+              .execute({
+                to: existing.email,
+                firstName: existing.firstName,
+                rawToken,
+              })
+              .catch((err) =>
+                console.error("[notifications] resend failed", err),
+              )
+          );
 
           return { email: existing.email, requiresVerification: true };
         }
@@ -95,15 +98,17 @@ export class RegisterUserUseCase {
         await emailTokenRepository.save(verificationToken);
 
         if (this.notificationService) {
-          this.notificationService.sendEmailVerification
-            .execute({
-              to: user.email,
-              firstName: user.firstName,
-              rawToken,
-            })
-            .catch((err) =>
-              console.error("[notifications] verify email failed", err),
-            );
+          afterCommit(() =>
+            this.notificationService.sendEmailVerification
+              .execute({
+                to: user.email,
+                firstName: user.firstName,
+                rawToken,
+              })
+              .catch((err) =>
+                console.error("[notifications] verify email failed", err),
+              )
+          );
         } else {
           console.log("EMAIL VERIFY TOKEN:", rawToken);
         }

@@ -22,7 +22,10 @@ export class AdminRefreshTokenUseCase {
     const now = new Date();
     const tokenHash = TokenHasher.hash(rawRefreshToken);
 
-    return this.uow.execute(
+    // Reuse of a revoked token revokes every session of that admin. That write
+    // must survive the 401 that follows, so it runs after the transaction:
+    // inside it, the throw would roll it back (api/context.md #63).
+    const outcome = await this.uow.execute(
       async ({
         adminSessionRepository,
         adminUserRepository,
@@ -35,11 +38,9 @@ export class AdminRefreshTokenUseCase {
         }
 
         if (session.revokedAt) {
-          // Suspicious reuse - revoke all sessions
-          await adminSessionRepository.revokeAllByAdminId(session.adminId);
-          throw new UnauthorizedError(
-            "Refresh token reuse detected. All sessions revoked.",
-          );
+          // Suspicious reuse: every session is revoked below, after the
+          // transaction.
+          return { reuseByAdminId: session.adminId } as const;
         }
 
         if (session.expiresAt <= now) {
@@ -105,5 +106,15 @@ export class AdminRefreshTokenUseCase {
         };
       },
     );
+
+    if ("reuseByAdminId" in outcome) {
+      await this.uow.adminSessionRepository.revokeAllByAdminId(
+        outcome.reuseByAdminId,
+      );
+      throw new UnauthorizedError(
+        "Refresh token reuse detected. All sessions revoked.",
+      );
+    }
+    return outcome;
   }
 }

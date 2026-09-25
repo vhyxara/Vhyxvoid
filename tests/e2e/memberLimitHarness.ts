@@ -160,6 +160,8 @@ export function makeMemberHarness(opts: {
     auditLogRepository,
     accountRepository,
     userRepository,
+    // A committed transaction runs its after-commit callbacks straight away.
+    afterCommit: (fn: () => unknown) => void fn(),
   };
 
   // Matches PrismaUnitOfWork's shape closely enough for these two use cases:

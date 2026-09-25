@@ -94,7 +94,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
         return reply.send(successMessage);
       }
 
-      await fastify.uow.execute(async ({ emailTokenRepository }) => {
+      await fastify.uow.execute(async ({ emailTokenRepository, afterCommit }) => {
         // Delete all existing tokens — only one active at a time
         await emailTokenRepository.deleteAllByUserId(user.id);
 
@@ -113,15 +113,17 @@ export async function identityRoutes(fastify: FastifyInstance) {
         await emailTokenRepository.save(verificationToken);
 
         // Fire and forget — never block the response on email delivery
-        fastify.notificationService.sendEmailVerification
-          .execute({
-            to: user.email,
-            firstName: user.firstName,
-            rawToken,
-          })
-          .catch((err) =>
-            console.error("[notifications] resend-verification failed", err),
-          );
+        afterCommit(() =>
+          fastify.notificationService.sendEmailVerification
+            .execute({
+              to: user.email,
+              firstName: user.firstName,
+              rawToken,
+            })
+            .catch((err) =>
+              console.error("[notifications] resend-verification failed", err),
+            )
+        );
       });
 
       return successResponse(reply, successMessage.message, 200);

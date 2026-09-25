@@ -40,6 +40,7 @@ export class ResetPasswordUseCase {
     const result = await this.uow.execute(
       async ({
         passwordResetTokenRepository,
+        afterCommit,
         userRepository,
         sessionRepository,
         auditLogRepository,
@@ -88,14 +89,16 @@ export class ResetPasswordUseCase {
               firstName: user.firstName,
             },
           );
-          this.notificationService.sendPasswordResetSuccess
-            .execute({ to: user.email, firstName: user.firstName })
-            .catch((err) =>
-              console.error(
-                "[notifications] sendPasswordResetSuccess failed",
-                err,
-              ),
-            );
+          afterCommit(() =>
+            this.notificationService!.sendPasswordResetSuccess // guarded by the if above
+              .execute({ to: user.email, firstName: user.firstName })
+              .catch((err) =>
+                console.error(
+                  "[notifications] sendPasswordResetSuccess failed",
+                  err,
+                ),
+              )
+          );
         }
 
         return {

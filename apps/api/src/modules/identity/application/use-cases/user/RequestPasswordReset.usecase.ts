@@ -49,7 +49,7 @@ export class RequestPasswordResetUseCase {
     if (!user.status) return { message: successMessage };
 
     await this.uow.execute(
-      async ({ passwordResetTokenRepository, auditLogRepository }) => {
+      async ({ passwordResetTokenRepository, auditLogRepository, afterCommit }) => {
         // Delete any existing tokens for this user — one active token at a time
         await passwordResetTokenRepository.deleteAllByUserId(user.id);
 
@@ -88,15 +88,17 @@ export class RequestPasswordResetUseCase {
         //   console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
         // }
         if (this.notificationService) {
-          this.notificationService.sendPasswordReset
-            .execute({
-              to: user.email,
-              firstName: user.firstName,
-              rawToken,
-            })
-            .catch((err) =>
-              console.error("[notifications] sendPasswordReset failed", err),
-            );
+          afterCommit(() =>
+            this.notificationService!.sendPasswordReset // guarded by the if above
+              .execute({
+                to: user.email,
+                firstName: user.firstName,
+                rawToken,
+              })
+              .catch((err) =>
+                console.error("[notifications] sendPasswordReset failed", err),
+              )
+          );
         } else {
           console.log("[DEV] PASSWORD RESET TOKEN:", rawToken);
         }

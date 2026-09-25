@@ -124,6 +124,7 @@ describe("no secrets reach the logs", () => {
         fn({
           passwordResetTokenRepository: { deleteAllByUserId: vi.fn(), save: vi.fn() },
           auditLogRepository: { create: vi.fn() },
+          afterCommit: (cb: () => unknown) => void cb(), // committed: runs straight away
         }),
     };
     const notifications = {

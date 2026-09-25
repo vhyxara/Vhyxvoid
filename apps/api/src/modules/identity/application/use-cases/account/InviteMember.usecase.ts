@@ -33,6 +33,7 @@ export class InviteMemberUseCase {
       async ({
         membershipRepository,
         invitationRepository,
+        afterCommit,
         roleRepository,
         auditLogRepository,
         accountRepository,
@@ -70,12 +71,15 @@ export class InviteMemberUseCase {
         // (the owner is a real AccountMembership row, and the confirmed
         // product answer for FREE's maxMembers: 1 is "no invites at all" —
         // the owner alone already occupies the limit).
-        const [currentMemberCount, pendingInvitations] = await Promise.all([
-          membershipRepository.count(params.accountId),
-          invitationRepository.findByAccountId(params.accountId, {
-            status: InvitationStatus.PENDING,
-          }),
-        ]);
+        // Sequential, not Promise.all: these run on one interactive
+        // transaction's connection, where parallel queries gain nothing.
+        const currentMemberCount = await membershipRepository.count(
+          params.accountId,
+        );
+        const pendingInvitations = await invitationRepository.findByAccountId(
+          params.accountId,
+          { status: InvitationStatus.PENDING },
+        );
         const projectedCount = currentMemberCount + pendingInvitations.length;
         const canInvite = await this.checkPlanLimitsService.canAddMember(
           params.accountId,
@@ -125,23 +129,25 @@ export class InviteMemberUseCase {
 
         await invitationRepository.save(invitation);
         if (this.notificationService) {
-          Promise.all([
-            this.uow.userRepository.findById(params.inviterId),
-            this.uow.accountRepository.findById(params.accountId),
-          ])
-            .then(([inviter, account]) =>
-              this.notificationService.sendInvitation.execute({
-                to: params.email,
-                inviterName:
-                  inviter?.fullName ?? inviter?.email ?? "A team member",
-                accountName: account?.name ?? "an organization",
-                rawToken,
-                roleLevel: params.roleLevel,
-              }),
-            )
-            .catch((err) =>
-              console.error("[notifications] invite email failed", err),
-            );
+          afterCommit(() =>
+            Promise.all([
+              this.uow.userRepository.findById(params.inviterId),
+              this.uow.accountRepository.findById(params.accountId),
+            ])
+              .then(([inviter, account]) =>
+                this.notificationService.sendInvitation.execute({
+                  to: params.email,
+                  inviterName:
+                    inviter?.fullName ?? inviter?.email ?? "A team member",
+                  accountName: account?.name ?? "an organization",
+                  rawToken,
+                  roleLevel: params.roleLevel,
+                }),
+              )
+              .catch((err) =>
+                console.error("[notifications] invite email failed", err),
+              )
+          );
         }
         // 4️⃣ Audit
         await auditLogRepository.create({

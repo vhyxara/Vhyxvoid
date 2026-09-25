@@ -55,7 +55,27 @@ export class PrismaUnitOfWork {
   // In the UoW interface / execute() params, add:
   public readonly passwordResetTokenRepository: PrismaPasswordResetTokenRepository;
 
-  constructor(private prismaOrTx: PrismaClient | Prisma.TransactionClient) {
+  /**
+   * Queue a side effect (an email, an in-app notification, anything outside
+   * this database) to run only once the current transaction has COMMITTED; if
+   * it rolls back, the callback is dropped. Outside a transaction it runs at
+   * once. Errors are logged, never thrown: the data change has already
+   * committed. An arrow property so `async ({ afterCommit }) => ...` works.
+   */
+  public readonly afterCommit = (fn: () => unknown): void => {
+    if (this.isTransactional()) this.afterCommitQueue.push(fn);
+    else runAfterCommit(fn);
+  };
+
+  private readonly afterCommitQueue: Array<() => unknown>;
+
+  constructor(
+    private prismaOrTx: PrismaClient | Prisma.TransactionClient,
+    // Shared by every unit of work in one transaction, so a nested execute()
+    // queues onto the outer one.
+    afterCommitQueue: Array<() => unknown> = [],
+  ) {
+    this.afterCommitQueue = afterCommitQueue;
     this.prisma = prismaOrTx as PrismaClient;
     this.invitationRepository = new PrismaAccountInvitationRepository(
       prismaOrTx as PrismaClient,
@@ -123,36 +143,59 @@ export class PrismaUnitOfWork {
   }
 
   /**
-   * Run fn in a REAL database transaction.
+   * Run fn in a real database transaction: every repository on the unit of
+   * work passed to fn uses the transaction client, and a throw rolls back
+   * everything fn wrote. Called on a unit of work that is already inside a
+   * transaction, fn simply joins it.
    *
-   * execute() below never opens one: Prisma 6's generated client constructor
-   * returns a proxy, so `this.prisma instanceof PrismaClient` is false even
-   * for the root client and execute() always takes its "already in a
-   * transaction" branch, running each statement on its own (verified
-   * 2026-09-24; api/context.md item 63). Fixing execute() changes the
-   * behaviour of every caller (some write then throw and rely on the write
-   * surviving), so it's a separate job; this is used only where a
-   * transaction is required (refresh rotation, audit H10). A transaction
-   * client has no $transaction, which is how an already-open one is detected.
+   * An open transaction is detected by the client having no $transaction
+   * (Prisma's interactive-transaction client doesn't). This used to test
+   * `this.prisma instanceof PrismaClient`, which is false for Prisma 6's
+   * proxy client, so no transaction was ever opened and every caller ran
+   * statement by statement (api/context.md #63).
+   *
+   * Anything that must persist even though fn then throws (e.g. revoking
+   * every session on refresh-token reuse) has to be written after the
+   * transaction, not inside it.
    */
-  async transaction<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
-    const client = this.prisma as any;
-    if (typeof client.$transaction !== "function") return fn(this);
-    return client.$transaction(async (tx: Prisma.TransactionClient) =>
-      fn(new PrismaUnitOfWork(tx)),
+  async execute<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
+    if (this.isTransactional()) return fn(this);
+    const queue: Array<() => unknown> = [];
+    const result: T = await (this.prisma as any).$transaction(
+      async (tx: Prisma.TransactionClient) => fn(new PrismaUnitOfWork(tx, queue)),
+      TRANSACTION_OPTIONS,
     );
+    // Committed: now the side effects. (On a throw we never get here.)
+    for (const cb of queue) runAfterCommit(cb);
+    return result;
   }
 
-  async execute<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
-    // If already in a transaction, just execute
-    if (this.prisma instanceof PrismaClient === false) {
-      return fn(this);
-    }
+  /** True inside an interactive transaction: its client has no $transaction. */
+  private isTransactional(): boolean {
+    return typeof (this.prisma as any).$transaction !== "function";
+  }
 
-    // Otherwise, start a new transaction
-    return (this.prisma as PrismaClient).$transaction(async (tx) => {
-      const transactionalUow = new PrismaUnitOfWork(tx);
-      return fn(transactionalUow);
-    });
+  /** Same as execute(); kept for the callers that already use this name. */
+  async transaction<T>(fn: (uow: PrismaUnitOfWork) => Promise<T>): Promise<T> {
+    return this.execute(fn);
   }
 }
+
+function runAfterCommit(fn: () => unknown): void {
+  try {
+    const out = fn();
+    if (out && typeof (out as Promise<unknown>).catch === "function") {
+      (out as Promise<unknown>).catch((err) =>
+        console.error("[uow] after-commit callback failed", err),
+      );
+    }
+  } catch (err) {
+    console.error("[uow] after-commit callback failed", err);
+  }
+}
+
+// Prisma's interactive-transaction defaults are maxWait 2 s / timeout 5 s.
+// Some callbacks hash a password with bcrypt inside the transaction (register,
+// password reset, admin creation), which on a loaded box plus Neon round trips
+// can approach 5 s; a timeout rolls the whole operation back.
+const TRANSACTION_OPTIONS = { maxWait: 5_000, timeout: 15_000 } as const;

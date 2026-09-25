@@ -35,6 +35,7 @@ export class AcceptInvitationUseCase {
       async ({
         invitationRepository,
         membershipRepository,
+        afterCommit,
         roleRepository,
         auditLogRepository,
         userRepository,
@@ -123,18 +124,20 @@ export class AcceptInvitationUseCase {
         const newMember = await userRepository.findByEmail(invitation.email);
 
         if (ownerUser && this.notificationService) {
-          this.notificationService.createInApp
-            .execute({
-              userId: invitation.invitedById,
-              accountId: invitation.accountId,
-              type: NotificationType.MEMBER_JOINED,
-              title: "New member joined",
-              body: `${newMember?.firstName ?? invitation.email} accepted your invitation to ${account?.name}`,
-              actionUrl: `/accounts/${invitation.accountId}/members`,
-            })
-            .catch((err) =>
-              console.error("[notifications] member joined in-app failed", err),
-            );
+          afterCommit(() =>
+            this.notificationService.createInApp
+              .execute({
+                userId: invitation.invitedById,
+                accountId: invitation.accountId,
+                type: NotificationType.MEMBER_JOINED,
+                title: "New member joined",
+                body: `${newMember?.firstName ?? invitation.email} accepted your invitation to ${account?.name}`,
+                actionUrl: `/accounts/${invitation.accountId}/members`,
+              })
+              .catch((err) =>
+                console.error("[notifications] member joined in-app failed", err),
+              )
+          );
         }
         // 7️⃣ Audit log
         await auditLogRepository.create({
