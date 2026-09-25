@@ -11,6 +11,7 @@ import {
   accountInvitation,
   emailVerification,
   feedbackReceived,
+  finishSignup,
   passwordResetRequest,
   passwordResetSuccess,
   paymentFailed,
@@ -292,6 +293,18 @@ export class SendPasswordResetEmailUseCase {
   }
 }
 
+export class SendFinishSignupEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: { to: string; firstName: string; rawToken: string }): Promise<void> {
+    // Same page as a password reset: completing it sets the password and,
+    // for an unverified account, verifies the address.
+    const url = `${APP_URL}/reset-password?token=${encodeURIComponent(params.rawToken)}`;
+    const { subject, html, text } = finishSignup({ firstName: params.firstName, url, expiresInHours: 24 });
+    await this.emailService.send({ to: params.to, subject, html, text });
+  }
+}
+
 export class SendPasswordResetSuccessEmailUseCase {
   constructor(private readonly emailService: IEmailService) {}
 
@@ -356,6 +369,7 @@ export class NotificationService {
   readonly sendTrialEnding: SendTrialEndingEmailUseCase;
   readonly sendPasswordReset: SendPasswordResetEmailUseCase; // ← add
   readonly sendPasswordResetSuccess: SendPasswordResetSuccessEmailUseCase;
+  readonly sendFinishSignup: SendFinishSignupEmailUseCase;
   readonly createInApp: CreateInAppNotificationUseCase;
   readonly markRead: MarkNotificationReadUseCase;
   readonly markAllRead: MarkAllNotificationsReadUseCase;
@@ -376,6 +390,7 @@ export class NotificationService {
     );
     this.sendTrialEnding = new SendTrialEndingEmailUseCase(emailService);
     this.sendPasswordReset = new SendPasswordResetEmailUseCase(emailService); // ← add
+    this.sendFinishSignup = new SendFinishSignupEmailUseCase(emailService);
     this.sendPasswordResetSuccess = new SendPasswordResetSuccessEmailUseCase(
       emailService,
     );

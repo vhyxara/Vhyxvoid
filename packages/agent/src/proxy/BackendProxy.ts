@@ -28,11 +28,15 @@ const HOP_BY_HOP = new Set([
 
 // Evict expired cache entries every 60 seconds
 const CACHE_EVICT_INTERVAL_MS = 60_000;
+// Frames a browser sends before the agent's socket to the backend is open.
+const WS_PENDING_MAX_FRAMES = 256;
+const WS_PENDING_MAX_BYTES = 4 * 1024 * 1024;
 
 export class BackendProxy {
   private readonly client: AxiosInstance;
   private readonly cache = new ResponseCache();
   private evictTimer: NodeJS.Timeout | null = null;
+  private readonly wsPending = new Map<string, { frames: (string | Buffer)[]; bytes: number }>();
 
   constructor(private port: number) {
     this.client = axios.create({
@@ -262,6 +266,12 @@ export class BackendProxy {
 
     ws.on("open", () => {
       debugLog("[proxy] WS opened to backend:", path);
+      // The browser side is already open (the hub answered its upgrade), so
+      // frames it sent right away arrived before this socket was ready.
+      // Deliver them now, in order.
+      const pending = this.wsPending.get(connectionId);
+      this.wsPending.delete(connectionId);
+      for (const frame of pending?.frames ?? []) ws.send(frame);
     });
 
     ws.on("message", (data: Buffer, isBinary: boolean) => {
@@ -273,11 +283,13 @@ export class BackendProxy {
 
     ws.on("close", (code, reason) => {
       this.wsConnections.delete(connectionId);
+      this.wsPending.delete(connectionId);
       onClose(code, reason.toString());
     });
 
     ws.on("error", (err) => {
       this.wsConnections.delete(connectionId);
+      this.wsPending.delete(connectionId);
       onError(err.message);
     });
   }
@@ -288,9 +300,30 @@ export class BackendProxy {
     isBinary: boolean,
   ): void {
     const ws = this.wsConnections.get(connectionId);
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws) return;
 
     const payload = isBinary ? Buffer.from(data, "base64") : data;
+    if (ws.readyState === WebSocket.CONNECTING) {
+      // Hold until the backend socket opens (see openWebSocket). Bounded:
+      // past the cap the connection is failed rather than silently dropping
+      // frames out of the middle of a stream.
+      const pending = this.wsPending.get(connectionId) ?? { frames: [], bytes: 0 };
+      const size = typeof payload === "string" ? Buffer.byteLength(payload) : payload.length;
+      if (pending.frames.length >= WS_PENDING_MAX_FRAMES || pending.bytes + size > WS_PENDING_MAX_BYTES) {
+        this.wsPending.delete(connectionId);
+        try {
+          ws.terminate();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      pending.frames.push(payload);
+      pending.bytes += size;
+      this.wsPending.set(connectionId, pending);
+      return;
+    }
+    if (ws.readyState !== WebSocket.OPEN) return;
     ws.send(payload);
   }
 
@@ -310,9 +343,11 @@ export class BackendProxy {
       }
     }
     this.wsConnections.delete(connectionId);
+    this.wsPending.delete(connectionId);
   }
 
   closeAllWebSockets(): void {
+    this.wsPending.clear();
     for (const ws of this.wsConnections.values()) {
       try {
         ws.close();

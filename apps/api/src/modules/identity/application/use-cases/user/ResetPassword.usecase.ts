@@ -8,6 +8,7 @@
 // ============================================================
 
 import { NotFoundError } from "@/core/errors/error.format";
+import { ensurePersonalAccount } from "@/modules/identity/application/services/personalAccount";
 
 import { PasswordHasher } from "@/modules/identity/domain/services/PasswordHasher";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
@@ -44,6 +45,9 @@ export class ResetPasswordUseCase {
         userRepository,
         sessionRepository,
         auditLogRepository,
+        accountRepository,
+        roleRepository,
+        membershipRepository,
       }) => {
         // 1. Find and validate token
         const token = await passwordResetTokenRepository.findByHash(tokenHash);
@@ -61,6 +65,19 @@ export class ResetPasswordUseCase {
         // 4. Update user password + reset lockout state
         user.resetPassword(passwordHash, now);
         resetUserId = user.id;
+
+        // 4b. The link was emailed to this address, so using it proves inbox
+        // ownership. For an account that never finished signing up (the
+        // "finish creating your account" email from Register), that is the
+        // verification: mark it verified and create the personal workspace.
+        if (!user.isEmailVerified) {
+          user.verifyEmail(now);
+          await ensurePersonalAccount(
+            user,
+            { accountRepository, roleRepository, membershipRepository },
+            now,
+          );
+        }
 
         // 5. Mark token used — prevents replay
         token.markUsed(now);
@@ -82,13 +99,6 @@ export class ResetPasswordUseCase {
         });
         // ResetPassword.usecase.ts — add after audit log
         if (this.notificationService) {
-          console.log(
-            "[ResetPasswordUseCase] Sending password reset success notification to user:",
-            {
-              email: user.email,
-              firstName: user.firstName,
-            },
-          );
           afterCommit(() =>
             this.notificationService!.sendPasswordResetSuccess // guarded by the if above
               .execute({ to: user.email, firstName: user.firstName })

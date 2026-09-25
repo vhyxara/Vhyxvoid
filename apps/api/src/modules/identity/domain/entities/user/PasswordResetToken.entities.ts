@@ -1,3 +1,4 @@
+import { ValidationError } from "@/core/errors/error.format";
 // ============================================================
 // PASSWORD RESET TOKEN ENTITY
 // Same pattern as EmailVerificationToken.
@@ -51,9 +52,9 @@ export class PasswordResetToken {
 
   ensureValid(now: Date): void {
     if (this.props.usedAt)
-      throw new Error("Password reset token has already been used");
+      throw new ValidationError("Password reset token has already been used");
     if (this.props.expiresAt <= now)
-      throw new Error("Password reset token has expired");
+      throw new ValidationError("Password reset token has expired");
   }
 
   markUsed(now: Date): void {

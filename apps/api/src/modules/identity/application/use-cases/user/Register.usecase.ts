@@ -10,6 +10,7 @@ import { User } from "@/modules/identity/domain/entities/user/User.entities";
 // import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { EmailVerificationToken } from "@/modules/identity/domain/entities/user/EmailVerificationToken.entities";
+import { PasswordResetToken } from "@/modules/identity/domain/entities/user/PasswordResetToken.entities";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 
 export class RegisterUserUseCase {
@@ -34,6 +35,7 @@ export class RegisterUserUseCase {
       async ({
         userRepository,
         emailTokenRepository,
+        passwordResetTokenRepository,
         afterCommit,
         // accountRepository,
         // roleRepository,
@@ -50,27 +52,33 @@ export class RegisterUserUseCase {
             throw new ConflictError("Email already registered");
           }
 
-          // Unverified — delete old tokens, generate new one, resend
+          // Unverified. Never re-arm the stored password: whoever registered
+          // first may not own this inbox, and the old verification link would
+          // hand them the account once the real owner clicked it. Instead,
+          // cancel earlier links and email the inbox owner a "finish creating
+          // your account" link where they choose their own password; using it
+          // verifies the address (ResetPasswordUseCase). The response is the
+          // same as a first registration, so nothing is revealed.
           await emailTokenRepository.deleteAllByUserId(existing.id);
+          await passwordResetTokenRepository.deleteAllByUserId(existing.id);
 
           const rawToken = this.tokenGenerator.generate(32);
-          const tokenHash = TokenHasher.hash(rawToken);
-          const verificationToken = EmailVerificationToken.create({
+          const setPasswordToken = PasswordResetToken.create({
             userId: existing.id,
-            tokenHash,
+            tokenHash: TokenHasher.hash(rawToken),
             ttlMs: 1000 * 60 * 60 * 24,
           });
-          await emailTokenRepository.save(verificationToken);
+          await passwordResetTokenRepository.save(setPasswordToken);
 
           afterCommit(() =>
-            this.notificationService.sendEmailVerification
+            this.notificationService.sendFinishSignup
               .execute({
                 to: existing.email,
-                firstName: existing.firstName,
+                firstName: dto.firstName || existing.firstName,
                 rawToken,
               })
               .catch((err) =>
-                console.error("[notifications] resend failed", err),
+                console.error("[notifications] sendFinishSignup failed", err),
               )
           );
 

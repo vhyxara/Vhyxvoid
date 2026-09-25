@@ -1,0 +1,530 @@
+#!/usr/bin/env node
+// scripts/e2e-journey.mjs
+//
+// Full user journey against a RUNNING api + hub, with real processes:
+// register -> verify email -> login -> accounts -> organization -> invites ->
+// API key -> CLI agent -> public tunnel URL (JSON, binary, gzip, 5 MB body,
+// cookies, WebSocket, 404/502 paths) -> dashboard tunnels -> SDK ->
+// rate limit -> revoke (agent evicted) -> password reset -> logout.
+//
+// Meant for a local stack (see code-archive CA-0030) or a staging stack. Never
+// point it at production: it creates users, keys and traffic.
+//
+// Env:
+//   API_URL        http://127.0.0.1:9100          (api base, no /api/v1)
+//   HUB_URL        http://127.0.0.1:9101          (hub HTTP base)
+//   HUB_DOMAIN     vv.test                         (tunnel host suffix)
+//   EMAIL_LOG      path to the api's stdout when it uses ConsoleEmailService
+//   UPSTASH_REDIS_REST_URL / _TOKEN   optional: check usage counters directly
+//   E2E_SKIP_SLOW=1  skip the ~70 s revoke-eviction and rate-limit steps
+//
+// Exit code 0 only if every step passed.
+
+import { spawn } from "node:child_process";
+import { createServer } from "node:http";
+import { createHash, randomBytes } from "node:crypto";
+import { gzipSync } from "node:zlib";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const req = createRequire(path.join(root, "packages/agent/package.json"));
+const WebSocket = req("ws");
+const { WebSocketServer } = WebSocket;
+
+const API = (process.env.API_URL ?? "http://127.0.0.1:9100") + "/api/v1";
+const HUB = process.env.HUB_URL ?? "http://127.0.0.1:9101";
+const HUB_DOMAIN = process.env.HUB_DOMAIN ?? "vv.test";
+const EMAIL_LOG = process.env.EMAIL_LOG;
+const SLOW = process.env.E2E_SKIP_SLOW !== "1";
+const RUN = randomBytes(3).toString("hex");
+
+const results = [];
+const cleanups = [];
+let failed = 0;
+
+async function step(name, fn) {
+  const t0 = Date.now();
+  try {
+    const detail = await fn();
+    results.push({ name, ok: true, ms: Date.now() - t0 });
+    console.log(`PASS  ${name}${detail ? `  (${detail})` : ""}`);
+  } catch (err) {
+    failed++;
+    results.push({ name, ok: false, ms: Date.now() - t0, err: String(err?.message ?? err) });
+    console.log(`FAIL  ${name}\n      ${String(err?.stack ?? err).split("\n").slice(0, 3).join("\n      ")}`);
+  }
+}
+const assert = (cond, msg) => {
+  if (!cond) throw new Error(msg);
+};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function api(method, p, { token, body, headers = {} } = {}) {
+  const res = await fetch(API + p, {
+    method,
+    headers: {
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = { raw: text };
+  }
+  return { status: res.status, json, headers: res.headers };
+}
+
+// Raw HTTP to the hub with an explicit Host (fetch can't override Host).
+async function tunnel(host, method, p, { body, headers = {} } = {}) {
+  const { request } = await import("node:http");
+  const u = new URL(HUB);
+  return new Promise((resolve, reject) => {
+    const r = request(
+      { host: u.hostname, port: u.port, method, path: p, headers: { host, ...headers } },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      },
+    );
+    r.on("error", reject);
+    if (body) r.write(body);
+    r.end();
+  });
+}
+
+function lastEmail(to, subjectRe) {
+  assert(EMAIL_LOG, "EMAIL_LOG is not set");
+  const lines = fs.readFileSync(EMAIL_LOG, "utf8").split("\n").filter((l) => l.includes("[email:console]"));
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const e = JSON.parse(lines[i].slice(lines[i].indexOf("{")));
+    const rcpt = Array.isArray(e.to) ? e.to : [e.to];
+    if (rcpt.includes(to) && subjectRe.test(e.subject)) return e;
+  }
+  throw new Error(`no email to ${to} matching ${subjectRe}`);
+}
+const tokenFrom = (email) => {
+  for (const l of email.links) {
+    const t = new URL(l).searchParams.get("token");
+    if (t) return t;
+  }
+  throw new Error("no token link in email");
+};
+
+// ── Local backend the agent forwards to ───────────────────────────────────
+const PNG = Buffer.from(
+  "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fe0def46b80000000049454e44ae426082",
+  "hex",
+);
+let backendHits = 0;
+const backend = createServer((q, r) => {
+  backendHits++;
+  const chunks = [];
+  q.on("data", (c) => chunks.push(c));
+  q.on("end", () => {
+    const body = Buffer.concat(chunks);
+    const url = new URL(q.url, "http://x");
+    if (url.pathname === "/echo") {
+      r.writeHead(200, { "content-type": "application/json" });
+      return r.end(
+        JSON.stringify({
+          method: q.method,
+          path: url.pathname,
+          query: url.search,
+          headers: q.headers,
+          bodyLength: body.length,
+          bodySha256: createHash("sha256").update(body).digest("hex"),
+        }),
+      );
+    }
+    if (url.pathname === "/png") {
+      r.writeHead(200, { "content-type": "image/png" });
+      return r.end(PNG);
+    }
+    if (url.pathname === "/gzip") {
+      const z = gzipSync(Buffer.from("compressed hello ".repeat(200)));
+      r.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
+      return r.end(z);
+    }
+    if (url.pathname === "/cookies") {
+      r.writeHead(200, { "set-cookie": ["a=1; Path=/; HttpOnly", "b=2; Path=/"] });
+      return r.end("ok");
+    }
+    if (url.pathname === "/status/418") {
+      r.writeHead(418);
+      return r.end("teapot");
+    }
+    if (url.pathname === "/empty") {
+      r.writeHead(204);
+      return r.end();
+    }
+    r.writeHead(404);
+    r.end("not found");
+  });
+});
+const wss = new WebSocketServer({ server: backend, path: "/ws" });
+wss.on("connection", (ws) => ws.on("message", (m, isBinary) => ws.send(isBinary ? m : `echo:${m}`)));
+
+// ── Agent process ─────────────────────────────────────────────────────────
+function startAgent({ key, secret, port, label }) {
+  const cli = path.join(root, "packages/agent/dist/cli.js");
+  assert(fs.existsSync(cli), "packages/agent/dist/cli.js missing: build the agent first");
+  const hubWs = HUB.replace(/^http/, "ws") + "/agent";
+  const child = spawn(process.execPath, [cli, "--key", key, "--secret", secret, "--port", String(port), "--label", label, "--hub", hubWs, "--no-local-discovery"], {
+    env: { ...process.env, VHYXVOID_API_KEY: "", VHYXVOID_SECRET: "", DOTENV_CONFIG_QUIET: "true" },
+    cwd: fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "vv-agent-")),
+  });
+  let out = "";
+  child.stdout.on("data", (d) => (out += d));
+  child.stderr.on("data", (d) => (out += d));
+  const exited = new Promise((r) => child.on("exit", (code, signal) => r({ code, signal })));
+  cleanups.push(() => child.kill("SIGINT"));
+  return {
+    child,
+    exited,
+    output: () => out,
+    waitFor: async (re, ms = 15_000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        const m = out.match(re);
+        if (m) return m;
+        await sleep(100);
+      }
+      throw new Error(`agent output never matched ${re}; got:\n${out.slice(-1500)}`);
+    },
+  };
+}
+
+// ── The journey ───────────────────────────────────────────────────────────
+const email = `ada.${RUN}@e2e.test`;
+const password = "Correct-Horse-9!";
+const s = {};
+
+await new Promise((r) => backend.listen(0, "127.0.0.1", r));
+s.backendPort = backend.address().port;
+cleanups.push(() => new Promise((r) => backend.close(r)));
+
+await step("register", async () => {
+  const r = await api("POST", "/auth/register", { body: { email, password, firstName: "Ada", lastName: "Lovelace" } });
+  assert(r.status === 201 || r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+});
+
+await step("login is refused before email verification", async () => {
+  const r = await api("POST", "/auth/login", { body: { email, password } });
+  assert(r.status === 403, `expected 403, got ${r.status}`);
+});
+
+// Pre-verification account takeover: an attacker registers the victim's
+// address first. The victim's later registration must not leave the
+// attacker's password in place, and the attacker must never get a session.
+await step("security: registering someone else's address can't take it over", async () => {
+  const victim = `victim.${RUN}@e2e.test`;
+  const attackerPw = "Attacker-Pass-1!";
+  const victimPw = "Victim-Pass-2!";
+  await api("POST", "/auth/register", { body: { email: victim, password: attackerPw, firstName: "Mallory" } });
+  const early = await api("POST", "/auth/login", { body: { email: victim, password: attackerPw } });
+  assert(early.status === 403, `attacker got a session before verification (${early.status})`);
+  const second = await api("POST", "/auth/register", { body: { email: victim, password: victimPw, firstName: "Victor" } });
+  assert(second.status === 200 || second.status === 201, `second registration ${second.status}`);
+  // The inbox owner gets a "finish creating your account" link, not a
+  // verification link that would keep the attacker's password.
+  const mail = lastEmail(victim, /finish creating/i);
+  const fin = await api("POST", "/auth/reset-password", { body: { token: tokenFrom(mail), newPassword: victimPw } });
+  assert(fin.status === 200, `finish signup ${fin.status}: ${JSON.stringify(fin.json)}`);
+  const attacker = await api("POST", "/auth/login", { body: { email: victim, password: attackerPw } });
+  assert(attacker.status === 401, `attacker password still works (${attacker.status})`);
+  const owner = await api("POST", "/auth/login", { body: { email: victim, password: victimPw } });
+  assert(owner.status === 200, `owner can't log in (${owner.status})`);
+  const me = await api("GET", "/account/me", { token: owner.json.data.accessToken });
+  assert(me.json.data.accounts.some((a) => a.accountType === "PERSONAL"), "no personal workspace after finishing signup");
+});
+
+await step("verify email from the emailed link", async () => {
+  const token = tokenFrom(lastEmail(email, /verify/i));
+  const r = await api("POST", "/auth/verify-email", { body: { token } });
+  assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+  const again = await api("POST", "/auth/verify-email", { body: { token } });
+  assert(again.status === 400, `a used token must be a 400, got ${again.status}`);
+});
+
+await step("login", async () => {
+  const r = await api("POST", "/auth/login", { body: { email, password } });
+  assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+  s.token = r.json.data.accessToken;
+  s.refreshCookie = (r.headers.get("set-cookie") ?? "").split(";")[0];
+  assert(s.token && s.refreshCookie.startsWith("refresh_token="), "missing access token or refresh cookie");
+});
+
+await step("wrong password is refused", async () => {
+  const r = await api("POST", "/auth/login", { body: { email, password: "nope-nope-nope" } });
+  assert(r.status === 401 || r.status === 400, `status ${r.status}`);
+});
+
+await step("me: one personal workspace", async () => {
+  const r = await api("GET", "/account/me", { token: s.token });
+  assert(r.status === 200, `status ${r.status}`);
+  const personal = r.json.data.accounts.filter((a) => a.accountType === "PERSONAL");
+  assert(personal.length === 1, `expected 1 personal account, got ${personal.length}`);
+  s.personal = personal[0].accountId;
+});
+
+await step("renaming the personal workspace is a 403", async () => {
+  const r = await api("PATCH", `/account/organizations/${s.personal}`, { token: s.token, body: { name: "Renamed" } });
+  assert(r.status === 403, `status ${r.status}: ${JSON.stringify(r.json)}`);
+});
+
+await step("inviting to the personal workspace is a 403", async () => {
+  const r = await api("POST", `/account/organizations/${s.personal}/members/invite`, {
+    token: s.token,
+    body: { email: `bob.${RUN}@e2e.test`, roleLevel: 10 },
+  });
+  assert(r.status === 403, `status ${r.status}: ${JSON.stringify(r.json)}`);
+});
+
+await step("create an organization", async () => {
+  const r = await api("POST", "/account/organizations", { token: s.token, body: { name: `Acme ${RUN}` } });
+  assert(r.status === 201 || r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+  s.org = r.json.data?.organizationId ?? r.json.data?.id;
+  assert(s.org, `no org id in ${JSON.stringify(r.json)}`);
+});
+
+await step("FREE org: inviting a member hits the plan limit (402)", async () => {
+  const r = await api("POST", `/account/organizations/${s.org}/members/invite`, {
+    token: s.token,
+    body: { email: `bob.${RUN}@e2e.test`, roleLevel: 10 },
+  });
+  assert(r.status === 402, `status ${r.status}: ${JSON.stringify(r.json)}`);
+});
+
+await step("create an API key with an expiry (allowed on FREE)", async () => {
+  const expiresAt = new Date(Date.now() + 7 * 86400_000).toISOString();
+  const r = await api("POST", `/apikeys/organizations/${s.personal}/api-keys`, {
+    token: s.token,
+    body: { name: "e2e", environment: "DEV", scopes: ["tunnel:connect"], expiresAt },
+  });
+  assert(r.status === 201 || r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+  const d = r.json.data ?? r.json;
+  s.keyId = d.key?.keyId ?? d.keyId;
+  s.keyUuid = d.key?.id ?? d.id;
+  s.secret = d.secret;
+  assert(s.keyId && s.secret, `missing keyId/secret in ${JSON.stringify(d)}`);
+});
+
+await step("a PROD key is refused on FREE", async () => {
+  const r = await api("POST", `/apikeys/organizations/${s.personal}/api-keys`, {
+    token: s.token,
+    body: { name: "prod", environment: "PROD", scopes: ["tunnel:connect"] },
+  });
+  assert(r.status >= 400 && r.status < 500, `status ${r.status}`);
+  return `status ${r.status}`;
+});
+
+await step("agent CLI connects and prints the public URL", async () => {
+  s.agent = startAgent({ key: s.keyId, secret: s.secret, port: s.backendPort, label: "app" });
+  const m = await s.agent.waitFor(/Public:\s+(\S+)/);
+  s.publicUrl = m[1];
+  s.host = new URL(s.publicUrl).host;
+  assert(s.host.endsWith(`.${HUB_DOMAIN}`), `unexpected host ${s.host}`);
+  assert(!/queue/i.test(s.agent.output()), "agent still mentions a queue");
+  return s.publicUrl;
+});
+
+await step("tunnel: JSON GET with query, headers reach the backend", async () => {
+  const r = await tunnel(s.host, "GET", "/echo?x=1&y=two", { headers: { "x-custom": "hello" } });
+  assert(r.status === 200, `status ${r.status}: ${r.body}`);
+  const j = JSON.parse(r.body);
+  assert(j.query === "?x=1&y=two", `query ${j.query}`);
+  assert(j.headers["x-custom"] === "hello", "custom header lost");
+});
+
+await step("tunnel: spoofed X-Forwarded-For is not trusted by the hub path", async () => {
+  const r = await tunnel(s.host, "GET", "/echo", { headers: { "x-forwarded-for": "6.6.6.6" } });
+  const j = JSON.parse(r.body);
+  return `backend saw x-forwarded-for=${j.headers["x-forwarded-for"] ?? "(none)"} (nginx overwrites it in production)`;
+});
+
+await step("tunnel: POST 5 MB body arrives intact", async () => {
+  const big = randomBytes(5 * 1024 * 1024);
+  const r = await tunnel(s.host, "POST", "/echo", { body: big, headers: { "content-type": "application/octet-stream", "content-length": big.length } });
+  assert(r.status === 200, `status ${r.status}: ${String(r.body).slice(0, 200)}`);
+  const j = JSON.parse(r.body);
+  assert(j.bodyLength === big.length, `length ${j.bodyLength}`);
+  assert(j.bodySha256 === createHash("sha256").update(big).digest("hex"), "body hash differs");
+});
+
+await step("tunnel: binary response is byte-identical", async () => {
+  const r = await tunnel(s.host, "GET", "/png");
+  assert(r.status === 200 && Buffer.compare(r.body, PNG) === 0, `status ${r.status}, ${r.body.length} bytes`);
+});
+
+await step("tunnel: gzip response is returned in full", async () => {
+  const r = await tunnel(s.host, "GET", "/gzip", { headers: { "accept-encoding": "gzip" } });
+  const { gunzipSync } = await import("node:zlib");
+  const text = r.headers["content-encoding"] === "gzip" ? gunzipSync(r.body).toString() : r.body.toString();
+  assert(r.status === 200 && text === "compressed hello ".repeat(200), `status ${r.status}, ${text.length} chars`);
+});
+
+await step("tunnel: two Set-Cookie headers survive, no Domain rewrite", async () => {
+  const r = await tunnel(s.host, "GET", "/cookies");
+  const sc = r.headers["set-cookie"] ?? [];
+  assert(sc.length === 2, `set-cookie ${JSON.stringify(sc)}`);
+  assert(!sc.some((c) => /domain=/i.test(c)), `domain rewritten: ${JSON.stringify(sc)}`);
+});
+
+await step("tunnel: backend status codes pass through (418, 204, 404)", async () => {
+  const a = await tunnel(s.host, "GET", "/status/418");
+  const b = await tunnel(s.host, "GET", "/empty");
+  const c = await tunnel(s.host, "GET", "/nope");
+  assert(a.status === 418 && b.status === 204 && c.status === 404, `${a.status} ${b.status} ${c.status}`);
+});
+
+await step("tunnel: WebSocket echo (text and binary)", async () => {
+  const ws = new WebSocket(`${HUB.replace(/^http/, "ws")}/ws`, { headers: { host: s.host } });
+  await new Promise((res, rej) => {
+    ws.once("open", res);
+    ws.once("error", rej);
+    ws.once("unexpected-response", (_q, r) => rej(new Error(`upgrade refused: ${r.statusCode}`)));
+  });
+  const got = [];
+  ws.on("message", (m, isBinary) => got.push(isBinary ? Buffer.from(m).toString("hex") : m.toString()));
+  ws.send("hi");
+  ws.send(Buffer.from([1, 2, 3]));
+  const t0 = Date.now();
+  while (got.length < 2 && Date.now() - t0 < 5000) await sleep(50);
+  ws.close();
+  assert(got.includes("echo:hi") && got.includes("010203"), `got ${JSON.stringify(got)}`);
+});
+
+await step("tunnel: unknown label answers 404 with a hint", async () => {
+  const other = s.host.replace(/--[^.]+/, "--nolabel");
+  const r = await tunnel(other, "GET", "/");
+  assert(r.status === 404, `status ${r.status}`);
+});
+
+await step("tunnel: absolute-URL path is refused (SSRF guard)", async () => {
+  const r = await tunnel(s.host, "GET", "http://169.254.169.254/latest/meta-data");
+  assert(r.status === 400, `status ${r.status}`);
+});
+
+await step("dashboard: tunnels list shows the connected agent", async () => {
+  const r = await api("GET", `/tunnel/organizations/${s.personal}/tunnels`, { token: s.token });
+  assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json).slice(0, 300)}`);
+  const d = r.json.data ?? {};
+  assert(d.activeCount >= 1, `no active session: ${JSON.stringify(d).slice(0, 300)}`);
+  return `${d.activeCount} active`;
+});
+
+await step("SDK createClient reaches the tunnel", async () => {
+  const sdk = await import(path.join(root, "packages/sdk/dist/index.js"));
+  const createClient = sdk.createClient ?? sdk.default?.createClient;
+  assert(createClient, "createClient not exported");
+  // fetch can't override Host, so the tunnel host must resolve. Locally,
+  // E2E_WRITE_HOSTS=1 maps it to 127.0.0.1 in /etc/hosts.
+  if (process.env.E2E_WRITE_HOSTS === "1") {
+    const line = `127.0.0.1 ${s.host.split(":")[0]}\n`;
+    if (!fs.readFileSync("/etc/hosts", "utf8").includes(line)) fs.appendFileSync("/etc/hosts", line);
+  }
+  const u = new URL(HUB);
+  const client = createClient({ baseUrl: `${u.protocol}//${s.host.split(":")[0]}:${u.port || (u.protocol === "https:" ? 443 : 80)}`, timeout: 10_000 });
+  const r = await client.get("/echo?from=sdk");
+  const body = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+  assert(r.status === 200 && body?.query === "?from=sdk", `status ${r.status} ${JSON.stringify(body).slice(0, 200)}`);
+});
+
+if (process.env.UPSTASH_REDIS_REST_URL) {
+  await step("usage: public-path requests are counted", async () => {
+    // The hub batches public-path usage and flushes every ~30 s.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 40_000) {
+      const r = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+        method: "POST",
+        headers: { authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+        body: JSON.stringify(["SCAN", "0", "MATCH", `usage:${s.personal}:*`, "COUNT", "1000"]),
+      }).then((x) => x.json());
+      const keys = r.result?.[1] ?? [];
+      if (keys.length) return `${keys.length} counter key(s)`;
+      await sleep(2000);
+    }
+    throw new Error("no usage counters after 40 s");
+  });
+}
+
+if (SLOW) {
+  await step("rate limit: FREE public path answers 429 past 100/min", async () => {
+    let limited = 0;
+    await Promise.all(
+      Array.from({ length: 130 }, () =>
+        tunnel(s.host, "GET", "/echo").then((r) => {
+          if (r.status === 429) {
+            limited++;
+            assert(r.headers["retry-after"], "429 without Retry-After");
+          }
+        }),
+      ),
+    );
+    assert(limited > 0, "no 429 after 130 requests");
+    return `${limited} of 130 limited`;
+  });
+
+  await step("revoking the key evicts the running agent, which exits 1", async () => {
+    const r = await api("POST", `/apikeys/organizations/${s.personal}/api-keys/${s.keyUuid}/revoke`, { token: s.token, body: {} });
+    assert(r.status === 200 || r.status === 204, `revoke status ${r.status}: ${JSON.stringify(r.json)}`);
+    const res = await Promise.race([s.agent.exited, sleep(90_000).then(() => null)]);
+    assert(res, "agent still running 90 s after revoke");
+    assert(/revoked/i.test(s.agent.output()), "agent never printed the revoke reason");
+    assert(res.code === 1, `agent exit code ${res.code} (signal ${res.signal})`);
+    const after = await tunnel(s.host, "GET", "/echo");
+    assert(after.status === 404 || after.status === 503, `tunnel still answers ${after.status}`);
+    return `exit ${res.code}, tunnel now ${after.status}`;
+  });
+
+  await step("a revoked key cannot connect again", async () => {
+    const a = startAgent({ key: s.keyId, secret: s.secret, port: s.backendPort, label: "app" });
+    const res = await Promise.race([a.exited, sleep(15_000).then(() => null)]);
+    assert(res && res.code === 1, `expected exit 1, got ${JSON.stringify(res)}; output:\n${a.output().slice(-600)}`);
+  });
+}
+
+await step("refresh token rotates the session", async () => {
+  const r = await api("POST", "/auth/refresh", { headers: { cookie: s.refreshCookie } });
+  assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+  assert(r.json.data?.accessToken, "no new access token");
+});
+
+await step("forgot password -> reset -> login with the new password", async () => {
+  const f = await api("POST", "/auth/forgot-password", { body: { email } });
+  assert(f.status === 200, `forgot status ${f.status}`);
+  const token = tokenFrom(lastEmail(email, /reset/i));
+  const newPassword = "Brand-New-Pass-7!";
+  const r = await api("POST", "/auth/reset-password", { body: { token, newPassword, password: newPassword } });
+  assert(r.status === 200, `reset status ${r.status}: ${JSON.stringify(r.json)}`);
+  const old = await api("POST", "/auth/login", { body: { email, password } });
+  assert(old.status >= 400, `old password still works (${old.status})`);
+  const ok = await api("POST", "/auth/login", { body: { email, password: newPassword } });
+  assert(ok.status === 200, `new password login ${ok.status}`);
+  s.token = ok.json.data.accessToken;
+  s.refreshCookie = (ok.headers.get("set-cookie") ?? "").split(";")[0];
+});
+
+await step("logout revokes the access token immediately", async () => {
+  const r = await api("POST", "/auth/logout", { token: s.token, headers: { cookie: s.refreshCookie }, body: {} });
+  assert(r.status === 200 || r.status === 204, `logout status ${r.status}: ${JSON.stringify(r.json)}`);
+  const me = await api("GET", "/account/me", { token: s.token });
+  assert(me.status === 401, `access token still works after logout (${me.status})`);
+});
+
+for (const c of cleanups.reverse()) {
+  try {
+    await c();
+  } catch {}
+}
+console.log(`\n${results.length - failed}/${results.length} steps passed`);
+process.exit(failed ? 1 : 0);

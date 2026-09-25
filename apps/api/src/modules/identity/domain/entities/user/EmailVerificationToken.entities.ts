@@ -1,3 +1,4 @@
+import { ValidationError } from "@/core/errors/error.format";
 // identity/domain/entities/EmailVerificationToken.ts
 
 export interface EmailVerificationTokenProps {
@@ -44,8 +45,8 @@ export class EmailVerificationToken {
   }
 
   ensureValid(now: Date): void {
-    if (this.props.usedAt) throw new Error('Token has already been used');
-    if (this.props.expiresAt <= now) throw new Error('Token has expired');
+    if (this.props.usedAt) throw new ValidationError('Token has already been used');
+    if (this.props.expiresAt <= now) throw new ValidationError('Token has expired');
   }
 
   markUsed(now: Date): void {

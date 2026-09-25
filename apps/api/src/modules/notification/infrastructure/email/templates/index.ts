@@ -380,6 +380,38 @@ export function passwordResetRequest(params: {
 }
 
 /**
+ * Sent when someone registers an address that already has an unverified
+ * account: the inbox owner finishes signing up by choosing a password.
+ */
+export function finishSignup(params: {
+  firstName: string;
+  url: string;
+  expiresInHours?: number;
+}): EmailContent {
+  const hours = params.expiresInHours ?? 24;
+  const subject = `Finish creating your ${APP_NAME} account`;
+  const html = layout(
+    heading("Finish creating your account") +
+      para(`Hi ${params.firstName || "there"},`) +
+      para(
+        `Someone (probably you) started creating a ${APP_NAME} account with this email address. Choose your password to finish, which also confirms this address is yours.`,
+      ) +
+      button("Choose password", params.url) +
+      smallNote(
+        `This link expires in ${hours} hours. If you didn't try to sign up, ignore this email: nobody can use the account without this link.`,
+      ),
+    "Finish creating your account",
+  );
+  const text =
+    `Hi ${params.firstName || "there"},\n\n` +
+    `Someone (probably you) started creating a ${APP_NAME} account with this email address.\n` +
+    `Choose your password to finish:\n${params.url}\n\n` +
+    `This link expires in ${hours} hours. If you didn't try to sign up, ignore this email.\n\n` +
+    `— ${APP_NAME}`;
+  return { subject, html, text };
+}
+
+/**
  * Password reset success confirmation
  */
 export function passwordResetSuccess(params: {

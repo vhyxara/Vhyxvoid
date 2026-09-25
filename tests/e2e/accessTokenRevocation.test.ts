@@ -139,6 +139,7 @@ describe("user tokens are revoked by logout and password reset, not by expiry", 
           userRepository: {
             findById: async () => ({
               id: "u1",
+              isEmailVerified: true, // an existing, verified user
               resetPassword: () => users.get("u1")!.tokenVersion++, // mirrors User.resetPassword
             }),
             save: async () => {},

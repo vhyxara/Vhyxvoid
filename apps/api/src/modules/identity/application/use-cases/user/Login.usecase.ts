@@ -1,6 +1,6 @@
 // identity/application/use-cases/LoginUser.ts
 
-import { UnauthorizedError } from "@/core/errors/error.format";
+import { ForbiddenError, UnauthorizedError } from "@/core/errors/error.format";
 import { Session } from "@/modules/identity/domain/entities/user/Session.entities";
 import { PasswordHasher } from "@/modules/identity/domain/services/PasswordHasher";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
@@ -117,6 +117,16 @@ export class LoginUseCase {
       user.recordFailedLoginAttempt(now);
       await this.uow.userRepository.save(user);
       throw new UnauthorizedError("Invalid credentials");
+    }
+
+    // 2b. No session until the email is verified. Checked after the password
+    // so it reveals nothing to someone who doesn't know it. Without this, an
+    // attacker could register someone else's address, sign in, and keep the
+    // account once the real owner verified it.
+    if (!user.isEmailVerified) {
+      throw new ForbiddenError(
+        "Verify your email address before signing in. We can resend the link.",
+      );
     }
 
     // 3️⃣ Only wrap the SUCCESS path in a transaction

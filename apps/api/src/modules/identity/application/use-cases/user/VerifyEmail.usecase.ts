@@ -4,15 +4,10 @@
 // import { EmailVerificationRepository } from "../../domain/repositories/EmailVerificationRepository";
 // import { TokenGenerator } from "../../domain/services/TokenGenerator";
 // import { EmailVerificationToken } from "../../domain/entities/EmailVerificationToken";
-import { NotFoundError } from "@/core/errors/error.format";
-import { generateAccountSlug } from "@/core/utils/slug.util";
-import { Account } from "@/modules/identity/domain/entities/account/Account.entities";
-import { AccountMembership } from "@/modules/identity/domain/entities/account/AccountMember.entities";
-import { Role } from "@/modules/identity/domain/entities/account/Role.entities";
+import { NotFoundError, ValidationError } from "@/core/errors/error.format";
+import { ensurePersonalAccount } from "@/modules/identity/application/services/personalAccount";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
-
-const MAX_SLUG_ATTEMPTS = 5;
 
 export class VerifyEmailUseCase {
   constructor(private uow: PrismaUnitOfWork) {}
@@ -30,7 +25,7 @@ export class VerifyEmailUseCase {
         membershipRepository,
       }) => {
         const token = await emailTokenRepository.findByHash(tokenHash);
-        if (!token) throw new Error("Invalid token");
+        if (!token) throw new ValidationError("Invalid or expired verification link");
         token.ensureValid(now);
 
         const user = await userRepository.findById(token.userId);
@@ -42,39 +37,12 @@ export class VerifyEmailUseCase {
         await userRepository.save(user);
         await emailTokenRepository.save(token);
 
-        // NOW create account + roles + membership
-        // Only runs once — check if personal account already exists
-        const existingAccounts = await accountRepository.findByUserId(user.id);
-        if (existingAccounts.length === 0) {
-          const personalAccount = Account.createPersonal(
-            user.id,
-            user.firstName,
-          );
-
-          // The slug always carries a random suffix (audit H11), so a taken
-          // one is a random collision: draw again rather than fall back to a
-          // name-derived slug.
-          for (let attempt = 1; ; attempt++) {
-            const slug = personalAccount.slug!;
-            if (!(await accountRepository.findBySlug(slug))) break;
-            if (attempt >= MAX_SLUG_ATTEMPTS) {
-              throw new Error("Could not allocate a unique account slug");
-            }
-            personalAccount.setSlug(generateAccountSlug(personalAccount.name), now);
-          }
-          await accountRepository.save(personalAccount);
-
-          const roles = Role.seedSystemRoles(personalAccount.id);
-          await roleRepository.saveBatch(roles);
-
-          const ownerRole = roles[0];
-          const ownership = AccountMembership.createOwner(
-            personalAccount.id,
-            user.id,
-            ownerRole,
-          );
-          await membershipRepository.save(ownership);
-        }
+        // Proven inbox ownership: create the personal workspace.
+        await ensurePersonalAccount(
+          user,
+          { accountRepository, roleRepository, membershipRepository },
+          now,
+        );
 
         return { email: user.email };
       },
