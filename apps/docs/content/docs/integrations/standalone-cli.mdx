@@ -2,8 +2,8 @@
 title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
-  date: "2026-09-21"
-  commit: "7a71695"
+  date: "2026-09-25"
+  commit: "8babfbc"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -90,7 +90,7 @@ npx vhyxvoid --label api --port 4000   # in another terminal
 
 ### The queue and local discovery
 
-- **Queue.** The agent keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`) so that responses it could not send while disconnected can be sent after it reconnects. It needs the `better-sqlite3` native module; see [Installation](/getting-started/installation). Requests that arrive while the agent is disconnected are not replayed; see [Limitations](/limitations).
+- **Queue.** The agent keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`). In agent 1.0.20 and earlier, responses it could not send while disconnected are written to that file, response bodies included, and sent after it reconnects. From the next release they are held in memory only (up to 100 responses, 20 MB, and two minutes, the time VhyxVoid waits for an answer), never written to disk, and responses an older agent left in the file are deleted when it starts. It needs the `better-sqlite3` native module; see [Installation](/getting-started/installation). Requests that arrive while the agent is disconnected are not replayed; see [Limitations](/limitations).
 - **Local discovery.** By default the agent also listens on `127.0.0.1:4242` so that the [SDK](/sdk/overview), when it runs on the same machine, can find it. It answers only on your own machine, and has no authentication. If you don't use the SDK locally, pass `--no-local-discovery`. It is also the flag to reach for if port 4242 is already taken.
 
 ## Things to know

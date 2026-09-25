@@ -2,8 +2,8 @@
 title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
-  date: "2026-09-24"
-  commit: "621ee3f"
+  date: "2026-09-25"
+  commit: "8babfbc"
   packages:
     "@vhyxvoid/agent": "1.0.20"
     "@vhyxvoid/sdk": "1.1.0"
@@ -97,7 +97,7 @@ Next.js and other frameworks' hot reload over the tunnel has **not been tested**
 
 ## Framework integrations
 
-- **Nothing happens and no URL appears (Express, Fastify).** The middleware warns `Missing VHYXVOID_API_KEY or VHYXVOID_SECRET — tunnel not started` and does nothing else. It also stays off when `NODE_ENV` is `production`. It reads `process.env` only, not `.env.vhyxvoid`, so load your file before the call. See [Express](/integrations/express#development-only).
+- **Nothing happens and no URL appears (Express, Fastify).** The middleware warns `Missing VHYXVOID_API_KEY or VHYXVOID_SECRET — tunnel not started` and does nothing else. It also stays off when `NODE_ENV` is `production`, and from the next middleware release whenever `NODE_ENV` isn't `development` or `CI` is set (pass `enabled: true` to force it; see [Express](/integrations/express#development-only)). It reads `process.env` only, not `.env.vhyxvoid`, so load your file before the call. See [Express](/integrations/express#development-only).
 - **`Could not locate the bindings file` when the server starts.** You have `@vhyxvoid/middleware` 1.0.3, which crashed at startup. Upgrade to 1.0.4 or later.
 - **`Cannot find module 'better-sqlite3'` from `@vhyxvoid/next` or `@vhyxvoid/middleware`.** Same cause, in version 1.0.3 of either. Upgrade to 1.0.4 or later; you don't need to install `better-sqlite3` yourself.
 - **`Cross origin request detected to /_next/* resource` in the Next.js terminal.** Add `allowedDevOrigins: ['*.vhyxvoid.com']` to your Next config; see [Next.js](/integrations/nextjs).

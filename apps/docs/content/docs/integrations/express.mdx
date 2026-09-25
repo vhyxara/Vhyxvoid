@@ -2,8 +2,8 @@
 title: Express
 description: Start a VhyxVoid tunnel from inside an Express app with @vhyxvoid/middleware.
 verified:
-  date: "2026-09-19"
-  commit: 377c924
+  date: "2026-09-25"
+  commit: "8babfbc"
   packages:
     "@vhyxvoid/middleware": "1.0.5"
 sources:
@@ -71,18 +71,22 @@ Pass `key` and `secret` as options, or set `VHYXVOID_API_KEY` and `VHYXVOID_SECR
 | `hub` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
 | `writeEnv` | `VHYXVOID_WRITE_ENV` | off | File to write the public URL into, for example `.env.local`. |
 | `envKey` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name written by `writeEnv`. |
-| `enabled` | none | `true` unless `NODE_ENV` is `production` | Force the tunnel on or off. |
+| `enabled` | none | `true` unless `NODE_ENV` is `production` (1.0.5 and earlier); see [Development only](#development-only) | Force the tunnel on or off. |
 | `onConnect` | none | none | Callback that receives the public URL. |
 
 The default label here is `default`, not `app` as in `@vhyxvoid/next`.
 
 ## Development only
 
-The tunnel is off when `NODE_ENV` is `production`, so deploying the same code does not open a tunnel. It is on for every other value, including an unset `NODE_ENV` and `test`. If your CI sets `NODE_ENV` to something else, pass `enabled` explicitly:
+The tunnel is off when `NODE_ENV` is `production`, so deploying the same code does not open a tunnel. In `@vhyxvoid/middleware` 1.0.5 and earlier it is on for every other value, including an unset `NODE_ENV`, `test` and `staging`, and on CI runners. If your CI sets `NODE_ENV` to something else, pass `enabled` explicitly:
 
 ```js
 app.use(vhyxvoid({ enabled: process.env.VHYXVOID_TUNNEL === '1' }))
 ```
+
+<Callout type="warn" title="Changing in the next release">
+The next `@vhyxvoid/middleware` release makes the tunnel opt-in outside development: it starts only when `NODE_ENV` is `development` and `CI` is not set (any value other than `false` or `0` counts as CI), the same rule as `@vhyxvoid/next` plus the CI check. An unset `NODE_ENV`, `test` or `staging` no longer starts it. If you rely on the tunnel starting in one of those, pass `enabled: true` there. Changed in source 2026-09-25, not released yet.
+</Callout>
 
 ## Stopping
 

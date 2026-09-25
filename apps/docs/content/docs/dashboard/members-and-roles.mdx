@@ -2,8 +2,8 @@
 title: Members and roles
 description: Invite people to an organization, change their roles, transfer ownership, and remove them.
 verified:
-  date: "2026-09-22"
-  commit: 9f246be
+  date: "2026-09-25"
+  commit: "8babfbc"
   packages:
     "@vhyxvoid/agent": "1.0.20"
 sources:
@@ -75,3 +75,5 @@ Only the owner can do this. Choose the crown button on the person who should bec
 ## Remove a member
 
 Choose the trash button and confirm **Remove**. The dialog says "This cannot be undone": to bring the person back you have to invite them again.
+
+Removing someone, or someone leaving on their own, also revokes every active API key they created in this organization and cancels the invitations they sent that are still pending. Keys they created in other organizations, and everyone else's keys, are not touched. A tunnel still running on one of the revoked keys is disconnected within about a minute. The revoked keys stay in the API keys list, marked revoked. Changed 2026-09-25, not deployed yet: until then removal deletes only the membership, and the person's keys keep working.

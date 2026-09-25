@@ -2,8 +2,8 @@
 title: Fastify
 description: Start a VhyxVoid tunnel from inside a Fastify app with the @vhyxvoid/middleware Fastify plugin.
 verified:
-  date: "2026-09-19"
-  commit: 377c924
+  date: "2026-09-25"
+  commit: "8babfbc"
   packages:
     "@vhyxvoid/middleware": "1.0.5"
 sources:
@@ -58,7 +58,7 @@ The options are the same as Express's: `key`, `secret`, `port`, `label` (default
 
 - `port` is **not** taken from `app.listen`. Set it to the port you listen on.
 - Only `process.env` is read. `.env.vhyxvoid` is not loaded for you.
-- The tunnel is off when `NODE_ENV` is `production`.
+- The tunnel is off when `NODE_ENV` is `production`. The next release makes it start only when `NODE_ENV` is `development` and not on CI; see [Development only](/integrations/express#development-only).
 
 ## What differs from Express
 
