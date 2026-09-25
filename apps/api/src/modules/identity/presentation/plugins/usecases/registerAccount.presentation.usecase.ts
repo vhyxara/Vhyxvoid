@@ -10,6 +10,20 @@ import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/Prism
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
+import { getRedis } from "@/core/redis/RedisClient";
+import { RedisApiKeyCacheService } from "@/modules/key-management/domain/services/RedisApiKeyCache.service";
+
+/**
+ * Drops revoked keys' cache entries after a member removal (audit part2 G9).
+ * Redis is read at call time: the client is initialised by a plugin that
+ * registers after this container factory runs. Fail-soft like every other
+ * invalidation (RedisApiKeyCacheService.invalidate logs and swallows).
+ */
+async function invalidateApiKeyCache(keyIds: string[]): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  await new RedisApiKeyCacheService(redis).invalidateAllForAccount(keyIds);
+}
 
 export function registerAccountUseCases(container: Container) {
   container.register(
@@ -45,7 +59,7 @@ export function registerAccountUseCases(container: Container) {
 
   container.register(
     RemoveMemberUseCase,
-    (c) => new RemoveMemberUseCase(c.resolve(PrismaUnitOfWork)),
+    (c) => new RemoveMemberUseCase(c.resolve(PrismaUnitOfWork), invalidateApiKeyCache),
   );
   container.register(
     TransferOwnershipUseCase,
