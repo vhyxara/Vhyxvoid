@@ -63,7 +63,7 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(32).max(256),
 });
 export const logoutSchema = z.object({
-  refreshToken: z.string().regex(/^[a-f0-9]+$/i),
+  refreshToken: z.string().regex(/^[a-f0-9]+$/i).optional(),
 });
 export const getAdminSchema = z.object({
   adminId: z.string().uuid(),

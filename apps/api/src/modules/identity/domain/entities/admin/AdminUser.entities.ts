@@ -14,6 +14,8 @@ export interface AdminUserProps {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  /** Signed into access tokens; bumped (in the database) to revoke them. */
+  tokenVersion?: number;
 }
 
 export class AdminUser {
@@ -95,6 +97,10 @@ export class AdminUser {
 
   get fullName(): string {
     return `${this.props.firstName} ${this.props.lastName}`.trim();
+  }
+
+  get tokenVersion(): number {
+    return this.props.tokenVersion ?? 0;
   }
 
   get isSuperAdmin(): boolean {

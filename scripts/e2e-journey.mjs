@@ -17,6 +17,8 @@
 //   EMAIL_LOG      path to the api's stdout when it uses ConsoleEmailService
 //   UPSTASH_REDIS_REST_URL / _TOKEN   optional: check usage counters directly
 //   E2E_SKIP_SLOW=1  skip the ~70 s revoke-eviction and rate-limit steps
+//   ADMIN_EMAIL / ADMIN_PASSWORD   optional: also run the admin API journey
+//                                  (a super admin, e.g. from seed:admin)
 //
 // Exit code 0 only if every step passed.
 
@@ -62,7 +64,20 @@ const assert = (cond, msg) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function api(method, p, { token, body, headers = {} } = {}) {
+async function api(method, p, opts = {}) {
+  const r = await apiOnce(method, p, opts);
+  // Auth endpoints are rate limited per IP (10/min users, 5/min admins);
+  // back-to-back runs can hit that. Wait it out once rather than cascade.
+  if (r.status === 429 && /\/auth\//.test(p)) {
+    const wait = Number(r.headers.get("retry-after") ?? r.headers.get("x-ratelimit-reset") ?? 60);
+    console.log(`      (auth rate limit hit, waiting ${wait}s)`);
+    await sleep((wait + 1) * 1000);
+    return apiOnce(method, p, opts);
+  }
+  return r;
+}
+
+async function apiOnce(method, p, { token, body, headers = {} } = {}) {
   const res = await fetch(API + p, {
     method,
     headers: {
@@ -490,6 +505,104 @@ if (SLOW) {
     const a = startAgent({ key: s.keyId, secret: s.secret, port: s.backendPort, label: "app" });
     const res = await Promise.race([a.exited, sleep(15_000).then(() => null)]);
     assert(res && res.code === 1, `expected exit 1, got ${JSON.stringify(res)}; output:\n${a.output().slice(-600)}`);
+  });
+}
+
+if (process.env.ADMIN_EMAIL) {
+  const A = (m, p, o = {}) => api(m, `/admin/identity${p}`, o);
+  const adminEmail = `ops.${RUN}@e2e.test`;
+  const adminPw = "Ops-Admin-Pass-1!";
+
+  await step("user submits feedback", async () => {
+    const r = await api("POST", "/feedback", {
+      token: s.token,
+      body: { type: "BUG_REPORT", title: `E2E bug ${RUN}`, description: "Something is broken in the e2e run." },
+    });
+    assert(r.status === 201 || r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+    s.feedbackId = r.json.data?.id;
+  });
+
+  await step("admin: super admin logs in", async () => {
+    const r = await A("POST", "/auth/login", { body: { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD } });
+    assert(r.status === 200, `status ${r.status}: ${JSON.stringify(r.json)}`);
+    s.admin = r.json.data.accessToken;
+  });
+
+  await step("admin and user tokens are not interchangeable", async () => {
+    const a = await A("GET", "/users", { token: s.token });
+    const b = await api("GET", "/account/me", { token: s.admin });
+    assert(a.status === 401 || a.status === 403, `user token on admin route: ${a.status}`);
+    assert(b.status === 401 || b.status === 403, `admin token on user route: ${b.status}`);
+  });
+
+  await step("admin: create an admin, blank/extra fields on update are 400", async () => {
+    const r = await A("POST", "/users", { token: s.admin, body: { email: adminEmail, password: adminPw, firstName: "Olive", lastName: "Ops" } });
+    assert(r.status === 201 || r.status === 200, `create ${r.status}: ${JSON.stringify(r.json)}`);
+    s.opsId = r.json.data?.id ?? r.json.data?.admin?.id;
+    assert(s.opsId, `no id in ${JSON.stringify(r.json)}`);
+    const blank = await A("PUT", `/users/${s.opsId}`, { token: s.admin, body: { firstName: "  " } });
+    const extra = await A("PUT", `/users/${s.opsId}`, { token: s.admin, body: { firstName: "Olivia", email: "x@y.z" } });
+    const ok = await A("PUT", `/users/${s.opsId}`, { token: s.admin, body: { firstName: "Olivia" } });
+    assert(blank.status === 400 && extra.status === 400 && ok.status === 200, `${blank.status} ${extra.status} ${ok.status}`);
+  });
+
+  await step("admin: a role with feedback abilities, assigned to the new admin", async () => {
+    const role = await A("POST", "/roles", { token: s.admin, body: { name: `Triage ${RUN}` } });
+    assert(role.status === 201 || role.status === 200, `role ${role.status}: ${JSON.stringify(role.json)}`);
+    s.roleId = role.json.data?.id ?? role.json.data?.role?.id;
+    const abilities = await A("GET", "/abilities?limit=100", { token: s.admin });
+    const list = abilities.json.data?.items ?? abilities.json.items ?? abilities.json.data ?? [];
+    const wanted = list.filter((x) => x.action === "audit.read" || x.action === "admin.read");
+    assert(wanted.length >= 1, `abilities: ${JSON.stringify(list).slice(0, 200)}`);
+    for (const ab of wanted) {
+      const g = await A("POST", `/roles/${s.roleId}/abilities`, { token: s.admin, body: { abilityId: ab.id } });
+      assert(g.status < 300, `grant ${g.status}: ${JSON.stringify(g.json)}`);
+    }
+    const assign = await A("POST", `/users/${s.opsId}/roles`, { token: s.admin, body: { roleId: s.roleId } });
+    assert(assign.status < 300, `assign ${assign.status}: ${JSON.stringify(assign.json)}`);
+    const login = await A("POST", "/auth/login", { body: { email: adminEmail, password: adminPw } });
+    assert(login.status === 200, `ops login ${login.status}`);
+    s.ops = login.json.data.accessToken;
+    const mine = await A("GET", "/me/abilities", { token: s.ops });
+    const names = JSON.stringify(mine.json);
+    assert(/audit/.test(names), `ops abilities: ${names.slice(0, 200)}`);
+    const forbidden = await A("POST", "/roles", { token: s.ops, body: { name: "nope" } });
+    assert(forbidden.status === 403, `ops could create a role (${forbidden.status})`);
+  });
+
+  await step("admin: feedback list has counts; triage is audit-logged", async () => {
+    const list = await api("GET", "/admin/feedback", { token: s.admin });
+    assert(list.status === 200, `list ${list.status}: ${JSON.stringify(list.json).slice(0, 200)}`);
+    const counts = list.json.counts ?? list.json.data?.counts ?? list.json.extra?.counts;
+    assert(counts && counts.open >= 1, `counts ${JSON.stringify(counts)} in ${JSON.stringify(list.json).slice(0, 200)}`);
+    const empty = await api("PATCH", `/admin/feedback/${s.feedbackId}`, { token: s.admin, body: {} });
+    assert(empty.status === 400 && empty.json.code === "VALIDATION_ERROR", `empty patch ${empty.status} ${JSON.stringify(empty.json)}`);
+    const t = await api("PATCH", `/admin/feedback/${s.feedbackId}`, { token: s.admin, body: { status: "UNDER_REVIEW", adminNotes: "looking" } });
+    assert(t.status === 200, `triage ${t.status}: ${JSON.stringify(t.json)}`);
+    const logs = await A("GET", "/audit-logs?action=feedback.updated", { token: s.admin });
+    assert(JSON.stringify(logs.json).includes(s.feedbackId), `no feedback.updated audit row: ${JSON.stringify(logs.json).slice(0, 300)}`);
+  });
+
+  await step("admin: disabling an admin stops their access", async () => {
+    const d = await A("POST", `/users/${s.opsId}/disable`, { token: s.admin, body: {} });
+    assert(d.status < 300, `disable ${d.status}: ${JSON.stringify(d.json)}`);
+    const login = await A("POST", "/auth/login", { body: { email: adminEmail, password: adminPw } });
+    assert(login.status >= 400, `disabled admin could log in (${login.status})`);
+    const t0 = Date.now();
+    let status = 200;
+    while (Date.now() - t0 < 35_000) {
+      status = (await A("GET", "/me", { token: s.ops })).status;
+      if (status === 401 || status === 403) break;
+      await sleep(1000);
+    }
+    assert(status === 401 || status === 403, `disabled admin's token still works (${status})`);
+  });
+
+  await step("admin: logout revokes the admin access token", async () => {
+    const r = await A("POST", "/auth/logout", { token: s.admin, body: {} });
+    assert(r.status < 300, `logout ${r.status}`);
+    const me = await A("GET", "/me", { token: s.admin });
+    assert(me.status === 401, `admin token still works after logout (${me.status})`);
   });
 }
 

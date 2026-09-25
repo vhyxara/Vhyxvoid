@@ -92,6 +92,7 @@ export class AdminLoginUseCase {
             email: admin.email,
             type: "admin",
             isSuperAdmin: admin.isSuperAdmin,
+            tokenVersion: admin.tokenVersion,
           },
           { expiresIn: AdminTTL.ADMIN_TOKEN_TTL_SECONDS },
         );

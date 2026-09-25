@@ -66,6 +66,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
       deletedAt: data.deletedAt,
+      tokenVersion: data.tokenVersion,
     });
   }
 
@@ -88,6 +89,7 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
       deletedAt: data.deletedAt,
+      tokenVersion: data.tokenVersion,
     });
   }
 
@@ -96,7 +98,6 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
     status?: boolean;
   }): Promise<AdminUser[]> {
     const where: Prisma.AdminUserWhereInput = {};
-    console.log("PrismaAdminUserRepository.findAll - filters", filters);
     if (filters?.isDeleted === true) {
       where.deletedAt = { not: null };
     } else if (filters?.isDeleted === false) {
@@ -121,11 +122,20 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
         deletedAt: d.deletedAt,
+        tokenVersion: d.tokenVersion,
       }),
     );
   }
 
   async countTotal(): Promise<number> {
     return this.prisma.adminUser.count();
+  }
+
+  /** Revokes every outstanding access token of this admin (atomic increment). */
+  async bumpTokenVersion(id: string): Promise<void> {
+    await this.prisma.adminUser.update({
+      where: { id },
+      data: { tokenVersion: { increment: 1 } },
+    });
   }
 }

@@ -7,18 +7,35 @@ import { PrismaClient } from "@/generated/prisma";
 const prisma = new PrismaClient();
 
 /**
- * Super Admin Account (First Admin)
- * ⚠️ CHANGE THESE CREDENTIALS BEFORE DEPLOYING TO PRODUCTION
+ * Super Admin Account (First Admin).
+ *
+ * Credentials come from SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD. In
+ * production both are required and the password must be at least 16
+ * characters (there is no admin password-change endpoint yet, so what you
+ * set here is what stays). Outside production the old local defaults apply.
  */
+const isProduction = process.env.NODE_ENV === "production";
 const SUPER_ADMIN = {
-  email: "admin@company.local",
-  password: "Admin@12345678", // ⚠️ Change this!
-  firstName: "Super",
-  lastName: "Admin",
+  email: process.env.SUPER_ADMIN_EMAIL ?? (isProduction ? "" : "admin@company.local"),
+  password: process.env.SUPER_ADMIN_PASSWORD ?? (isProduction ? "" : "Admin@12345678"),
+  firstName: process.env.SUPER_ADMIN_FIRST_NAME ?? "Super",
+  lastName: process.env.SUPER_ADMIN_LAST_NAME ?? "Admin",
 };
+
+function checkCredentials(): void {
+  if (!SUPER_ADMIN.email || !SUPER_ADMIN.password) {
+    console.error("❌ Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD (required in production).");
+    process.exit(1);
+  }
+  if (isProduction && SUPER_ADMIN.password.length < 16) {
+    console.error("❌ SUPER_ADMIN_PASSWORD must be at least 16 characters in production.");
+    process.exit(1);
+  }
+}
 
 async function seedSuperAdmin() {
   try {
+    checkCredentials();
     console.log("🌱 Creating super admin account...\n");
 
     // Check if super admin already exists
@@ -71,7 +88,7 @@ async function seedSuperAdmin() {
     console.log(`✅ Super admin created successfully!\n`);
     console.log("📋 Super Admin Credentials:");
     console.log(`   Email:    ${SUPER_ADMIN.email}`);
-    console.log(`   Password: ${SUPER_ADMIN.password}`);
+    console.log(`   Password: (the SUPER_ADMIN_PASSWORD you set; never printed)`);
     console.log(`   ID:       ${superAdmin.id}`);
     console.log(`\n⚠️  IMPORTANT:`);
     console.log(`   1. Change password immediately after first login`);

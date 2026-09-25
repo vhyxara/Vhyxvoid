@@ -720,6 +720,10 @@ model AdminUser {
   // Super Admin Protection (immutable once set to true)
   isSuperAdmin Boolean @default(false)
 
+  // Signed into admin access tokens; bumping it (logout) revokes every
+  // outstanding token at once, like User.tokenVersion.
+  tokenVersion Int @default(0)
+
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

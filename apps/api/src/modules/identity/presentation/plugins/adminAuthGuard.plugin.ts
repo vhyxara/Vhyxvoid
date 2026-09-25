@@ -52,6 +52,10 @@ export default fp(async function adminAuthGuardPlugin(fastify) {
     if (!state || !state.active) {
       throw new UnauthorizedError("Unauthorized: Admin account is not active");
     }
+    // Tokens signed before tokenVersion existed carry none: treat as 0.
+    if ((payload.tokenVersion ?? 0) !== (state.tokenVersion ?? 0)) {
+      throw new UnauthorizedError("Unauthorized: Session has ended");
+    }
 
     request.admin = {
       id: payload.sub,

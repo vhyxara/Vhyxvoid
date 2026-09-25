@@ -9,4 +9,5 @@ export interface AdminUserRepository {
     status?: boolean;
   }): Promise<AdminUser[]>;
   countTotal(): Promise<number>;
+  bumpTokenVersion(id: string): Promise<void>;
 }

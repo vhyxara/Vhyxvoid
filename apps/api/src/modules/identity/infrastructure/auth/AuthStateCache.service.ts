@@ -8,8 +8,9 @@
 //
 //   user  → tokenVersion (bumped by logout, logout-all, password reset/change)
 //           and whether the user is still active (status, not deleted)
-//   admin → whether the admin is still active, and the real isSuperAdmin
-//           (the JWT claim is only what was true at sign time)
+//   admin → tokenVersion (bumped by admin logout), whether the admin is
+//           still active, and the real isSuperAdmin (the JWT claim is only
+//           what was true at sign time)
 //
 // Cached in Redis for AUTH_STATE_TTL_SEC so a request costs one Redis GET, not
 // a Postgres query. Every code path that changes this state calls
@@ -33,6 +34,8 @@ export interface UserAuthState {
 export interface AdminAuthState {
   active: boolean;
   isSuperAdmin: boolean;
+  /** Bumped by admin logout; absent in states cached before it existed. */
+  tokenVersion?: number;
 }
 
 export interface AuthStateLoaders {
@@ -126,9 +129,11 @@ export function prismaAuthStateLoaders(prisma: {
     async loadAdmin(adminId) {
       const a = await prisma.adminUser.findUnique({
         where: { id: adminId },
-        select: { status: true, deletedAt: true, isSuperAdmin: true },
+        select: { status: true, deletedAt: true, isSuperAdmin: true, tokenVersion: true },
       });
-      return a ? { active: !!a.status && !a.deletedAt, isSuperAdmin: !!a.isSuperAdmin } : null;
+      return a
+        ? { active: !!a.status && !a.deletedAt, isSuperAdmin: !!a.isSuperAdmin, tokenVersion: a.tokenVersion ?? 0 }
+        : null;
     },
   };
 }

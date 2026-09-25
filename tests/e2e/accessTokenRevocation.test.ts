@@ -36,8 +36,8 @@ afterEach(() => vi.useRealTimers());
 function world() {
   const users = new Map([["u1", { tokenVersion: 0, status: true, deletedAt: null as Date | null }]]);
   const admins = new Map([
-    ["a1", { status: true, deletedAt: null as Date | null, isSuperAdmin: false }],
-    ["root", { status: true, deletedAt: null as Date | null, isSuperAdmin: true }],
+    ["a1", { status: true, deletedAt: null as Date | null, isSuperAdmin: false, tokenVersion: 0 }],
+    ["root", { status: true, deletedAt: null as Date | null, isSuperAdmin: true, tokenVersion: 0 }],
   ]);
   const store = new Map<string, { v: string; exp: number }>();
   const redis = {
@@ -59,7 +59,7 @@ function world() {
     },
     loadAdmin: async (id) => {
       const a = admins.get(id);
-      return a ? { active: a.status && !a.deletedAt, isSuperAdmin: a.isSuperAdmin } : null;
+      return a ? { active: a.status && !a.deletedAt, isSuperAdmin: a.isSuperAdmin, tokenVersion: a.tokenVersion } : null;
     },
   });
   return { users, admins, cache, redis };
@@ -197,6 +197,35 @@ describe("admin tokens follow the admin's current state", () => {
     );
     return { fake, routes };
   }
+
+  // api backlog, 2026-09-24 ("Admin logout doesn't revoke the admin's access
+  // token"), fixed 2026-09-25: AdminUser.tokenVersion, bumped by logout.
+  it("admin logout makes the admin's access token fail on the next request", async () => {
+    const { admins, cache } = world();
+    const g = await guards(cache);
+    const token = adminToken("a1");
+    await g.adminAuthGuard(req(token), {}); // accepted and cached
+
+    const routes = new Map<string, any>();
+    const cap = (m: string) => (p: string, a: any, b?: any) => routes.set(`${m} ${p}`, b ?? a);
+    await adminRoutes({
+      post: cap("POST"), get: cap("GET"), put: cap("PUT"), delete: cap("DELETE"), patch: cap("PATCH"),
+      adminAuthGuard: async () => {},
+      requireAbility: () => async () => {},
+      authStateCache: cache,
+      uow: {
+        adminSessionRepository: { findByTokenHash: async () => null, revokeById: async () => {} },
+        adminUserRepository: { bumpTokenVersion: async (id: string) => void admins.get(id)!.tokenVersion++ },
+        adminAuditLogRepository: { save: async () => {} },
+      },
+    } as any);
+    await routes.get("POST /auth/logout")!(
+      { body: {}, admin: { id: "a1", email: "a1@company.local", isSuperAdmin: false }, headers: {}, ip: "127.0.0.1" },
+      { code: () => ({ send: () => {} }), status: () => ({ send: () => {} }), send: () => {} },
+    );
+
+    await rejects(g.adminAuthGuard(req(token), {}), 401);
+  });
 
   it("disabling an admin makes their access token fail on the next request", async () => {
     const { admins, cache } = world();

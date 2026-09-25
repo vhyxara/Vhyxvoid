@@ -82,17 +82,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
     "/auth/logout",
     { onRequest: [fastify.adminAuthGuard] },
     async (request, reply) => {
-      const input = logoutSchema.parse(request.body);
+      const input = logoutSchema.parse(request.body ?? {});
       const admin = getAdminContext(request);
 
-      // Revoke session
-      const tokenHash = TokenHasher.hash(input.refreshToken);
-      const session =
-        await fastify.uow.adminSessionRepository.findByTokenHash(tokenHash);
-
-      if (session && session.adminId === admin.id) {
-        await fastify.uow.adminSessionRepository.revokeById(session.id);
+      // Revoke the refresh session, when the client sends it.
+      if (input.refreshToken) {
+        const tokenHash = TokenHasher.hash(input.refreshToken);
+        const session =
+          await fastify.uow.adminSessionRepository.findByTokenHash(tokenHash);
+        if (session && session.adminId === admin.id) {
+          await fastify.uow.adminSessionRepository.revokeById(session.id);
+        }
       }
+
+      // And every access token this admin holds, at once.
+      await fastify.uow.adminUserRepository.bumpTokenVersion(admin.id);
+      await fastify.authStateCache.invalidateAdmin(admin.id);
 
       // Audit log
       const auditLog = AdminAuditLog.create({
