@@ -115,7 +115,7 @@ export function AdminUserDetailView({ id }: { id: string }) {
                   title='Revoke role'
                   content={`Revoke the "${role.name}" role from ${admin.fullName}?`}
                   confirmButtonText='Revoke'
-                  onConfirm={() => revokeRole.mutate(role.id)}
+                  onConfirm={() => revokeRole.mutateAsync(role.id)}
                 />
               )}
             </div>

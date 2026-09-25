@@ -34,8 +34,10 @@ const col = createColumnHelper<AdminUserSummary>()
 function buildColumns(args: {
   currentAdminId: string | undefined
   onView: (id: string) => void
-  onDisable: (row: AdminUserSummary) => void
-  onEnable: (row: AdminUserSummary) => void
+  // Return the request's promise (mutateAsync) so the confirm dialog stays
+  // busy until it finishes and shows the error if it fails.
+  onDisable: (row: AdminUserSummary) => Promise<unknown>
+  onEnable: (row: AdminUserSummary) => Promise<unknown>
 }): ColumnDef<AdminUserSummary, any>[] {
   return [
     col.accessor('fullName', {
@@ -142,8 +144,8 @@ export function AdminUsersTable() {
   const columns = buildColumns({
     currentAdminId,
     onView: id => router.push(`/admin-users/${id}`),
-    onDisable: row => disableAdmin.mutate(row.id),
-    onEnable: row => enableAdmin.mutate(row.id)
+    onDisable: row => disableAdmin.mutateAsync(row.id),
+    onEnable: row => enableAdmin.mutateAsync(row.id)
   })
 
   return (

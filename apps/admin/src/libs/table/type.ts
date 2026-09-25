@@ -31,7 +31,9 @@ type DialogAction<T> = BaseAction<T> & {
 type ConfirmationAction<T> = BaseAction<T> &
   Omit<ConfirmationProps, 'onConfirm' | 'disabled'> & {
     type: 'confirmation'
-    onConfirm: (row: T) => Promise<void> | void
+    // Promise<unknown>: callers return a mutateAsync() promise, which
+    // resolves to the mutation's data; Confirmation only awaits it.
+    onConfirm: (row: T) => Promise<unknown> | void
   }
 
 export type RowAction<T> = ClickAction<T> | DialogAction<T> | ConfirmationAction<T>

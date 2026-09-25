@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 
-import { Badge, Button, toast } from '@vhyxui/react'
+import { Badge, Button } from '@vhyxui/react'
 
 import { Typography } from '@/components/vhyxui-shims'
 import { GenericServerTable } from '@/libs/table/GenericServerTable'
@@ -17,7 +17,7 @@ import { CreateAbilityDialog } from './CreateAbilityDialog'
 
 const col = createColumnHelper<AdminAbilitySummary>()
 
-function buildColumns(args: { onDelete: (id: string) => void }): ColumnDef<AdminAbilitySummary, any>[] {
+function buildColumns(args: { onDelete: (id: string) => Promise<unknown> }): ColumnDef<AdminAbilitySummary, any>[] {
   return [
     col.accessor('action', {
       header: 'Action',
@@ -79,6 +79,7 @@ function buildColumns(args: { onDelete: (id: string) => void }): ColumnDef<Admin
             content: `Delete "${ability.action}"? This permanently deletes the ability and removes it from every role it's currently assigned to. This cannot be undone.`,
             confirmButtonText: 'Delete ability',
             disabled: () => ability.isSystem,
+            errorFeedbackMessage: 'Failed to delete ability',
             onConfirm: () => args.onDelete(ability.id)
           }
         ]
@@ -97,10 +98,9 @@ export function AdminAbilitiesTable() {
   const deleteAbility = useDeleteAbility()
 
   const columns = buildColumns({
-    onDelete: id =>
-      deleteAbility.mutate(id, {
-        onError: (err: any) => toast.danger(err?.message ?? 'Failed to delete ability')
-      })
+    // mutateAsync: the confirm dialog waits for the request and shows its
+    // error (Confirmation's own feedback), so no separate toast here.
+    onDelete: id => deleteAbility.mutateAsync(id)
   })
 
   return (

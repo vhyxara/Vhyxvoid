@@ -75,6 +75,7 @@ export function RowActions<T extends { id: string | number }>({ row, actions }: 
               confirmButtonText={action.confirmButtonText || 'Delete'}
               confirmButtonColor={action.confirmButtonColor || 'error'}
               icon={typeof action.icon === 'string' ? action.icon : undefined}
+              disabled={action.disabled?.(row)}
               onConfirm={() => action.onConfirm?.(row)} // call mutation here
             />
           )

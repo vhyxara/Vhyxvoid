@@ -149,7 +149,7 @@ export function AdminRoleDetailView({ id }: { id: string }) {
                 title='Revoke ability'
                 content={`Revoke "${ability.category}.${ability.action}" from ${role.name}?`}
                 confirmButtonText='Revoke'
-                onConfirm={() => revokeAbility.mutate(ability.id)}
+                onConfirm={() => revokeAbility.mutateAsync(ability.id)}
               />
             </div>
           ))}

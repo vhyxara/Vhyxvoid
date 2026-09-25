@@ -22,8 +22,12 @@ type DialogAction<T> = BaseAction<T> & {
   dialogProps?: Record<string, unknown> // ← was Record<string, never>
 }
 
+// 'disabled' is excluded from ConfirmationProps here: BaseAction<T>'s
+// `(row: T) => boolean` is what action authors write; RowAction.tsx evaluates
+// it and passes the boolean to Confirmation's own `disabled` prop (same as
+// apps/admin's copy of this file).
 type ConfirmationAction<T> = BaseAction<T> &
-  Omit<ConfirmationProps, 'onConfirm'> & {
+  Omit<ConfirmationProps, 'onConfirm' | 'disabled'> & {
     type: 'confirmation'
     // Promise<unknown>, not Promise<void> — real callers return a real
     // mutateAsync() promise (see decision.md, 2026-09-19, "FeedbackContext

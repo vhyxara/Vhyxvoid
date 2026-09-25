@@ -80,7 +80,7 @@ export type ConfirmationProps = {
       every real caller actually relies on. Removed 2026-09-15 along with
       utils/fetchData.ts — see decision.md, "NEXT_PUBLIC_SECRET_KEY removal".
       Every real usage must go through a mutation hook now. */
-  onConfirm?: () => Promise<void> | void
+  onConfirm?: () => Promise<unknown> | void
 
   /** Fires after a successful onConfirm */
   onSuccessCallback?: () => void

@@ -61,6 +61,10 @@ export type ConfirmationProps = {
   /** Loading text */
   loadingText?: string
 
+  /** Disables the trigger button (e.g. a per-row guard from RowAction). Same
+      prop as apps/admin's copy of this component (decision.md, 2026-09-18). */
+  disabled?: boolean
+
   /** Action to run on confirm. There used to be a second, default action
       path here (an `apiUrl`/`method`/`payloadData` shorthand that called a
       separate, independently-implemented HTTP client with its own from-
@@ -106,7 +110,9 @@ export default function Confirmation({
   onConfirm,
   onSuccessCallback,
 
-  loadingText = 'Processing...'
+  loadingText = 'Processing...',
+
+  disabled = false
 }: ConfirmationProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(isOpen)
   const [isLoading, setIsLoading] = useState(false)
@@ -165,6 +171,7 @@ export default function Confirmation({
           iconOnly
           aria-label={confirmButtonText}
           icon={<i className={icon} />}
+          disabled={disabled}
           onClick={handleClickOpen}
         />
       ) : (
@@ -172,6 +179,7 @@ export default function Confirmation({
           variant={colorToVariant(confirmButtonColor)}
           size={buttonSize ?? 'sm'}
           icon={icon ? <i className={icon} /> : undefined}
+          disabled={disabled}
           onClick={handleClickOpen}
         >
           {buttonText || confirmButtonText}
