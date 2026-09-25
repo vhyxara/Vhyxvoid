@@ -454,6 +454,38 @@ await step("SDK createClient reaches the tunnel", async () => {
   assert(r.status === 200 && body?.query === "?from=sdk", `status ${r.status} ${JSON.stringify(body).slice(0, 200)}`);
 });
 
+await step("SDK TunnelClient (WebSocket) authenticates and reaches the tunnel", async () => {
+  const sdk = await import(path.join(root, "packages/sdk/dist/index.js"));
+  const TunnelClient = sdk.TunnelClient ?? sdk.default?.TunnelClient;
+  const client = new TunnelClient({
+    hubUrl: HUB.replace(/^http/, "ws") + "/sdk",
+    keyId: s.keyId,
+    secret: s.secret,
+    label: "app",
+    localDiscovery: false,
+    timeout: 15_000,
+  });
+  await client.connect();
+  try {
+    const r = await client.get("/echo?via=ws-sdk");
+    const body = typeof r.body === "string" ? JSON.parse(r.body) : JSON.parse(Buffer.from(r.body).toString());
+    assert(r.status === 200 && body.query === "?via=ws-sdk", `status ${r.status} ${String(r.body).slice(0, 200)}`);
+    const post = await client.post("/echo", { hello: "world" });
+    const pb = JSON.parse(String(post.body));
+    assert(post.status === 200 && pb.method === "POST" && pb.bodyLength > 0, `post ${post.status}`);
+  } finally {
+    client.disconnect();
+  }
+});
+
+await step("SDK TunnelClient with a wrong secret is refused", async () => {
+  const sdk = await import(path.join(root, "packages/sdk/dist/index.js"));
+  const client = new sdk.TunnelClient({ hubUrl: HUB.replace(/^http/, "ws") + "/sdk", keyId: s.keyId, secret: "0".repeat(64), localDiscovery: false });
+  const err = await client.connect().then(() => null, (e) => e);
+  client.disconnect();
+  assert(err, "connected with a wrong secret");
+});
+
 if (process.env.UPSTASH_REDIS_REST_URL) {
   await step("usage: public-path requests are counted", async () => {
     // The hub batches public-path usage and flushes every ~30 s.

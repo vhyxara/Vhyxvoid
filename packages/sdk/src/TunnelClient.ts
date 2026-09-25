@@ -75,6 +75,10 @@ export class TunnelClient {
           requestId,
           ts: now,
           signature,
+          // The hub verifies the raw secret against its stored hash (as for
+          // agents) and then checks each request's raw-secret signature.
+          // Sent once, over the TLS WebSocket.
+          rawSecret: this.config.secret,
         };
         ws.send(serialize(msg));
       };
@@ -100,6 +104,14 @@ export class TunnelClient {
             return;
           }
 
+          // Refused during the handshake (wrong secret, revoked key, ...):
+          // fail connect() with the hub's reason instead of hanging.
+          if (!this.connected && msg.type === "sdk:error") {
+            const e = msg as SdkErrorMsg;
+            reject(new TunnelError(e.code, e.message, false));
+            return;
+          }
+
           this.onMessage(msg as SdkResponseMsg | SdkErrorMsg);
         } catch (err) {
           // Only reject on connection-phase errors
@@ -113,6 +125,11 @@ export class TunnelClient {
       };
 
       ws.onclose = () => {
+        // Closed before sdk:registered: connect() must not hang. (A no-op
+        // if it already settled.)
+        if (!this.connected) {
+          reject(new TunnelError("AGENT_DISCONNECTED", "Hub closed the connection before registration", true));
+        }
         this.connected = false;
         // Reject all pending requests
         for (const [requestId, pending] of this.pending) {

@@ -121,6 +121,12 @@ export interface SdkRegisterMsg {
   requestId: string;
   ts: number;
   signature: string;
+  /**
+   * The key's raw secret, sent once per connection over TLS, like
+   * agent:register (since 2026-09-25). The hub verifies it against the
+   * stored hash and then checks each sdk:request's raw-secret signature.
+   */
+  rawSecret?: string;
 }
 
 export interface SdkRequestMsg {

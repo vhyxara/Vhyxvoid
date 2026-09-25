@@ -150,7 +150,7 @@ function makeRouter(
 
   const router = new MessageRouter(
     agentRegistry,
-    {} as any, // sdkRegistry — not exercised by sdk:request
+    { findByWs: () => null } as any, // sdkRegistry: this ws never sent sdk:register
     pendingRegistry,
     authService,
     {} as any, // heartbeat — not exercised

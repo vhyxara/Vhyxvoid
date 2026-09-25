@@ -490,6 +490,7 @@ export class MessageRouter {
       keyId: auth.keyId,
       ws,
       connectedAt: new Date(),
+      credential: auth.sdkCredential,
     });
 
     const response: SdkRegisteredMsg = { v: '1', type: 'sdk:registered', sessionId };
@@ -500,7 +501,12 @@ export class MessageRouter {
     // 1. Authenticate
     let auth: Awaited<ReturnType<HubAuthService['authenticateRequest']>>;
     try {
-      auth = await this.authService.authenticateRequest(msg, ip);
+      const session = this.sdkRegistry.findByWs(ws);
+      auth = await this.authService.authenticateRequest(
+        msg,
+        ip,
+        session?.credential ? { ...session.credential, keyId: session.keyId } : undefined,
+      );
     } catch (err) {
       if (err instanceof HubAuthError) {
         return this.sendToWs(

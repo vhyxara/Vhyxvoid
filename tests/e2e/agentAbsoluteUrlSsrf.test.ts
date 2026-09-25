@@ -110,7 +110,7 @@ describe("hub: a non-origin-form path is refused before it reaches an agent", ()
     } as any);
     const enqueued: string[] = [];
     const router = new MessageRouter(
-      agents, {} as any, { enqueue: async (r: any) => void enqueued.push(r.requestId) } as any, auth,
+      agents, { findByWs: () => null } as any, { enqueue: async (r: any) => void enqueued.push(r.requestId) } as any, auth,
       {} as any, { increment: vi.fn() } as any, {} as any, {} as any, { create: vi.fn(async () => {}) } as any,
       "hub_1", {} as any, "vhyxvoid.com", {} as any,
     );

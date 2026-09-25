@@ -54,6 +54,8 @@ export interface SdkSession {
   keyId: string;
   ws: any;
   connectedAt: Date;
+  /** Raw secret + matched hash from a raw-secret handshake (memory only). */
+  credential?: { rawSecret: string; secretHash: string };
 }
 
 export class SdkRegistry {

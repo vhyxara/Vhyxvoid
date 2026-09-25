@@ -155,9 +155,23 @@
 // No Prisma. No HTTP. Shared code import — fast path (~1ms Redis cache hit).
 
 import { IValidateApiKeyUseCase, isConnectableAccountStatus } from '@vhyxvoid/shared';
-import { AgentRegisterMsg, SdkRegisterMsg, SdkRequestMsg, TIMING } from '@vhyxvoid/protocol';
+import {
+  AgentRegisterMsg,
+  SdkRegisterMsg,
+  SdkRequestMsg,
+  TIMING,
+  buildCanonical,
+  signCanonical,
+  verifyCanonical,
+} from '@vhyxvoid/protocol';
 import crypto from 'crypto';
 import { debugLog } from '@/utils/debug';
+
+/** Held in memory per TunnelClient connection; never persisted or logged. */
+export interface SdkCredential {
+  rawSecret: string;
+  secretHash: string;
+}
 
 export interface HubAuthResult {
   accountId: string;
@@ -213,9 +227,25 @@ export class HubAuthService {
   async authenticateAgent(msg: AgentRegisterMsg, _ip: string): Promise<HubAuthResult> {
     // No timestamp check needed — this is a connection handshake not a request
     debugLog('[hub-auth] received agent register', { keyId: msg.keyId, label: msg.label });
+    const { key, matchedHash } = await this.verifyRawSecret(msg.keyId, msg.rawSecret);
+    return {
+      accountId: key.accountId,
+      keyId: msg.keyId,
+      scopes: key.scopes,
+      secretFingerprint: secretFingerprint(matchedHash),
+    };
+  }
 
+  /**
+   * A connection handshake that carries the key's raw secret (agents always;
+   * TunnelClient since 2026-09-25). Checks key status, account status,
+   * expiry, the secret (current, or previous during a rotation's grace
+   * window) and the tunnel:connect scope. The raw secret travels only over
+   * the TLS WebSocket and is never stored or logged.
+   */
+  private async verifyRawSecret(keyId: string, rawSecret: string) {
     // Load key from cache/DB
-    const key = await this.loadKeyHash(msg.keyId);
+    const key = await this.loadKeyHash(keyId);
     if (!key) {
       throw new HubAuthError('AUTH_FAILED', 'API key not found');
     }
@@ -246,7 +276,7 @@ export class HubAuthService {
     // as the SDK path already did, so an agent restarted with the old secret
     // keeps working until the window ends (then the sweep evicts it).
     const computedHash = Buffer.from(
-      crypto.createHmac('sha256', this.pepper).update(msg.rawSecret).digest('hex'),
+      crypto.createHmac('sha256', this.pepper).update(rawSecret).digest('hex'),
       'hex',
     );
     const matches = (storedHex: string | null | undefined): boolean => {
@@ -272,19 +302,34 @@ export class HubAuthService {
       throw new HubAuthError('SCOPE_MISSING', 'Key missing tunnel:connect scope');
     }
 
-    return {
-      accountId: key.accountId,
-      keyId: msg.keyId,
-      scopes: key.scopes,
-      secretFingerprint: secretFingerprint(matchedHash),
-    };
+    return { key, matchedHash };
   }
+
   /**
    * Authenticate an SDK registration handshake.
    * Called once per SDK connection — on sdk:register message.
    */
-  async authenticateSdkRegister(msg: SdkRegisterMsg, ip: string): Promise<HubAuthResult> {
+  async authenticateSdkRegister(
+    msg: SdkRegisterMsg,
+    ip: string,
+  ): Promise<HubAuthResult & { sdkCredential?: SdkCredential }> {
     this.checkTimestamp(msg.ts);
+
+    // Since 2026-09-25 TunnelClient sends its raw secret once, like an agent.
+    // The hub keeps it (and the stored hash it matched) in memory for this
+    // connection only, to check each sdk:request's signature. The old
+    // signature-only handshake can never succeed (the client can't compute
+    // the peppered hash), but is kept so an old client gets a clear error.
+    if (msg.rawSecret) {
+      const { key, matchedHash } = await this.verifyRawSecret(msg.keyId, msg.rawSecret);
+      return {
+        accountId: key.accountId,
+        keyId: msg.keyId,
+        scopes: key.scopes,
+        secretFingerprint: secretFingerprint(matchedHash),
+        sdkCredential: { rawSecret: msg.rawSecret, secretHash: matchedHash },
+      };
+    }
 
     const result = await this.validateKeyUseCase.execute({
       keyId: msg.keyId,
@@ -315,12 +360,39 @@ export class HubAuthService {
    * Called on EVERY sdk:request message — must be fast.
    * Redis cache hit = ~1ms. Postgres fallback = ~3ms.
    */
-  async authenticateRequest(msg: SdkRequestMsg, ip: string): Promise<HubAuthResult> {
+  async authenticateRequest(
+    msg: SdkRequestMsg,
+    ip: string,
+    credential?: SdkCredential & { keyId: string },
+  ): Promise<HubAuthResult> {
     this.checkTimestamp(msg.ts);
+
+    // A TunnelClient connection authenticated with its raw secret signs each
+    // request with that secret. Check it here, then hand the validator the
+    // same request signed with the stored hash, so replay protection, rate
+    // limits, key/account status and usage all run exactly as before.
+    let signature = msg.signature;
+    if (credential) {
+      if (msg.keyId !== credential.keyId) {
+        throw new HubAuthError('INVALID_SIGNATURE', 'Request key does not match this connection');
+      }
+      const canonical = buildCanonical({
+        method: msg.method,
+        path: msg.path,
+        query: msg.query ?? '',
+        body: msg.body ?? '',
+        requestId: msg.requestId,
+        ts: msg.ts,
+      });
+      if (!verifyCanonical(canonical, msg.signature, credential.rawSecret)) {
+        throw new HubAuthError('INVALID_SIGNATURE', 'HMAC signature verification failed');
+      }
+      signature = signCanonical(canonical, credential.secretHash);
+    }
 
     const result = await this.validateKeyUseCase.execute({
       keyId: msg.keyId,
-      signature: msg.signature,
+      signature,
       method: msg.method,
       path: msg.path,
       // Signed since audit H8: the query the hub forwards to the agent must be
