@@ -7,7 +7,6 @@ import {
   TunnelResponseMsg,
   TunnelAgentErrorMsg,
   AgentPongMsg,
-  AgentBatchMsg,
   serialize,
   TIMING,
 } from "@vhyxvoid/protocol";
@@ -22,8 +21,19 @@ type FlushFn = (data: string) => void;
 type QueueFallback = (msg: TunnelResponseMsg | TunnelAgentErrorMsg) => void;
 type IsConnected = () => boolean;
 
+/**
+ * Largest agent:batch frame the batcher builds (serialized bytes). A message
+ * bigger than this on its own is sent un-batched. Without a byte limit, eleven
+ * ~10 MB responses inside one 50 ms window became one ~150 MB frame, over the
+ * hub's 100 MiB maxPayload, and the hub closed the connection with 1009
+ * (audit part2 G4).
+ */
+export const BATCH_MAX_BYTES = 1024 * 1024;
+
 export class MessageBatcher {
-  private buffer: BatchableMsg[] = [];
+  /** Each message kept with its JSON, serialized once in add(). */
+  private buffer: { msg: BatchableMsg; json: string }[] = [];
+  private bufferBytes = 0;
   private timer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -35,11 +45,27 @@ export class MessageBatcher {
     private readonly isConnected: IsConnected,
   ) {}
 
-  /** Add a message to the batch. Flushes immediately if MAX_BATCH_SIZE reached. */
+  /**
+   * Add a message to the batch. Flushes first if the message would push the
+   * batch over BATCH_MAX_BYTES; sends a message over that limit on its own
+   * (after flushing what's buffered, so order is kept); flushes when
+   * BATCH_MAX_SIZE messages are buffered; otherwise within BATCH_WINDOW_MS.
+   */
   add(msg: BatchableMsg): void {
     debugLog("[batcher] add msg type:", msg.type);
 
-    this.buffer.push(msg);
+    const json = serialize(msg);
+    const bytes = Buffer.byteLength(json);
+
+    if (bytes > BATCH_MAX_BYTES) {
+      this.flush();
+      this.send([{ msg, json }]);
+      return;
+    }
+    if (this.bufferBytes + bytes > BATCH_MAX_BYTES) this.flush();
+
+    this.buffer.push({ msg, json });
+    this.bufferBytes += bytes;
 
     if (this.buffer.length >= TIMING.BATCH_MAX_SIZE) {
       this.flush();
@@ -54,6 +80,10 @@ export class MessageBatcher {
    * - If WS is down: hand non-pong messages to the fallback
    */
   flush(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
     if (this.buffer.length === 0) return;
     debugLog(
       "[batcher] flush, connected:",
@@ -62,16 +92,15 @@ export class MessageBatcher {
       this.buffer.length,
     );
 
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    const entries = this.buffer.splice(0);
+    this.bufferBytes = 0;
+    this.send(entries);
+  }
 
-    const messages = this.buffer.splice(0);
-
+  private send(entries: { msg: BatchableMsg; json: string }[]): void {
     if (!this.isConnected()) {
-      // WS is down — persist responses/errors, discard pongs (ephemeral)
-      for (const msg of messages) {
+      // WS is down — hand responses/errors to the fallback, discard pongs (ephemeral)
+      for (const { msg } of entries) {
         if (msg.type !== "agent:pong") {
           this.onQueueFallback(msg as TunnelResponseMsg | TunnelAgentErrorMsg);
         }
@@ -79,11 +108,12 @@ export class MessageBatcher {
       return;
     }
 
-    // WS is up — send
+    // Same bytes serialize({ v, type: "agent:batch", messages }) would produce,
+    // without stringifying every (possibly multi-MB) message a second time.
     const serialized =
-      messages.length === 1
-        ? serialize(messages[0] as BatchableMsg)
-        : serialize({ v: "1", type: "agent:batch", messages } as AgentBatchMsg);
+      entries.length === 1
+        ? entries[0].json
+        : `{"v":"1","type":"agent:batch","messages":[${entries.map((e) => e.json).join(",")}]}`;
     debugLog("[batcher] sending serialized, length:", serialized.length);
 
     this.onFlush(serialized);
@@ -100,8 +130,9 @@ export class MessageBatcher {
       this.timer = null;
     }
 
-    const messages = this.buffer.splice(0);
-    for (const msg of messages) {
+    const entries = this.buffer.splice(0);
+    this.bufferBytes = 0;
+    for (const { msg } of entries) {
       if (msg.type !== "agent:pong") {
         this.onQueueFallback(msg as TunnelResponseMsg | TunnelAgentErrorMsg);
       }
