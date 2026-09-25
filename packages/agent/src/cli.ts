@@ -347,6 +347,7 @@ program
     );
     console.log("");
 
+    let shuttingDown = false;
     const agent = new AgentClient({
       hubUrl: opts.hub,
       keyId: opts.key,
@@ -363,6 +364,10 @@ program
         }
         if (state === "STOPPED") {
           console.log("🛑  Agent stopped.");
+          // Not from Ctrl+C/SIGTERM: the hub refused the key (revoked,
+          // expired, wrong secret, missing scope) or the agent version. Exit
+          // non-zero so scripts and process managers see the failure.
+          if (!shuttingDown) process.exit(1);
         }
       },
       onTunnelUrl: (tunnelUrl) => {
@@ -380,12 +385,14 @@ program
 
     process.on("SIGTERM", () => {
       console.log("\nReceived SIGTERM — shutting down gracefully...");
+      shuttingDown = true;
       agent.stop();
       process.exit(0);
     });
 
     process.on("SIGINT", () => {
       console.log("\nReceived SIGINT — shutting down gracefully...");
+      shuttingDown = true;
       agent.stop();
       process.exit(0);
     });

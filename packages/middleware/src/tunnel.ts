@@ -68,11 +68,26 @@ export function startTunnel(opts: TunnelOptions): AgentClient {
     instance?.stop();
     instance = null;
   };
-  process.once("SIGTERM", cleanup);
-  process.once("SIGINT", cleanup);
+  process.once("SIGTERM", () => cleanupThenReraise(cleanup, "SIGTERM"));
+  process.once("SIGINT", () => cleanupThenReraise(cleanup, "SIGINT"));
   process.once("exit", cleanup);
 
   return agent;
+}
+
+/**
+ * Listening for a signal replaces Node's default "exit on SIGINT/SIGTERM",
+ * so a plain Express app needed two Ctrl+C and `docker stop` waited for
+ * SIGKILL (audit part2 G6). After cleaning up, re-raise the signal when no
+ * other listener handles it; an app with its own graceful-shutdown handler
+ * keeps full control.
+ */
+export function cleanupThenReraise(
+  cleanup: () => void,
+  signal: NodeJS.Signals,
+): void {
+  cleanup();
+  if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
 }
 
 export function stopTunnel(): void {

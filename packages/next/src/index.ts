@@ -179,9 +179,26 @@ function startTunnel(
     started = false;
   };
 
-  process.once("SIGTERM", cleanup);
-  process.once("SIGINT", cleanup);
+  process.once("SIGTERM", () => cleanupThenReraise(cleanup, "SIGTERM"));
+  process.once("SIGINT", () => cleanupThenReraise(cleanup, "SIGINT"));
   process.once("exit", cleanup);
+}
+
+/**
+ * Listening for a signal replaces Node's default "exit on SIGINT/SIGTERM".
+ * After cleaning up, re-raise it when nobody else handles it, so the first
+ * Ctrl+C still exits (audit part2 G6). `next dev` has its own handlers, so
+ * there this is only cleanup.
+ */
+function cleanupThenReraise(cleanup: () => void, signal: NodeJS.Signals): void {
+  cleanup();
+  if (process.listenerCount(signal) === 0) process.kill(process.pid, signal);
+}
+
+/** CI providers set CI (GitHub Actions, GitLab, CircleCI, Travis, ...). */
+function isCI(): boolean {
+  const ci = process.env.CI;
+  return ci !== undefined && ci !== "" && ci !== "false" && ci !== "0";
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -214,11 +231,12 @@ export function withVhyxvoid(
   nextConfig: Record<string, unknown> = {},
   options: WithVhyxvoidOptions = {},
 ): Record<string, unknown> {
-  // Only run in dev, never in production build or next start
+  // Only run in dev, never in production build or next start, and not on CI
+  // unless enabled: true (the same rule as @vhyxvoid/middleware).
   const isDev =
     process.env.NODE_ENV === "development" ||
     process.env.NEXT_PHASE === "phase-development-server";
-  const enabled = options.enabled ?? isDev;
+  const enabled = options.enabled ?? (isDev && !isCI());
 
   if (!enabled) return nextConfig;
 

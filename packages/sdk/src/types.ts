@@ -1,7 +1,7 @@
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TunnelClientConfig {
-  /** Hub WebSocket URL: wss://hub.yourplatform.com/sdk */
+  /** Hub WebSocket URL, for example `wss://hub.vhyxvoid.com/sdk`. */
   hubUrl: string;
   /** API key ID (public) */
   keyId: string;
@@ -9,24 +9,17 @@ export interface TunnelClientConfig {
   secret: string;
   /** Target tunnel label (optional — defaults to first connected agent) */
   label?: string;
-  /** Per-request timeout in ms (default: protocol TIMING.REQUEST_TIMEOUT_MS, 120000) */
+  /** Per-request timeout in milliseconds. */
   timeout?: number;
-  /** Enable local agent discovery for sub-1ms local-to-local calls (default: true) */
+  // Kept on one line: the docs generator copies JSDoc text into a table cell.
+  /** Look for an agent on the same machine (port 4242) and send requests to it directly instead of through the hub. Default: `true`. Set `false` to always go through the hub. */
   localDiscovery?: boolean;
 }
 
 export interface TunnelResponse {
   status: number;
   headers: Record<string, string>;
-  /**
-   * A text response (JSON, HTML, plain text, ...) is a string, as before.
-   * A binary response (image, PDF, audio/video, octet-stream, ...) is a
-   * real Buffer with the original bytes, not a base64 string or a
-   * corrupted UTF-8 decode of them — see context.md risk #21. This is a
-   * widened type (previously always `string | null`); no existing caller
-   * in this repo assumed `body` was always a string for a binary response,
-   * since that path never actually worked correctly before this fix.
-   */
+  /** A text response (JSON, HTML, plain text) is a `string`. A binary response (image, PDF, audio, `application/octet-stream`) is a `Buffer` with the original bytes. `null` when the response has no body. */
   body: string | Buffer | null;
   durationMs: number;
   /** true = response came from local agent (bypassed hub) */

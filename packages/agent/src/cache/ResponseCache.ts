@@ -34,11 +34,23 @@ export interface CachedResponse {
   hits: number; // how many times this entry was served from cache
 }
 
-export class ResponseCache {
-  private readonly store = new Map<string, CachedResponse>();
+/** Default memory budget. The agent can run inside the developer's own app
+ * process (@vhyxvoid/next, @vhyxvoid/middleware), so the cache is bounded in
+ * bytes, not only in entries (audit part2 G5). */
+export const DEFAULT_MAX_CACHE_BYTES = 50 * 1024 * 1024;
+const DEFAULT_MAX_ENTRIES = 500;
 
-  // Evict entries when cache exceeds this size (LRU-lite: evict oldest)
-  private readonly MAX_ENTRIES = 500;
+export class ResponseCache {
+  // Map iteration order is insertion order; a hit re-inserts its entry, so
+  // the first key is always the least recently used one (LRU).
+  private readonly store = new Map<string, CachedResponse>();
+  private readonly sizes = new Map<string, number>();
+  private totalBytes = 0;
+
+  constructor(
+    private readonly maxEntries: number = DEFAULT_MAX_ENTRIES,
+    private readonly maxBytes: number = DEFAULT_MAX_CACHE_BYTES,
+  ) {}
 
   /**
    * Try to get a cached response.
@@ -57,13 +69,19 @@ export class ResponseCache {
     if (method.toUpperCase() !== "GET") return null;
 
     const headers = lowerCaseHeaders(requestHeaders);
+
+    // The caller asked for a fresh copy (browser hard refresh sends
+    // Cache-Control: no-cache / Pragma: no-cache). Go to the backend; its
+    // response replaces the entry via set().
+    if (requestsFreshCopy(headers)) return null;
+
     const key = this.buildKey(path, query, headers);
     const cached = this.store.get(key);
 
     if (!cached) return null;
 
     if (Date.now() > cached.expiresAt) {
-      this.store.delete(key);
+      this.remove(key);
       return null;
     }
 
@@ -75,6 +93,9 @@ export class ResponseCache {
     }
 
     cached.hits += 1;
+    // Mark as most recently used.
+    this.store.delete(key);
+    this.store.set(key, cached);
     return cached;
   }
 
@@ -119,11 +140,18 @@ export class ResponseCache {
 
     const now = Date.now();
     const key = this.buildKey(path, query, headers);
+    const bytes = entryBytes(key, response);
 
-    // Evict oldest entry if at capacity
-    if (this.store.size >= this.MAX_ENTRIES && !this.store.has(key)) {
-      const oldest = this.store.keys().next().value;
-      if (oldest) this.store.delete(oldest);
+    // One response larger than the whole budget is never cached.
+    if (bytes > this.maxBytes) return;
+
+    this.remove(key);
+    while (
+      this.store.size > 0 &&
+      (this.store.size >= this.maxEntries || this.totalBytes + bytes > this.maxBytes)
+    ) {
+      const leastRecent = this.store.keys().next().value as string;
+      this.remove(leastRecent);
     }
 
     this.store.set(key, {
@@ -133,17 +161,22 @@ export class ResponseCache {
       expiresAt: now + maxAge * 1_000,
       hits: 0,
     });
+    this.sizes.set(key, bytes);
+    this.totalBytes += bytes;
   }
 
   /**
-   * Invalidate all cached entries for a path prefix.
+   * Invalidate every cached entry for a path and everything under it, by
+   * whole path segments: "/users" drops "/users", "/users?page=2" and
+   * "/users/5", but not "/users-archive" or "/usersettings".
    * Call after any POST/PUT/PATCH/DELETE to related resources.
    */
   invalidatePrefix(pathPrefix: string): number {
+    const prefix = pathPrefix.length > 1 ? pathPrefix.replace(/\/+$/, "") : pathPrefix;
     let count = 0;
-    for (const key of this.store.keys()) {
-      if (key.startsWith(pathPrefix)) {
-        this.store.delete(key);
+    for (const key of [...this.store.keys()]) {
+      if (isUnderPath(keyPath(key), prefix)) {
+        this.remove(key);
         count++;
       }
     }
@@ -154,23 +187,31 @@ export class ResponseCache {
   evictExpired(): number {
     const now = Date.now();
     let count = 0;
-    for (const [key, entry] of this.store) {
+    for (const [key, entry] of [...this.store]) {
       if (now > entry.expiresAt) {
-        this.store.delete(key);
+        this.remove(key);
         count++;
       }
     }
     return count;
   }
 
-  stats(): { size: number; totalHits: number } {
+  stats(): { size: number; totalHits: number; bytes: number } {
     let totalHits = 0;
     for (const entry of this.store.values()) totalHits += entry.hits;
-    return { size: this.store.size, totalHits };
+    return { size: this.store.size, totalHits, bytes: this.totalBytes };
   }
 
   clear(): void {
     this.store.clear();
+    this.sizes.clear();
+    this.totalBytes = 0;
+  }
+
+  private remove(key: string): void {
+    if (!this.store.delete(key)) return;
+    this.totalBytes -= this.sizes.get(key) ?? 0;
+    this.sizes.delete(key);
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
@@ -218,6 +259,36 @@ export class ResponseCache {
     const seconds = parseInt(match[1], 10);
     return isNaN(seconds) ? 0 : seconds;
   }
+}
+
+/** Approximate in-memory size: strings are UTF-16, so 2 bytes per char. */
+function entryBytes(
+  key: string,
+  response: { body: string | null; headers: Record<string, string> },
+): number {
+  let chars = key.length + (response.body?.length ?? 0);
+  for (const [name, value] of Object.entries(response.headers)) {
+    chars += name.length + String(value).length;
+  }
+  return chars * 2 + 256;
+}
+
+function requestsFreshCopy(headers: Record<string, string>): boolean {
+  const cc = (headers["cache-control"] ?? "").toLowerCase();
+  const pragma = (headers["pragma"] ?? "").toLowerCase();
+  return cc.includes("no-cache") || cc.includes("no-store") || cc.includes("max-age=0") || pragma.includes("no-cache");
+}
+
+/** The path part of a cache key ("path?query\0digest" -> "path"). */
+function keyPath(key: string): string {
+  const url = key.slice(0, key.indexOf("\u0000"));
+  const q = url.indexOf("?");
+  return q === -1 ? url : url.slice(0, q);
+}
+
+function isUnderPath(path: string, prefix: string): boolean {
+  if (prefix === "/" || prefix === "") return true;
+  return path === prefix || path.startsWith(prefix + "/");
 }
 
 function lowerCaseHeaders(headers: RequestHeaders): Record<string, string> {

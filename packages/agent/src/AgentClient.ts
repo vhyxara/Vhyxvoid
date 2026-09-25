@@ -89,6 +89,21 @@ export interface AgentConfig {
   disableQueue?: boolean;
 }
 
+/**
+ * Hub errors that no retry can fix: the key or secret is wrong, revoked,
+ * expired or lacks tunnel:connect, or the agent is too old. The agent stops
+ * instead of reconnecting forever. INVALID_SIGNATURE is not in HubErrorCode
+ * but is what the hub sends for a wrong secret (HubAuthError).
+ */
+const FATAL_STOP_CODES: ReadonlySet<string> = new Set([
+  "AUTH_FAILED",
+  "VERSION_UNSUPPORTED",
+  "INVALID_SIGNATURE",
+  "SCOPE_MISSING",
+  "KEY_REVOKED",
+  "KEY_EXPIRED",
+]);
+
 export class AgentClient {
   private state: AgentState = "IDLE";
   private ws: WebSocket | null = null;
@@ -211,7 +226,9 @@ export class AgentClient {
     debugLog("[agent] WS OPEN, sending register");
 
     this.setState("AUTHENTICATING");
-    this.reconnectDelay = TIMING.RECONNECT_INITIAL_MS; // reset backoff on success
+    // Backoff resets in onRegistered, not here: a TCP open followed by an
+    // auth rejection is not a success, and resetting on open made every
+    // rejected attempt retry after the initial 1 s forever.
 
     // const now = Date.now();
     // const requestId = randomUUID();
@@ -291,6 +308,7 @@ export class AgentClient {
 
   private async onRegistered(msg: HubRegisteredMsg): Promise<void> {
     this.agentId = msg.agentId;
+    this.reconnectDelay = TIMING.RECONNECT_INITIAL_MS; // reset backoff on success
     this.setState("CONNECTED");
     console.log("");
     console.log("  ✅  Tunnel active");
@@ -357,16 +375,21 @@ export class AgentClient {
       "[agent] hub error",
     );
 
-    if (msg.fatal) {
-      if (msg.code === "AUTH_FAILED" || msg.code === "VERSION_UNSUPPORTED") {
-        console.error(
-          `\n❌ Fatal error: ${msg.message}\n` +
-            `   Check your API key and agent version, then restart.\n`,
-        );
-        this.stop();
-      }
-      // AGENT_LIMIT_REACHED → allow reconnect — user may free up a slot
+    if (!msg.fatal) return;
+
+    if (FATAL_STOP_CODES.has(msg.code)) {
+      console.error(
+        `\n❌ Fatal error: ${msg.message}\n` +
+          `   Check your API key and agent version, then restart.\n`,
+      );
+      this.stop();
+      return;
     }
+
+    // AGENT_LIMIT_REACHED (and any other fatal code): keep retrying, since
+    // the user may free up a slot. The hub closes the socket and onClose
+    // reconnects with exponential backoff (1 s, 2 s, 4 s ... 5 min), which
+    // no longer resets on each rejected attempt.
   }
 
   private async onForward(msg: TunnelForwardMsg): Promise<void> {

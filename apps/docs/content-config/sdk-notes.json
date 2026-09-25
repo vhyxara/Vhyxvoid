@@ -1,11 +1,6 @@
 {
-  "_comment": "Overrides and notes for the generated SDK reference. `descriptions` replace a JSDoc comment that is wrong, internal, or missing; `notes` are appended under an entry. Keys are `Symbol` or `Symbol.member`. scripts/generate.mjs fails if a key no longer matches an exported symbol or member, or if a JSDoc that mentions an internal note has no override. Why each description is overridden: ClientConfig.accountSlug says the slug is 'found in your dashboard' (it is not shown there); TunnelClientConfig.hubUrl/timeout/localDiscovery use a placeholder host, an internal constant name, and an unmeasured latency claim; TunnelResponse.body's JSDoc refers to internal notes. Fixing the source comments is in docs backlog.",
+  "_comment": "Overrides and notes for the generated SDK reference. `descriptions` replace a JSDoc comment that is wrong, internal, or missing; `notes` are appended under an entry. Keys are `Symbol` or `Symbol.member`. scripts/generate.mjs fails if a key no longer matches an exported symbol or member, or if a JSDoc that mentions an internal note has no override. The source JSDoc for ClientConfig.accountSlug, TunnelClientConfig.hubUrl/timeout/localDiscovery and TunnelResponse.body was corrected 2026-09-25, so those overrides were removed.",
   "descriptions": {
-    "ClientConfig.accountSlug": "Your account slug: the part of your tunnel URL before `--`. The agent prints your full URL when it connects. Env: `VHYXVOID_ACCOUNT_SLUG`.",
-    "TunnelClientConfig.hubUrl": "Hub WebSocket URL, for example `wss://hub.vhyxvoid.com/sdk`.",
-    "TunnelClientConfig.timeout": "Per-request timeout in milliseconds.",
-    "TunnelClientConfig.localDiscovery": "Look for an agent on the same machine (port 4242) and send requests to it directly instead of through the hub. Default: `true`. Set `false` to always go through the hub.",
-    "TunnelResponse.body": "A text response (JSON, HTML, plain text) is a `string`. A binary response (image, PDF, audio, `application/octet-stream`) is a `Buffer` with the original bytes. `null` when the response has no body.",
     "RequestOptions.headers": "Extra headers for this request.",
     "RequestOptions.query": "Query string, without the leading `?`.",
     "RequestOptions.timeout": "Timeout for this request in milliseconds. Overrides the client's.",

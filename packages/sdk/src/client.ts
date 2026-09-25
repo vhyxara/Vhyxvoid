@@ -9,7 +9,7 @@
 import { isBinaryContentType } from "@vhyxvoid/protocol";
 
 export interface ClientConfig {
-  /** Account slug — found in your dashboard. Env: VHYXVOID_ACCOUNT_SLUG */
+  /** Your account slug: the part of your tunnel URL before `--`. The agent prints your full URL when it connects. Env: `VHYXVOID_ACCOUNT_SLUG`. */
   accountSlug?: string;
   /** Tunnel label to target. Default: 'default'. Env: VHYXVOID_LABEL */
   label?: string;
