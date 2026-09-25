@@ -24,6 +24,9 @@ import {
   TunnelWsMessageMsg,
   TunnelWsCloseMsg,
   isOriginFormPath,
+  TunnelResponseStartMsg,
+  TunnelResponseChunkMsg,
+  TunnelResponseEndMsg,
 } from '@vhyxvoid/protocol';
 // import { WebSocket } from 'uWebSockets.js';
 // import { AgentRegistry, AgentSession, SdkRegistry, PendingRegistry } from '../registry';
@@ -93,6 +96,10 @@ export class MessageRouter {
           return this.handleAgentBatch(ws, msg as AgentBatchMsg);
         case 'tunnel:response':
           return this.handleTunnelResponse(msg as TunnelResponseMsg);
+        case 'tunnel:response:start':
+        case 'tunnel:response:chunk':
+        case 'tunnel:response:end':
+          return this.handleStreamMessage(msg as any);
         case 'tunnel:agent-error':
           return this.handleTunnelAgentError(msg as TunnelAgentErrorMsg);
         case 'tunnel:ws:message':
@@ -264,6 +271,7 @@ export class MessageRouter {
       agentVersion: msg.agentVersion,
       ip,
       secretFingerprint: auth.secretFingerprint,
+      capabilities: Array.isArray(msg.capabilities) ? msg.capabilities.map(String) : [],
     };
     // A same-label re-registration evicts the previous session inside
     // AgentRegistry.register(); that session's socket close then finds no
@@ -418,6 +426,23 @@ export class MessageRouter {
           { err: err instanceof Error ? err.message : String(err), type: msg.type },
           '[router] error in batch item',
         );
+      }
+    }
+  }
+
+  /** Streamed response pieces (agents that announced "stream"). */
+  private handleStreamMessage(
+    msg: TunnelResponseStartMsg | TunnelResponseChunkMsg | TunnelResponseEndMsg,
+  ): void {
+    if (msg.type === 'tunnel:response:start') {
+      this.pendingRegistry.streamStart(msg.requestId, msg.status, msg.headers ?? {});
+    } else if (msg.type === 'tunnel:response:chunk') {
+      this.pendingRegistry.streamChunk(msg.requestId, Buffer.from(msg.data ?? '', 'base64'));
+    } else {
+      if (this.pendingRegistry.streamEnd(msg.requestId, msg.error)) {
+        this.requestRepo
+          .recordResponse(msg.requestId, { status: 200, durationMs: msg.durationMs })
+          .catch(() => {});
       }
     }
   }

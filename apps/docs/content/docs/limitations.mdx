@@ -54,6 +54,12 @@ A WebSocket connection to a tunnel URL is carried to your server, and a simple c
 
 `@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` and `@vhyxvoid/middleware` 1.0.5) fixed messages lost or reordered in bursts, messages arriving after a close, sockets left open after a disconnect and unsendable close codes. Those fixes come in two halves, one in the agent and one in the hub, and this page can't tell you which hub you are talking to. The two problems above are not fixed. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
 
+## Streaming responses
+
+In `@vhyxvoid/agent` 1.0.20 and earlier (and the `@vhyxvoid/next` / `@vhyxvoid/middleware` versions that bundle it), a response reaches the caller only once your server has finished it. Server-Sent Events, NDJSON and other chunked responses arrive all at once at the end, and an endless stream never arrives (the caller eventually gets a `504`).
+
+From the next agent release, together with the matching hub, those responses are relayed as your server writes them: `text/event-stream`, NDJSON, and chunked responses without a `Content-Length`. Once a streamed response has started it can stay open as long as the caller keeps it open. Everything else is still sent in one piece (up to 10 MiB). When a caller disconnects before the answer is complete, the hub now tells the agent, and the agent aborts the request to your server instead of letting it run on for nobody. The HTTP client in `@vhyxvoid/sdk` and `TunnelClient` still receive complete responses. Changed in source 2026-09-25, not released yet.
+
 ## Cached responses
 
 The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero, and it marks responses with an `x-vhyxvoid-cache: HIT` or `MISS` header.

@@ -15,6 +15,16 @@ export interface PendingRequest {
   resolve: (r: TunnelResponseMsg) => void;
   reject: (code: TunnelErrorCode, msg: string) => void;
   timer: NodeJS.Timeout;
+  /**
+   * Set for requests forwarded with acceptStream. A streamed response calls
+   * start once, chunk per piece, end once; the entry stays pending until
+   * end (so an agent disconnect still fails the caller).
+   */
+  stream?: {
+    start: (status: number, headers: Record<string, string>) => void;
+    chunk: (data: Buffer) => void;
+    end: (error?: string) => void;
+  };
 }
 
 export class PendingRegistry {
@@ -54,6 +64,43 @@ export class PendingRegistry {
     this.pending.delete(requestId);
     this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     req.reject(code, message);
+    return true;
+  }
+
+  streamStart(requestId: string, status: number, headers: Record<string, string>): boolean {
+    const req = this.pending.get(requestId);
+    if (!req?.stream) return false;
+    // The request timeout covers waiting for a response to begin; a stream
+    // may then run as long as the caller keeps it open.
+    clearTimeout(req.timer);
+    req.stream.start(status, headers);
+    return true;
+  }
+
+  streamChunk(requestId: string, data: Buffer): boolean {
+    const req = this.pending.get(requestId);
+    if (!req?.stream) return false;
+    req.stream.chunk(data);
+    return true;
+  }
+
+  streamEnd(requestId: string, error?: string): boolean {
+    const req = this.pending.get(requestId);
+    if (!req?.stream) return false;
+    clearTimeout(req.timer);
+    this.pending.delete(requestId);
+    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
+    req.stream.end(error);
+    return true;
+  }
+
+  /** The caller went away: forget the request without answering it. */
+  drop(requestId: string): boolean {
+    const req = this.pending.get(requestId);
+    if (!req) return false;
+    clearTimeout(req.timer);
+    this.pending.delete(requestId);
+    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     return true;
   }
 

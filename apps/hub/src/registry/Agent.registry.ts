@@ -142,6 +142,8 @@ export interface AgentSession {
    * reconnected with the old secret during it (audit H3). Absent: not checked.
    */
   secretFingerprint?: string;
+  /** Optional protocol features the agent announced ("stream", "cancel"). */
+  capabilities?: string[];
 }
 
 type AccountAgents = Map<string, AgentSession>; // label → session

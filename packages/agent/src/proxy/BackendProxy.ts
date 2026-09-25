@@ -13,6 +13,7 @@ import {
 } from "@vhyxvoid/protocol";
 import { ResponseCache } from "../cache/ResponseCache";
 import WebSocket from "ws";
+import type { Readable } from "stream";
 import { debugLog } from "../debug";
 
 const HOP_BY_HOP = new Set([
@@ -28,6 +29,40 @@ const HOP_BY_HOP = new Set([
 
 // Evict expired cache entries every 60 seconds
 const CACHE_EVICT_INTERVAL_MS = 60_000;
+
+/** Where a streamed response goes (AgentClient sends these to the hub). */
+export interface StreamSink {
+  start(status: number, headers: Record<string, string>): void;
+  chunk(data: Buffer): void;
+  end(durationMs: number, error?: string): void;
+  /** True while the hub link has too much unsent data: pause reading. */
+  backedUp(): boolean;
+}
+
+/** Streams by nature: relayed as they arrive when the caller allows it. */
+export function isStreamingResponse(headers: Record<string, any>): boolean {
+  const ct = String(headers["content-type"] ?? "").toLowerCase();
+  if (ct.startsWith("text/event-stream")) return true;
+  if (ct.includes("ndjson") || ct.includes("stream+json") || ct.startsWith("application/jsonl")) return true;
+  // Chunked with no length: the backend itself is sending it piece by piece
+  // (streaming SSR, progress output). Relay as it comes.
+  const te = String(headers["transfer-encoding"] ?? "").toLowerCase();
+  return te.includes("chunked") && headers["content-length"] === undefined;
+}
+
+async function collectStream(stream: Readable, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of stream) {
+    size += (chunk as Buffer).length;
+    if (size > maxBytes) {
+      stream.destroy();
+      throw new Error(`Response exceeds ${maxBytes} bytes`);
+    }
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks);
+}
 // Frames a browser sends before the agent's socket to the backend is open.
 const WS_PENDING_MAX_FRAMES = 256;
 const WS_PENDING_MAX_BYTES = 4 * 1024 * 1024;
@@ -62,9 +97,17 @@ export class BackendProxy {
     this.evictTimer.unref?.();
   }
 
+  /**
+   * Forward one tunnelled request to the local backend. Returns the response
+   * to send as a single tunnel:response, or null when it was streamed to
+   * `sink` instead (only when the hub set acceptStream and the response is a
+   * stream by nature). `signal` aborts the backend request (tunnel:cancel).
+   */
   async forward(
     msg: TunnelForwardMsg,
-  ): Promise<Omit<TunnelResponseMsg, "v" | "type" | "requestId">> {
+    sink?: StreamSink,
+    signal?: AbortSignal,
+  ): Promise<Omit<TunnelResponseMsg, "v" | "type" | "requestId"> | null> {
     // ── Cache check (GET only) ────────────────────────────────────────────────
     const cached = this.cache.get(msg.method, msg.path, msg.query, msg.headers);
     if (cached) {
@@ -108,6 +151,7 @@ export class BackendProxy {
         msg.bodyEncoding === "base64" ? Buffer.from(msg.body, "base64") : msg.body;
     }
 
+    const useStream = !!(msg.acceptStream && sink);
     const response = await this.client.request({
       method: msg.method,
       url,
@@ -115,9 +159,25 @@ export class BackendProxy {
       data: requestData,
       // Honor the hub's per-request budget (an older hub omits it → fallback).
       ...(msg.timeoutMs ? { timeout: msg.timeoutMs } : {}),
+      // Streaming-capable callers get the body as a stream, so a response
+      // that is a stream by nature (SSE, NDJSON, chunked) can be relayed as
+      // it arrives; anything else is collected and sent in one piece.
+      ...(useStream ? { responseType: "stream" as const } : {}),
+      ...(signal ? { signal } : {}),
     });
 
-    const bodyBuffer = response.data as Buffer;
+    let bodyBuffer: Buffer;
+    if (useStream) {
+      const stream = response.data as Readable;
+      if (isStreamingResponse(response.headers as Record<string, any>)) {
+        this.relayStream(response, stream, sink!, start, signal);
+        return null;
+      }
+      bodyBuffer = await collectStream(stream, LIMITS.MAX_PAYLOAD_BYTES);
+    } else {
+      bodyBuffer = response.data as Buffer;
+    }
+
     const headers = this.sanitizeOutboundHeaders(
       response.headers as Record<string, any>,
     );
@@ -165,6 +225,51 @@ export class BackendProxy {
       bodyEncoding,
       durationMs,
     };
+  }
+
+  /** Relay a streaming backend response to the hub as it arrives. */
+  private relayStream(
+    response: { status: number; headers: Record<string, any>; request?: any },
+    stream: Readable,
+    sink: StreamSink,
+    start: number,
+    signal?: AbortSignal,
+  ): void {
+    const headers = this.sanitizeOutboundHeaders(response.headers);
+    // Length and encoding describe the backend's framing, not what the hub
+    // will send (chunked, already decompressed by axios).
+    delete headers["content-length"];
+    delete headers["content-encoding"];
+    headers["x-vhyxvoid-stream"] = "1";
+    // A stream may legitimately stay quiet for a long time (SSE keepalive
+    // intervals): the request timeout only covers waiting for the headers.
+    try {
+      response.request?.setTimeout?.(0);
+    } catch {
+      // ignore
+    }
+    sink.start(response.status, headers);
+
+    let ended = false;
+    const finish = (error?: string) => {
+      if (ended) return;
+      ended = true;
+      clearInterval(resumeTimer);
+      sink.end(Date.now() - start, error);
+    };
+    // Backpressure: stop reading from the backend while the hub link is
+    // backed up, resume when it drains.
+    const resumeTimer = setInterval(() => {
+      if (stream.isPaused() && !sink.backedUp()) stream.resume();
+    }, 25);
+    resumeTimer.unref?.();
+    stream.on("data", (chunk: Buffer) => {
+      sink.chunk(chunk);
+      if (sink.backedUp()) stream.pause();
+    });
+    stream.on("end", () => finish());
+    stream.on("error", (err: Error) => finish(signal?.aborted ? "canceled" : err.message));
+    stream.on("close", () => finish(signal?.aborted ? "canceled" : undefined));
   }
 
   /** Switch to another local port (AgentClient.setPort). Cached responses

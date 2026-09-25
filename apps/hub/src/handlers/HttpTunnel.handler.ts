@@ -35,6 +35,8 @@ import { getTunnelRequestTimeoutMs } from '@/utils/tunnelTimeout';
 import type { PublicPathUsageLimiter } from '@/services/PublicPathUsageLimiter.service';
 
 // Max request body size — 10MB
+// Unsent streamed bytes allowed per caller before the stream is cut.
+const MAX_STREAM_BUFFER_BYTES = 8 * 1024 * 1024;
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
 export class HttpTunnelHandler {
@@ -220,7 +222,29 @@ export class HttpTunnelHandler {
       body: body,
       bodyEncoding,
       timeoutMs: requestTimeoutMs - 2000,
+      // Only agents that announced "stream" get to stream (older agents
+      // would ignore the flag anyway, but this keeps the hub honest).
+      ...(agent.capabilities?.includes('stream') ? { acceptStream: true } : {}),
     };
+
+    // The caller went away before the answer finished: stop waiting, and
+    // tell the agent to abort the backend request (agents with "cancel";
+    // audit part2 G13), instead of letting it run on for nobody.
+    let settled = false;
+    const onCallerGone = () => {
+      if (settled) return;
+      settled = true;
+      if (this.pendingRegistry.drop(requestId) && agent.capabilities?.includes('cancel')) {
+        try {
+          agent.ws.send(serialize({ v: '1', type: 'tunnel:cancel', requestId } as any));
+        } catch {
+          // agent socket gone: nothing to cancel
+        }
+      }
+    };
+    res.on('close', () => {
+      if (!res.writableFinished) onCallerGone();
+    });
 
     // Enqueue pending request — resolve/reject when agent responds
     await new Promise<void>((outerResolve) => {
@@ -238,18 +262,47 @@ export class HttpTunnelHandler {
 
         resolve: (response: TunnelResponseMsg) => {
           clearTimeout(timer);
+          settled = true;
           this.writeResponse(res, response);
           outerResolve();
         },
 
         reject: (code: string, message: string) => {
           clearTimeout(timer);
-          const status = code === 'AGENT_TIMEOUT' ? 504 : 502;
-          this.sendError(res, status, message);
+          settled = true;
+          if (res.headersSent) {
+            // Mid-stream: the status line is gone; cut the response so the
+            // caller sees it end abnormally rather than hang.
+            res.destroy();
+          } else {
+            const status = code === 'AGENT_TIMEOUT' ? 504 : 502;
+            this.sendError(res, status, message);
+          }
           outerResolve();
         },
 
         timer,
+
+        stream: forward.acceptStream
+          ? {
+              start: (status, headers) => {
+                clearTimeout(timer);
+                this.writeStreamHead(res, status, headers);
+              },
+              chunk: (data) => {
+                res.write(data);
+                // A caller that reads far slower than the backend writes
+                // would otherwise pile the stream up in hub memory.
+                if (res.writableLength > MAX_STREAM_BUFFER_BYTES) onCallerGone(), res.destroy();
+              },
+              end: (error) => {
+                settled = true;
+                if (error) res.destroy();
+                else res.end();
+                outerResolve();
+              },
+            }
+          : undefined,
       });
 
       // Send to agent
@@ -450,6 +503,27 @@ export class HttpTunnelHandler {
 
     if (!label || !accountSlug) return null;
     return { label, accountSlug };
+  }
+
+  /** Status and headers of a streamed response; the body follows as chunks. */
+  private writeStreamHead(res: ServerResponse, status: number, headers: Record<string, string>): void {
+    for (const [key, value] of Object.entries(headers)) {
+      const k = key.toLowerCase();
+      if (this.isHopByHop(key) || k === 'content-length') continue;
+      if (k === 'set-cookie') {
+        res.setHeader('set-cookie', value.split('\n').filter(Boolean));
+        continue;
+      }
+      try {
+        res.setHeader(key, value);
+      } catch {
+        // Invalid header
+      }
+    }
+    // Proxies (nginx) must pass each piece through immediately.
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.writeHead(status || 200);
+    res.flushHeaders();
   }
 
   private writeResponse(res: ServerResponse, response: TunnelResponseMsg): void {

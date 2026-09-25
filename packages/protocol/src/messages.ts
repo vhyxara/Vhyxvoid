@@ -15,6 +15,55 @@ export interface AgentRegisterMsg {
   label: string;
   rawSecret: string;
   agentVersion: string;
+  /**
+   * Optional features this agent understands (since 2026-09-25). The hub
+   * uses a feature only if the agent announced it, so old agents keep
+   * working unchanged. See AGENT_CAPABILITIES.
+   */
+  capabilities?: AgentCapability[];
+}
+
+/**
+ * - "stream": may answer a tunnel:forward that has acceptStream with
+ *   tunnel:response:start / :chunk / :end instead of one tunnel:response
+ *   (Server-Sent Events, NDJSON, chunked responses).
+ * - "cancel": understands tunnel:cancel (the caller went away; abort the
+ *   request to the local backend).
+ */
+export type AgentCapability = "stream" | "cancel";
+export const AGENT_CAPABILITIES: AgentCapability[] = ["stream", "cancel"];
+
+/** Head of a streamed response (agent -> hub). */
+export interface TunnelResponseStartMsg {
+  v: "1";
+  type: "tunnel:response:start";
+  requestId: string;
+  status: number;
+  headers: Record<string, string>;
+}
+
+/** One piece of a streamed response body, base64 (agent -> hub). */
+export interface TunnelResponseChunkMsg {
+  v: "1";
+  type: "tunnel:response:chunk";
+  requestId: string;
+  data: string;
+}
+
+/** End of a streamed response; `error` set if the backend stream failed. */
+export interface TunnelResponseEndMsg {
+  v: "1";
+  type: "tunnel:response:end";
+  requestId: string;
+  durationMs: number;
+  error?: string;
+}
+
+/** The public caller disconnected; stop working on this request (hub -> agent). */
+export interface TunnelCancelMsg {
+  v: "1";
+  type: "tunnel:cancel";
+  requestId: string;
 }
 
 export interface AgentPongMsg {
@@ -101,6 +150,13 @@ export interface TunnelForwardMsg {
    */
   bodyEncoding?: "utf8" | "base64";
   timeoutMs: number;
+  /**
+   * The caller can take a streamed answer (hub sets it only for agents that
+   * announced "stream", on the public HTTP path). The agent then streams
+   * responses that are streams by nature and answers everything else with a
+   * single tunnel:response as before.
+   */
+  acceptStream?: boolean;
 }
 
 export interface HubErrorMsg {
@@ -182,7 +238,10 @@ export type AgentToHubMsg =
   | TunnelAgentErrorMsg
   | AgentBatchMsg
   | TunnelWsMessageMsg
-  | TunnelWsCloseMsg;
+  | TunnelWsCloseMsg
+  | TunnelResponseStartMsg
+  | TunnelResponseChunkMsg
+  | TunnelResponseEndMsg;
 
 export type HubToAgentMsg =
   | HubRegisteredMsg
@@ -191,7 +250,8 @@ export type HubToAgentMsg =
   | HubErrorMsg
   | TunnelWsOpenMsg
   | TunnelWsMessageMsg
-  | TunnelWsCloseMsg;
+  | TunnelWsCloseMsg
+  | TunnelCancelMsg;
 
 export type SdkToHubMsg = SdkRegisterMsg | SdkRequestMsg;
 

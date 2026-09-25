@@ -23,15 +23,23 @@ import {
   TunnelWsMessageMsg,
   TunnelWsCloseMsg,
   TunnelWsErrorMsg,
+  TunnelCancelMsg,
+  TunnelResponseStartMsg,
+  TunnelResponseChunkMsg,
+  TunnelResponseEndMsg,
+  AGENT_CAPABILITIES,
 } from "@vhyxvoid/protocol";
 import { AGENT_VERSION } from "./version";
 import { debugLog } from "./debug";
-import { BackendProxy } from "./proxy/BackendProxy";
+import { BackendProxy, type StreamSink } from "./proxy/BackendProxy";
 import { MessageBatcher } from "./batcher/MessageBatcher";
 import { LocalDiscoveryServer } from "./discovery/LocalDiscoveryServer";
 
 // Bounds for responses held in memory during a hub outage (see heldResponses).
 const MAX_HELD_RESPONSES = 100;
+// Pause reading a streamed backend response while this much is unsent on
+// the hub socket.
+const STREAM_BACKPRESSURE_BYTES = 4 * 1024 * 1024;
 const MAX_HELD_BYTES = 20 * 1024 * 1024;
 
 export type AgentState =
@@ -123,6 +131,8 @@ export class AgentClient {
    */
   private heldResponses: { msg: TunnelResponseMsg | TunnelAgentErrorMsg; bytes: number; heldAt: number }[] = [];
   private heldBytes = 0;
+  /** Requests being worked on, for tunnel:cancel and for dropping streams on disconnect. */
+  private readonly inflight = new Map<string, { controller: AbortController; streamed: { started: boolean } }>();
   private readonly discovery: LocalDiscoveryServer | null;
   private readonly log: NonNullable<AgentConfig["logger"]>;
 
@@ -174,6 +184,8 @@ export class AgentClient {
     this.batcher.flushToQueue();
     this.heldResponses = [];
     this.heldBytes = 0;
+    for (const entry of this.inflight.values()) entry.controller.abort();
+    this.inflight.clear();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close(1000, "agent_stopped");
     this.proxy.stop();
@@ -254,6 +266,7 @@ export class AgentClient {
       rawSecret: this.config.secret, // ← raw secret, hub applies pepper
 
       agentVersion: this.config.agentVersion ?? AGENT_VERSION,
+      capabilities: AGENT_CAPABILITIES,
     };
 
     this.sendRaw(serialize(msg));
@@ -299,6 +312,8 @@ export class AgentClient {
         return this.onWsMessage(msg as TunnelWsMessageMsg);
       case "tunnel:ws:close":
         return this.onWsClose(msg as TunnelWsCloseMsg);
+      case "tunnel:cancel":
+        return this.onCancel(msg as TunnelCancelMsg);
       default:
         this.log.warn(
           { type: (msg as any).type },
@@ -387,8 +402,15 @@ export class AgentClient {
     // Invalidate related cache entries on mutating requests
     this.proxy.invalidateCacheFor(msg.method, msg.path);
 
+    // One controller per request: tunnel:cancel (the caller went away)
+    // aborts the backend request or stream.
+    const controller = new AbortController();
+    const streamed = { started: false };
+    this.inflight.set(msg.requestId, { controller, streamed });
     try {
-      const result = await this.proxy.forward(msg);
+      const sink = msg.acceptStream ? this.streamSink(msg.requestId, streamed) : undefined;
+      const result = await this.proxy.forward(msg, sink, controller.signal);
+      if (!result) return; // streamed: start/chunk/end already sent
       const response: TunnelResponseMsg = {
         v: PROTOCOL_VERSION,
         type: "tunnel:response",
@@ -397,6 +419,7 @@ export class AgentClient {
       };
       this.batcher.add(response);
     } catch (err) {
+      if (controller.signal.aborted) return; // canceled by the hub: nobody is waiting
       // Never leave a request unanswered — always send an error back
       const agentError: TunnelAgentErrorMsg = {
         v: PROTOCOL_VERSION,
@@ -408,7 +431,44 @@ export class AgentClient {
 
       // If WS is up, batcher sends it; if down, it is held in memory
       this.batcher.add(agentError);
+    } finally {
+      if (!streamed.started) this.inflight.delete(msg.requestId);
     }
+  }
+
+  /**
+   * Streamed responses go straight onto the socket in order (like WebSocket
+   * frames), not through the batcher: each chunk should reach the caller as
+   * soon as the backend produced it. If the hub link drops mid-stream the
+   * stream is dead anyway (the hub already failed the caller's request).
+   */
+  private streamSink(requestId: string, streamed: { started: boolean }): StreamSink {
+    const done = () => this.inflight.delete(requestId);
+    return {
+      start: (status, headers) => {
+        streamed.started = true;
+        const m: TunnelResponseStartMsg = { v: PROTOCOL_VERSION, type: "tunnel:response:start", requestId, status, headers };
+        this.sendRaw(serialize(m));
+      },
+      chunk: (data) => {
+        const m: TunnelResponseChunkMsg = { v: PROTOCOL_VERSION, type: "tunnel:response:chunk", requestId, data: data.toString("base64") };
+        this.sendRaw(serialize(m));
+      },
+      end: (durationMs, error) => {
+        done();
+        const m: TunnelResponseEndMsg = { v: PROTOCOL_VERSION, type: "tunnel:response:end", requestId, durationMs, ...(error ? { error } : {}) };
+        this.sendRaw(serialize(m));
+      },
+      backedUp: () => (this.ws?.bufferedAmount ?? 0) > STREAM_BACKPRESSURE_BYTES,
+    };
+  }
+
+  private onCancel(msg: TunnelCancelMsg): void {
+    const entry = this.inflight.get(msg.requestId);
+    if (!entry) return;
+    debugLog("[agent] request canceled by hub:", msg.requestId);
+    entry.controller.abort();
+    this.inflight.delete(msg.requestId);
   }
 
   private onWsOpen(msg: TunnelWsOpenMsg): void {
@@ -482,6 +542,15 @@ export class AgentClient {
     // browser side on its end). Close the backend sockets now, or they stay
     // open on the developer's server with nobody on the other end.
     this.proxy.closeAllWebSockets();
+    // Streams can't outlive the hub link (the hub failed their callers when
+    // it lost this socket); buffered requests keep running so their
+    // responses can be held and sent after re-registering.
+    for (const [id, entry] of this.inflight) {
+      if (entry.streamed.started) {
+        entry.controller.abort();
+        this.inflight.delete(id);
+      }
+    }
     this.batcher.flushToQueue(); // hold buffered responses in memory
     this.setState("RECONNECTING");
     this.scheduleReconnect();

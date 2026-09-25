@@ -157,6 +157,8 @@ const PNG = Buffer.from(
   "hex",
 );
 let backendHits = 0;
+let foreverClosedAt = 0;
+let slowClosedAt = 0;
 const backend = createServer((q, r) => {
   backendHits++;
   const chunks = [];
@@ -189,6 +191,36 @@ const backend = createServer((q, r) => {
     if (url.pathname === "/cookies") {
       r.writeHead(200, { "set-cookie": ["a=1; Path=/; HttpOnly", "b=2; Path=/"] });
       return r.end("ok");
+    }
+    if (url.pathname === "/sse") {
+      r.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+      let n = 0;
+      const t = setInterval(() => {
+        r.write(`data: tick ${++n}\n\n`);
+        if (n === 4) {
+          clearInterval(t);
+          r.end();
+        }
+      }, 300);
+      return;
+    }
+    if (url.pathname === "/forever") {
+      // An endless stream; records when the tunnel closes it.
+      r.writeHead(200, { "content-type": "text/event-stream" });
+      const t = setInterval(() => r.write("data: still here\n\n"), 200);
+      r.on("close", () => {
+        clearInterval(t);
+        foreverClosedAt = Date.now();
+      });
+      return;
+    }
+    if (url.pathname === "/slow") {
+      const t = setTimeout(() => r.end("slow done"), 10_000);
+      r.on("close", () => {
+        clearTimeout(t);
+        if (!r.writableFinished) slowClosedAt = Date.now();
+      });
+      return;
     }
     if (url.pathname === "/status/418") {
       r.writeHead(418);
@@ -527,6 +559,55 @@ await step("tunnel: WebSocket echo (text and binary)", async () => {
   while (got.length < 2 && Date.now() - t0 < 5000) await sleep(50);
   ws.close();
   assert(got.includes("echo:hi") && got.includes("010203"), `got ${JSON.stringify(got)}`);
+});
+
+await step("tunnel: Server-Sent Events arrive as they are sent (streaming)", async () => {
+  const { request } = await import("node:http");
+  const u = new URL(HUB);
+  const times = [];
+  const t0 = Date.now();
+  await new Promise((resolve, reject) => {
+    request({ host: u.hostname, port: u.port, path: "/sse", headers: { host: s.host } }, (res) => {
+      res.on("data", () => times.push(Date.now() - t0));
+      res.on("end", resolve);
+    }).on("error", reject).end();
+  });
+  assert(times.length >= 3, `only ${times.length} chunk(s): the response was buffered (${JSON.stringify(times)})`);
+  assert(times[times.length - 1] - times[0] >= 500, `chunks not spread out: ${JSON.stringify(times)}`);
+  return `chunks at ${times.join(", ")} ms`;
+});
+
+await step("tunnel: a caller that disconnects cancels the backend stream", async () => {
+  const { request } = await import("node:http");
+  const u = new URL(HUB);
+  let gotData = false;
+  const req = request({ host: u.hostname, port: u.port, path: "/forever", headers: { host: s.host } }, (res) => {
+    res.on("data", () => (gotData = true));
+  });
+  req.on("error", () => {});
+  req.end();
+  const t0 = Date.now();
+  while (!gotData && Date.now() - t0 < 5000) await sleep(50);
+  assert(gotData, "endless stream never delivered data");
+  const abortAt = Date.now();
+  req.destroy();
+  while (!foreverClosedAt && Date.now() - abortAt < 5000) await sleep(50);
+  assert(foreverClosedAt, "backend stream still open 5 s after the caller left");
+  return `backend closed ${foreverClosedAt - abortAt} ms after the caller`;
+});
+
+await step("tunnel: a caller that gives up cancels a slow backend request", async () => {
+  const { request } = await import("node:http");
+  const u = new URL(HUB);
+  const req = request({ host: u.hostname, port: u.port, path: "/slow", headers: { host: s.host } });
+  req.on("error", () => {});
+  req.end();
+  await sleep(500);
+  const abortAt = Date.now();
+  req.destroy();
+  while (!slowClosedAt && Date.now() - abortAt < 5000) await sleep(50);
+  assert(slowClosedAt, "backend request still running 5 s after the caller left");
+  return `backend aborted ${slowClosedAt - abortAt} ms after the caller`;
 });
 
 await step("tunnel: unknown label answers 404 with a hint", async () => {
