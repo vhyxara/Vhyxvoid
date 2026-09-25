@@ -4,7 +4,6 @@
 
 import type { Redis } from '@upstash/redis';
 import type { TunnelResponseMsg, TunnelErrorCode } from '@vhyxvoid/protocol';
-import { getPendingTtlMs } from '@/utils/tunnelTimeout';
 
 export interface PendingRequest {
   requestId: string;
@@ -30,21 +29,15 @@ export interface PendingRequest {
 export class PendingRegistry {
   private readonly pending = new Map<string, PendingRequest>();
 
-  constructor(private readonly redis: Redis) {}
+  // The Redis client is no longer used; the parameter stays so callers
+  // don't change.
+  constructor(_redis?: Redis) {}
 
+  // In memory only. Each request used to SET and DEL a hub:pending:<id> key
+  // in Redis that nothing ever read (reserved for a multi-hub design that
+  // doesn't exist): two billed Upstash commands per tunnelled request.
   async enqueue(req: PendingRequest): Promise<void> {
     this.pending.set(req.requestId, req);
-    await this.redis
-      .set(
-        `hub:pending:${req.requestId}`,
-        JSON.stringify({
-          accountId: req.accountId,
-          agentLabel: req.agentLabel,
-          ts: req.enqueuedAt,
-        }),
-        { px: getPendingTtlMs() },
-      )
-      .catch(() => {});
   }
 
   resolve(requestId: string, response: TunnelResponseMsg): boolean {
@@ -52,7 +45,6 @@ export class PendingRegistry {
     if (!req) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
-    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     req.resolve(response);
     return true;
   }
@@ -62,7 +54,6 @@ export class PendingRegistry {
     if (!req) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
-    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     req.reject(code, message);
     return true;
   }
@@ -89,7 +80,6 @@ export class PendingRegistry {
     if (!req?.stream) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
-    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     req.stream.end(error);
     return true;
   }
@@ -100,7 +90,6 @@ export class PendingRegistry {
     if (!req) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
-    this.redis.del(`hub:pending:${requestId}`).catch(() => {});
     return true;
   }
 
@@ -110,7 +99,6 @@ export class PendingRegistry {
       if (req.accountId === accountId && req.agentLabel === agentLabel) {
         clearTimeout(req.timer);
         this.pending.delete(id);
-        this.redis.del(`hub:pending:${id}`).catch(() => {});
         req.reject('AGENT_DISCONNECTED', 'Agent disconnected while processing your request');
         count++;
       }
