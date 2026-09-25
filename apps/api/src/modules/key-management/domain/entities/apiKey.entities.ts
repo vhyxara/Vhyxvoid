@@ -285,33 +285,6 @@ export class ApiKey {
     return crypto.createHmac("sha256", pepper).update(rawSecret).digest("hex");
   }
 
-  /**
-   * Build the canonical request string for signature verification.
-   * The client SDK must produce the identical string.
-   *
-   * Format: METHOD|PATH|BODY_SHA256|REQUEST_ID|TIMESTAMP_MS
-   * Body is hashed with SHA-256. If body is empty, body hash is empty string.
-   */
-  static buildCanonical(params: {
-    method: string;
-    path: string;
-    body: string; // raw request body or empty string
-    requestId: string; // UUID — unique per request (replay protection)
-    timestamp: number; // unix milliseconds
-  }): string {
-    const bodyHash = params.body
-      ? crypto.createHash("sha256").update(params.body).digest("hex")
-      : "";
-
-    return [
-      params.method.toUpperCase(),
-      params.path,
-      bodyHash,
-      params.requestId,
-      params.timestamp,
-    ].join("|");
-  }
-
   // ── Persistence ────────────────────────────────────────────────────────────
 
   /** Returns full props for DB persistence. Never pass this to API responses. */

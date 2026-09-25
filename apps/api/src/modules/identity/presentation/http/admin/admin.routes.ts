@@ -489,16 +489,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
   /**
    * Assign role to admin
    * POST /admin/users/:adminId/roles
-        status: admin.status,
-        lastLoginAt: admin.lastLoginAt,
-        // createdAt: admin.,
-        // roles: roles.map((r) => ({ id: r.id, name: r.name })),
-      });
-    },
-  );
-  /**
-   * Assign role to admin
-   * POST /admin/users/:adminId/roles
    * Required ability: role.assign
    */
   fastify.post<{ Params: { adminId: string } }>(

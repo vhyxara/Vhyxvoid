@@ -146,9 +146,7 @@ export const billingPlugin = fp(
     const notificationService = fastify.container.resolve(NotificationService);
 
     // Closes context.md Known Risk #57's E6 cache-staleness gap: constructed
-    // directly here (not resolved from fastify.apiKeyRepository, which the
-    // key-management plugin decorates but never declares on fastify.d.ts —
-    // see api/backlog.md) rather than via the DI container, matching this
+    // directly here rather than via the DI container, matching this
     // plugin's own established "build infrastructure directly" convention.
     const accountKeyCacheInvalidator = new AccountKeyCacheInvalidator(
       new PrismaApiKeyRepository(fastify.prisma),

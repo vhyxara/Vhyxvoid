@@ -25,7 +25,12 @@ function redisReturning(keys: string[], execResult: unknown[]) {
   return {
     deleted,
     scan: vi.fn(async () => ["0", keys]),
-    pipeline: vi.fn(() => ({ get: () => {}, exec: async () => execResult })),
+    pipeline: vi.fn(() => ({
+      getdel: (k: string) => {
+        deleted.push(k);
+      },
+      exec: async () => execResult,
+    })),
     del: vi.fn(async (...k: string[]) => {
       deleted.push(...k);
       return k.length;
@@ -86,10 +91,15 @@ function makeSharedRedis(store: Map<string, string>) {
     pipeline: vi.fn(() => {
       const queued: string[] = [];
       return {
-        get: (k: string) => {
+        getdel: (k: string) => {
           queued.push(k);
         },
-        exec: async () => queued.map((k) => (store.has(k) ? Number(store.get(k)) : null)),
+        exec: async () =>
+          queued.map((k) => {
+            const v = store.has(k) ? Number(store.get(k)) : null;
+            store.delete(k);
+            return v;
+          }),
       };
     }),
     del: vi.fn(async (...keys: string[]) => {
@@ -248,5 +258,47 @@ describe("FlushUsageWorker writes keyed counters under ApiKey.id, not the public
     expect(repo.upsertQuantity).toHaveBeenCalledTimes(3);
     expect(repo.upserts).toHaveLength(2);
     expect(repo.upserts.some((u) => u.accountId === "acct_b" && u.quantity === 4n)).toBe(true);
+  });
+});
+
+// api backlog, 2026-09-24: "Usage drain can still lose counts". The drain did
+// a pipelined GET and then a separate DEL of the same keys, so an INCRBY that
+// landed between the two was deleted unread. GETDEL closes that window.
+describe("drainUsageCounters — an increment landing mid-drain is not lost", () => {
+  it("reads with GETDEL and issues no separate DEL", async () => {
+    const key = "usage:acct_1:key_a:requests:202609240000";
+    const store = new Map([[key, "5"]]);
+    const redis = {
+      scan: vi.fn(async () => ["0", [...store.keys()]]),
+      pipeline: vi.fn(() => {
+        const queued: string[] = [];
+        return {
+          getdel: (k: string) => {
+            queued.push(k);
+          },
+          exec: async () => {
+            const values = queued.map((k) => {
+              const v = store.has(k) ? Number(store.get(k)) : null;
+              store.delete(k);
+              return v;
+            });
+            // A concurrent INCRBY right after the drain's read.
+            store.set(key, "1");
+            return values;
+          },
+        };
+      }),
+      del: vi.fn(async (...keys: string[]) => {
+        for (const k of keys) store.delete(k);
+        return keys.length;
+      }),
+    };
+    const service = new RedisApiKeyCacheService(redis as any);
+
+    const counters = await service.drainUsageCounters("acct_1");
+
+    expect(counters.map((c) => c.quantity)).toEqual([5n]);
+    expect(redis.del).not.toHaveBeenCalled();
+    expect(store.get(key)).toBe("1");
   });
 });

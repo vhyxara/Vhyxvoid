@@ -1,5 +1,15 @@
-import { generateAccountSlug } from "@/core/utils/slug.util";
+import { generateAccountSlug, isValidSlug } from "@/core/utils/slug.util";
+
+// A slug becomes a DNS label (<slug>--<label>.<hubDomain>), so every write
+// path checks it (audit M18), not only the generator.
+function assertValidSlug(slug: string): string {
+  if (!isValidSlug(slug)) {
+    throw new Error(`Invalid account slug: "${slug}"`);
+  }
+  return slug;
+}
 import { AccountStatus, AccountType } from "@/generated/prisma";
+import { ForbiddenError, ValidationError } from "@/core/errors/error.format";
 
 export interface AccountProps {
   id: string;
@@ -31,7 +41,7 @@ export class Account {
       status: AccountStatus.ACTIVE,
       createdById: ownerUserId, // ← FIX: was silently dropped before
       graceEndsAt: null,
-      slug: generateAccountSlug(name), // not guessable from the name (audit H11); caller checks uniqueness
+      slug: assertValidSlug(generateAccountSlug(name)), // not guessable from the name (audit H11); caller checks uniqueness
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -57,7 +67,9 @@ export class Account {
       status: AccountStatus.ACTIVE,
       createdById: params.createdById,
       graceEndsAt: null,
-      slug: params.slug ?? generateAccountSlug(params.name.trim()),
+      slug: assertValidSlug(
+        params.slug ?? generateAccountSlug(params.name.trim()),
+      ),
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
@@ -110,8 +122,11 @@ export class Account {
   // ── Business Logic ─────────────────────────────────────────
 
   rename(name: string, now: Date): void {
-    if (this.isPersonal) throw new Error("Cannot rename a personal account");
-    if (!name || name.trim().length < 2) throw new Error("Name too short");
+    // Typed errors, so the route answers 403/400 instead of a 500.
+    if (this.isPersonal)
+      throw new ForbiddenError("Cannot rename a personal account");
+    if (!name || name.trim().length < 2)
+      throw new ValidationError("Name too short");
     this.props.name = name.trim();
     this.props.updatedAt = now;
   }
@@ -158,7 +173,7 @@ export class Account {
     return { ...this.props };
   }
   setSlug(slug: string, now: Date): void {
-    this.props.slug = slug;
+    this.props.slug = assertValidSlug(slug);
     this.props.updatedAt = now;
   }
 }

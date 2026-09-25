@@ -99,6 +99,7 @@ export class AdminAuditLog {
       'admin.login': 'Admin user logged in',
       'admin.logout': 'Admin user logged out',
       'admin.password_changed': 'Admin password changed',
+      'admin.token_refreshed': 'Admin access token refreshed',
 
       // Role actions
       'role.created': 'Role created',
@@ -123,6 +124,9 @@ export class AdminAuditLog {
       'user.verified': 'User email verified',
       'user.locked': 'User account locked',
       'user.unlocked': 'User account unlocked',
+
+      // Feedback
+      'feedback.updated': 'Feedback triaged',
 
       // Settings
       'settings.updated': 'System settings updated',
@@ -180,6 +184,7 @@ export enum AuditAction {
   ADMIN_LOGIN = 'admin.login',
   ADMIN_LOGOUT = 'admin.logout',
   ADMIN_PASSWORD_CHANGED = 'admin.password_changed',
+  ADMIN_TOKEN_REFRESHED = 'admin.token_refreshed',
 
   // Role
   ROLE_CREATED = 'role.created',
@@ -204,6 +209,9 @@ export enum AuditAction {
   USER_VERIFIED = 'user.verified',
   USER_LOCKED = 'user.locked',
   USER_UNLOCKED = 'user.unlocked',
+
+  // Feedback
+  FEEDBACK_UPDATED = 'feedback.updated',
 
   // Settings
   SETTINGS_UPDATED = 'settings.updated',

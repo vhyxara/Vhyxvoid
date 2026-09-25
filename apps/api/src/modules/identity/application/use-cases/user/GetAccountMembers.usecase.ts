@@ -100,10 +100,6 @@ export class GetAccountMembersUseCase {
     const sorted = [...filtered].sort((a, b) => {
       const dir = sortOrder === "asc" ? 1 : -1;
       switch (sortBy) {
-        case "name":
-          return dir * a.fullName.localeCompare(b.fullName);
-        case "email":
-          return dir * a.email.localeCompare(b.email);
         case "roleLevel":
           return dir * (a.role.level - b.role.level);
         case "joinedAt":

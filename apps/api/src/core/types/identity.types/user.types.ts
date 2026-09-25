@@ -4,7 +4,7 @@ export interface GetAccountMembersParams {
   page?: number;
   limit?: number;
   search?: string; // filter by userId or email (requires user join)
-  sortBy?: "roleLevel" | "joinedAt" | "name" | "email";
+  sortBy?: "roleLevel" | "joinedAt";
   sortOrder?: "asc" | "desc";
 }
 

@@ -48,14 +48,6 @@ export interface ApiKeyCacheService {
 
   getRateLimit(keyId: string): Promise<number>;
 
-  // ── Replay protection ──────────────────────────────────────────────────────
-
-  /**
-   * Mark a requestId as seen. Returns false if already seen (replay attack).
-   * Uses SET NX with TTL = REPLAY_WINDOW_MS.
-   */
-  markRequestId(requestId: string): Promise<boolean>;
-
   // ── Usage counters (hot path) ──────────────────────────────────────────────
 
   /**

@@ -35,7 +35,6 @@ export class RequestPasswordResetUseCase {
     userAgent?: string;
   }): Promise<{ message: string }> {
     const email = params.email.toLowerCase().trim();
-    console.log("RequestPasswordResetUseCase received email:", email);
     // Look up user OUTSIDE transaction — no point holding a TX if user doesn't exist
     const user = await this.uow.userRepository.findByEmail(email);
 

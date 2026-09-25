@@ -1,6 +1,9 @@
 // identity/application/usecases/admin/AdminRefreshTokenUseCase.ts
 import { AdminTTL } from "@/core/constant/ttl.constant";
-import { AdminAuditLog } from "@/modules/identity/domain/entities/admin/AdminAuditLog.entities";
+import {
+  AdminAuditLog,
+  AuditAction,
+} from "@/modules/identity/domain/entities/admin/AdminAuditLog.entities";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { CryptoTokenGenerator } from "@/modules/identity/infrastructure/crypto/SecureTokenGenerator";
 import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHasher";
@@ -92,7 +95,7 @@ export class AdminRefreshTokenUseCase {
         // Audit log
         const auditLog = AdminAuditLog.create({
           adminId: admin.id,
-          action: "admin.token_refreshed",
+          action: AuditAction.ADMIN_TOKEN_REFRESHED,
           targetType: "AdminSession",
           targetId: session.id,
         });

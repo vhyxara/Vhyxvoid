@@ -6,7 +6,11 @@ import {
   FeedbackPriority,
 } from "@/generated/prisma";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
-import { getAdminContext } from "@/modules/identity/infrastructure/middleware/AdminRoute.middleware";
+import {
+  getAdminContext,
+  getAuditMetadata,
+} from "@/modules/identity/infrastructure/middleware/AdminRoute.middleware";
+import { ValidationError } from "@/core/errors/error.format";
 import { SubmitFeedbackUseCase } from "../../application/use-cases";
 import { GetMyFeedbackUseCase } from "../../application/use-cases";
 import { GetFeedbackByIdUseCase } from "../../application/use-cases";
@@ -184,7 +188,10 @@ export async function feedbackRoutes(fastify: FastifyInstance) {
 export async function adminFeedbackRoutes(fastify: FastifyInstance) {
   const feedbackRepo = new PrismaFeedbackRepository(fastify.prisma);
   const listAllUseCase = new AdminListFeedbackUseCase(feedbackRepo);
-  const updateUseCase = new AdminUpdateFeedbackUseCase(feedbackRepo);
+  const updateUseCase = new AdminUpdateFeedbackUseCase(
+    feedbackRepo,
+    fastify.uow.adminAuditLogRepository,
+  );
   const getByIdUseCase = new GetFeedbackByIdUseCase(feedbackRepo);
 
   /**
@@ -263,14 +270,16 @@ export async function adminFeedbackRoutes(fastify: FastifyInstance) {
       const input = adminUpdateFeedbackSchema.parse(request.body);
 
       if (!input.status && !input.priority && input.adminNotes === undefined) {
-        return reply.code(400).send({
-          error:
-            "Provide at least one field to update: status, priority, or adminNotes",
-        });
+        throw new ValidationError(
+          "Provide at least one field to update: status, priority, or adminNotes",
+        );
       }
 
+      const admin = getAdminContext(request);
       const result = await updateUseCase.execute({
         feedbackId,
+        adminId: admin.id,
+        auditMetadata: getAuditMetadata(request, 200),
         ...input,
       });
 

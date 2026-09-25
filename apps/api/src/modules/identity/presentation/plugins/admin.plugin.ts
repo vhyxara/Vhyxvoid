@@ -14,10 +14,8 @@ import { AssignAbilityToRoleUseCase } from "@/modules/identity/application/use-c
 import { AssignRoleToAdminUseCase } from "@/modules/identity/application/use-cases/admin/AssignRoleToAdmin.usecase";
 import { CreateAdminUseCase } from "@/modules/identity/application/use-cases/admin/CreateAdmin.usecase";
 import { CreateRoleUseCase } from "@/modules/identity/application/use-cases/admin/CreateRole.usecase";
-import { DeactivateRoleUseCase } from "@/modules/identity/application/use-cases/admin/DeactivateRole.usecase";
 import { RevokeAbilityFromRoleUseCase } from "@/modules/identity/application/use-cases/admin/RevokeAbilityFromRole.usecase";
 import { RevokeRoleFromAdminUseCase } from "@/modules/identity/application/use-cases/admin/RevokeRoleFromAdmin.usecase";
-import { UpdateRoleUseCase } from "@/modules/identity/application/use-cases/admin/UpdateRole.usecase";
 
 export default fp(async (fastify: FastifyInstance) => {
   const container = fastify.container;
@@ -44,12 +42,6 @@ export default fp(async (fastify: FastifyInstance) => {
   );
   fastify.decorate("createRoleUseCase", container.resolve(CreateRoleUseCase));
 
-  fastify.decorate("updateRoleUseCase", container.resolve(UpdateRoleUseCase));
-
-  fastify.decorate(
-    "deactivateRoleUseCase",
-    container.resolve(DeactivateRoleUseCase),
-  );
   fastify.decorate(
     "assignAbilityToRoleUseCase",
     container.resolve(AssignAbilityToRoleUseCase),

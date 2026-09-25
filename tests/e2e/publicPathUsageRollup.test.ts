@@ -35,11 +35,15 @@ function makeFakeRedis(store: Map<string, string> = new Map()) {
     pipeline: vi.fn(() => {
       const queued: string[] = [];
       return {
-        get: (k: string) => {
+        getdel: (k: string) => {
           queued.push(k);
         },
         exec: async () =>
-          queued.map((k) => (store.has(k) ? upstashDeserialize(store.get(k)!) : null)),
+          queued.map((k) => {
+            const v = store.has(k) ? upstashDeserialize(store.get(k)!) : null;
+            store.delete(k);
+            return v;
+          }),
       };
     }),
     del: vi.fn(async (...keys: string[]) => {

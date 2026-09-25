@@ -1,7 +1,4 @@
-import {
-  KEY_CACHE_TTL_SEC,
-  REPLAY_WINDOW_MS,
-} from "@/core/constant/apikey.constant";
+import { KEY_CACHE_TTL_SEC } from "@/core/constant/apikey.constant";
 import {
   ApiKeyCacheService,
   CachedApiKeyData,
@@ -19,7 +16,6 @@ const NS = {
   apiKey: (keyId: string) => `apikey:data:${keyId}`,
   rateLimit: (keyId: string, window: string) =>
     `apikey:rate:${keyId}:${window}`,
-  replay: (requestId: string) => `apikey:replay:${requestId}`,
   usage: (
     accountId: string,
     apiKeyId: string,
@@ -133,34 +129,6 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
 
     return raw ? parseInt(raw, 10) : 0;
   }
-  // ── Replay protection ──────────────────────────────────────────────────────
-  //
-  // SET NX with TTL = REPLAY_WINDOW_MS (1 minute).
-  // Returns true if the requestId is new (first time seen).
-  // Returns false if the requestId was already seen (replay attack).
-
-  async markRequestId(requestId: string): Promise<boolean> {
-    // Fail OPEN on a Redis error: treat the request as new rather than
-    // rejecting it. Deliberate choice, not an oversight — see decision.md,
-    // 2026-09-12, "RedisApiKeyCacheService.get()/markRequestId()" for the
-    // full tradeoff writeup. Matches the equivalent, already-fail-open
-    // markRequestId() in packages/shared/src/validateApiKey.ts (the Hub's
-    // own, separate copy of this logic), so both implementations now agree.
-    try {
-      const result = await this.redis.set(NS.replay(requestId), "1", {
-        px: REPLAY_WINDOW_MS,
-        nx: true,
-      });
-      return result === "OK"; // null = already exists
-    } catch (err) {
-      console.error("[Redis] markRequestId failed:", {
-        cause: (err as any)?.cause,
-        message: (err as any)?.message,
-      });
-      return true;
-    }
-  }
-
   // ── Usage counters — hot path ──────────────────────────────────────────────
   //
   // Bucket = 5-minute intervals.
@@ -214,8 +182,12 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
     // automaticDeserialization an INCRBY counter comes back as a number; with
     // it off, as a string. Reading results[i][1] (the ioredis shape) silently
     // dropped every counter. See api/decision.md, 2026-09-24.
+    //
+    // GETDEL reads and removes each counter in one step, so an INCRBY that
+    // lands after it starts a fresh key for the next tick instead of being
+    // deleted unread by a separate DEL (the old GET-then-DEL window).
     const pipeline = this.redis.pipeline();
-    for (const key of keys) pipeline.get(key);
+    for (const key of keys) pipeline.getdel(key);
     const results = (await pipeline.exec()) as unknown[];
 
     const counters: Array<{
@@ -252,11 +224,6 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
         periodStart,
         quantity,
       });
-    }
-
-    // Delete all drained keys atomically
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
     }
 
     return counters;

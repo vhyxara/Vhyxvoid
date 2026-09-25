@@ -17,10 +17,18 @@ export const createAdminSchema = z.object({
   lastName: z.string(),
 });
 
-export const updateAdminSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-});
+// Strict: email/password are not editable here, so sending them is a 400
+// rather than a silently dropped field; a blank name is a 400 rather than a
+// 200 that kept the old value.
+export const updateAdminSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "First name cannot be blank").optional(),
+    lastName: z.string().trim().min(1, "Last name cannot be blank").optional(),
+  })
+  .strict()
+  .refine((v) => v.firstName !== undefined || v.lastName !== undefined, {
+    message: "Provide firstName and/or lastName",
+  });
 
 export const createRoleSchema = z.object({
   name: z.string().min(1),

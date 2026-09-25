@@ -9,6 +9,16 @@ import {
 } from "../../domain/entities/Feedback.entities";
 import { FeedbackRepository } from "../../domain/repositories/Feedback.repositories";
 import { NotFoundError, ForbiddenError } from "@/core/errors/error.format";
+import {
+  AdminAuditLog,
+  AuditAction,
+} from "@/modules/identity/domain/entities/admin/AdminAuditLog.entities";
+
+const pickTriageFields = (f: Feedback) => ({
+  status: f.status,
+  priority: f.priority,
+  adminNotes: f.adminNotes,
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBMIT FEEDBACK USE CASE
@@ -211,31 +221,10 @@ export class AdminListFeedbackUseCase {
     const page = params.page ?? 1;
     const limit = params.limit ?? 20;
 
-    // Fetch filtered results + open counts in parallel
-    const [
-      { items, total },
-      openItems,
-      reviewItems,
-      progressItems,
-      resolvedItems,
-    ] = await Promise.all([
+    // Filtered page + per-status counts (one grouped query) in parallel
+    const [{ items, total }, counts] = await Promise.all([
       this.feedbackRepository.findAll({ page, limit, ...params }),
-      this.feedbackRepository.findAll({
-        status: FeedbackStatus.OPEN,
-        limit: 1,
-      }),
-      this.feedbackRepository.findAll({
-        status: FeedbackStatus.UNDER_REVIEW,
-        limit: 1,
-      }),
-      this.feedbackRepository.findAll({
-        status: FeedbackStatus.IN_PROGRESS,
-        limit: 1,
-      }),
-      this.feedbackRepository.findAll({
-        status: FeedbackStatus.RESOLVED,
-        limit: 1,
-      }),
+      this.feedbackRepository.countByStatus(),
     ]);
 
     return {
@@ -244,10 +233,10 @@ export class AdminListFeedbackUseCase {
       page,
       limit,
       counts: {
-        open: openItems.total,
-        underReview: reviewItems.total,
-        inProgress: progressItems.total,
-        resolved: resolvedItems.total,
+        open: counts[FeedbackStatus.OPEN] ?? 0,
+        underReview: counts[FeedbackStatus.UNDER_REVIEW] ?? 0,
+        inProgress: counts[FeedbackStatus.IN_PROGRESS] ?? 0,
+        resolved: counts[FeedbackStatus.RESOLVED] ?? 0,
       },
     };
   }
@@ -258,13 +247,20 @@ export class AdminListFeedbackUseCase {
 //
 // Allows admin to update status, priority, and add internal notes.
 // This is what the admin panel uses to triage and resolve feedback.
+// Every update writes an AdminAuditLog row (feedback.updated), like every
+// other admin mutation.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class AdminUpdateFeedbackUseCase {
-  constructor(private feedbackRepository: FeedbackRepository) {}
+  constructor(
+    private feedbackRepository: FeedbackRepository,
+    private adminAuditLogRepository: { save(log: AdminAuditLog): Promise<void> },
+  ) {}
 
   async execute(params: {
     feedbackId: string;
+    adminId: string;
+    auditMetadata?: Parameters<typeof AdminAuditLog.create>[0]["metadata"];
     status?: FeedbackStatus;
     priority?: FeedbackPriority;
     adminNotes?: string;
@@ -277,6 +273,7 @@ export class AdminUpdateFeedbackUseCase {
     if (!feedback) throw new NotFoundError("Feedback not found");
 
     const now = new Date();
+    const before = pickTriageFields(feedback);
 
     if (params.status) feedback.updateStatus(params.status, now);
     if (params.priority) feedback.updatePriority(params.priority, now);
@@ -284,6 +281,17 @@ export class AdminUpdateFeedbackUseCase {
       feedback.addAdminNote(params.adminNotes, now);
 
     await this.feedbackRepository.save(feedback);
+
+    await this.adminAuditLogRepository.save(
+      AdminAuditLog.create({
+        adminId: params.adminId,
+        action: AuditAction.FEEDBACK_UPDATED,
+        targetType: "Feedback",
+        targetId: feedback.id,
+        changes: { before, after: pickTriageFields(feedback) },
+        metadata: params.auditMetadata,
+      }),
+    );
 
     return {
       id: feedback.id,

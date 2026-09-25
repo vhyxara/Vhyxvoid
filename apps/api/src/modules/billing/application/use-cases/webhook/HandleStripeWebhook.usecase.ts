@@ -41,9 +41,8 @@ export class HandleStripeWebhookUseCase {
 
     private readonly accountBillingRepo: AccountBillingRepository,
     private readonly notificationService?: NotificationService, // optional — fire-and-forget
-    // Optional, defaults to a no-op so every existing construction (dead
-    // registerBillingUseCases.ts included, and every test harness) still
-    // compiles unchanged. billing.plugin.ts (the live site) passes a real one.
+    // Optional, defaults to a no-op so every test harness still compiles
+    // unchanged. billing.plugin.ts (the live site) passes a real one.
     private readonly cacheInvalidator: Pick<
       AccountKeyCacheInvalidator,
       "invalidate"

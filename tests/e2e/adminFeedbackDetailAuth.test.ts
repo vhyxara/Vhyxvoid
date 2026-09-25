@@ -67,6 +67,7 @@ function buildFakeFastify() {
     patch: capture("PATCH"),
     adminAuthGuard: async () => {},
     prisma,
+    uow: { adminAuditLogRepository: { save: vi.fn() } },
   };
 
   return { fastify, routes, prisma, realFeedbackRow };

@@ -101,14 +101,6 @@ export default fp(async (fastify: FastifyInstance) => {
     planLimitService,
   } = infra;
 
-  // ── 2. Expose repositories on uow for direct route access ─────────────────
-  // fastify.uow is decorated by the identity plugin — extend it here
-  // if (!fastify.uow) {
-  //   throw new Error('fastify.uow not found — ensure identityPlugin registers before apiKeyPlugin');
-  // }
-  // fastify.uow.apiKeyRepository = apiKeyRepository;
-  // fastify.uow.securityEventRepository = securityRepository;
-
   // ── 3. Wire shared deps object ─────────────────────────────────────────────
   const deps = {
     apiKeyRepository,
@@ -185,9 +177,6 @@ export default fp(async (fastify: FastifyInstance) => {
     "validateApiKeyUseCase",
     new ValidateApiKeyUseCase(canonicalValidateKeyUseCase, securityRepository),
   );
-
-  fastify.decorate("apiKeyRepository", apiKeyRepository);
-  fastify.decorate("securityEventRepository", securityRepository);
 
   fastify.register(apiKeyRoutes, { prefix: "/api/v1/apikeys" });
 

@@ -279,12 +279,6 @@ export async function identityRoutes(fastify: FastifyInstance) {
     { config: { rateLimit: AUTH_RATE_LIMITS.forgotPassword } },
     async (request, reply) => {
       const { email } = forgotPasswordSchema.parse(request.body);
-      console.log("email", email);
-      console.log("request.ip", request.ip);
-      console.log(
-        "request.headers['user-agent']",
-        request.headers["user-agent"],
-      );
       const result = await fastify.requestPasswordResetUseCase.execute({
         email,
         ipAddress: request.ip,
@@ -364,7 +358,6 @@ export async function identityRoutes(fastify: FastifyInstance) {
         newPassword,
         user.passwordHash,
       );
-      console.log("isSame", isSame);
       if (isSame) {
         throw new ValidationError(
           "New password must be different from current password",

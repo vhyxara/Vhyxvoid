@@ -23,4 +23,6 @@ export interface FeedbackRepository {
   findAll(
     options?: FeedbackListOptions,
   ): Promise<{ items: Feedback[]; total: number }>;
+  /** Number of feedback items per status, across all users (one query). */
+  countByStatus(): Promise<Partial<Record<FeedbackStatus, number>>>;
 }

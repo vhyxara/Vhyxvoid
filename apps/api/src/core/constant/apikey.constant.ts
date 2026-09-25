@@ -54,12 +54,6 @@ export enum SecurityEventType {
 /** How long the old secret remains valid after rotation (zero-downtime window). */
 export const ROTATION_GRACE_MS = 60 * 60 * 1_000; // 1 hour
 
-/** How long replay protection IDs are stored in Redis. */
-export const REPLAY_WINDOW_MS = 60 * 1_000; // 1 minute
-
-/** Signature timestamp tolerance — reject requests older than this. */
-export const SIGNATURE_WINDOW_MS = 60 * 1_000; // 1 minute
-
 /** Redis key TTL for cached API key data. */
 export const KEY_CACHE_TTL_SEC = 5 * 60; // 5 minutes
 

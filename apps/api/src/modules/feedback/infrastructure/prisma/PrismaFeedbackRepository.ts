@@ -1,4 +1,4 @@
-import { PrismaClient } from "@/generated/prisma";
+import { FeedbackStatus, PrismaClient } from "@/generated/prisma";
 import {
   Feedback,
   FeedbackProps,
@@ -115,5 +115,15 @@ export class PrismaFeedbackRepository implements FeedbackRepository {
       items: rows.map((r) => Feedback.rehydrate(r as FeedbackProps)),
       total,
     };
+  }
+
+  async countByStatus(): Promise<Partial<Record<FeedbackStatus, number>>> {
+    const groups = await this.prisma.feedback.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+    });
+    const counts: Partial<Record<FeedbackStatus, number>> = {};
+    for (const g of groups) counts[g.status] = g._count._all;
+    return counts;
   }
 }

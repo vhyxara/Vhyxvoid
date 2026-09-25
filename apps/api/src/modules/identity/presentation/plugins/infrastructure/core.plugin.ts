@@ -55,8 +55,8 @@ export default fp(async (fastify) => {
     return new BcryptPasswordHasher();
   });
 
-  // Registered here (not in billing/registerBillingUseCases.ts, which is
-  // never called -- see registerModules in module.module.ts) so the account
+  // Registered here (billing has no DI registration of its own; its
+  // plugin builds infrastructure directly) so the account
   // module's InviteMember/AcceptInvitation use cases can resolve it via the
   // container, the same way billing.plugin.ts decorates
   // fastify.checkPlanLimitsService for the API-key limit guard. Both now

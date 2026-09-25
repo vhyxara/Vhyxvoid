@@ -1,13 +1,3 @@
-// // Expose repositories on uow for direct route access (get security events, etc.)
-// // This mirrors how adminAuditLogRepository is exposed
-
-// if (!fastify.uow) {
-//   fastify.decorate('uow', {});
-// }
-
-// (fastify.uow as any).apiKeyRepository = apiKeyRepository;
-// (fastify.uow as any).securityEventRepository = securityRepository;
-
 // src/modules/key-management/presentation/plugins/infrastructure/api.ts
 import { PrismaApiKeyRepository } from "@/modules/key-management/domain/repositories/ApiKey.repositories";
 import { SubscriptionPlanLimitService } from "@/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories";
