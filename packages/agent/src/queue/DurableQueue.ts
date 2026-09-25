@@ -27,6 +27,12 @@ export interface QueueItem {
 export type InboundPayload = TunnelForwardMsg;
 export type OutboundPayload = TunnelResponseMsg | TunnelAgentErrorMsg;
 
+// Columns are snake_case; QueueItem is camelCase. Every SELECT that returns
+// a QueueItem must alias, or maxAttempts/nextRetryAt come back undefined (which
+// silently disabled dead-lettering: audit part2 G1).
+const ITEM_COLUMNS =
+  "id, direction, payload, ts, attempts, max_attempts AS maxAttempts, next_retry_at AS nextRetryAt";
+
 export class DurableQueue {
   private readonly db: BetterSqlite3.Database;
 
@@ -120,7 +126,7 @@ export class DurableQueue {
     return this.db
       .prepare(
         `
-      SELECT id, direction, payload, ts, attempts, max_attempts, next_retry_at
+      SELECT ${ITEM_COLUMNS}
       FROM queue
       WHERE next_retry_at <= ?
       ORDER BY
@@ -137,7 +143,7 @@ export class DurableQueue {
 
   markFailed(id: string): void {
     const item = this.db
-      .prepare("SELECT * FROM queue WHERE id = ?")
+      .prepare(`SELECT ${ITEM_COLUMNS} FROM queue WHERE id = ?`)
       .get(id) as QueueItem | null;
     if (!item) return;
 
@@ -200,7 +206,7 @@ export class DurableQueue {
     return this.db
       .prepare(
         `
-      SELECT id, direction, payload, ts, attempts, 0 as max_attempts, failed_at as next_retry_at
+      SELECT id, direction, payload, ts, attempts, 0 AS maxAttempts, failed_at AS nextRetryAt
       FROM dead_letter ORDER BY failed_at DESC LIMIT ?
     `,
       )
