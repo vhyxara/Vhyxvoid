@@ -1,6 +1,6 @@
 {
   "name": "@vhyxvoid/next",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Zero-config tunnel for Next.js — starts automatically with next dev",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@vhyxvoid/middleware",
-  "version": "1.0.5",
+  "version": "2.0.0",
   "description": "Zero-config tunnel middleware for Express, Fastify, and Next.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
