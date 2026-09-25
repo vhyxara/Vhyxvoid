@@ -28,3 +28,7 @@ Newest entries at the bottom. One row per entry; the entry file has the details.
 | [CA-0022](admin-frontend/CA-0022-confirm-actions-mutateasync.md) | 2026-09-25 | admin-frontend | Bug fix | Fixed | Confirm dialogs closed before the request finished; disable/enable errors were silent | `fc9612c` |
 | [CA-0023](docs/CA-0023-sdk-jsdoc-overrides.md) | 2026-09-25 | docs | Docs source fix | Fixed | Wrong/internal SDK JSDoc papered over by docs overrides | `d61f681` |
 | [CA-0024](docs/CA-0024-docs-for-behaviour-changes.md) | 2026-09-25 | docs | Addition | Done | Docs updated for this session's behaviour changes | `fccf1dd` |
+| [CA-0025](shared/CA-0025-expiry-on-every-plan.md) | 2026-09-25 | shared | Product decision | Fixed | API-key expiry allowed on every plan | `4a3131f` |
+| [CA-0026](shared/CA-0026-middleware-port-detection.md) | 2026-09-25 | shared | Bug fix (DX) | Fixed | @vhyxvoid/middleware assumed port 3000 (audit part2 G8) | `4a3131f` |
+| [CA-0027](api/CA-0027-personal-workspaces.md) | 2026-09-25 | api | Product decision | Fixed | Personal workspaces: Billing shown, members refused | `4a3131f` |
+| [CA-0028](shared/CA-0028-remove-sqlite-queue.md) | 2026-09-25 | shared | Removal | Fixed | Agent SQLite queue and better-sqlite3 removed | `4a3131f` |
