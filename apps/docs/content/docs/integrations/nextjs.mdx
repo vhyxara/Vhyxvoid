@@ -94,7 +94,7 @@ If your setup is unusual, set `port` explicitly.
 
 ## Development only, and the build-time gotcha
 
-By default the tunnel starts only under `next dev`. It is off for `next build` and `next start`, so it will not start during CI or a production build. On Next 16.1.1 this was checked directly: `next dev` starts one tunnel, and `next build` with credentials present starts none.
+By default the tunnel starts only under `next dev`. It is off for `next build` and `next start`, so it will not start during CI or a production build. On Next 16.1.1 this was checked directly: `next dev` starts one tunnel, and `next build` with credentials present starts none. From the next `@vhyxvoid/next` release it also stays off under `next dev` when `CI` is set (any value other than `false` or `0`), the same rule as `@vhyxvoid/middleware`; pass `enabled: true` to start it there anyway. Changed in source 2026-09-25, not released yet.
 
 Passing `enabled: true` overrides that and **does** start a tunnel during `next build`. Only do that deliberately, for example `enabled: process.env.TUNNEL === '1'`, never as a constant.
 

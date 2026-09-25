@@ -90,7 +90,9 @@ The next `@vhyxvoid/middleware` release makes the tunnel opt-in outside developm
 
 ## Stopping
 
-The tunnel stops when the process receives `SIGINT` or `SIGTERM` or exits. To stop it earlier, for example in a test, call `stopTunnel()`:
+The tunnel stops when the process receives `SIGINT` or `SIGTERM` or exits. In `@vhyxvoid/middleware` 2.0.0 and earlier, listening for those signals also stopped Node's default exit, so an app with no shutdown handler of its own needed Ctrl+C twice and `docker stop` waited for the kill timeout. From the next release the middleware re-raises the signal after stopping the tunnel when nothing else handles it, so one Ctrl+C exits; an app with its own `SIGINT`/`SIGTERM` handler keeps control of shutdown. Changed in source 2026-09-25, not released yet.
+
+To stop it earlier, for example in a test, call `stopTunnel()`:
 
 ```js
 const { stopTunnel } = require('@vhyxvoid/middleware')
