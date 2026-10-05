@@ -153,7 +153,8 @@ describe("the deadline is cleared only by ACTIVE or CANCELED", () => {
 
     await h.events.subscriptionDeleted();
 
-    expect(h.account().status).toBe("CANCELED");
+    // Back to FREE and usable (subscriptionCancelKeepsAccount.test.ts), not locked.
+    expect(h.account().status).toBe("ACTIVE");
     expect(h.account().graceEndsAt).toBeNull();
   });
 });

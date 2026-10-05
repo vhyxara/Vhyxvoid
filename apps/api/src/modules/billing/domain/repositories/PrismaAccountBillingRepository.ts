@@ -92,6 +92,22 @@ export class PrismaAccountBillingRepository implements AccountBillingRepository 
     return { activated: result.count > 0 };
   }
 
+  async endPaidSubscription(accountId: string): Promise<{ changed: boolean }> {
+    // The plan itself drops to FREE through the plan resolver (a canceled
+    // subscription no longer entitles). Here the account only leaves the
+    // billing states: PAST_DUE (this subscription's grace period) and the
+    // legacy CANCELED. Admin decisions (SUSPENDED, RESTRICTED, DELETED) are
+    // left alone, and so is PAST_DUE while another subscription is unpaid.
+    const otherUnpaid = await this.prisma.subscription.count({
+      where: { accountId, status: { in: ["PAST_DUE", "UNPAID"] } },
+    });
+    const result = await this.prisma.account.updateMany({
+      where: { id: accountId, status: { in: otherUnpaid > 0 ? ["CANCELED"] : ["PAST_DUE", "CANCELED"] } },
+      data: { status: "ACTIVE", graceEndsAt: null, updatedAt: new Date() },
+    });
+    return { changed: result.count > 0 };
+  }
+
   async getAccountOwnerEmail(accountId: string): Promise<string | null> {
     const member = await this.prisma.accountMember.findFirst({
       where: { accountId, roleLevel: 100 }, // OWNER

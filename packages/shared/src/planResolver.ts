@@ -10,9 +10,11 @@
 //   - account missing, or its status is SUSPENDED / RESTRICTED / CANCELED /
 //     DELETED  -> FREE (not entitled to a paid plan)
 //   - PAST_DUE deliberately keeps the real plan (the grace period)
-//   - otherwise the plan of the account's most recently created subscription,
-//     whatever that subscription's own status is
-//   - no subscription -> FREE
+//   - otherwise the plan of the account's most recently created subscription
+//     that is still paying or in its grace period (ENTITLED_SUBSCRIPTION_
+//     STATUSES). A canceled subscription, or a checkout whose first payment
+//     never succeeded (INCOMPLETE), no longer counts: the account is on FREE.
+//   - no such subscription -> FREE
 //
 // NOT the same as apps/api's CheckPlanLimitsService.getLimits (FREE unless the
 // subscription is active/trialing). That one has no callers that matter and is
@@ -36,6 +38,9 @@ export const NOT_ENTITLED_ACCOUNT_STATUSES: ReadonlySet<string> = new Set([
   "DELETED",
 ]);
 
+/** Subscription states that still grant their plan. PAST_DUE/UNPAID are the grace period. */
+export const ENTITLED_SUBSCRIPTION_STATUSES = ["ACTIVE", "TRIALING", "PAST_DUE", "UNPAID"] as const;
+
 /** The two Prisma calls the rule needs. A PrismaClient or a transaction client both fit. */
 export interface PlanPrismaLike {
   account: {
@@ -46,7 +51,7 @@ export interface PlanPrismaLike {
   };
   subscription: {
     findFirst(args: {
-      where: { accountId: string };
+      where: { accountId: string; status: { in: string[] } };
       orderBy: { createdAt: "desc" };
       select: { plan: true };
     }): Promise<{ plan: string } | null>;
@@ -65,7 +70,7 @@ export async function resolvePlanForAccount(
   if (NOT_ENTITLED_ACCOUNT_STATUSES.has(account.status)) return Plan.FREE;
 
   const subscription = await prisma.subscription.findFirst({
-    where: { accountId },
+    where: { accountId, status: { in: [...ENTITLED_SUBSCRIPTION_STATUSES] } },
     orderBy: { createdAt: "desc" },
     select: { plan: true },
   });

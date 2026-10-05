@@ -50,6 +50,12 @@ export interface AccountBillingRepository {
   ): Promise<string | null>; // ← add
 
   /**
+   * A paid subscription ended: the account goes back to normal (FREE plan)
+   * instead of being locked. Leaves admin-set states alone.
+   */
+  endPaidSubscription(accountId: string): Promise<{ changed: boolean }>;
+
+  /**
    * Update the account's billing status and grace period.
    * Called by webhook handler when payment fails or succeeds.
    */

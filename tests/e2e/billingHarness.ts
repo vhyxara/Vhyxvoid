@@ -29,6 +29,8 @@ function matches(row: FakeAccount, where: any): boolean {
       if (value !== null) return false;
     } else if (cond instanceof Date || typeof cond !== "object") {
       if (value !== cond) return false;
+    } else if ("in" in (cond as any)) {
+      if (!(cond as any).in.includes(value)) return false;
     } else if ("lte" in (cond as any)) {
       if (value === null || !(value <= (cond as any).lte)) return false;
     } else {
@@ -40,6 +42,7 @@ function matches(row: FakeAccount, where: any): boolean {
 
 export function makeFakePrisma(initial: FakeAccount[]) {
   const rows = initial.map((r) => ({ ...r }));
+  const otherSubscriptions: string[] = [];
   const find = (id: string) => rows.find((r) => r.id === id);
   const prisma = {
     account: {
@@ -63,8 +66,14 @@ export function makeFakePrisma(initial: FakeAccount[]) {
     accountMember: {
       findFirst: async () => ({ user: { email: "owner@example.com" } }),
     },
+    // Other subscriptions of the account, by status (endPaidSubscription
+    // only counts the unpaid ones). Tests push into `otherSubscriptions`.
+    subscription: {
+      count: async ({ where }: any) =>
+        otherSubscriptions.filter((st) => !where?.status?.in || where.status.in.includes(st)).length,
+    },
   };
-  return { prisma, rows, get: (id: string) => ({ ...find(id)! }) };
+  return { prisma, rows, otherSubscriptions, get: (id: string) => ({ ...find(id)! }) };
 }
 
 export const ACCOUNT_ID = "acct1";

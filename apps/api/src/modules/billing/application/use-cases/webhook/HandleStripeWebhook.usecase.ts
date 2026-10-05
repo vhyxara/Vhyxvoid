@@ -394,17 +394,14 @@ export class HandleStripeWebhookUseCase {
         const { activated } =
           await this.accountBillingRepo.markActiveFromPastDue(accountId);
         accountChanged = activated;
-      } else if (accountStatus) {
-        // CANCELED — a genuine terminal state from Stripe; unconditional on
-        // purpose, unlike the ACTIVE case above. No changed-signal exists
-        // for this one (updateBillingStatus is a plain write), so this
-        // always invalidates — a repeat CANCELED event is rare enough that
-        // an occasional harmless extra invalidation isn't worth a bigger
-        // change to updateBillingStatus's return shape.
-        await this.accountBillingRepo.updateBillingStatus(accountId, {
-          status: accountStatus,
-          graceEndsAt: null,
-        });
+      } else if (accountStatus === "CANCELED") {
+        // The subscription ended (Stripe sends `updated` with status
+        // canceled as well as `deleted`). The account keeps working on the
+        // FREE plan; it used to become CANCELED, which locked the whole
+        // workspace (no tunnels, no keys) for a customer who only stopped
+        // paying for an upgrade. The plan always changes here, so always
+        // invalidate.
+        await this.accountBillingRepo.endPaidSubscription(accountId);
         accountChanged = true;
       }
       // Only invalidate when something actually changed — a Stripe retry of
@@ -432,7 +429,7 @@ export class HandleStripeWebhookUseCase {
 
   /**
    * customer.subscription.deleted
-   * Subscription fully canceled. Update account status to CANCELED.
+   * Subscription fully canceled. The account drops to the FREE plan.
    */
   private async handleSubscriptionDeleted(stripeSub: {
     id: string;
@@ -451,10 +448,8 @@ export class HandleStripeWebhookUseCase {
     } as any);
 
     await this.subscriptionRepo.save(sub);
-    await this.accountBillingRepo.updateBillingStatus(sub.accountId, {
-      status: "CANCELED",
-      graceEndsAt: null,
-    });
+    // Back to the FREE plan, account still usable (see endPaidSubscription).
+    await this.accountBillingRepo.endPaidSubscription(sub.accountId);
     await this.cacheInvalidator.invalidate(sub.accountId);
     const ownerEmail = await this.accountBillingRepo.getAccountOwnerEmail?.(
       sub.accountId,
