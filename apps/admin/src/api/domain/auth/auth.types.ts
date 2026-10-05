@@ -11,9 +11,9 @@ export type AdminUser = {
 }
 
 // POST /api/v1/admin/identity/auth/login's real response body (AdminLoginUseCase.execute()).
+// The refresh token itself travels in an httpOnly cookie (never in JS).
 export type AdminLoginResponse = {
   accessToken: string
-  refreshToken: string
   expiresIn: number
   admin: AdminUser
 }
@@ -27,7 +27,6 @@ export type AdminLoginResponse = {
 // the next refresh attempt will look like reuse and nuke every session.
 export type AdminRefreshResponse = {
   accessToken: string
-  refreshToken: string
   expiresIn: number
 }
 

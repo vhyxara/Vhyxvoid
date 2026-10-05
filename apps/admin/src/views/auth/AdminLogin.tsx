@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -25,6 +25,10 @@ import { adminAuthService } from '@/api/infrastructure/auth.service'
 // own auth pages.
 const AdminLogin = () => {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Only same-app paths: never redirect off-site from a crafted link.
+  const nextParam = searchParams.get('next')
+  const next = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/dashboard'
   const isAuthenticated = useAdminAuthStore(s => s.isAuthenticated)
   const setSession = useAdminAuthStore(s => s.setSession)
 
@@ -36,15 +40,15 @@ const AdminLogin = () => {
   // Already-logged-in admin visiting /login directly -- send them straight
   // to the dashboard rather than showing the form again.
   useEffect(() => {
-    if (isAuthenticated) router.replace('/dashboard')
-  }, [isAuthenticated, router])
+    if (isAuthenticated) router.replace(next)
+  }, [isAuthenticated, router, next])
 
   const onSubmit = async ({ email, password }: AdminLoginFormValues) => {
     try {
       const res = await adminAuthService.login({ email, password })
 
       setSession(res)
-      router.replace('/dashboard')
+      router.replace(next)
     } catch (err: any) {
       toast.danger(err?.message ?? 'Login failed. Please try again.')
     }
@@ -67,13 +71,13 @@ const AdminLogin = () => {
       <Card className='is-full max-is-[420px] p-8'>
         <div className='flex flex-col gap-1 mbe-6'>
           <Typography variant='h4'>VhyxVoid Admin</Typography>
-          <Typography variant='body1'>Sign in with your admin account</Typography>
+          <Typography variant='body1'>Sign in to the operations console</Typography>
         </div>
 
         <Form form={untypedForm} onSubmit={handleFormSubmit} className='flex flex-col gap-5'>
-          <TextField label='Email' placeholder='admin@company.local' autoFocus {...form.register('email')} />
+          <TextField label='Email' placeholder='you@company.com' autoComplete='username' autoFocus {...form.register('email')} />
 
-          <TextField label='Password' placeholder='············' type='password' {...form.register('password')} />
+          <TextField label='Password' placeholder='············' type='password' autoComplete='current-password' {...form.register('password')} />
 
           <Button type='submit' loading={loading} style={{ width: '100%' }}>
             Sign in

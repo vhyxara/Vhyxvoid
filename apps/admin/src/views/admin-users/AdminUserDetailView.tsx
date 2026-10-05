@@ -15,6 +15,7 @@ import {
 } from '@/api/application/hooks/useAdminUsers'
 import { useAdminRolesList } from '@/api/application/hooks/useAdminRoles'
 import { EditAdminProfileCard } from './EditAdminProfileCard'
+import { SetAdminPasswordCard } from './SetAdminPasswordCard'
 
 function formatLastLogin(value: string | null): string {
   if (!value) return 'Never'
@@ -93,6 +94,7 @@ export function AdminUserDetailView({ id }: { id: string }) {
       </Card>
 
       <EditAdminProfileCard admin={admin} />
+      <SetAdminPasswordCard adminId={admin.id} />
 
       <Card className='p-6 flex flex-col gap-4'>
         <Typography variant='h6'>Roles</Typography>

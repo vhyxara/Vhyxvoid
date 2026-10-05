@@ -10,3 +10,18 @@ body {
   background-color: var(--vhyx-color-bg);
   color: var(--vhyx-color-text);
 }
+
+/* Markdown preview in the content editor */
+.markdown-preview h1 { font-size: 1.6rem; font-weight: 700; margin-block: 0 0.75rem; }
+.markdown-preview h2 { font-size: 1.25rem; font-weight: 600; margin-block: 1.25rem 0.5rem; }
+.markdown-preview h3 { font-size: 1.05rem; font-weight: 600; margin-block: 1rem 0.5rem; }
+.markdown-preview p, .markdown-preview li { line-height: 1.65; }
+.markdown-preview p, .markdown-preview ul, .markdown-preview ol { margin-block: 0 0.75rem; }
+.markdown-preview ul, .markdown-preview ol { padding-inline-start: 1.25rem; }
+.markdown-preview ul { list-style: disc; }
+.markdown-preview ol { list-style: decimal; }
+.markdown-preview a { color: var(--vhyx-color-accent, #6d28d9); text-decoration: underline; }
+.markdown-preview code { font-family: var(--vhyx-font-mono, monospace); font-size: 0.9em; }
+.markdown-preview pre { padding: 0.75rem; border-radius: 8px; overflow: auto; background: var(--vhyx-color-bg-subtle, #f4f4f5); }
+.markdown-preview table { border-collapse: collapse; }
+.markdown-preview th, .markdown-preview td { border: 1px solid var(--vhyx-color-border, #ddd); padding: 0.35rem 0.6rem; }

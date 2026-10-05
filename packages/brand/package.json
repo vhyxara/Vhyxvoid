@@ -1,0 +1,11 @@
+{
+  "name": "@vhyxvoid/brand",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VhyxVoid's brand layer over @vhyxui/tokens (accent and status colours, type), opted into with data-brand=\"vhyxvoid\"",
+  "files": ["brand.css"],
+  "exports": {
+    "./brand.css": "./brand.css"
+  },
+  "sideEffects": ["*.css"]
+}

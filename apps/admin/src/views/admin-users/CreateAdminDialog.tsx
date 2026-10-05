@@ -100,7 +100,7 @@ export function CreateAdminDialog({ open, onClose }: Props) {
             />
 
             <Alert variant='info'>
-              There is no admin password reset yet, so make sure the password is right and tell them it. The new admin
+              Share the password with them securely; they can change it later from their account menu. The new admin
               has no roles: assign one on the next screen or they can sign in but not do anything.
             </Alert>
 

@@ -1,6 +1,8 @@
 import '@/app/globals.css'
 import '@vhyxui/tokens'
 import '@vhyxui/react/style.css'
+import '@vhyxui/blocks/style.css'
+import '@vhyxvoid/brand/brand.css'
 
 // Generated Icon CSS Imports
 import '@assets/iconify-icons/generated-icons.css'
@@ -17,7 +19,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang='en' dir='ltr' suppressHydrationWarning>
+    <html lang='en' dir='ltr' data-brand='vhyxvoid' suppressHydrationWarning>
       <body>
         <VhyxUIRoot>
           <ClientProviders>{children}</ClientProviders>

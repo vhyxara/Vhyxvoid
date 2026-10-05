@@ -1,26 +1,43 @@
 'use client'
 
-// Thin client boundary around VhyxUI's VhyxUIProvider. Required for the
-// same reason apps/web's VhyxUIToastRegion.tsx documents: Turbopack doesn't
-// reliably see a VhyxUI component's own 'use client' directive through the
-// cross-repo `link:` symlink to VhyxUI's bundled dist output when it's
-// imported directly into a Server Component (RootLayout, here).
-//
-// Uses the full VhyxUIProvider (skip-link + SealProvider + ToastProvider),
-// not the narrower ToastProvider-only wrapper apps/web deliberately chose
-// (internal-tools/user-frontend/decision.md, 2026-09-10, "ToastProvider
-// mounted directly, not via VhyxUIProvider") — that choice was scoped to
-// apps/web's MUI-migration-era hesitation about pulling in "unverified"
-// SealProvider behavior for no benefit at the time. apps/admin has no such
-// history and no MUI to coexist with, so there's no reason to withhold the
-// canonical top-level provider from a fresh app.
+// Client boundary around VhyxUIProvider, plus the admin's light/dark choice
+// (kept in localStorage; "system" follows the OS).
 import type { ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 import { VhyxUIProvider } from '@vhyxui/react'
 
+type Theme = 'light' | 'dark' | 'system'
+
+const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void }>({ theme: 'system', setTheme: () => {} })
+
+export const useAdminTheme = () => useContext(ThemeContext)
+
 export default function VhyxUIRoot({ children }: { children: ReactNode }) {
-  // VhyxUI resolves its own separate @types/react across the `link:`
-  // boundary — same phantom ReactNode type mismatch apps/web casts around
-  // in VhyxUIToastRegion.tsx, not an actual runtime incompatibility.
-  return <VhyxUIProvider>{children as any}</VhyxUIProvider>
+  const [theme, setThemeState] = useState<Theme>('system')
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('admin-theme') as Theme | null
+
+      if (saved === 'light' || saved === 'dark' || saved === 'system') setThemeState(saved)
+    } catch {
+      // storage unavailable: keep "system"
+    }
+  }, [])
+
+  const setTheme = (t: Theme) => {
+    setThemeState(t)
+    try {
+      localStorage.setItem('admin-theme', t)
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      <VhyxUIProvider theme={theme}>{children as any}</VhyxUIProvider>
+    </ThemeContext.Provider>
+  )
 }

@@ -3,22 +3,10 @@ import type { HttpMethod, HttpRequestConfig } from '@vhyxvoid/api-kit'
 
 export type { HttpMethod, HttpRequestConfig }
 
-// Wires @vhyxvoid/api-kit's transport scaffold to apps/admin's OWN auth model --
-// deliberately not a copy of apps/web's http.ts. The two differ in exactly
-// the way internal-tools/admin-frontend/decision.md's Part 3.3 predicted:
-// admin login/refresh return both tokens in the JSON body with zero cookie
-// involvement, so (a) getAuthHeaders reads the access token from
-// auth.store.ts (same idea as apps/web) but (b) the refresh call itself
-// must carry the stored refresh token explicitly, and (c) a successful
-// refresh must persist the NEW refresh token too, not just the new access
-// token, per the token-rotation/reuse-detection behavior confirmed by
-// reading AdminRefreshToken.usecase.ts directly (see auth.types.ts).
-//
-// This is also this session's real confirmation of
-// internal-tools/admin-frontend/decision.md's open question: whether
-// @vhyxvoid/api-kit's getAuthHeaders/onUnauthorized injection surface actually
-// fits a second, differently-shaped auth model cleanly. It does -- nothing
-// here needed to reach past what the package already exposes.
+// Wires @vhyxvoid/api-kit to apps/admin's auth model: the access token is
+// in memory (auth.store.ts), the refresh token is an httpOnly cookie the
+// browser sends to /admin/identity/auth/refresh. A 401 triggers one refresh
+// (concurrent 401s wait for it) and a retry; a failed refresh signs out.
 
 type QueueItem = {
   resolve: () => void
@@ -52,21 +40,14 @@ async function handleUnauthorized<T>(retry: () => Promise<T>): Promise<T> {
   isRefreshing = true
 
   try {
-    const { getAdminRefreshToken } = await import('@/api/domain/auth/auth.store')
-    const currentRefreshToken = getAdminRefreshToken()
-
-    if (!currentRefreshToken) {
-      throw new Error('No refresh token available')
-    }
-
     // Lazy import -- adminAuthService uses httpClient, which would be
     // circular if imported at module top level here.
     const { adminAuthService } = await import('@/api/infrastructure/auth.service')
-    const tokens = await adminAuthService.refresh(currentRefreshToken)
+    const tokens = await adminAuthService.refresh()
 
     const { useAdminAuthStore } = await import('@/api/domain/auth/auth.store')
 
-    useAdminAuthStore.getState().setTokens(tokens)
+    useAdminAuthStore.getState().setAccessToken(tokens.accessToken)
     processQueue(null)
 
     return await retry()

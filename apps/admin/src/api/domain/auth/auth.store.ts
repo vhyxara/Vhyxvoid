@@ -1,34 +1,31 @@
 // domain/auth/auth.store.ts
 //
-// Deliberately NOT modeled on apps/web's auth.store.ts, per
-// internal-tools/admin-frontend/decision.md's Part 3.3 finding: admin login
-// has zero cookie involvement (no httpOnly refresh cookie to fall back on),
-// so unlike apps/web -- which keeps `accessToken` memory-only and restores
-// it via a silent refresh against the cookie on every page load -- this
-// store must itself hold and persist BOTH tokens, or a page reload loses
-// the session outright with no way to recover it.
-//
-// Persisted to sessionStorage (not localStorage), matching the one
-// storage choice apps/web's own auth.store.ts already made for its
-// (lower-stakes) persisted slice -- session-scoped, cleared when the tab/
-// window closes, not indefinitely readable the way localStorage is. This
-// is the established "don't reach for localStorage for auth-adjacent
-// state" precedent in this codebase (internal-tools/user-frontend/context.md
-// item 42), applied here since there's no cookie to lean on instead.
+// The admin session. The access token (15 min) lives in memory only; the
+// refresh token is an httpOnly cookie the browser holds and JS never sees
+// (api: admin.routes.ts, audit M19). A page load therefore starts
+// `unknown` and AdminAuthGuard bootstraps it with one refresh call.
+// Only the non-secret profile is kept in sessionStorage, so the shell can
+// render the admin's name immediately on reload.
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-import type { AdminLoginResponse, AdminUser } from './auth.types'
+import type { AdminUser } from './auth.types'
+
+export type SessionStatus = 'unknown' | 'authenticated' | 'anonymous'
 
 type AuthStore = {
   admin: AdminUser | null
   accessToken: string | null
-  refreshToken: string | null
+  status: SessionStatus
+  /** Kept for existing callers: true once a session is established. */
   isAuthenticated: boolean
 
-  setSession: (res: AdminLoginResponse) => void
-  setTokens: (tokens: { accessToken: string; refreshToken: string }) => void
+  setSession: (res: { accessToken: string; admin: AdminUser }) => void
+  setAccessToken: (accessToken: string) => void
+  setAdmin: (admin: AdminUser) => void
+  /** Back-compat alias used by the 401 handler. */
+  setTokens: (tokens: { accessToken: string }) => void
   clearSession: () => void
 }
 
@@ -37,37 +34,23 @@ export const useAdminAuthStore = create<AuthStore>()(
     set => ({
       admin: null,
       accessToken: null,
-      refreshToken: null,
+      status: 'unknown',
       isAuthenticated: false,
 
-      setSession: (res: AdminLoginResponse) =>
-        set({
-          admin: res.admin,
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
-          isAuthenticated: true
-        }),
-
-      // Called after a successful refresh -- rotates BOTH tokens (see
-      // auth.types.ts's AdminRefreshResponse comment on why the refresh
-      // token itself must be replaced too, not just the access token).
-      setTokens: ({ accessToken, refreshToken }) => set({ accessToken, refreshToken }),
-
-      clearSession: () =>
-        set({
-          admin: null,
-          accessToken: null,
-          refreshToken: null,
-          isAuthenticated: false
-        })
+      setSession: ({ accessToken, admin }) => set({ admin, accessToken, status: 'authenticated', isAuthenticated: true }),
+      setAccessToken: accessToken => set({ accessToken, status: 'authenticated', isAuthenticated: true }),
+      setAdmin: admin => set({ admin }),
+      setTokens: ({ accessToken }) => set({ accessToken, status: 'authenticated', isAuthenticated: true }),
+      clearSession: () => set({ admin: null, accessToken: null, status: 'anonymous', isAuthenticated: false })
     }),
     {
-      name: 'admin-auth-store',
-      storage: createJSONStorage(() => sessionStorage)
+      name: 'admin-profile',
+      storage: createJSONStorage(() => sessionStorage),
+      // Never persist the token or the session state.
+      partialize: state => ({ admin: state.admin })
     }
   )
 )
 
 export const getAdminAccessToken = () => useAdminAuthStore.getState().accessToken
-export const getAdminRefreshToken = () => useAdminAuthStore.getState().refreshToken
 export const clearAdminSession = () => useAdminAuthStore.getState().clearSession()

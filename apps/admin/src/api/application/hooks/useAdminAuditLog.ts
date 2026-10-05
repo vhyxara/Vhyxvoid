@@ -53,7 +53,7 @@ export function useAdminAuditLogList(filter: AuditLogFilter, page: number, limit
     queryFn: () => adminAuditLogService.list(query)
   })
 
-  const { items, hasNextPage } = sliceAuditLogPage(result.data ?? [], limit)
+  const { items, hasNextPage } = sliceAuditLogPage(result.data?.rows ?? [], limit)
 
-  return { items, hasNextPage, isLoading: result.isLoading, error: result.error }
+  return { items, hasNextPage, total: result.data?.total ?? null, isLoading: result.isLoading, error: result.error }
 }

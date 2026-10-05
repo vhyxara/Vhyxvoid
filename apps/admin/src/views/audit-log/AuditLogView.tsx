@@ -99,7 +99,7 @@ export function AuditLogView() {
   const { value: state, setValue: setState } = usePersistedState<State>('table:audit-log', DEFAULT_STATE)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const { items, hasNextPage, isLoading, error } = useAdminAuditLogList(state.filter, state.page, state.limit)
+  const { items, hasNextPage, total, isLoading, error } = useAdminAuditLogList(state.filter, state.page, state.limit)
 
   // Used both to populate the "by admin" filter dropdown and to resolve
   // each row's raw adminId into a real email -- no status filter, so this
@@ -175,11 +175,6 @@ export function AuditLogView() {
           )}
         </div>
 
-        {/* No "Total: N" badge here -- GET /audit-logs has no total/count
-            field at all (confirmed by reading AdminAuditLogRepository
-            directly and via curl), unlike every other table in this app.
-            Showing a badge with a fabricated total would misrepresent what
-            the backend actually knows. */}
         <Select value={String(state.limit)} onValueChange={value => setLimit(Number(value))}>
           <Select.Trigger aria-label='Rows per page' style={{ minWidth: 70 }} />
           <Select.Content>
@@ -259,7 +254,7 @@ export function AuditLogView() {
                   </tr>
                   {expandedId === entry.id && (
                     <tr>
-                      <td colSpan={COLUMN_COUNT} style={{ background: 'var(--vhyx-color-surface-secondary, transparent)' }}>
+                      <td colSpan={COLUMN_COUNT} style={{ background: 'var(--vhyx-color-bg-subtle, transparent)' }}>
                         <DetailPanel entry={entry} />
                       </td>
                     </tr>
@@ -271,13 +266,11 @@ export function AuditLogView() {
         </table>
       </div>
 
-      {/* A plain Previous/Next pager, not TablePaginationComponent -- that
-          component requires a real `total` to compute page count and
-          render "Showing X to Y of Z entries", which this endpoint cannot
-          honestly provide. `hasNextPage` comes from over-fetching one extra
-          row per page (see useAdminAuditLogList), not a real total. */}
       <div className='flex justify-between items-center px-6 py-3'>
-        <Typography variant='body2'>Page {state.page}</Typography>
+        <Typography variant='body2'>
+          Page {state.page}
+          {total !== null ? ` of ${Math.max(1, Math.ceil(total / state.limit))} · ${total.toLocaleString()} entries` : ''}
+        </Typography>
         <div className='flex gap-2'>
           <Button variant='secondary' size='sm' disabled={state.page === 1} onClick={() => setPage(state.page - 1)}>
             Previous

@@ -26,7 +26,7 @@ import '@vhyxui/tokens/index.css'
 // (same-specificity attribute selectors — load order decides the winner).
 // See decision.md, 2026-09-10, "VhyxUI brand override file relocated from
 // VhyxUI's repo to VhyxVoid's".
-import './vhyxui-brand-override.css'
+import '@vhyxvoid/brand/brand.css'
 
 // VhyxUI's component CSS (Button, Dialog, Card, etc.) — pure CSS Modules
 // output, purely class-scoped selectors, zero body/html/* rules (confirmed

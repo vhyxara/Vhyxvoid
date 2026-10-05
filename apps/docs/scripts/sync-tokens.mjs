@@ -2,7 +2,7 @@
 //
 //   src/styles/vhyxui-tokens.css          <- apps/web's installed @vhyxui/tokens/index.css
 //                                            minus its trailing reset.css section
-//   src/styles/vhyxui-brand-override.css  <- ../web/src/app/vhyxui-brand-override.css
+//   src/styles/vhyxui-brand-override.css  <- packages/brand/brand.css
 //
 // Copied so the docs keep Fumadocs' own preflight instead of VhyxUI's reset.
 // Developer-run (needs `pnpm install`), not part of `build`/CI. Re-run and
@@ -35,9 +35,9 @@ const sources = [
     }
   },
   {
-    from: resolve(root, '../web/src/app/vhyxui-brand-override.css'),
+    from: resolve(root, '../../packages/brand/brand.css'),
     to: resolve(root, 'src/styles/vhyxui-brand-override.css'),
-    label: 'apps/web vhyxui-brand-override.css',
+    label: '@vhyxvoid/brand brand.css',
     version: () => 'monorepo'
   }
 ]

@@ -29,6 +29,7 @@
     "@vhyxui/react": "0.4.11",
     "@vhyxui/tokens": "0.4.0",
     "@vhyxvoid/api-kit": "workspace:*",
+    "@vhyxvoid/brand": "workspace:*",
     "classnames": "2.5.1",
     "date-fns": "^4.1.0",
     "next": "16.1.1",

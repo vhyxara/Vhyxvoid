@@ -1,37 +1,51 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { Spinner } from '@vhyxui/react'
 
 import { useAdminAuthStore } from '@/api/domain/auth/auth.store'
+import { adminAuthService } from '@/api/infrastructure/auth.service'
 
-// Minimal route guard for the dashboard-shell placeholder (screen 2) and
-// every stub screen nested under it. Deliberately simple -- this is not
-// apps/web's AuthGuard.tsx copied over (that one bootstraps a session via
-// a silent refresh against an httpOnly cookie on every page load, which
-// has no admin-auth equivalent -- see http.ts's own comment on why). Here,
-// `isAuthenticated` is read directly from the zustand store (rehydrated
-// from sessionStorage synchronously on mount by zustand's persist
-// middleware), and a missing session just redirects to /login. Building a
-// real bootstrap/silent-refresh-on-load flow is dashboard-shell-proper
-// scope for a later session, not this one's (Part 1's placeholder-shell
-// ask), and would need @vhyxvoid/api-kit's onUnauthorized path exercised on
-// app mount rather than on first stale-token request, a different flow.
+/**
+ * Gates the admin app. On a fresh page load the access token is gone (it is
+ * memory-only), so the session is restored with one refresh call against the
+ * httpOnly cookie, then the profile is loaded. No cookie, or a revoked one,
+ * goes to /login with the current path in `next`, so a deep link survives
+ * signing in (admin-frontend backlog: deep links used to land on /dashboard).
+ */
 export default function AdminAuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter()
-  const isAuthenticated = useAdminAuthStore(s => s.isAuthenticated)
+  const pathname = usePathname()
+  const status = useAdminAuthStore(s => s.status)
+  const started = useRef(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace('/login')
-    }
-  }, [isAuthenticated, router])
+    if (status !== 'unknown' || started.current) return
+    started.current = true
+    const store = useAdminAuthStore.getState()
 
-  if (!isAuthenticated) {
+    adminAuthService
+      .refresh()
+      .then(async ({ accessToken }) => {
+        store.setAccessToken(accessToken)
+        const me = await adminAuthService.me()
+
+        store.setAdmin({ id: me.id, email: me.email, fullName: me.fullName, isSuperAdmin: me.isSuperAdmin })
+      })
+      .catch(() => store.clearSession())
+  }, [status])
+
+  useEffect(() => {
+    if (status === 'anonymous') {
+      router.replace(`/login${pathname && pathname !== '/' ? `?next=${encodeURIComponent(pathname)}` : ''}`)
+    }
+  }, [status, pathname, router])
+
+  if (status !== 'authenticated') {
     return (
       <div className='flex items-center justify-center bs-full min-bs-screen'>
         <Spinner size='lg' />

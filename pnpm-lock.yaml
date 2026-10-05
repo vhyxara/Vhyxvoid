@@ -57,6 +57,12 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@vhyxui/blocks':
+        specifier: 0.1.5
+        version: 0.1.5(@vhyxui/react@0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@vhyxui/icons':
+        specifier: 0.2.3
+        version: 0.2.3(react@19.2.3)
       '@vhyxui/react':
         specifier: 0.4.11
         version: 0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3)
@@ -66,6 +72,9 @@ importers:
       '@vhyxvoid/api-kit':
         specifier: workspace:*
         version: link:../../packages/api-kit
+      '@vhyxvoid/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       classnames:
         specifier: 2.5.1
         version: 2.5.1
@@ -81,6 +90,12 @@ importers:
       react-hook-form:
         specifier: ^7.71.1
         version: 7.88.0(react@19.2.3)
+      react-markdown:
+        specifier: ^10
+        version: 10.1.0(@types/react@19.2.7)(react@19.2.3)
+      remark-gfm:
+        specifier: ^4
+        version: 4.0.1
       yup:
         specifier: ^1.7.1
         version: 1.7.1
@@ -409,6 +424,9 @@ importers:
       '@vhyxvoid/api-kit':
         specifier: workspace:*
         version: link:../../packages/api-kit
+      '@vhyxvoid/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       classnames:
         specifier: 2.5.1
         version: 2.5.1
@@ -600,6 +618,8 @@ importers:
       vitest:
         specifier: ^4.0.15
         version: 4.0.15(@types/node@24.10.1)(jiti@2.7.0)(jsdom@30.0.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.1)
+
+  packages/brand: {}
 
   packages/middleware:
     dependencies:
@@ -3345,6 +3365,14 @@ packages:
     peerDependencies:
       react: '>=18.0.0'
 
+  '@vhyxui/blocks@0.1.5':
+    resolution: {integrity: sha512-64spiti5NHkZHJgmEsxIjOpiymjkuTyB4T17Xack9gD3qE943MNOV/9+bAK9uaR5ifU/OYnm9DpUrr/yDfDrQA==}
+    engines: {node: '>=20.19'}
+    peerDependencies:
+      '@vhyxui/react': ^0.4.1
+      react: '>=18'
+      react-dom: '>=18'
+
   '@vhyxui/core@0.2.3':
     resolution: {integrity: sha512-Md4bLcgvvFugQw5yErfEql64AaXhNSbo0lMRSXnz9PGpuN2EGKu9EaLSTsbNX0I/kYpWU8PUAiM18qzb88Rlug==}
     engines: {node: '>=20.19'}
@@ -4993,6 +5021,9 @@ packages:
     resolution: {integrity: sha512-ztqyC3kLto0e9WbNp0aeP+M3kTt+nbaIveGmUxAtZa+8iFgKLUOD4YKM5j+f3QD89bra7UeumolZHKuOXnTmeQ==}
     engines: {node: '>=8'}
 
+  html-url-attributes@3.0.1:
+    resolution: {integrity: sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ==}
+
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
 
@@ -6426,6 +6457,12 @@ packages:
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
+
+  react-markdown@10.1.0:
+    resolution: {integrity: sha512-qKxVopLT/TyA6BX3Ue5NwabOsAzm0Q7kAPwq6L+wWDwisYs7R8vZ0nRXqq6rkueboxpkjvLGU9fWifiX/ZZFxQ==}
+    peerDependencies:
+      '@types/react': '>=18'
+      react: '>=18'
 
   react-perfect-scrollbar@1.5.8:
     resolution: {integrity: sha512-bQ46m70gp/HJtiBOF3gRzBISSZn8FFGNxznTdmTG8AAwpxG1bJCyn7shrgjEvGSQ5FJEafVEiosY+ccER11OSA==}
@@ -10033,6 +10070,13 @@ snapshots:
       '@vhyxseal/core': 1.0.0-rc.6
       react: 19.2.3
 
+  '@vhyxui/blocks@0.1.5(@vhyxui/react@0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      '@vhyxui/icons': 0.2.3(react@19.2.3)
+      '@vhyxui/react': 0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+
   '@vhyxui/core@0.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@vhyxseal/core': 1.0.0-rc.6
@@ -12200,6 +12244,8 @@ snapshots:
 
   html-tags@3.3.1: {}
 
+  html-url-attributes@3.0.1: {}
+
   html-void-elements@3.0.0: {}
 
   htmlparser2@9.1.0:
@@ -13905,6 +13951,24 @@ snapshots:
   react-is@16.13.1: {}
 
   react-is@17.0.2: {}
+
+  react-markdown@10.1.0(@types/react@19.2.7)(react@19.2.3):
+    dependencies:
+      '@types/hast': 3.0.5
+      '@types/mdast': 4.0.4
+      '@types/react': 19.2.7
+      devlop: 1.1.0
+      hast-util-to-jsx-runtime: 2.3.6
+      html-url-attributes: 3.0.1
+      mdast-util-to-hast: 13.2.1
+      react: 19.2.3
+      remark-parse: 11.0.0
+      remark-rehype: 11.1.2
+      unified: 11.0.5
+      unist-util-visit: 5.1.0
+      vfile: 6.0.3
+    transitivePeerDependencies:
+      - supports-color
 
   react-perfect-scrollbar@1.5.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:

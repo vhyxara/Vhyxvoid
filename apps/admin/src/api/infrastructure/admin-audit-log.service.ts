@@ -33,15 +33,15 @@ function buildQuery(query: AuditLogQuery): string {
 }
 
 export const adminAuditLogService = {
-  // NOTE: the response has NO total/count field at all -- confirmed by
-  // reading AdminAuditLogRepository directly (no countAll() exists; the
-  // three count-by-X methods it does have are never called by the route)
-  // and via a real curl call. Callers requesting `limit + 1` and slicing
-  // off the extra row is how this screen detects "is there a next page"
-  // without a real total to build page-number pagination against.
-  list: (query: AuditLogQuery) =>
-    httpClient<AdminAuditLogEntry[]>({
+  // The response carries `meta: { total, limit, offset }` next to `data`
+  // (api CA-0038), so the whole envelope is read (raw).
+  list: async (query: AuditLogQuery) => {
+    const res = await httpClient<{ data: AdminAuditLogEntry[]; meta?: { total: number } }>({
       url: `${ADMIN_AUDIT_LOG_ENDPOINTS.LIST}?${buildQuery(query)}`,
-      method: 'GET'
+      method: 'GET',
+      raw: true
     })
+
+    return { rows: res.data ?? [], total: res.meta?.total ?? null }
+  }
 }
