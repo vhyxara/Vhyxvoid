@@ -8,6 +8,7 @@ import { billingRoutes } from "@/modules/billing/presentation/http/billing.route
 import { stripeWebhookRoutes } from "@/modules/billing/presentation/http/webhook.routes";
 import { notificationRoutes } from "@/modules/notification/presentation/http/notification.routes";
 import { tunnelRoutes } from "./user/tunnel.routes";
+import { registerPlatformRoutes } from "@/modules/platform/routes";
 import {
   adminFeedbackRoutes,
   feedbackRoutes,
@@ -35,7 +36,9 @@ const registerRoutes = async (server: FastifyInstance) => {
   await server.register(adminFeedbackRoutes, {
     prefix: "/api/v1/admin/feedback",
   });
-  // //     fastify.register(stripeWebhookRoutes); // no prefix — /billing/webhooks/stripe
+  // Admin panel operations (accounts, users, keys, tunnels, billing, logs,
+  // settings, content) and the public website API.
+  await registerPlatformRoutes(server);
 };
 
 export default registerRoutes;

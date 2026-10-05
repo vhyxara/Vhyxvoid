@@ -807,6 +807,146 @@ if (process.env.ADMIN_EMAIL) {
     assert(JSON.stringify(logs.json).includes(s.feedbackId), `no feedback.updated audit row: ${JSON.stringify(logs.json).slice(0, 300)}`);
   });
 
+  // ── Admin panel v2: operations, settings, CMS ────────────────────────────
+  const P = (m, p, o = {}) => api(m, `/admin${p}`, { token: s.admin, ...o });
+
+  await step("admin v2: an admin without system.read is refused the dashboard", async () => {
+    const r = await api("GET", "/admin/overview", { token: s.ops });
+    assert(r.status === 403, `ops got ${r.status}`);
+  });
+
+  await step("admin v2: overview counts users and system health sees every dependency", async () => {
+    const o = await P("GET", "/overview");
+    assert(o.status === 200 && o.json.data.users.total >= 1, `overview ${o.status}: ${JSON.stringify(o.json).slice(0, 200)}`);
+    const h = await P("GET", "/system/health");
+    assert(h.status === 200, `health ${h.status}`);
+    const probes = h.json.data.probes;
+    assert(probes.database.status !== "down" && probes.redis.status === "ok", `probes ${JSON.stringify(probes).slice(0, 300)}`);
+    assert(probes.database.details.migrations.pending.length === 0, `pending migrations ${JSON.stringify(probes.database.details.migrations)}`);
+  });
+
+  await step("admin v2: find the journey's user and organization", async () => {
+    const u = await P("GET", `/users?search=${encodeURIComponent(email)}`);
+    assert(u.status === 200 && u.json.items.length === 1, `users ${u.status}: ${JSON.stringify(u.json).slice(0, 200)}`);
+    s.userId = u.json.items[0].id;
+    const ud = await P("GET", `/users/${s.userId}`);
+    assert(ud.status === 200 && ud.json.data.accounts.length >= 2, `user detail ${JSON.stringify(ud.json).slice(0, 200)}`);
+    const a = await P("GET", `/accounts/${s.org}`);
+    assert(a.status === 200 && a.json.data.limits && a.json.data.members.length >= 1, `account ${a.status}: ${JSON.stringify(a.json).slice(0, 200)}`);
+  });
+
+  await step("admin v2: settings are validated; maintenance mode blocks users but not admins", async () => {
+    const bad = await P("PATCH", "/settings", { body: { changes: { "billing.trialDays": 999 } } });
+    assert(bad.status === 400, `bad value accepted (${bad.status})`);
+    const on = await P("PATCH", "/settings", { body: { changes: { "maintenance.enabled": true, "maintenance.message": `E2E maintenance ${RUN}` } } });
+    assert(on.status === 200, `enable ${on.status}: ${JSON.stringify(on.json).slice(0, 200)}`);
+    try {
+      const user = await api("GET", "/account/me", { token: s.token });
+      assert(user.status === 503 && user.json.code === "MAINTENANCE" && user.json.message.includes(RUN), `user during maintenance: ${user.status} ${JSON.stringify(user.json)}`);
+      const pub = await api("GET", "/public/settings");
+      assert(pub.status === 200 && pub.json.data["maintenance.enabled"] === true, `public settings ${pub.status}`);
+      const admin = await P("GET", "/overview");
+      assert(admin.status === 200, `admin during maintenance: ${admin.status}`);
+    } finally {
+      const off = await P("PATCH", "/settings", { body: { changes: { "maintenance.enabled": null, "maintenance.message": null } } });
+      assert(off.status === 200, `disable ${off.status}`);
+    }
+    const back = await api("GET", "/account/me", { token: s.token });
+    assert(back.status === 200, `after maintenance: ${back.status}`);
+  });
+
+  await step("admin v2: plan overrides apply to the public plan list and reset cleanly", async () => {
+    const set = await P("PATCH", "/settings", { body: { changes: { "plans.overrides": { FREE: { maxApiKeys: 7, maxAgents: null } } } } });
+    assert(set.status === 200, `override ${set.status}: ${JSON.stringify(set.json).slice(0, 200)}`);
+    const plans = await api("GET", "/public/plans");
+    const free = plans.json.data.plans.find((p) => p.plan === "FREE");
+    assert(free.limits.maxApiKeys === 7 && free.limits.maxAgents === null, `free limits ${JSON.stringify(free.limits)}`);
+    const reset = await P("PATCH", "/settings", { body: { changes: { "plans.overrides": null } } });
+    assert(reset.status === 200, `reset ${reset.status}`);
+  });
+
+  await step("admin v2: CMS draft -> publish -> public, unpublish falls back to the default", async () => {
+    const before = await api("GET", "/public/content/pricing");
+    assert(before.status === 200 && before.json.data.isDefault === true, `default pricing ${before.status} ${JSON.stringify(before.json).slice(0, 120)}`);
+    const created = await P("POST", "/content", { body: { slug: "pricing", kind: "pricing", title: "Pricing" } });
+    assert(created.status === 201, `create ${created.status}: ${JSON.stringify(created.json).slice(0, 200)}`);
+    const id = created.json.data.id;
+    const data = { ...created.json.data.data, title: `Pricing ${RUN}` };
+    const invalid = await P("PUT", `/content/${id}`, { body: { data: { ...data, plans: "nope" } } });
+    assert(invalid.status === 400, `invalid content accepted (${invalid.status})`);
+    const saved = await P("PUT", `/content/${id}`, { body: { data } });
+    assert(saved.status === 200, `save ${saved.status}`);
+    const stillDefault = await api("GET", "/public/content/pricing");
+    assert(stillDefault.json.data.isDefault === true, "a draft leaked to the public site");
+    const pub = await P("POST", `/content/${id}/publish`, { body: { note: "e2e" } });
+    assert(pub.status === 200 && pub.json.data.version === 1, `publish ${pub.status}: ${JSON.stringify(pub.json).slice(0, 200)}`);
+    const live = await api("GET", "/public/content/pricing");
+    assert(live.json.data.data.title === `Pricing ${RUN}` && live.json.data.isDefault === false, `public after publish: ${JSON.stringify(live.json).slice(0, 200)}`);
+    const un = await P("POST", `/content/${id}/unpublish`, { body: {} });
+    assert(un.status === 200, `unpublish ${un.status}`);
+    const del = await P("DELETE", `/content/${id}`);
+    assert(del.status === 200, `delete ${del.status}`);
+    const after = await api("GET", "/public/content/pricing");
+    assert(after.json.data.isDefault === true, "default not restored");
+  });
+
+  await step("admin v2: live tunnels list a new agent; force-disconnect stops it", async () => {
+    const k = await api("POST", `/apikeys/organizations/${s.personal}/api-keys`, { token: s.token, body: { name: `admin-v2 ${RUN}`, environment: "DEV", scopes: ["tunnel:connect"] } });
+    assert(k.status === 201 || k.status === 200, `key ${k.status}: ${JSON.stringify(k.json).slice(0, 200)}`);
+    const d = k.json.data ?? k.json;
+    s.adminKeyUuid = d.key?.id ?? d.id;
+    // FREE allows one agent and the journey's first agent is still connected:
+    // a per-account override raises the limit for this account only.
+    const refused = startAgent({ key: d.key?.keyId ?? d.keyId, secret: d.secret, port: s.backendPort, label: "overlimit" });
+    const refusedOut = await Promise.race([refused.exited.then(() => refused.output()), sleep(8_000).then(() => refused.output())]);
+    refused.child.kill("SIGINT");
+    assert(/limit|Maximum/i.test(refusedOut), `second agent on FREE was not refused: ${refusedOut.slice(-300)}`);
+    const raise = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxAgents: 2 } } });
+    assert(raise.status === 200, `override ${raise.status}: ${JSON.stringify(raise.json)}`);
+    const agent = startAgent({ key: d.key?.keyId ?? d.keyId, secret: d.secret, port: s.backendPort, label: "adminv2" });
+    await agent.waitFor(/Public:\s+(\S+)/, 20_000);
+    let mine;
+    for (let i = 0; i < 20 && !mine; i++) {
+      const live = await P("GET", "/tunnels/live");
+      assert(live.status === 200 && live.json.data.available, `live ${live.status}: ${JSON.stringify(live.json).slice(0, 200)}`);
+      mine = live.json.data.agents.find((a) => a.label === "adminv2");
+      if (!mine) await sleep(250);
+    }
+    assert(mine && mine.url, `agent not listed`);
+    const noReason = await P("POST", `/tunnels/live/${mine.agentId}/disconnect`, { body: {} });
+    assert(noReason.status === 400, `disconnect without reason: ${noReason.status}`);
+    const dc = await P("POST", `/tunnels/live/${mine.agentId}/disconnect`, { body: { reason: "e2e check" } });
+    assert(dc.status === 200, `disconnect ${dc.status}: ${JSON.stringify(dc.json)}`);
+    const res = await Promise.race([agent.exited, sleep(15_000).then(() => null)]);
+    assert(res && res.code === 1, `agent did not stop: ${JSON.stringify(res)}; ${agent.output().slice(-300)}`);
+    const reset = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    assert(reset.status === 200, `reset override ${reset.status}`);
+  });
+
+  await step("admin v2: suspending an account needs a reason, refuses its keys, and reactivates", async () => {
+    const noReason = await P("PATCH", `/accounts/${s.personal}`, { body: { status: "SUSPENDED" } });
+    assert(noReason.status === 400, `suspend without reason: ${noReason.status}`);
+    const sus = await P("PATCH", `/accounts/${s.personal}`, { body: { status: "SUSPENDED", statusReason: "e2e abuse check" } });
+    assert(sus.status === 200 && sus.json.data.status === "SUSPENDED", `suspend ${sus.status}: ${JSON.stringify(sus.json)}`);
+    const k = await P("GET", `/api-keys?accountId=${s.personal}&status=ACTIVE`);
+    assert(k.status === 200 && k.json.items.length >= 1, `keys ${JSON.stringify(k.json).slice(0, 200)}`);
+    const re = await P("PATCH", `/accounts/${s.personal}`, { body: { status: "ACTIVE" } });
+    assert(re.status === 200 && re.json.data.status === "ACTIVE", `reactivate ${re.status}`);
+    const rv = await P("POST", `/api-keys/${s.adminKeyUuid}/revoke`, { body: { reason: "e2e" } });
+    assert(rv.status === 200, `revoke ${rv.status}: ${JSON.stringify(rv.json)}`);
+    const again = await P("POST", `/api-keys/${s.adminKeyUuid}/revoke`, { body: { reason: "e2e" } });
+    assert(again.status === 400, `second revoke ${again.status}`);
+  });
+
+  await step("admin v2: every action above is in the admin audit CSV", async () => {
+    const res = await fetch(`${API}/admin/logs/admin-audit.csv`, { headers: { authorization: `Bearer ${s.admin}` } });
+    const csv = await res.text();
+    assert(res.status === 200 && res.headers.get("content-type").includes("text/csv"), `csv ${res.status}`);
+    for (const action of ["settings.updated", "content.published", "tunnel.disconnected", "account.suspended", "apikey.revoked"]) {
+      assert(csv.includes(action), `missing ${action} in the audit export`);
+    }
+  });
+
   await step("admin: disabling an admin stops their access", async () => {
     const d = await A("POST", `/users/${s.opsId}/disable`, { token: s.admin, body: {} });
     assert(d.status < 300, `disable ${d.status}: ${JSON.stringify(d.json)}`);

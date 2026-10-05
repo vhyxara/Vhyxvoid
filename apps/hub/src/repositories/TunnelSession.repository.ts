@@ -6,7 +6,12 @@
 
 import { PrismaClient } from '@/generated/prisma';
 import { randomUUID } from 'crypto';
-import { resolvePlanForAccount, PLAN_LIMITS, type Plan, type PlanPrismaLike } from '@vhyxvoid/shared';
+import {
+  currentPlanOverrides,
+  getEffectivePlanLimitsForAccount,
+  type Plan,
+  type PlanLimits,
+} from '@vhyxvoid/shared';
 
 export type TunnelSessionStatus = 'CONNECTED' | 'DISCONNECTED' | 'EVICTED';
 
@@ -131,11 +136,10 @@ export class TunnelSessionRepository {
    * The account's real plan and its concurrent-agent limit, by the same rule
    * API-key creation uses (resolvePlanForAccount in @vhyxvoid/shared).
    */
-  async findPlanLimitsForAccount(
-    accountId: string,
-  ): Promise<{ plan: Plan; maxAgents: number }> {
-    const plan = await resolvePlanForAccount(this.prisma as unknown as PlanPrismaLike, accountId);
-    return { plan, maxAgents: PLAN_LIMITS[plan].maxAgents };
+  async findPlanLimitsForAccount(accountId: string): Promise<PlanLimits & { plan: Plan }> {
+    // Built-in plan limits with the admin's plan-wide and per-account
+    // overrides applied (settings `plans.overrides`, Account.limitOverrides).
+    return getEffectivePlanLimitsForAccount(this.prisma as any, accountId, await currentPlanOverrides());
   }
 
   /**

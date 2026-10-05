@@ -8,7 +8,8 @@
 import { Redis } from "@upstash/redis";
 import type { DbApiKeyLoader, ApiKeyRow } from "./types";
 import { PLAN_LIMITS } from "./planLimits";
-import { resolvePlanForAccount } from "./planResolver";
+import { getEffectivePlanLimitsForAccount } from "./planResolver";
+import { currentPlanOverrides } from "./settings";
 import { toStoredRateLimit } from "./validateApiKey";
 
 // ── Redis factory ─────────────────────────────────────────────────────────────
@@ -79,12 +80,12 @@ export function buildDbApiKeyLoader(prisma: any): DbApiKeyLoader {
       // lookup fails the key is left unlimited, as every reload was before.
       let rateLimitPerMinute: number | undefined;
       try {
-        const plan = await resolvePlanForAccount(prisma, row.accountId);
+        const limits = await getEffectivePlanLimitsForAccount(prisma, row.accountId, await currentPlanOverrides());
         // ENTERPRISE's limit is Infinity; store the same -1 convention
         // rowToCache below uses, rather than leaving Infinity on the row for
         // whatever JSON.stringifies it next to turn into null (E2b's class
         // of bug).
-        rateLimitPerMinute = toStoredRateLimit(PLAN_LIMITS[plan].rateLimitPerMinute);
+        rateLimitPerMinute = toStoredRateLimit(limits.rateLimitPerMinute);
       } catch {
         rateLimitPerMinute = undefined;
       }

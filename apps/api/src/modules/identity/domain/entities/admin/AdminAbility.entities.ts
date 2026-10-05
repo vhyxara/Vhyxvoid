@@ -244,4 +244,21 @@ export const SYSTEM_ABILITIES = {
     category: 'settings',
     description: 'Update system settings',
   },
+
+  // Platform operations (admin panel v2). Note: the user.* abilities above
+  // govern customer (end-user) accounts; admin.* governs admin users.
+  SYSTEM_READ: { action: 'system.read', category: 'system', description: 'View dashboard, system health and plan limits' },
+  ACCOUNT_READ: { action: 'account.read', category: 'accounts', description: 'View customer accounts' },
+  ACCOUNT_UPDATE: { action: 'account.update', category: 'accounts', description: 'Suspend, restrict, reactivate accounts; edit limits and notes' },
+  ACCOUNT_DELETE: { action: 'account.delete', category: 'accounts', description: 'Delete customer accounts' },
+  APIKEY_READ: { action: 'apikey.read', category: 'api_keys', description: 'View API keys of every account' },
+  APIKEY_REVOKE: { action: 'apikey.revoke', category: 'api_keys', description: 'Revoke any API key' },
+  TUNNEL_READ: { action: 'tunnel.read', category: 'tunnels', description: 'View live tunnels and connection history' },
+  TUNNEL_DISCONNECT: { action: 'tunnel.disconnect', category: 'tunnels', description: 'Force-disconnect a live agent' },
+  BILLING_READ: { action: 'billing.read', category: 'billing', description: 'View subscriptions, invoices and revenue' },
+  LOGS_READ: { action: 'logs.read', category: 'logs', description: 'View security events, user activity and request logs' },
+  CONTENT_READ: { action: 'content.read', category: 'content', description: 'View website content' },
+  CONTENT_UPDATE: { action: 'content.update', category: 'content', description: 'Create and edit website content drafts' },
+  CONTENT_PUBLISH: { action: 'content.publish', category: 'content', description: 'Publish and unpublish website content' },
+  CONTENT_DELETE: { action: 'content.delete', category: 'content', description: 'Delete website content' },
 };

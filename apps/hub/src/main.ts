@@ -6,7 +6,13 @@ import 'dotenv/config';
 import { HubServer } from '@/HubServer';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { buildValidateApiKeyUseCase, buildDbApiKeyLoader, getRedisClient } from '@vhyxvoid/shared';
+import {
+  buildValidateApiKeyUseCase,
+  buildDbApiKeyLoader,
+  getRedisClient,
+  createPrismaSettingsReader,
+  installSettingsReader,
+} from '@vhyxvoid/shared';
 
 // ── App-specific Prisma import ────────────────────────────────────────────────
 // This is the ONLY place in the hub that imports Prisma.
@@ -54,6 +60,9 @@ async function main() {
   });
   await prisma.$connect();
   console.info('[hub] ✅ Postgres connected');
+
+  // Admin-panel settings (plan overrides, incident switches), cached 30 s.
+  installSettingsReader(createPrismaSettingsReader(prisma));
 
   // const prisma = new PrismaClient();
   // await prisma.$connect();

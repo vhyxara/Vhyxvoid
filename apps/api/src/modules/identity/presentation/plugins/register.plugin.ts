@@ -21,6 +21,7 @@ import { ApiKeyPlugins } from "@/modules/key-management/presentation/plugins/use
 import { billingPlugin } from "@/modules/billing/presentation/plugins/billing.plugin";
 import { notificationPlugin } from "@/modules/notification/presentation/plugins/notification.plugin";
 import redisPlugin from "@/modules/key-management/presentation/plugins/infrastructure/redisPlugins";
+import platformPlugin from "@/modules/platform/platform.plugin";
 // import prismaPlugin from "./prisma.plugin";
 // import servicesPlugin from "./services.plugin";
 
@@ -38,6 +39,8 @@ export const registerPlugins = async (server: FastifyInstance) => {
   // encapsulated context, where only key-management could see it.
   await server.register(redisPlugin);
   await server.register(corePlugin);
+  // Settings, CMS and the maintenance gate; needs prisma + redis only.
+  await server.register(platformPlugin);
 
   await server.register(authStatePlugin); // fastify.authStateCache, consulted by both guards
   await server.register(userAuthGuard); // decorates fastify.userAuthGuard

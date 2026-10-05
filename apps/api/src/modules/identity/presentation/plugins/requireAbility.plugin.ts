@@ -1,7 +1,6 @@
 import { ForbiddenError } from "@/core/errors/error.format";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
-import { th } from "zod/v4/locales";
 
 export default fp(async function requireAbilityPlugin(
   fastify: FastifyInstance,

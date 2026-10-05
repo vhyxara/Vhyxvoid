@@ -1,0 +1,88 @@
+// apps/api -> apps/hub internal endpoints (live agents, stats, disconnect),
+// authorized by the shared HUB_INTERNAL_SECRET. Never exposed publicly: nginx
+// blocks /internal/ on hub., and the api reaches the hub over the Docker
+// network (HUB_INTERNAL_URL=http://hub:9001).
+
+export type HubAgent = {
+  agentId: string;
+  accountId: string;
+  label: string;
+  agentVersion?: string;
+  ip?: string;
+  connectedAt: string;
+  lastSeenAt: string;
+  missedPings: number;
+  capabilities: string[];
+};
+
+export type HubStats = {
+  instanceId: string;
+  uptimeSeconds: number;
+  agents: number;
+  sdks: number;
+  pendingRequests: number;
+  tunnelWebSockets: number;
+  pendingAuthSockets: number;
+  memory: { heapUsedMb: number; rssMb: number };
+  nodeVersion: string;
+};
+
+export class HubUnavailableError extends Error {}
+
+export class HubClient {
+  constructor(
+    private readonly baseUrl = process.env.HUB_INTERNAL_URL ?? "",
+    private readonly secret = process.env.HUB_INTERNAL_SECRET ?? "",
+    private readonly timeoutMs = 3_000,
+  ) {}
+
+  get configured(): boolean {
+    return Boolean(this.baseUrl && this.secret);
+  }
+
+  private async call<T>(path: string, method: "GET" | "POST" = "GET"): Promise<T> {
+    if (!this.configured) throw new HubUnavailableError("HUB_INTERNAL_URL and HUB_INTERNAL_SECRET are not set");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}${path}`, {
+        method,
+        headers: { "x-hub-internal-secret": this.secret },
+        signal: controller.signal,
+      });
+      const body = (await res.json().catch(() => ({}))) as T & { error?: string };
+      if (!res.ok && res.status !== 404) throw new HubUnavailableError(`hub answered ${res.status}: ${body.error ?? ""}`);
+      return body;
+    } catch (err) {
+      if (err instanceof HubUnavailableError) throw err;
+      throw new HubUnavailableError(`hub unreachable: ${(err as Error).message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  stats(): Promise<HubStats> {
+    return this.call<HubStats>("/internal/stats");
+  }
+
+  async agents(accountId?: string): Promise<HubAgent[]> {
+    const q = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
+    return (await this.call<{ agents: HubAgent[] }>(`/internal/agents${q}`)).agents ?? [];
+  }
+
+  async disconnect(agentId: string): Promise<boolean> {
+    return (await this.call<{ disconnected: boolean }>(`/internal/agents/${encodeURIComponent(agentId)}/disconnect`, "POST")).disconnected === true;
+  }
+
+  /** Disconnect every live agent of an account (suspension, deletion). Best effort. */
+  async disconnectAccount(accountId: string): Promise<number> {
+    if (!this.configured) return 0;
+    try {
+      const agents = await this.agents(accountId);
+      const results = await Promise.allSettled(agents.map((a) => this.disconnect(a.agentId)));
+      return results.filter((r) => r.status === "fulfilled" && r.value).length;
+    } catch {
+      return 0;
+    }
+  }
+}

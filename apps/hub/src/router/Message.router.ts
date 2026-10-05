@@ -41,7 +41,7 @@ import {
 // } from '../services';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { Plan, PLAN_LIMITS } from '@vhyxvoid/shared';
+import { Plan, PLAN_LIMITS, readSetting } from '@vhyxvoid/shared';
 import { HeartbeatService } from '@/services/Heartbeat.service';
 import { HubAuthService, HubAuthError } from '@/services/HubAuth.service';
 import { HubPubSub } from '@/services/HubPubSub';
@@ -252,6 +252,17 @@ export class MessageRouter {
       return;
     }
     msg = { ...msg, label };
+
+    // Incident switch from the admin panel (settings: tunnels.newAgentsEnabled).
+    // Running tunnels are untouched; a refused agent retries with backoff.
+    if (!(await readSetting('tunnels.newAgentsEnabled').catch(() => true))) {
+      this.sendToWs(
+        ws,
+        this.buildHubError('RATE_LIMITED', 'New tunnel connections are paused. Try again in a few minutes.', undefined, false),
+      );
+      ws.close();
+      return;
+    }
 
     // 1. Authenticate
     let auth: Awaited<ReturnType<HubAuthService['authenticateAgent']>>;

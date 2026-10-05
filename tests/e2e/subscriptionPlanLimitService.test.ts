@@ -33,7 +33,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_1");
-    expect(limits).toBe(PLAN_LIMITS[Plan.FREE]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.FREE]);
   });
 
   it("returns PRO limits for a PRO-plan account", async () => {
@@ -41,7 +41,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_1");
-    expect(limits).toBe(PLAN_LIMITS[Plan.PRO]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.PRO]);
   });
 
   it("returns ENTERPRISE limits for an ENTERPRISE-plan account", async () => {
@@ -49,7 +49,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_1");
-    expect(limits).toBe(PLAN_LIMITS[Plan.ENTERPRISE]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.ENTERPRISE]);
   });
 
   it("uses the most recently created Subscription row when more than one exists", async () => {
@@ -68,7 +68,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_1");
-    expect(limits).toBe(PLAN_LIMITS[Plan.FREE]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.FREE]);
   });
 
   it("keeps the real plan's limits during PAST_DUE (grace period)", async () => {
@@ -76,7 +76,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_1");
-    expect(limits).toBe(PLAN_LIMITS[Plan.PRO]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.PRO]);
   });
 
   it.each(["SUSPENDED", "RESTRICTED", "CANCELED", "DELETED"])(
@@ -86,7 +86,7 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
       const service = new SubscriptionPlanLimitService(prisma as any);
 
       const limits = await service.getLimitsForAccount("acct_1");
-      expect(limits).toBe(PLAN_LIMITS[Plan.FREE]);
+      expect(limits).toEqual(PLAN_LIMITS[Plan.FREE]);
       // Downgraded accounts shouldn't even need the subscription lookup.
       expect(prisma.subscription.findFirst).not.toHaveBeenCalled();
     },
@@ -97,6 +97,6 @@ describe("SubscriptionPlanLimitService.getLimitsForAccount", () => {
     const service = new SubscriptionPlanLimitService(prisma as any);
 
     const limits = await service.getLimitsForAccount("acct_missing");
-    expect(limits).toBe(PLAN_LIMITS[Plan.FREE]);
+    expect(limits).toEqual(PLAN_LIMITS[Plan.FREE]);
   });
 });

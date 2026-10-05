@@ -14,12 +14,17 @@
 import { PlanLimitService } from "@/core/types/api-key/plans.type";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { PLAN_LIMITS, PlanLimits } from "@/modules/billing/domain/enums";
-import { resolvePlanForAccount } from "@vhyxvoid/shared";
+import { currentPlanOverrides, getEffectivePlanLimitsForAccount } from "@vhyxvoid/shared";
 
 export class SubscriptionPlanLimitService implements PlanLimitService {
   constructor(private prisma: PrismaTransactionalClient) {}
 
   async getLimitsForAccount(accountId: string): Promise<PlanLimits> {
-    return PLAN_LIMITS[await resolvePlanForAccount(this.prisma, accountId)];
+    const { plan: _plan, ...limits } = await getEffectivePlanLimitsForAccount(
+      this.prisma as any,
+      accountId,
+      await currentPlanOverrides(),
+    );
+    return limits;
   }
 }

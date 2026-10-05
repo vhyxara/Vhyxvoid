@@ -15,6 +15,7 @@ export interface CreateCheckoutSessionParams {
   cancelUrl: string; // redirect if user cancels
   trialDays?: number; // optional trial period
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface CreateBillingPortalParams {
@@ -27,6 +28,7 @@ export interface CreateStripeCustomerParams {
   name: string;
   accountId: string; // stored in Stripe customer metadata
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface StripeWebhookEvent {

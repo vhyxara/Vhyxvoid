@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { assertSignupAllowed } from "@/modules/platform/settings/signupPolicy";
 import { AUTH_RATE_LIMITS } from "@/core/constant/rateLimit.constant";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { RegisterUserDTO } from "@/modules/identity/application/dto/admin.dto";
@@ -50,6 +51,7 @@ export async function identityRoutes(fastify: FastifyInstance) {
       // );
       // if (!data) return; // stops execution if validation fails
       const input = registerSchema.parse(request.body);
+      await assertSignupAllowed(fastify, input.email);
       const result = await fastify.registerUserUseCase.execute(input);
       // return reply.code(201).send(result);
 

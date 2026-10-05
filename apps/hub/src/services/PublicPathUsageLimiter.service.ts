@@ -142,8 +142,12 @@ export class PublicPathUsageLimiter {
     if (cached && cached.expiresAt > now) return cached.limitPerMinute;
 
     try {
-      const { plan } = await this.sessionRepo.findPlanLimitsForAccount(accountId);
-      const limitPerMinute = PLAN_LIMITS[plan].publicPathRateLimitPerMinute;
+      const limits = await this.sessionRepo.findPlanLimitsForAccount(accountId);
+      // Effective limits (admin overrides applied) when the repository
+      // provides them; the plan's built-in number otherwise.
+      const limitPerMinute =
+        (limits as { publicPathRateLimitPerMinute?: number }).publicPathRateLimitPerMinute ??
+        PLAN_LIMITS[limits.plan].publicPathRateLimitPerMinute;
       this.planCache.set(accountId, {
         limitPerMinute,
         expiresAt: now + PLAN_CACHE_TTL_MS,

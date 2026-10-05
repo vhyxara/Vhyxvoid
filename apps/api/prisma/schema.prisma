@@ -238,6 +238,13 @@ model Account {
   deletedAt   DateTime?
   slug        String?   @unique
 
+  // Admin controls. limitOverrides: per-account overrides of the plan's
+  // limits (same shape as one plan in the plans.overrides setting; null =
+  // unlimited). statusReason: why an admin suspended/restricted it.
+  limitOverrides Json?
+  statusReason   String?
+  adminNotes     String?
+
   accountInvitations AccountInvitation[]
   // securityEvents SecurityEvent[]
   apiKeys            ApiKey[]
@@ -966,4 +973,65 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ── Platform: runtime settings and website content (admin panel) ───────────
+
+/// One row per setting an admin changed; keys without a row use the default
+/// from packages/shared/src/settings.ts.
+model SystemSetting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@map("system_settings")
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Website content edited in the admin panel. `data` is the working copy;
+/// `publishedData` is what the public site serves (copied on publish).
+model ContentEntry {
+  id             String        @id @default(uuid())
+  slug           String        @unique
+  kind           String
+  title          String
+  status         ContentStatus @default(DRAFT)
+  data           Json
+  publishedData  Json?
+  seoTitle       String?
+  seoDescription String?
+  version        Int           @default(0)
+  publishedAt    DateTime?
+  updatedById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  revisions ContentRevision[]
+
+  @@index([kind])
+  @@index([status])
+  @@map("content_entries")
+}
+
+/// Snapshot of an entry each time it is published (for history and rollback).
+model ContentRevision {
+  id          String   @id @default(uuid())
+  entryId     String
+  version     Int
+  title       String
+  data        Json
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  entry ContentEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, version])
+  @@map("content_revisions")
 }

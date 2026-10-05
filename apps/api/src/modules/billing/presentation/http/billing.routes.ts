@@ -3,7 +3,8 @@
 // All account-scoped routes require OWNER role (billing affects entire account).
 
 import { RoleLevel } from "@/core/constant/account.constant";
-import { ForbiddenError, NotFoundError } from "@/core/errors/error.format";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/core/errors/error.format";
+import { isOwnOrigin } from "@/core/constant/hub.constant";
 import { successResponse } from "@/core/utils/response.util";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
@@ -14,16 +15,38 @@ const accountParamSchema = z.object({
   accountId: z.string().uuid(),
 });
 
-const checkoutBodySchema = z.object({
-  priceId: z.string().min(1, "priceId is required"),
-  successUrl: z.string().url("successUrl must be a valid URL"),
-  cancelUrl: z.string().url("cancelUrl must be a valid URL"),
-  trialDays: z.number().int().min(0).max(90).optional(),
-});
+// Return URLs must be our own origins: arbitrary ones turned the Stripe page
+// into an open redirect (audit M16). The trial length is decided server-side
+// (settings: billing.trialDays, first subscription only); a client-sent
+// trialDays is accepted for compatibility and ignored.
+const ownUrl = (field: string) =>
+  z.string().url(`${field} must be a valid URL`).refine(isOwnOrigin, `${field} must point at this site`);
+
+const checkoutBodySchema = z
+  .object({
+    plan: z.enum(["PRO", "ENTERPRISE"]).optional(),
+    priceId: z.string().min(1).optional(),
+    successUrl: ownUrl("successUrl"),
+    cancelUrl: ownUrl("cancelUrl"),
+    trialDays: z.number().int().min(0).max(90).optional(),
+  })
+  .refine((b) => b.plan || b.priceId, "plan is required");
 
 const portalBodySchema = z.object({
-  returnUrl: z.string().url("returnUrl must be a valid URL"),
+  returnUrl: ownUrl("returnUrl"),
 });
+
+/** Only the configured Stripe prices can be bought (audit M16). */
+function resolvePriceId(body: { plan?: "PRO" | "ENTERPRISE"; priceId?: string }): string {
+  const prices = { PRO: process.env.STRIPE_PRO_PRICE_ID, ENTERPRISE: process.env.STRIPE_ENTERPRISE_PRICE_ID };
+  if (body.plan) {
+    const id = prices[body.plan];
+    if (!id) throw new ValidationError(`The ${body.plan} plan is not available`);
+    return id;
+  }
+  if (!Object.values(prices).includes(body.priceId)) throw new ValidationError("Unknown price");
+  return body.priceId!;
+}
 
 export async function billingRoutes(fastify: FastifyInstance) {
   /**
@@ -40,6 +63,10 @@ export async function billingRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { accountId } = accountParamSchema.parse(request.params);
       const body = checkoutBodySchema.parse(request.body);
+      const priceId = resolvePriceId(body);
+      if (!(await fastify.platformSettings.get("billing.checkoutEnabled"))) {
+        throw new ForbiddenError("Upgrades are temporarily unavailable. Please try again later.");
+      }
       const user = getUserContext(request);
       const uow = fastify.container.resolve(PrismaUnitOfWork);
 
@@ -60,10 +87,10 @@ export async function billingRoutes(fastify: FastifyInstance) {
         accountId,
         accountName: account.name ?? user.email,
         userEmail: user.email,
-        priceId: body.priceId,
+        priceId,
         successUrl: body.successUrl,
         cancelUrl: body.cancelUrl,
-        trialDays: body.trialDays,
+        trialDays: await fastify.platformSettings.get("billing.trialDays"),
       });
 
       return successResponse(reply, "Checkout session created", 201, result);

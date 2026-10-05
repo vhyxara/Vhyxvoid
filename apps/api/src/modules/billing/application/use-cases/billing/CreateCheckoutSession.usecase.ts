@@ -41,6 +41,15 @@ export class CreateCheckoutSessionUseCase {
         "Account already has an active subscription. Use the billing portal to make changes.",
       );
     }
+    // A failed payment is fixed in the portal; a second subscription would
+    // double-bill (audit M16).
+    if (existing?.isPastDue() || existing?.status === "UNPAID") {
+      throw new ForbiddenError(
+        "This account has an unpaid subscription. Update the payment method in the billing portal.",
+      );
+    }
+    // Trials are for an account's first subscription only (audit M16).
+    const trialDays = existing ? 0 : (params.trialDays ?? 0);
 
     // 2. Get or create Stripe customer
     let stripeCustomerId = await this.accountBillingRepo.getStripeCustomerId(
@@ -51,6 +60,8 @@ export class CreateCheckoutSessionUseCase {
         email: params.userEmail,
         name: params.accountName,
         accountId: params.accountId,
+        // Two concurrent checkouts create one customer, not two.
+        idempotencyKey: `customer:${params.accountId}`,
       });
       await this.accountBillingRepo.setStripeCustomerId(
         params.accountId,
@@ -65,8 +76,11 @@ export class CreateCheckoutSessionUseCase {
       priceId: params.priceId,
       successUrl: params.successUrl,
       cancelUrl: params.cancelUrl,
-      trialDays: params.trialDays,
+      trialDays,
       metadata: { accountId: params.accountId },
+      // The same request repeated within a minute (double click, retry)
+      // returns the same session instead of opening a second one.
+      idempotencyKey: `checkout:${params.accountId}:${params.priceId}:${Math.floor(Date.now() / 60_000)}`,
     });
 
     return { checkoutUrl };

@@ -16,7 +16,7 @@ export class StripeServiceImpl implements IStripeService {
   private readonly stripe: ReturnType<typeof Stripe>;
 
   // Price ID → Plan mapping (from environment variables)
-  private readonly priceToPlан: Map<string, Plan>;
+  private readonly priceToPlan: Map<string, Plan>;
 
   constructor(
     private readonly config: {
@@ -35,7 +35,7 @@ export class StripeServiceImpl implements IStripeService {
     // These are set in your .env:
     //   STRIPE_PRO_PRICE_ID=price_xxx
     //   STRIPE_ENTERPRISE_PRICE_ID=price_yyy
-    this.priceToPlан = new Map([
+    this.priceToPlan = new Map([
       [config.proPriceId, Plan.PRO],
       [config.enterprisePriceId, Plan.ENTERPRISE],
     ]);
@@ -49,7 +49,7 @@ export class StripeServiceImpl implements IStripeService {
         accountId: params.accountId,
         ...params.metadata,
       },
-    });
+    }, params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined);
     return customer.id;
   }
 
@@ -77,7 +77,7 @@ export class StripeServiceImpl implements IStripeService {
       metadata: { accountId: params.accountId, ...params.metadata },
       allow_promotion_codes: true,
       billing_address_collection: "required",
-    });
+    }, params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined);
 
     if (!session.url) {
       throw new Error("Stripe did not return a session URL");
@@ -110,6 +110,6 @@ export class StripeServiceImpl implements IStripeService {
   }
 
   resolvePlan(stripePriceId: string): Plan {
-    return this.priceToPlан.get(stripePriceId) ?? Plan.FREE;
+    return this.priceToPlan.get(stripePriceId) ?? Plan.FREE;
   }
 }

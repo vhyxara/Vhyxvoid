@@ -22,6 +22,12 @@
 // typed structurally.
 
 import { Plan, PLAN_LIMITS, type PlanLimits } from "./planLimits";
+import {
+  applyLimitOverrides,
+  validateLimitOverrides,
+  type PlanLimitOverrides,
+  type PlanOverridesSetting,
+} from "./settings";
 
 export const NOT_ENTITLED_ACCOUNT_STATUSES: ReadonlySet<string> = new Set([
   "SUSPENDED",
@@ -76,4 +82,30 @@ export async function getPlanLimitsForAccount(
 ): Promise<PlanLimits & { plan: Plan }> {
   const plan = await resolvePlanForAccount(prisma, accountId);
   return { plan, ...PLAN_LIMITS[plan] };
+}
+
+/** Reads an account's own limit overrides (Account.limitOverrides). */
+export interface AccountOverridesPrismaLike {
+  account: {
+    findUnique(args: { where: { id: string }; select: { limitOverrides: true } }): Promise<{ limitOverrides: unknown } | null>;
+  };
+}
+
+/**
+ * The limits that actually apply to an account: its plan's built-in limits,
+ * then the admin's plan-wide overrides (`plans.overrides` setting), then the
+ * account's own overrides. Invalid stored overrides are ignored, never thrown.
+ */
+export async function getEffectivePlanLimitsForAccount(
+  prisma: PlanPrismaLike & AccountOverridesPrismaLike,
+  accountId: string,
+  planOverrides?: PlanOverridesSetting,
+): Promise<PlanLimits & { plan: Plan }> {
+  const plan = await resolvePlanForAccount(prisma, accountId);
+  const row = await (prisma as AccountOverridesPrismaLike).account
+    .findUnique({ where: { id: accountId }, select: { limitOverrides: true } })
+    .catch(() => null);
+  const accountOverrides = row?.limitOverrides && !validateLimitOverrides(row.limitOverrides) ? (row.limitOverrides as PlanLimitOverrides) : undefined;
+  const planLayer = planOverrides?.[plan] && !validateLimitOverrides(planOverrides[plan]) ? planOverrides[plan] : undefined;
+  return { plan, ...applyLimitOverrides(PLAN_LIMITS[plan], planLayer, accountOverrides) };
 }

@@ -67,6 +67,8 @@ declare module "fastify" {
     uow: PrismaUnitOfWork;
     jwtService: RS256JwtService;
     redis: Redis;
+    platformSettings: import("@/modules/platform/settings/settings.service").SettingsService;
+    platformContent: import("@/modules/platform/content/content.service").ContentService;
     authStateCache: AuthStateCache;
     // tokenGenerator: CryptoTokenGenerator;
     // uow: PrismaUnitOfWork & {

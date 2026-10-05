@@ -21,7 +21,7 @@
 
 import { PlanLimits, Plan } from "@/modules/billing/domain/enums";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
-import { getPlanLimitsForAccount } from "@vhyxvoid/shared";
+import { currentPlanOverrides, getEffectivePlanLimitsForAccount } from "@vhyxvoid/shared";
 
 export class CheckPlanLimitsService {
   constructor(private readonly prisma: PrismaTransactionalClient) {}
@@ -34,7 +34,7 @@ export class CheckPlanLimitsService {
    * subscription -> FREE.
    */
   async getLimits(accountId: string): Promise<PlanLimits & { plan: Plan }> {
-    return getPlanLimitsForAccount(this.prisma, accountId);
+    return getEffectivePlanLimitsForAccount(this.prisma as any, accountId, await currentPlanOverrides());
   }
 
   async canAddAgent(
