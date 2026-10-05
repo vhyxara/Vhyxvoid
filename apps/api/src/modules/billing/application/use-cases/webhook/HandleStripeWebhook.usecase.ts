@@ -108,8 +108,11 @@ export class HandleStripeWebhookUseCase {
           await this.handleInvoiceUpsert(event.data.object as any);
           break;
 
-        // Events we acknowledge but don't act on yet
         case "customer.subscription.trial_will_end":
+          await this.handleTrialWillEnd(event.data.object as any);
+          break;
+
+        // Events we acknowledge but don't act on yet
         case "customer.created":
         case "customer.updated":
         case "payment_method.attached":
@@ -463,6 +466,7 @@ export class HandleStripeWebhookUseCase {
           firstName: "",
           accountName: sub.accountId,
           accessEndsAt: sub.currentPeriodEnd,
+          accountId: sub.accountId,
         })
         .catch((err) =>
           console.error(
@@ -471,6 +475,50 @@ export class HandleStripeWebhookUseCase {
           ),
         );
     }
+  }
+
+  /**
+   * customer.subscription.trial_will_end
+   * Stripe sends it three days before a trial ends (or at once when a trial
+   * shorter than that starts). Email the account owner; nothing else changes.
+   */
+  private async handleTrialWillEnd(stripeSub: {
+    id: string;
+    customer: string;
+    trial_end?: number | null;
+    metadata?: Record<string, string>;
+  }): Promise<void> {
+    if (!stripeSub.trial_end || !this.notificationService) return;
+    const sub = await this.subscriptionRepo.findByStripeSubscriptionId(
+      stripeSub.id,
+    );
+    const accountId =
+      sub?.accountId ??
+      stripeSub.metadata?.accountId ??
+      (await this.resolveAccountIdFromCustomer(stripeSub.customer));
+    if (!accountId) return;
+
+    const ownerEmail =
+      await this.accountBillingRepo.getAccountOwnerEmail?.(accountId);
+    if (!ownerEmail) return;
+
+    const trialEndsAt = new Date(stripeSub.trial_end * 1000);
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+    );
+    this.notificationService.sendTrialEnding
+      .execute({
+        to: ownerEmail,
+        firstName: "",
+        accountName: accountId,
+        trialEndsAt,
+        daysLeft,
+        accountId,
+      })
+      .catch((err) =>
+        console.error("[notifications] trial ending email failed", err),
+      );
   }
 
   /**
@@ -592,6 +640,7 @@ export class HandleStripeWebhookUseCase {
               accountName: sub.accountId,
               amountFormatted,
               graceEndsAt,
+              accountId: sub.accountId,
             })
             .catch((err) =>
               console.error("[notifications] payment failed email failed", err),

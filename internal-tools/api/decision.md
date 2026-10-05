@@ -398,3 +398,19 @@ The fix promised by the addendum above landed in `c8b98e6` (not deployed): `Acco
 6. **Cache:** the keys' `apikey:data:*` entries are dropped in `afterCommit`, like `RevokeApiKey` does, otherwise the SDK path and agent registration keep accepting a revoked key for up to the 5-minute TTL. Injected as a function built in the container factory with Redis read lazily (the Redis client is initialised after the factory runs); default no-op for tests.
 7. **Live agents:** no new mechanism; the hub's H3 sweep already evicts agents whose key is revoked (~60 s).
 **Status:** active.
+
+---
+
+### 2026-10-05 — Backlog sweep: usage pipeline semantics, one maxApiKeys check, limiter ahead of guards, audit-log total as a sibling field
+
+**Decided by:** Claude Code (session `2026-10-05-backlog-sweep`; **uncommitted** at the user's request; code-archive CA-0038 to CA-0044).
+**Decisions:**
+1. **Failed usage write: put the count back, don't delete after the write (CA-0039).** The backlog offered "delete only after a successful upsert". That would bring back a read-then-delete window, which `GETDEL` (CA-0005) had just closed. Instead the worker `INCRBY`s the count back into its own key, with a TTL computed from the bucket (the original 25 h lifetime), so a permanently failing write is retried until then and not forever. Accepted risk: a write that committed but reported an error is counted twice (soft counter, decision "Answers to the E1-E7 open questions" #6).
+2. **Account-level usage = every row of the account, no rollup table (CA-0040a).** Writing an extra rollup row per flush was the other option. Reading all rows is what `/usage/summary` already did, and `buildTimeSeries` sums per bucket, so the chart and the month total now agree. The raw `GET /api-keys/usage` (account scope) now also returns keyed rows; it has no UI caller.
+3. **`periodEnd` is the bucket end; readers window on `periodStart` (CA-0040b).** A bucket belongs to the window it starts in. The old `periodEnd <= now` filter would have hidden the current bucket once `periodEnd` became the real end, so both readers dropped that filter in the same change.
+4. **Audit-log total goes in a sibling `meta` field, and `data` stays the array (CA-0038).** `tableResponse`'s `{items, meta}` shape would have broken apps/admin, which can't be typechecked here. The orphan (`adminId` null) filter moved into the queries so the total and the pages agree.
+5. **maxApiKeys: drop the route guard, keep the use case check (CA-0044).** The guard ran before the membership check, so it leaked a plan and key count to non-members, and its 402 hid the documented message. Unifying the messages would have kept the leak. The guard factory had no other caller and was deleted, not kept for later.
+6. **Limiter ordering by two onRoute hooks around the plugin (CA-0043),** rather than a root `onRequest` hook calling `fastify.rateLimit()` or editing every route's `onRequest` array. Per-route `config.rateLimit` keeps working unchanged, and a route added later is covered automatically. The backlog's CORS-on-429 worry was checked and is a non-issue: CORS is registered before the routes.
+7. **Billing-email links (CA-0042):** fixed in the use cases with an optional `accountId`. The fallback without an id is `/dashboard` (a real page), not `/settings/billing`.
+**Left open on purpose:** the slug check-then-insert P2002 race (needs savepoints inside the interactive transaction for a ~1-in-2.8e12 collision); `HUB_INTERNAL_*` env cleanup (depends on admin-v2 H4); `turbo run test` double run (scoped by its own text to "if ever used for real").
+**Status:** active.

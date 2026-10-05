@@ -2,11 +2,11 @@ import { FastifyInstance } from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCompress from "@fastify/compress";
-import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyCookie from "@fastify/cookie";
 import { fastifyJwt } from "@fastify/jwt";
 import { allowedOrigins } from "@/core/constant/hub.constant";
 import { GLOBAL_RATE_LIMIT } from "@/core/constant/rateLimit.constant";
+import { registerRateLimitFirst } from "@/core/utils/rateLimitFirst";
 import prismaPlugin from "@/modules/identity/presentation/plugins/prisma.plugin";
 import identity from "@/modules/identity/presentation/plugins/identity.plugin";
 import userUseCases from "@/modules/identity/presentation/plugins/user.plugin";
@@ -27,8 +27,10 @@ import redisPlugin from "@/modules/key-management/presentation/plugins/infrastru
 export const registerPlugins = async (server: FastifyInstance) => {
   // First: @fastify/rate-limit attaches to routes through an onRoute hook,
   // so any route registered before it is never limited (the api-keys routes
-  // were not), and a per-route config.rateLimit is ignored.
-  await server.register(fastifyRateLimit, GLOBAL_RATE_LIMIT);
+  // were not), and a per-route config.rateLimit is ignored. Its check is
+  // moved ahead of each route's own onRequest guards, so requests a guard
+  // rejects are still counted.
+  await registerRateLimitFirst(server, GLOBAL_RATE_LIMIT);
   await server.register(containerPlugin);
   await server.register(prismaPlugin);
   // Root level (fastify-plugin), so fastify.redis is visible to every plugin

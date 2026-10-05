@@ -32,3 +32,9 @@ Resolved 2026-09-24, 5e255b0, trustProxy limited to loopback/private-network pee
   wait on. Flagged, not fixed — out of scope for the apps/web-only session
   that found it (2026-09-19).
   Resolved 2026-09-25, fc9612c (session 2026-09-25-backlog-sweep), disable/enable admin, delete ability, revoke role/ability use mutateAsync; Confirmation shows the error; code-archive/admin-frontend/CA-0022.
+- [ ] Three `apps/api`-owned feedback-module findings from Screen 7,
+  not actionable from this app — see `internal-tools/api/backlog.md`:
+  no audit logging on feedback triage updates, 4 extra DB round trips per
+  list call for the status counts, and a non-standard `{error: "..."}`
+  400 envelope on the empty-update-payload guard.
+  Resolved 2026-10-05, uncommitted (session 2026-10-05-backlog-sweep), all three fixed in apps/api by b9c9f67 (session 2026-09-25-backlog-sweep; code-archive/api/CA-0001..CA-0003); moved here 2026-10-05 as a pointer item.

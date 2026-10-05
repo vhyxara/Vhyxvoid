@@ -27,4 +27,5 @@ export interface AdminAuditLogRepository {
   countByAdminId(adminId: string): Promise<number>;
   countByAction(action: string): Promise<number>;
   countByTargetId(targetId: string): Promise<number>;
+  countAll(): Promise<number>;
 }

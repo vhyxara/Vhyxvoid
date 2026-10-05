@@ -22,6 +22,15 @@ import {
 
 const APP_URL = process.env.APP_URL ?? "https://www.vhyxvoid.com";
 
+// The account's Billing page in apps/web (the default locale has no URL
+// prefix). The billing emails used to link /settings/billing, which apps/web
+// doesn't have; without an account id, fall back to the dashboard.
+function billingPageUrl(accountId?: string): string {
+  return accountId
+    ? `${APP_URL}/organizations/${encodeURIComponent(accountId)}/billing`
+    : `${APP_URL}/dashboard`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SendEmailVerificationUseCase
 // Replaces: console.log('EMAIL VERIFY TOKEN:', rawToken) in RegisterUserUseCase
@@ -92,9 +101,10 @@ export class SendPaymentFailedEmailUseCase {
     amountFormatted: string;
     graceEndsAt: Date;
     billingPortalUrl?: string;
+    accountId?: string;
   }): Promise<void> {
     const billingPortalUrl =
-      params.billingPortalUrl ?? `${APP_URL}/settings/billing`;
+      params.billingPortalUrl ?? billingPageUrl(params.accountId);
 
     const { subject, html, text } = paymentFailed({
       firstName: params.firstName,
@@ -141,10 +151,12 @@ export class SendSubscriptionCanceledEmailUseCase {
     firstName: string;
     accountName: string;
     accessEndsAt: Date;
+    accountId?: string;
   }): Promise<void> {
-    const resubscribeUrl = `${APP_URL}/settings/billing`;
+    const { accountId, ...rest } = params;
+    const resubscribeUrl = billingPageUrl(accountId);
     const { subject, html, text } = subscriptionCanceled({
-      ...params,
+      ...rest,
       resubscribeUrl,
     });
     await this.emailService.send({ to: params.to, subject, html, text });
@@ -164,10 +176,12 @@ export class SendTrialEndingEmailUseCase {
     accountName: string;
     trialEndsAt: Date;
     daysLeft: number;
+    accountId?: string;
   }): Promise<void> {
-    const upgradeUrl = `${APP_URL}/settings/billing`;
+    const { accountId, ...rest } = params;
+    const upgradeUrl = billingPageUrl(accountId);
     const { subject, html, text } = trialEnding({
-      ...params,
+      ...rest,
       upgradeUrl,
     });
     await this.emailService.send({ to: params.to, subject, html, text });

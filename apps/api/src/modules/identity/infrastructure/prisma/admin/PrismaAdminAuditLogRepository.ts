@@ -76,7 +76,7 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
     offset = 0,
   ): Promise<AdminAuditLog[]> {
     const data = await this.prisma.adminAuditLog.findMany({
-      where: { action },
+      where: { action, adminId: { not: null } },
       orderBy: { createdAt: "desc" },
       take: limit,
       skip: offset,
@@ -104,7 +104,7 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
     offset = 0,
   ): Promise<AdminAuditLog[]> {
     const data = await this.prisma.adminAuditLog.findMany({
-      where: { targetId },
+      where: { targetId, adminId: { not: null } },
       orderBy: { createdAt: "desc" },
       take: limit,
       skip: offset,
@@ -128,6 +128,10 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
 
   async findAll(limit = 50, offset = 0): Promise<AdminAuditLog[]> {
     const data = await this.prisma.adminAuditLog.findMany({
+      // Rows whose admin is gone (adminId null) are never returned, so they
+      // are excluded in the query itself: filtering after take/skip made
+      // pages short and the counts below disagree with the pages.
+      where: { adminId: { not: null } },
       orderBy: { createdAt: "desc" },
       take: limit,
       skip: offset,
@@ -154,10 +158,20 @@ export class PrismaAdminAuditLogRepository implements AdminAuditLogRepository {
   }
 
   async countByAction(action: string): Promise<number> {
-    return this.prisma.adminAuditLog.count({ where: { action } });
+    return this.prisma.adminAuditLog.count({
+      where: { action, adminId: { not: null } },
+    });
   }
 
   async countByTargetId(targetId: string): Promise<number> {
-    return this.prisma.adminAuditLog.count({ where: { targetId } });
+    return this.prisma.adminAuditLog.count({
+      where: { targetId, adminId: { not: null } },
+    });
+  }
+
+  async countAll(): Promise<number> {
+    return this.prisma.adminAuditLog.count({
+      where: { adminId: { not: null } },
+    });
   }
 }

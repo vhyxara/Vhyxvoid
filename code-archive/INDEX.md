@@ -41,3 +41,13 @@ Newest entries at the bottom. One row per entry; the entry file has the details.
 | [CA-0035](api/CA-0035-billing-redis-and-webhooks.md) | 2026-09-25 | api | Bug fix | Fixed | Billing had no Redis; Stripe webhook 500s and duplicate processing | `42f6652` |
 | [CA-0036](shared/CA-0036-streaming-and-cancel.md) | 2026-09-25 | shared | Addition | Done | Streaming responses (SSE, NDJSON, chunked) and request cancellation | `fca13f7` |
 | [CA-0037](hub/CA-0037-drop-unread-pending-redis-keys.md) | 2026-09-25 | hub | Performance | Fixed | Two wasted Redis commands per tunnelled request | `3c66040` |
+| [CA-0038](api/CA-0038-audit-logs-total.md) | 2026-10-05 | api | Consistency | Fixed | GET /admin/identity/audit-logs had no total, and its pages could come up short | uncommitted |
+| [CA-0039](api/CA-0039-usage-drain-restore-on-failure.md) | 2026-10-05 | api | Bug fix (data loss) | Fixed | A failed usage write lost that tick's count | uncommitted |
+| [CA-0040](api/CA-0040-usage-h4-remainder.md) | 2026-10-05 | api | Bug fix | Fixed | Account usage left out SDK traffic; periodEnd was the flush time; two SCANs per account per flush | uncommitted |
+| [CA-0041](api/CA-0041-trial-will-end-email.md) | 2026-10-05 | api | Bug fix | Fixed | Stripe trial_will_end was acknowledged but no email was sent | uncommitted |
+| [CA-0042](api/CA-0042-billing-email-links.md) | 2026-10-05 | api | Bug fix | Fixed | Billing emails linked to a page that doesn't exist | uncommitted |
+| [CA-0043](api/CA-0043-rate-limit-before-guards.md) | 2026-10-05 | api | Security | Fixed | Requests rejected by an auth guard were never rate limited | uncommitted |
+| [CA-0044](api/CA-0044-api-key-limit-single-check.md) | 2026-10-05 | api | Security | Fixed | maxApiKeys was enforced twice; the guard leaked plan data to non-members | uncommitted |
+| [CA-0045](shared/CA-0045-agent-dotenv-quiet.md) | 2026-10-05 | shared | Cleanup | Fixed | The agent CLI printed a dotenv tip line on every start | uncommitted |
+| [CA-0046](hub/CA-0046-subdomain-resolve-cache.md) | 2026-10-05 | hub | Performance | Fixed | Every public tunnel request cost one Upstash GET to resolve its host | uncommitted |
+| [CA-0047](docs/CA-0047-reserved-hostnames.md) | 2026-10-05 | docs | Test fix (verification) | Done | Could an account slug collide with docs./api./hub./admin./app./www.? | uncommitted |

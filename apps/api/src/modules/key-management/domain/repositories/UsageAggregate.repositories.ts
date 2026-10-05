@@ -53,12 +53,16 @@ export class PrismaUsageAggregateRepository implements UsageAggregateRepository 
     metric?: UsageMetric,
   ): Promise<UsageAggregate[]> {
     const data = await this.prisma.usageAggregate.findMany({
+      // Every row of the account: keyed SDK counts land in per-key rows and
+      // nothing rolls them up into the apiKeyId-null rows (those hold the
+      // public tunnel path and counters whose key no longer resolves), so
+      // reading only the null rows left SDK traffic out of the account view.
+      // Callers sum rows per time bucket. A bucket belongs to the window it
+      // starts in; periodEnd is the bucket's end and may be after `now`.
       where: {
         accountId,
-        apiKeyId: null, // account-level rollups only
         metric: metric ?? undefined,
-        periodStart: { gte: period.start },
-        periodEnd: { lte: period.end },
+        periodStart: { gte: period.start, lt: period.end },
       },
       orderBy: { periodStart: "asc" },
     });
@@ -76,8 +80,7 @@ export class PrismaUsageAggregateRepository implements UsageAggregateRepository 
       where: {
         apiKeyId,
         metric: metric ?? undefined,
-        periodStart: { gte: period.start },
-        periodEnd: { lte: period.end },
+        periodStart: { gte: period.start, lt: period.end },
       },
       orderBy: { periodStart: "asc" },
     });

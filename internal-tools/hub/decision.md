@@ -172,3 +172,14 @@ by date — every entry is still dated and self-contained.
 **Live verification notes:** rotation is PRO-only, so the disposable account got a PRO `Subscription` row (deleted with the rest). Ending the 1-hour grace was simulated by moving `rotationGraceEndsAt` into the past in SQL plus dropping the key's cache entry, as the api does after its writes; the first attempt wrote local time into the UTC-naive column (IST, 5.5 h ahead), leaving the window open, which the code correctly honoured; redone with `now() at time zone 'utc'`.
 **Possible later add-on (not built):** for sub-minute revocation, `RevokeApiKey` could publish `keyId` and the hub run one targeted key check on receipt; the sweep stays as the backstop.
 **Status:** active.
+
+---
+
+### 2026-10-05 — SubdomainRegistry.resolve: 5 s in-process cache of found entries, kept in step by the registry's own writes
+
+**Decided by:** Claude Code (session `2026-10-05-backlog-sweep`; uncommitted; code-archive CA-0046).
+**Context:** hub backlog: every public tunnel request (and WS upgrade) did one Upstash GET to resolve its host.
+**Options considered:** no cache; a TTL cache only; a cache maintained by this process's own writes plus a TTL; invalidation over pub/sub (multi-hub is a stub).
+**Decision:** cache inside `SubdomainRegistry`, so every write path already goes through it. `register` stores the entry; `unregister` drops it whenever the cached agent is the one being unregistered, including a superseded compare-and-delete (so a takeover by another instance is re-read); `unregisterAllForHub` clears everything. Found entries only, so a label registered elsewhere is never hidden behind a cached miss. TTL 5 s (constructor arg, 0 disables) bounds staleness for changes made outside this process. A global write counter stops a `resolve` that overlapped a write from caching what it read (proven by a test that fails without it).
+**Rationale:** for today's single hub, every write that matters happens in this process, so the cache is exact; the TTL only matters once multi-hub exists. At that point a key-change event (audit part2 A4) should replace it.
+**Status:** active.

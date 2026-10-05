@@ -34,30 +34,43 @@ export class FlushUsageWorker {
   async runForPendingAccounts(
     filterKnownAccounts: (accountIds: string[]) => Promise<string[]>,
   ): Promise<void> {
-    const pending = await this.cacheService.listAccountIdsWithPendingUsage();
-    if (pending.length === 0) return;
-    await this.run(await filterKnownAccounts(pending));
+    // One SCAN per tick; each account's drain reuses its slice of it.
+    const keysByAccount =
+      await this.cacheService.listPendingUsageKeysByAccount();
+    if (keysByAccount.size === 0) return;
+    await this.run(
+      await filterKnownAccounts([...keysByAccount.keys()]),
+      keysByAccount,
+    );
   }
 
-  async run(accountIds: string[]): Promise<void> {
+  async run(
+    accountIds: string[],
+    keysByAccount?: Map<string, string[]>,
+  ): Promise<void> {
     for (const accountId of accountIds) {
-      const counters = await this.cacheService.drainUsageCounters(accountId);
+      const counters = await this.cacheService.drainUsageCounters(
+        accountId,
+        keysByAccount?.get(accountId),
+      );
 
       if (counters.length === 0) continue;
 
-      const BUCKET_MINUTES = 5;
-      const periodEnd = new Date();
+      const BUCKET_MS = 5 * 60_000;
       const resolvedKeyIds = new Map<string, string | null>();
 
       for (const counter of counters) {
         const periodStart = new Date(
           counter.periodStart.getTime() -
-            (counter.periodStart.getTime() % (BUCKET_MINUTES * 60_000)),
+            (counter.periodStart.getTime() % BUCKET_MS),
         );
+        // The bucket's own end, not the flush time: a later flush into the
+        // same bucket then agrees with the first, and a window ending in the
+        // past is answered correctly.
+        const periodEnd = new Date(periodStart.getTime() + BUCKET_MS);
 
-        // The drain has already deleted these Redis keys, so a failed write
-        // loses only this one counter — it must not abort every counter and
-        // account after it in this tick.
+        // A failed write must not abort every counter and account after it
+        // in this tick; its count goes back to Redis for the next tick.
         try {
           const apiKeyId =
             counter.apiKeyId === null
@@ -77,6 +90,8 @@ export class FlushUsageWorker {
             quantity: counter.quantity,
           });
         } catch (err) {
+          const restored =
+            await this.cacheService.restoreUsageCounter(counter);
           console.error(
             {
               err: (err as Error).message,
@@ -86,7 +101,9 @@ export class FlushUsageWorker {
               periodStart,
               quantity: counter.quantity.toString(),
             },
-            "[FlushUsageWorker] failed to write a usage counter; it is lost",
+            restored
+              ? "[FlushUsageWorker] failed to write a usage counter; put back in Redis for the next tick"
+              : "[FlushUsageWorker] failed to write a usage counter; it is lost",
           );
         }
       }

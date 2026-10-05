@@ -67,14 +67,10 @@ export interface ApiKeyCacheService {
    * path's account-level rollup (PUBLIC_USAGE_SENTINEL, mapped back to null
    * here) — every other bucket has a real key.
    */
-  drainUsageCounters(accountId: string): Promise<
-    Array<{
-      apiKeyId: string | null;
-      metric: string;
-      periodStart: Date;
-      quantity: bigint;
-    }>
-  >;
+  drainUsageCounters(
+    accountId: string,
+    keys?: string[],
+  ): Promise<DrainedUsageCounter[]>;
 
   /**
    * Every accountId that currently has at least one usage:* counter in
@@ -85,6 +81,28 @@ export interface ApiKeyCacheService {
    * draining.
    */
   listAccountIdsWithPendingUsage(): Promise<string[]>;
+
+  /**
+   * The same pending usage:* keys, grouped by accountId, from one SCAN.
+   * Pass an account's list to drainUsageCounters() to skip its own scan.
+   */
+  listPendingUsageKeysByAccount(): Promise<Map<string, string[]>>;
+
+  /**
+   * Add a drained counter back to Redis after its Postgres write failed, so
+   * the next flush retries it. Returns false when the counter is past its
+   * original 25 h lifetime (or Redis refused), i.e. the count is dropped.
+   */
+  restoreUsageCounter(counter: DrainedUsageCounter): Promise<boolean>;
+}
+
+export interface DrainedUsageCounter {
+  apiKeyId: string | null;
+  metric: string;
+  periodStart: Date;
+  quantity: bigint;
+  /** The Redis key it was drained from; restoreUsageCounter() writes it back. */
+  redisKey: string;
 }
 
 // core/types/api-key/cacheService.ts

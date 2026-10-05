@@ -23,7 +23,24 @@ export interface SubdomainEntry {
 }
 
 export class SubdomainRegistry {
-  constructor(private readonly redis: Redis) {}
+  /**
+   * @param cacheTtlMs how long resolve() may answer from memory. Every public
+   *   tunnel request resolves its host, which was one Upstash GET each time.
+   *   This process performs every write to these keys for its own agents
+   *   (register, unregister, startup cleanup) and keeps the cache in step
+   *   with them, so the TTL only bounds how long a change made elsewhere
+   *   (another hub instance, a manual edit) can go unseen. 0 disables it.
+   */
+  constructor(
+    private readonly redis: Redis,
+    private readonly cacheTtlMs = 5_000,
+  ) {}
+
+  private readonly cache = new Map<string, { entry: SubdomainEntry; expiresAt: number }>();
+  // Bumped by every write. resolve() caches what it read only if no write
+  // happened while it was reading, so a slow read can't put back an entry a
+  // concurrent register()/unregister() just replaced.
+  private writeSeq = 0;
 
   // Per-key async mutex. register()/unregister() for the same
   // (label,accountSlug) key run from two genuinely independent WS
@@ -52,7 +69,9 @@ export class SubdomainRegistry {
   async register(entry: SubdomainEntry): Promise<void> {
     const key = this.key(entry.label, entry.accountSlug);
     return this.withLock(key, async () => {
+      this.writeSeq++;
       await this.redis.set(key, JSON.stringify(entry));
+      this.remember(key, entry);
     });
   }
 
@@ -71,6 +90,8 @@ export class SubdomainRegistry {
   async unregister(label: string, accountSlug: string, expectedAgentId: string): Promise<void> {
     const key = this.key(label, accountSlug);
     return this.withLock(key, async () => {
+      this.writeSeq++;
+      if (this.cache.get(key)?.entry.agentId === expectedAgentId) this.cache.delete(key);
       const current = await this.getEntry(key);
       if (!current) return; // already gone — nothing to do
       if (current.agentId !== expectedAgentId) return; // superseded — not ours to remove
@@ -91,11 +112,28 @@ export class SubdomainRegistry {
 
   // Called by hub HTTP handler to route incoming requests
   async resolve(label: string, accountSlug: string): Promise<SubdomainEntry | null> {
-    return this.getEntry(this.key(label, accountSlug));
+    const key = this.key(label, accountSlug);
+    const cached = this.cache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.entry;
+
+    const seq = this.writeSeq;
+    const entry = await this.getEntry(key);
+    if (seq === this.writeSeq) {
+      if (entry) this.remember(key, entry);
+      else this.cache.delete(key);
+    }
+    return entry;
+  }
+
+  private remember(key: string, entry: SubdomainEntry): void {
+    if (this.cacheTtlMs <= 0) return;
+    this.cache.set(key, { entry, expiresAt: Date.now() + this.cacheTtlMs });
   }
 
   // Called on hub startup to clean up stale keys from crashed instances
   async unregisterAllForHub(hubInstanceId: string): Promise<void> {
+    this.writeSeq++;
+    this.cache.clear();
     let cursor = 0;
     do {
       const res = await this.redis.scan(cursor, {

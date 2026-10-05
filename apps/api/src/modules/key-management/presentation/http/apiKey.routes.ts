@@ -9,7 +9,6 @@ import { getUserContext } from "@/modules/identity/infrastructure/middleware/Use
 //   ApiScope,
 // } from "@/core/types/api-key/apiKeys.type";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
-import { buildPlanLimitGuard } from "@/modules/billing/infrastructure/middleware/planLimitGuard.middleware";
 import { successResponse, tableResponse } from "@/core/utils/response.util";
 import {
   ForbiddenError,
@@ -124,16 +123,6 @@ const listApiKeysQuerySchema = z.object({
 export async function apiKeyRoutes(fastify: FastifyInstance) {
   const uow = fastify.container.resolve(PrismaUnitOfWork);
 
-  const apiKeyLimitGuard = buildPlanLimitGuard(
-    "maxApiKeys",
-    async (accountId) => {
-      const uow = fastify.container.resolve(PrismaUnitOfWork);
-      return fastify.prisma.apiKey.count({
-        where: { accountId, status: "ACTIVE" },
-      });
-    },
-  );
-
   /**
    * Create API Key
    * POST /accounts/organizations/:accountId/api-keys
@@ -147,7 +136,11 @@ export async function apiKeyRoutes(fastify: FastifyInstance) {
     Body: z.infer<typeof createApiKeySchema>;
   }>(
     "/organizations/:accountId/api-keys",
-    { onRequest: [fastify.userAuthGuard, apiKeyLimitGuard] },
+    // maxApiKeys is checked by CreateApiKeyUseCase, after the membership
+    // and role checks. A route-level guard used to run first: it answered a
+    // bare 402 "Plan limit reached" instead of the use case's message, and
+    // told a non-member the account's plan and key count.
+    { onRequest: [fastify.userAuthGuard] },
     async (request, reply) => {
       const { accountId } = accountParamSchema.parse(request.params);
       const input = createApiKeySchema.parse(request.body);

@@ -167,9 +167,10 @@ import * as path from "path";
 import * as os from "os";
 import { createPrompter } from "./prompt";
 
-// Load .env, .env.local, .env.vhyxvoid in order (last wins)
+// Load .env, .env.local, .env.vhyxvoid in order (last wins). quiet: dotenv 17
+// otherwise prints an "injecting env ... tip" line for every file on start.
 for (const f of [".env", ".env.local", ".env.vhyxvoid"]) {
-  if (fs.existsSync(f)) loadEnv({ path: f, override: true });
+  if (fs.existsSync(f)) loadEnv({ path: f, override: true, quiet: true });
 }
 
 const program = new Command();

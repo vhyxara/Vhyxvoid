@@ -113,3 +113,21 @@ Entries CA-0025 to CA-0037. Commits `4a3131f`, `195f405`, `c415239`, `3eecfae`,
 Gates: unit suite 537 passed / 6 skipped (77 files); journey 53/53 with every
 section on; typecheck 10/10 (web/admin excluded as in CI).
 
+
+### 2026-10-05: backlog sweep (`2026-10-05-backlog-sweep`)
+
+Branch `backlog`, after pulling `ba0cf0a`. Entries CA-0038 to CA-0047.
+**Not committed** (the user asked for no commits); the `Commit` field says
+so and should be filled in when the work is committed.
+
+- apps/api: audit-log total (CA-0038), usage drain restore on a failed write
+  (CA-0039), the usage pipeline's H4 remainder (CA-0040), trial-ending email
+  (CA-0041), billing email links (CA-0042, new finding), rate limiting ahead
+  of auth guards (CA-0043), one `maxApiKeys` check (CA-0044).
+- packages/agent: dotenv tip line (CA-0045).
+- apps/hub: in-process subdomain resolve cache (CA-0046).
+- docs: reserved hostnames verified, regression test added (CA-0047).
+
+Gates: unit suite 563 passed / 6 skipped (80 files; 537 before); typecheck
+10/10 and build 8/8 (web/admin/docs excluded as in CI). Two new test files:
+`apiBacklogFixes20261005`, `subdomainResolveCache`.

@@ -55,3 +55,15 @@ not reconstructed here, except where a session had the original text on hand.
   Resolved 2026-09-25, ea6e1f0 (session 2026-09-25-decisions-and-e2e), sdk:register carries the raw secret once (like agents); the hub verifies it, checks each request's raw-secret signature and re-signs for the unchanged validator; connect() rejects on refusal; code-archive/shared/CA-0034.
 - [ ] **No request cancellation; timeouts don't line up across hops (audit part2 G13).** createClient 30 s, agent budget - 2 s, hub 120 s, nginx 3600 s, Cloudflare ~100 s, and no `tunnel:cancel` message, so an abandoned request keeps running on the backend. Add `tunnel:cancel` (protocol + hub + agent) and propagate `req.on('close')`. See `shared/audit-2026-09-24-part2.md` G13. Filed 2026-09-25 from audit part2 (session 2026-09-25-audit-part2-fixes).
   Resolved 2026-09-25, fca13f7 (session 2026-09-25-decisions-and-e2e), tunnel:cancel (hub -> agent) on caller disconnect aborts the backend request via an AbortController (agents announcing "cancel"); streamed responses have no hub timeout once started. The createClient 30 s vs hub 120 s mismatch is documented, not changed; code-archive/shared/CA-0036.
+- [ ] Found 2026-09-22 (S2, while deciding maxMembers' error response): `apiKeyLimitGuard`
+  (`onRequest`, real `Plan limit reached` 402 via `PlanLimitExceededError`) and
+  `CreateApiKey.usecase.ts`'s own inline check (a friendlier `ForbiddenError`,
+  "API key limit reached (3). Revoke an existing key or upgrade your plan.")
+  both enforce `maxApiKeys`, independently. Since the guard runs first
+  (`onRequest`, before the route handler body), it likely always wins when an
+  account is over the limit, meaning the friendlier message documented on
+  `dashboard/api-keys.mdx` may not be what a real user actually sees — not
+  confirmed with a real request, not fixed, out of S2's scope (unrelated to
+  `maxMembers`). Worth a real end-to-end check and, if confirmed, either
+  dropping the redundant inline check or unifying the message.
+  Resolved 2026-10-05, uncommitted (session 2026-10-05-backlog-sweep), route-level apiKeyLimitGuard removed (and planLimitGuard.middleware.ts deleted); CreateApiKeyUseCase's check, after membership, is the only one; code-archive/api/CA-0044.

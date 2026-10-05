@@ -1897,3 +1897,70 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "2026-10-05-backlog-sweep",
+  "date": "2026-10-05",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch backlog)",
+  "brief_summary": "Pull with the personal SSH key, read internal-tools and every backlog, investigate, and fix what's fixable without committing anything.",
+  "status": "completed",
+  "summary": "The repo's files were owned by another macOS user (uid 503), which blocked git and edits until the user ran chown. Pulled ba0cf0a with the personal key (~/.ssh/id_ed25519_personal); the pull brought in the 2026-09-25 sessions, which had already fixed most contained items. Fixed ten more: the audit-log total, usage drain restore on failed writes, the usage pipeline's H4 remainder, the trial-ending email, billing email links (new finding: all pointed at a non-existent /settings/billing), rate limiting ahead of auth guards, a single maxApiKeys check (the old guard leaked plan data to non-members), the agent's dotenv tip line, a subdomain resolve cache on the hub, and a verification + test that no slug can take a service hostname. Nothing committed, per the user.",
+  "decisions_made": [
+    "Failed usage write: re-INCRBY into the same key with its original lifetime instead of delete-after-write",
+    "Account-level usage reads every row of the account; periodEnd = bucket end; readers window on periodStart",
+    "Audit-log total in a sibling meta field; data unchanged",
+    "maxApiKeys route guard removed (and its factory deleted), use case check kept",
+    "Rate limiter moved ahead of route guards by onRoute hooks around the plugin",
+    "Hub resolve cache: found entries only, 5 s, write-counter guarded",
+    "Left: slug P2002 race, HUB_INTERNAL_* cleanup, turbo test double run, [agent] info lines, everything needing a product/deploy/decision"
+  ],
+  "bugs_found_fixed": [
+    "GET /audit-logs: no total; orphan rows filtered after pagination (short pages)",
+    "Failed usage upsert lost the count",
+    "Dashboard usage excluded SDK traffic; periodEnd = flush time; O(accounts x keyspace) SCANs",
+    "trial_will_end sent no email",
+    "Billing emails linked to /settings/billing (404 in apps/web)",
+    "Guard-rejected requests never rate limited",
+    "maxApiKeys guard: 402 hid the documented message and leaked plan/key count to non-members",
+    "Agent CLI dotenv tip line",
+    "One Upstash GET per public tunnel request"
+  ],
+  "bugs_found_unfixed": [
+    "Billing emails greet with a blank first name and show the account id as its name (api backlog, new)",
+    "apps/admin doesn't show the new audit-log total (admin-frontend backlog, new)"
+  ],
+  "files_changed": [
+    "apps/api/src/core/{types/api-key/cacheservice.type.ts,utils/rateLimitFirst.ts (new)}",
+    "apps/api/src/modules/identity/{domain/repositories/admin,infrastructure/prisma/admin,presentation/http/admin/admin.routes.ts,presentation/plugins/register.plugin.ts}",
+    "apps/api/src/modules/key-management/{application/use-cases/FlushUsageWorker.usecase.ts,domain/services/RedisApiKeyCache.service.ts,domain/repositories/UsageAggregate.repositories.ts,presentation/http/apiKey.routes.ts}",
+    "apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts; billing/infrastructure/middleware/planLimitGuard.middleware.ts (deleted)",
+    "apps/api/src/modules/notification/application/use-cases/index.ts",
+    "apps/hub/src/services/SubdomainRegistry.service.ts",
+    "packages/agent/src/cli.ts",
+    "tests/e2e/{apiBacklogFixes20261005,subdomainResolveCache}.test.ts (new)",
+    "code-archive CA-0038..CA-0047, INDEX.md, README.md; internal-tools backlogs/archive/decision"
+  ],
+  "gate_results": {
+    "baseline": "537 passed / 6 skipped after `prisma generate` (client was built for x86 darwin) and a package rebuild (stale packages/agent/dist from 25 Sep failed middlewarePortDetection)",
+    "tests": "80 files (79 passed, 1 skipped); 563 passed + 6 skipped",
+    "fail_first": "every new test checked against the old code: audit-log 3/3, usage 4 of 5 (the drop case passes either way by construction), rate-limit 3/3, resolve cache 4/9 plus the overlap test without the write-counter guard",
+    "typecheck": "10/10 excluding web and admin (as in CI)",
+    "build": "8/8 excluding web, admin, docs",
+    "docs": "check:fresh flags only pages touched by earlier, committed sessions; no page describes what this session changed",
+    "commits": "none (user instruction)"
+  },
+  "open_items_for_next_session": [
+    "Commit this work (code-archive Commit fields say 'uncommitted'; fill in the sha)",
+    "Deploy api + hub; publish the agent (dotenv) with the next release",
+    "apps/admin: show meta.total on the audit log",
+    "Billing emails: real first name and account name"
+  ],
+  "context_md_updates_needed": [
+    "api: usage readers window on periodStart, account scope includes keyed rows, failed flushes are re-queued; rate limiter runs before route guards; maxApiKeys checked only in CreateApiKeyUseCase",
+    "hub: SubdomainRegistry caches resolve() for 5 s",
+    "shared: local dev needs `prisma generate` on arm64 and a package rebuild after pulling"
+  ]
+}
+```

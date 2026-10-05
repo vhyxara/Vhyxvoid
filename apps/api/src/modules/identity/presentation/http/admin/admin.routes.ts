@@ -768,31 +768,30 @@ export async function adminRoutes(fastify: FastifyInstance) {
       // if (!data) return; // stops execution if validation fails
       const query = auditLogsQuerySchema.parse(request.query);
 
+      const repo = fastify.uow.adminAuditLogRepository;
       let logs: any[];
+      let total: number;
 
       if (query.adminId) {
-        logs = await fastify.uow.adminAuditLogRepository.findByAdminId(
-          query.adminId,
-          query.limit,
-          query.offset,
-        );
+        [logs, total] = await Promise.all([
+          repo.findByAdminId(query.adminId, query.limit, query.offset),
+          repo.countByAdminId(query.adminId),
+        ]);
       } else if (query.action) {
-        logs = await fastify.uow.adminAuditLogRepository.findByAction(
-          query.action,
-          query.limit,
-          query.offset,
-        );
+        [logs, total] = await Promise.all([
+          repo.findByAction(query.action, query.limit, query.offset),
+          repo.countByAction(query.action),
+        ]);
       } else if (query.targetId) {
-        logs = await fastify.uow.adminAuditLogRepository.findByTargetId(
-          query.targetId,
-          query.limit,
-          query.offset,
-        );
+        [logs, total] = await Promise.all([
+          repo.findByTargetId(query.targetId, query.limit, query.offset),
+          repo.countByTargetId(query.targetId),
+        ]);
       } else {
-        logs = await fastify.uow.adminAuditLogRepository.findAll(
-          query.limit,
-          query.offset,
-        );
+        [logs, total] = await Promise.all([
+          repo.findAll(query.limit, query.offset),
+          repo.countAll(),
+        ]);
       }
 
       const result = logs.map((log) => ({
@@ -806,12 +805,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
         metadata: log.metadata,
         createdAt: log.createdAt,
       }));
-      return successResponse(
-        reply,
-        "Audit logs retrieved successfully",
-        200,
-        result,
-      );
+      // `data` stays the bare array existing clients read; the total for the
+      // same filter rides alongside it.
+      return reply.status(200).send({
+        success: true,
+        message: "Audit logs retrieved successfully",
+        data: result,
+        meta: { total, limit: query.limit, offset: query.offset },
+      });
     },
   );
 

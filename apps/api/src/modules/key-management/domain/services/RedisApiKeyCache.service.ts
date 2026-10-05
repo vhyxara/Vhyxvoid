@@ -2,6 +2,7 @@ import { KEY_CACHE_TTL_SEC } from "@/core/constant/apikey.constant";
 import {
   ApiKeyCacheService,
   CachedApiKeyData,
+  DrainedUsageCounter,
 } from "@/core/types/api-key/cacheservice.type";
 import { Redis } from "@upstash/redis";
 import { PUBLIC_USAGE_SENTINEL } from "@vhyxvoid/shared";
@@ -27,6 +28,8 @@ const NS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // REDIS CACHE SERVICE
 // ─────────────────────────────────────────────────────────────────────────────
+
+const USAGE_COUNTER_TTL_SEC = 60 * 60 * 25;
 
 export class RedisApiKeyCacheService implements ApiKeyCacheService {
   constructor(private redis: Redis) {}
@@ -156,24 +159,20 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
       const count = await this.redis.incrby(redisKey, params.amount);
       if (count === params.amount) {
         // First write for this bucket — set TTL
-        await this.redis.expire(redisKey, 60 * 60 * 25); // 25 hours
+        await this.redis.expire(redisKey, USAGE_COUNTER_TTL_SEC); // 25 hours
       }
     } catch {
       // Usage failure must never affect the gateway response
     }
   }
 
-  async drainUsageCounters(accountId: string): Promise<
-    Array<{
-      apiKeyId: string | null;
-      metric: string;
-      periodStart: Date;
-      quantity: bigint;
-    }>
-  > {
-    // Scan for all usage keys belonging to this account
-    const pattern = `usage:${accountId}:*`;
-    const keys = await this.scanKeys(pattern);
+  async drainUsageCounters(
+    accountId: string,
+    keys?: string[],
+  ): Promise<DrainedUsageCounter[]> {
+    // Callers that already scanned (FlushUsageWorker, one SCAN per tick)
+    // pass the account's keys; otherwise scan for them here.
+    keys ??= await this.scanKeys(`usage:${accountId}:*`);
 
     if (keys.length === 0) return [];
 
@@ -190,12 +189,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
     for (const key of keys) pipeline.getdel(key);
     const results = (await pipeline.exec()) as unknown[];
 
-    const counters: Array<{
-      apiKeyId: string | null;
-      metric: string;
-      periodStart: Date;
-      quantity: bigint;
-    }> = [];
+    const counters: DrainedUsageCounter[] = [];
 
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -223,6 +217,7 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
         metric,
         periodStart,
         quantity,
+        redisKey: key,
       });
     }
 
@@ -230,13 +225,41 @@ export class RedisApiKeyCacheService implements ApiKeyCacheService {
   }
 
   async listAccountIdsWithPendingUsage(): Promise<string[]> {
-    const keys = await this.scanKeys("usage:*");
-    const accountIds = new Set<string>();
-    for (const key of keys) {
+    return [...(await this.listPendingUsageKeysByAccount()).keys()];
+  }
+
+  async listPendingUsageKeysByAccount(): Promise<Map<string, string[]>> {
+    // One SCAN of the whole keyspace, grouped here. A MATCH scan still walks
+    // every key, so scanning again per account made each flush
+    // O(accounts x keyspace) in Upstash commands.
+    const byAccount = new Map<string, string[]>();
+    for (const key of await this.scanKeys("usage:*")) {
       const parts = key.split(":");
-      if (parts.length >= 5 && parts[1]) accountIds.add(parts[1]);
+      if (parts.length < 5 || !parts[1]) continue;
+      const list = byAccount.get(parts[1]);
+      if (list) list.push(key);
+      else byAccount.set(parts[1], [key]);
     }
-    return [...accountIds];
+    return byAccount;
+  }
+
+  async restoreUsageCounter(counter: DrainedUsageCounter): Promise<boolean> {
+    // Put a drained count back when its Postgres write failed, so the next
+    // tick retries it. The key keeps the lifetime it was written with (25 h
+    // from its bucket), so a write that keeps failing is retried until then
+    // and not forever.
+    const ttlSec = Math.floor(
+      (counter.periodStart.getTime() + USAGE_COUNTER_TTL_SEC * 1000 - Date.now()) /
+        1000,
+    );
+    if (ttlSec <= 0) return false;
+    try {
+      await this.redis.incrby(counter.redisKey, Number(counter.quantity));
+      await this.redis.expire(counter.redisKey, ttlSec);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
