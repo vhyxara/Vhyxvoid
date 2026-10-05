@@ -20,7 +20,10 @@ RUN find . -name "tsconfig.tsbuildinfo" -not -path "*/node_modules/*" -delete \
 RUN cd apps/hub && npx tsc-alias -p tsconfig.json
 
 FROM base AS runner
-ENV NODE_ENV=production
+# Shown on the admin console's System page.
+ARG GIT_SHA=dev
+ARG BUILD_TIME=""
+ENV NODE_ENV=production GIT_SHA=$GIT_SHA BUILD_TIME=$BUILD_TIME
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules

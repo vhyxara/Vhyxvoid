@@ -7,11 +7,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+      # GIT_SHA=$(git rev-parse --short HEAD) BUILD_TIME=$(date -u +%FT%TZ) docker compose ... build
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        BUILD_TIME: ${BUILD_TIME:-}
 
   hub:
     build:
       context: .
       dockerfile: Dockerfile.hub
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        BUILD_TIME: ${BUILD_TIME:-}
 
   admin:
     build:

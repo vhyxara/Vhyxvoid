@@ -2,6 +2,7 @@
 
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { assertUsageWindow } from "@/core/utils/usageWindow";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 // import {
 //   ApiKeyEnvironment,
@@ -356,6 +357,7 @@ export async function apiKeyRoutes(fastify: FastifyInstance) {
       const { accountId } = accountParamSchema.parse(request.params);
 
       const query = usageQuerySchema.parse(request.query);
+      assertUsageWindow(new Date(query.from), new Date(query.to));
       const user = getUserContext(request);
       const result = await fastify.getApiKeyUsageUseCase.execute({
         accountId,

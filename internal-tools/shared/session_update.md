@@ -1964,3 +1964,23 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "upbeat-cannon",
+  "date": "2026-10-05",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/upbeat-cannon-dwqaj0); vhyxUI, vhyxseal, vhyxchart unchanged",
+  "brief_summary": "Read internal-tools and every backlog, fix bugs, make the product production-ready, build a complete admin panel (control over users, accounts, CMS, logs, payments, settings) so operators need no developer, write docs, redesign the dashboard and landing page on the VhyxUI/VhyxChart libraries.",
+  "status": "completed",
+  "summary": "Decoupled web/admin from sibling checkouts (npm @vhyxui/*, in-repo api-kit) so CI and Docker build every app. Hardened the hub (request ownership, label validation, registration rules, pre-auth limits, internal stats/agents/disconnect behind a secret, metrics, clean stop). Built the admin backend (platform module: overview, system health, accounts, users, keys, tunnels, billing, logs + CSV, settings registry, CMS with revisions, public bootstrap/content/plans endpoints, maintenance mode, signup policy) and the admin frontend for all of it. Moved the admin refresh token into an httpOnly cookie with a 30 s rotation grace; atomic user lockout; admin password change/set. Rebuilt the marketing site (CMS-driven landing, pricing with live limits, markdown pages, support) and added a dashboard overview, announcement/maintenance notices and a feedback switch. Production images (Node 24, frozen, non-root, Dockerfile.next), admin host in compose/nginx, `node bootstrap.js seed` for the image. Found and fixed: request.user type only resolved through a stale @fastify/jwt in the local store (fresh installs failed typecheck); subscription end locked the whole account (CANCELED) and INCOMPLETE checkouts granted a plan; unbounded usage windows (M21). Wrote the Operators docs section.",
+  "verification": "root vitest 611 passed; apps/web 45, apps/admin 110, api-kit 20; tsc for api/hub/web/admin; next build web/admin/docs; local e2e journey 58/59 (the last needs E2E_WRITE_HOSTS); Playwright tours of admin, landing (desktop+mobile) and dashboard with no page errors; Docker build context simulated (frozen install, api/hub compile, compiled API boots, admin standalone serves pages and assets).",
+  "commits": "f967f8a 5ba0679 12ed3f5 b45824d 5b3bc48 7cb4818 e51b17d 97f3736 d83c422 + the internal-tools commit",
+  "open_items_for_next_session": [
+    "Deploy: build images, set HUB_INTERNAL_*, ADMIN_URL, run seed, set up Cloudflare Access for admin.",
+    "Docs: re-verify the 27 stale user pages (docs/backlog.md).",
+    "api: M23 absolute session lifetime + pruning; admin lockout; CMS optimistic lock.",
+    "Product next: request inspector/replay, access policies, webhook inbox, custom domains, alerts (see the session's final summary)."
+  ]
+}
+```

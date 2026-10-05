@@ -15,6 +15,7 @@ import {
   buildTimeSeries,
   rangeToWindow,
 } from "@/modules/identity/domain/services/tunnel.utility";
+import { assertUsageWindow } from "@/core/utils/usageWindow";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { FastifyInstance } from "fastify";
@@ -575,12 +576,7 @@ export async function tunnelRoutes(fastify: FastifyInstance) {
       const fromDate = new Date(from);
       const toDate = new Date(to);
 
-      if (fromDate > toDate) {
-        // return reply.code(400).send({
-        //   error: "`from` must be before `to`",
-        // });
-        throw new ValidationError("`from` must be before `to`");
-      }
+      assertUsageWindow(fromDate, toDate);
       const user = getUserContext(request);
       const uow = fastify.container.resolve(PrismaUnitOfWork);
 

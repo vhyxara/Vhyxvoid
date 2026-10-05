@@ -118,10 +118,21 @@ packages/
                   overfit for an in-process context (see Design Notes).
   next/           Independent (duplicate) Next.js integration — reimplements
                   middleware/next.ts's logic rather than reusing it
+  api-kit/        (2026-10-05) In-repo HTTP client for apps/web and apps/admin: envelope
+                  unwrap, ApiError, one 401->refresh retry, timeouts, query keys, QueryClient
+                  factory. Replaced the unpublished sibling `vhyx-api-kit` checkout.
+  brand/          (2026-10-05) brand.css: VhyxVoid's overrides of @vhyxui/tokens
+                  (`data-brand="vhyxvoid"`), shared by web, admin and docs.
+  content/        (2026-10-05) Types and built-in defaults of CMS content (landing, pricing,
+                  markdown pages). Used by apps/api (fallbacks) and apps/web (types).
 archived/         Two prior generations of dead code: an old standalone agent
                   ("agentsdead") and a 742-line audit/refactor-planning doc (all.md)
                   that explains the shape of the current agent/protocol cleanup
 tests/            Only 4 vitest e2e tests exist repo-wide (signature, queue replay, heartbeat)
+
+apps/admin/       Operations console (Next.js): users, accounts, keys, tunnels, billing, logs,
+                  settings, content (CMS), admins/roles. Served at admin.vhyxvoid.com.
+apps/docs/        Fumadocs site: user docs + Operators section (deployment, console, settings).
 
 apps/demo-backend/   Trivial test HTTP server (`/hello`, `/echo`) used to exercise a tunnel
                   locally end-to-end (agent+hub+sdk) — not owned by one component.

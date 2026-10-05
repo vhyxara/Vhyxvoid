@@ -70,7 +70,9 @@ jobs:
         with:
           context: .
           file: ${{ matrix.file }}
-          build-args: ${{ matrix.args }}
+          build-args: |
+            ${{ matrix.args }}
+            GIT_SHA=${{ github.sha }}
           push: false
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}

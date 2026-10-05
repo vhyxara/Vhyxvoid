@@ -800,3 +800,18 @@ Repo-wide grep, fresh this session: `customDomains` appears nowhere except the `
 5. **redisPlugin at the root** rather than passing clients around: the encapsulation bug silently disabled billing's cache invalidation, and any future plugin would hit it again.
 6. **Stripe event dedupe fails open** (Redis down → process): handlers are idempotent upserts; the cost of a duplicate is an email, the cost of dropping is a missed billing change.
 **Status:** active.
+
+### 2026-10-05 — Production pass: operator control without a developer (session upbeat-cannon)
+
+Commits f967f8a..(this session's last) on branch `claude/upbeat-cannon-dwqaj0`.
+
+1. **Runtime settings in Postgres, typed registry in `packages/shared/src/settings.ts`.** One row per changed key (`system_settings`); defaults live in code so a missing row is never an error. Read through `SettingsReader` with a 30 s per-process cache in both api and hub, chosen over Redis pub/sub because a 30 s delay is acceptable for every current setting and needs no new failure mode. Secrets stay in env; a setting is never a secret.
+2. **Plan limits are layered**: built-in `PLAN_LIMITS` → `plans.overrides` setting → `Account.limitOverrides` (null = unlimited). Built despite the 2026-09-22 recommendation against A5 because the owner asked for admin control of limits; Stripe stays the source of truth for price and which plan an account is on. The public pricing table reads the same effective limits.
+3. **CMS = `content_entries` with a working copy (`data`) and a live copy (`publishedData`), revisions on publish.** Kinds are zod-validated (landing, pricing, markdown page); markdown renders without raw HTML. Defaults ship in `@vhyxvoid/content` so the site renders when the API is down. Last-write-wins on save (backlog: optimistic lock).
+4. **Admin refresh token in an httpOnly cookie** scoped to `/api/v1/admin/identity/auth`, access token memory-only; body transport kept behind an explicit header for scripts. Rotation grace 30 s under a row lock fixes multi-tab reuse revocation.
+5. **Admin host** exactly as recommended 2026-09-22: `admin.vhyxvoid.com` on the VPS behind the Cloudflare origin lock (Access is an operator step), admin API same-origin, `/api/v1/admin/` 404 on `api.`.
+6. **Subscription end no longer locks the account.** `customer.subscription.deleted` used to set `Account.status = CANCELED`, which `ensureActive()` and the hub treat as locked. Now the plan resolver only counts ACTIVE/TRIALING/PAST_DUE/UNPAID subscriptions (fixes INCOMPLETE granting a plan too) and the account returns to ACTIVE on FREE; admin-set SUSPENDED/RESTRICTED/DELETED are never lifted; a migration unlocks existing CANCELED rows. Reverses the 2026-09-2x note that CANCELED was "a genuine terminal state".
+7. **UI on published npm packages only** (`@vhyxui/react` 0.4.11, `blocks`, `icons`, `tokens`; `@vhyxchart/react`): no sibling checkouts, so CI and Docker build every app. The three library repos were not changed; nothing in them blocked this work.
+8. **Images**: Node 24, `pnpm fetch` layer keyed on the lockfile, frozen install, non-root; one `Dockerfile.next` for web and admin (standalone). Verified by simulating the build context locally (no Docker daemon in the session); CI builds all four images.
+**Status:** active.
+
