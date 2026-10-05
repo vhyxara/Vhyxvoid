@@ -1,40 +1,22 @@
-'use client'
+import type { Metadata } from 'next'
 
-// VhyxUI components aren't RSC-safe (confirmed in Step 0's link smoke test —
-// see decision.md) — any page rendering one needs this boundary.
+import type { LandingContent } from '@vhyxvoid/content'
 
-import Link from 'next/link'
+import { LandingView } from '@/views/marketing/LandingView'
+import { getBootstrap, getContent } from '@/views/marketing/publicApi'
 
-import { Button } from '@vhyxui/react'
+export async function generateMetadata(): Promise<Metadata> {
+  const [entry, { settings }] = await Promise.all([getContent<LandingContent>('home'), getBootstrap()])
+  const name = settings['general.productName'] || 'VhyxVoid'
 
-import { Typography } from '@/components/vhyxui-shims'
+  return {
+    title: entry?.seoTitle || `${name} — ${settings['general.tagline'] || 'Your localhost, on the internet'}`,
+    description: entry?.seoDescription ?? undefined
+  }
+}
 
-export default function LandingPage() {
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '24px',
-        padding: '32px',
-        textAlign: 'center'
-      }}
-    >
-      <Typography variant='h1'>VhyxVoid</Typography>
-      <Typography variant='body1' style={{ maxWidth: 480, color: 'var(--vhyx-color-text-subtle)' }}>
-        Secure localhost tunnels for developers. Expose your local services to the internet in seconds.
-      </Typography>
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Button asChild variant='primary'>
-          <Link href='/dashboard'>Go to dashboard</Link>
-        </Button>
-        <Button asChild variant='outline'>
-          <Link href='/login'>Sign in</Link>
-        </Button>
-      </div>
-    </main>
-  )
+export default async function LandingPage() {
+  const [entry, { settings }] = await Promise.all([getContent<LandingContent>('home'), getBootstrap()])
+
+  return <LandingView content={entry!.data} signupsEnabled={settings['auth.signupsEnabled'] !== false} />
 }

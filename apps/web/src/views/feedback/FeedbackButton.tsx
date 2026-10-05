@@ -9,6 +9,7 @@ import { Badge, Button, Dialog, TextField, TextareaField, Tooltip } from '@vhyxu
 
 import { Typography } from '@/components/vhyxui-shims'
 import { useSubmitFeedback } from '@/api/application/hooks/useFeedback'
+import { setting, usePublicBootstrap } from '@/api/application/hooks/usePublicSite'
 
 import type { FeedbackFormValues } from '@/api/domain/identity/schemas/feedback.schema'
 import { feedbackSchema } from '@/api/domain/identity/schemas/feedback.schema'
@@ -74,7 +75,17 @@ function feedbackTypeColorToken(color: 'error' | 'warning' | 'info' | 'success')
 
 // ── Component ─────────────────────────────────────────────────────────────
 
+// Operators can switch the widget off from the admin panel
+// (features.feedbackEnabled) without a deploy.
 export function FeedbackButton() {
+  const { data } = usePublicBootstrap()
+
+  if (!setting(data, 'features.feedbackEnabled', true)) return null
+
+  return <FeedbackWidget />
+}
+
+function FeedbackWidget() {
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const submitFeedback = useSubmitFeedback()

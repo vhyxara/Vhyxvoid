@@ -1,15 +1,16 @@
-import { Typography } from '@/components/vhyxui-shims'
+import { SupportView } from '@/views/marketing/SupportView'
+import { getBootstrap } from '@/views/marketing/publicApi'
 
-export default function SupportPage() {
+export const metadata = { title: 'Support — VhyxVoid' }
+
+export default async function SupportPage() {
+  const { settings } = await getBootstrap()
+
   return (
-    <main style={{ minHeight: '100vh', padding: '64px 32px' }}>
-      <Typography variant='h1'>Support Page</Typography>
-      {/* "[Support Email]" is a pre-existing literal placeholder in the
-          original content, not something introduced by this migration —
-          left as-is, fixing it is outside a component-migration pass. */}
-      <Typography variant='body1' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
-        For support, please contact us at [Support Email]
-      </Typography>
-    </main>
+    <SupportView
+      email={settings['support.email'] || 'support@vhyxvoid.com'}
+      docsUrl={settings['support.docsUrl'] || '/docs'}
+      statusUrl={settings['general.statusPageUrl'] || undefined}
+    />
   )
 }

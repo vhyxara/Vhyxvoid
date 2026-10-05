@@ -8,7 +8,14 @@ import { useCreateCheckout, useSubscription, useCreatePortal, useInvoices } from
 import { RoleLevel } from '@/api/domain/identity/enums/role.enum'
 import { RequireRole } from '@/api/domain/identity/guard/RequireRole'
 import type { Plan, SubscriptionStatus, InvoiceStatus, Invoice } from '@/api/domain/key-management/types/billing.types'
-import { planFeatures, UPGRADE_PLANS } from './billingPlans'
+import { planFeatures, UPGRADE_PLANS, type UpgradePlan } from './billingPlans'
+import { usePublicPlans } from '@/api/application/hooks/usePublicSite'
+
+/** Live limits use null for unlimited. */
+const fromLive = (l: Record<string, unknown>) =>
+  Object.fromEntries(
+    (['maxAgents', 'maxMembers', 'maxApiKeys', 'publicPathRateLimitPerMinute'] as const).map(k => [k, l[k] === null ? Infinity : Number(l[k])])
+  ) as UpgradePlan['limits']
 
 // ── Color helpers — uppercase enums ───────────────────────────────────────
 // planColor/subStatusColor/invoiceStatusColor return MUI-style names.
@@ -61,17 +68,16 @@ function formatCurrency(amount: number, currency: string) {
 const PLANS = UPGRADE_PLANS
 
 function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: () => void; accountId: string }) {
-  const [selectedPriceId, setSelectedPriceId] = useState(PLANS[0].priceId)
-  const [trialDays] = useState<number | undefined>(undefined)
+  const [selected, setSelected] = useState<UpgradePlan['plan']>(PLANS[0].plan)
+  const publicPlans = usePublicPlans()
   const checkout = useCreateCheckout(accountId)
 
   const handleCheckout = () => {
     checkout.mutate(
       {
-        priceId: selectedPriceId,
+        plan: selected,
         successUrl: `${window.location.origin}/organizations/${accountId}/billing?success=1`,
-        cancelUrl: `${window.location.origin}/organizations/${accountId}/billing`,
-        trialDays
+        cancelUrl: `${window.location.origin}/organizations/${accountId}/billing`
       },
       {
         onSuccess: ({ checkoutUrl }) => {
@@ -94,18 +100,20 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
             {/* Plan cards */}
             <div className='flex flex-col gap-3'>
               {PLANS.map(plan => {
-                const selected = selectedPriceId === plan.priceId
+                const isSelected = selected === plan.plan
+                const live = publicPlans.data?.plans.find(p => p.plan === plan.plan)?.limits
+                const shown = live ? { ...plan, limits: { ...plan.limits, ...fromLive(live) } } : plan
 
                 return (
                   <div
                     key={plan.id}
-                    onClick={() => setSelectedPriceId(plan.priceId)}
+                    onClick={() => setSelected(plan.plan)}
                     className='cursor-pointer'
                     style={{
                       padding: 'var(--vhyx-space-4)',
                       borderRadius: 'var(--vhyx-radius-lg)',
-                      border: `2px solid ${selected ? 'var(--vhyx-color-accent)' : 'var(--vhyx-color-border)'}`,
-                      backgroundColor: selected ? 'var(--vhyx-color-accent-subtle)' : 'transparent',
+                      border: `2px solid ${isSelected ? 'var(--vhyx-color-accent)' : 'var(--vhyx-color-border)'}`,
+                      backgroundColor: isSelected ? 'var(--vhyx-color-accent-subtle)' : 'transparent',
                       transition: 'border-color 0.15s'
                     }}
                   >
@@ -116,7 +124,7 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
                       </Typography>
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 'var(--vhyx-space-4)' }}>
-                      {planFeatures(plan).map(f => (
+                      {planFeatures(shown).map(f => (
                         <Typography
                           key={f}
                           component='li'
@@ -133,6 +141,9 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
             </div>
 
             <Alert variant='info' icon={<i className='tabler-info-circle' />}>
+              {publicPlans.data?.trialDays
+                ? `New subscriptions start with a ${publicPlans.data.trialDays}-day free trial. `
+                : ''}
               You will be redirected to Stripe to complete payment securely.
             </Alert>
           </div>
@@ -215,6 +226,8 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const { data, isLoading } = useSubscription(accountId)
   const createPortal = useCreatePortal(accountId)
+  // Admins can pause upgrades (settings: billing.checkoutEnabled).
+  const checkoutEnabled = usePublicPlans().data?.checkoutEnabled !== false
 
   const handleManage = () => {
     createPortal.mutate(
@@ -258,9 +271,15 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
             {/* Action button — upgrade or manage */}
             <div>
               {isFree ? (
-                <Button size='sm' icon={<i className='tabler-rocket' />} onClick={() => setUpgradeOpen(true)}>
-                  Upgrade
-                </Button>
+                checkoutEnabled ? (
+                  <Button size='sm' icon={<i className='tabler-rocket' />} onClick={() => setUpgradeOpen(true)}>
+                    Upgrade
+                  </Button>
+                ) : (
+                  <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-muted)' }}>
+                    Upgrades are temporarily unavailable.
+                  </Typography>
+                )
               ) : (
                 <Button
                   variant='outline'

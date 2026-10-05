@@ -1,12 +1,18 @@
-import { Typography } from '@/components/vhyxui-shims'
+import type { Metadata } from 'next'
 
-export default function PricingPage() {
-  return (
-    <main style={{ minHeight: '100vh', padding: '64px 32px', textAlign: 'center' }}>
-      <Typography variant='h1'>Pricing</Typography>
-      <Typography variant='body1' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
-        Coming soon.
-      </Typography>
-    </main>
-  )
+import type { PricingContent } from '@vhyxvoid/content'
+
+import { PricingView } from '@/views/marketing/PricingView'
+import { getBootstrap, getContent, getPlans } from '@/views/marketing/publicApi'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const entry = await getContent<PricingContent>('pricing')
+
+  return { title: entry?.seoTitle || 'Pricing — VhyxVoid', description: entry?.seoDescription ?? undefined }
+}
+
+export default async function PricingPage() {
+  const [entry, plans, { settings }] = await Promise.all([getContent<PricingContent>('pricing'), getPlans(), getBootstrap()])
+
+  return <PricingView content={entry!.data} plans={plans} signupsEnabled={settings['auth.signupsEnabled'] !== false} />
 }

@@ -119,7 +119,7 @@ const PUBLIC = [
   withOrWithout('reset-password')
 ]
 
-const LANDING = [/^\/$/, /^\/pricing/, /^\/docs/, /^\/contact/, /^\/about/]
+const LANDING = [/^\/$/, /^\/pricing/, /^\/docs/, /^\/contact/, /^\/about/, /^\/support/, /^\/p\//]
 
 // ── Bare backend paths — rewritten to default locale internally ───────────
 // Backend email links have no locale. We rewrite /verify-email → /en/verify-email

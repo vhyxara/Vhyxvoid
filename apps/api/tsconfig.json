@@ -14,5 +14,5 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "generated", "prisma", "**/*.test.ts"],
-  "references": [{ "path": "../../packages/shared" }]
+  "references": [{ "path": "../../packages/shared" }, { "path": "../../packages/content" }]
 }

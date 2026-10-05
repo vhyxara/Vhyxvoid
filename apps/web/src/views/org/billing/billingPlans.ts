@@ -2,13 +2,15 @@
 // (tests/e2e/billingPlansMatchLimits.test.ts) checks these numbers against
 // packages/shared's PLAN_LIMITS, so the dialog can't promise limits the API
 // doesn't apply (it used to say "5 team members" and "50 active tunnels").
-// Prices are display labels; the charge comes from the Stripe price ID.
+// Prices are display labels; the API maps the plan to its Stripe price.
+// The dialog shows live limits from /public/plans when it can (admin
+// overrides included); these are the fallback.
 
 export type UpgradePlan = {
   id: 'pro' | 'enterprise'
   label: string
   price: string
-  priceId: string
+  plan: 'PRO' | 'ENTERPRISE'
   limits: { maxAgents: number; maxMembers: number; maxApiKeys: number; publicPathRateLimitPerMinute: number }
   extras: string[]
 }
@@ -20,7 +22,7 @@ export const UPGRADE_PLANS: UpgradePlan[] = [
     id: 'pro',
     label: 'Pro',
     price: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_LABEL ?? '$29 / month',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID ?? 'price_pro',
+    plan: 'PRO',
     limits: { maxAgents: 5, maxMembers: 10, maxApiKeys: 20, publicPathRateLimitPerMinute: 3_000 },
     extras: ['PROD keys and key rotation', 'Priority support']
   },
@@ -28,7 +30,7 @@ export const UPGRADE_PLANS: UpgradePlan[] = [
     id: 'enterprise',
     label: 'Enterprise',
     price: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_LABEL ?? '$99 / month',
-    priceId: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID ?? 'price_enterprise',
+    plan: 'ENTERPRISE',
     limits: { maxAgents: Infinity, maxMembers: Infinity, maxApiKeys: Infinity, publicPathRateLimitPerMinute: Infinity },
     extras: ['PROD keys and key rotation', 'Priority support']
   }

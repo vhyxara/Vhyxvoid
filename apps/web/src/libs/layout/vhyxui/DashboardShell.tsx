@@ -10,6 +10,7 @@ import { DashboardSidebar } from './DashboardSidebar'
 import { DashboardTopbar } from './DashboardTopbar'
 import { DashboardFooter } from './DashboardFooter'
 import styles from './DashboardShell.module.css'
+import { SiteNotices } from './SiteNotices'
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   return (
@@ -17,7 +18,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <DashboardSidebar />
       <div className={styles.contentColumn}>
         <DashboardTopbar />
-        <main className={styles.content}>{children}</main>
+        <main className={styles.content}>
+          <SiteNotices>{children}</SiteNotices>
+        </main>
         <DashboardFooter />
       </div>
     </div>

@@ -55,10 +55,10 @@ export type InvoicesResult = {
 // ── Mutation payloads ──────────────────────────────────────────────────────
 
 export type CreateCheckoutPayload = {
-  priceId: string
+  /** The server maps the plan to its configured Stripe price. */
+  plan: 'PRO' | 'ENTERPRISE'
   successUrl: string
   cancelUrl: string
-  trialDays?: number
 }
 
 export type CreateCheckoutResult = {

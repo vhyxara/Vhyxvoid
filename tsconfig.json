@@ -5,6 +5,7 @@
     { "path": "./packages/sdk" },
     { "path": "./packages/agent" },
     { "path": "./packages/shared" },
+    { "path": "./packages/content" },
     { "path": "./apps/hub" },
     { "path": "./apps/api" }
   ]

@@ -42,7 +42,7 @@ export function useInvoices(accountId: string) {
  *
  * Usage:
  *   const checkout = useCreateCheckout(accountId)
- *   checkout.mutate({ priceId, successUrl, cancelUrl }, {
+ *   checkout.mutate({ plan: 'PRO', successUrl, cancelUrl }, {
  *     onSuccess: ({ checkoutUrl }) => window.location.href = checkoutUrl
  *   })
  */
