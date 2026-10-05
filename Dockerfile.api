@@ -1,37 +1,23 @@
-FROM node:20-slim AS deps
-
+# syntax=docker/dockerfile:1
+# API image. Build from the repo root:
+#   docker build -f Dockerfile.api -t vhyxvoid-api .
+FROM node:24-slim AS base
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@10.6.2
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json tsconfig.base.json ./
-
-COPY packages/protocol/package.json ./packages/protocol/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/sdk/package.json ./packages/sdk/
-COPY packages/agent/package.json ./packages/agent/
-COPY apps/api/package.json ./apps/api/
-COPY apps/hub/package.json ./apps/hub/
-
-RUN pnpm install --no-frozen-lockfile
-RUN pnpm approve-builds --yes || true
-
-FROM deps AS builder
-
-WORKDIR /app
-
-COPY packages/ ./packages/
-COPY apps/api/ ./apps/api/
-COPY apps/hub/ ./apps/hub/
-COPY apps/api/prisma/ ./apps/api/prisma/
+FROM base AS builder
+# Dependency layer keyed on the lockfile only, so source edits don't
+# re-download the store.
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
+COPY . .
+RUN pnpm install --offline --frozen-lockfile
 
 # Guard against stray/incomplete migration directories in the build context
-# (e.g. a local `prisma migrate dev` that was interrupted before writing
-# migration.sql). Git doesn't track empty directories, so one of these can
-# sit untracked on disk indefinitely and get silently COPYed into the image,
-# where Prisma's P3015 check then crash-loops the container on deploy. Fail
-# the build loudly instead.
+# (an interrupted `prisma migrate dev` leaves one without migration.sql, and
+# Prisma's P3015 check would crash-loop the container on deploy).
 RUN set -e; \
     for d in apps/api/prisma/migrations/*/; do \
       [ -d "$d" ] || continue; \
@@ -41,16 +27,13 @@ RUN set -e; \
       fi; \
     done
 
-COPY tsconfig.api.json ./
-
 RUN cd apps/api && npx prisma generate
-RUN find . -name "tsconfig.tsbuildinfo" -delete && npx tsc -b tsconfig.api.json
+RUN find . -name "tsconfig.tsbuildinfo" -not -path "*/node_modules/*" -delete \
+  && npx tsc -b tsconfig.api.json
 RUN cd apps/api && npx tsc-alias -p tsconfig.json
 
-FROM node:20-slim AS runner
-
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-
+FROM base AS runner
+ENV NODE_ENV=production
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
@@ -61,15 +44,16 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/packages/shared/generated ./packages/shared/generated
 COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/packages/content/dist ./packages/content/dist
+COPY --from=builder /app/packages/content/package.json ./packages/content/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
-COPY apps/api/bootstrap.js ./apps/api/bootstrap.js
-WORKDIR /app/apps/api
+COPY --from=builder /app/apps/api/bootstrap.js ./apps/api/bootstrap.js
 
+WORKDIR /app/apps/api
+USER node
 EXPOSE 9000
 
-# CMD ["node", "bootstrap.js"]
 CMD ["sh", "-c", "npx prisma migrate deploy && node bootstrap.js"]
-# This line intentionally left blank

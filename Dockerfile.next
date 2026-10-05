@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+# One image recipe for both Next.js apps (standalone output).
+#   docker build -f Dockerfile.next --build-arg APP=web   -t vhyxvoid-web .
+#   docker build -f Dockerfile.next --build-arg APP=admin -t vhyxvoid-admin .
+# NEXT_PUBLIC_* values are inlined at build time, so pass them as build args.
+FROM node:24-slim AS base
+RUN npm install -g pnpm@10.6.2
+WORKDIR /app
+
+FROM base AS builder
+ARG APP=web
+ARG NEXT_PUBLIC_API_URL_LIVE=""
+ARG NEXT_PUBLIC_ADMIN_API_URL=""
+ARG NEXT_PUBLIC_SITE_URL=""
+ARG NEXT_PUBLIC_APP_VERSION=""
+ENV NEXT_PUBLIC_API_URL_LIVE=$NEXT_PUBLIC_API_URL_LIVE \
+    NEXT_PUBLIC_ADMIN_API_URL=$NEXT_PUBLIC_ADMIN_API_URL \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION \
+    NEXT_TELEMETRY_DISABLED=1
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
+COPY . .
+RUN pnpm install --offline --frozen-lockfile
+RUN pnpm turbo run build --filter="@vhyxvoid/${APP}"
+
+# Standalone output keeps the monorepo layout (outputFileTracingRoot is the
+# repo root): server at apps/$APP/server.js; static assets are copied in.
+RUN mkdir -p /out && cp -R "apps/${APP}/.next/standalone/." /out/ \
+  && mkdir -p "/out/apps/${APP}/.next" \
+  && cp -R "apps/${APP}/.next/static" "/out/apps/${APP}/.next/static" \
+  && if [ -d "apps/${APP}/public" ]; then cp -R "apps/${APP}/public" "/out/apps/${APP}/public"; fi
+
+FROM node:24-slim AS runner
+ARG APP=web
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000 APP=${APP}
+WORKDIR /app
+COPY --from=builder --chown=node:node /out ./
+USER node
+EXPOSE 3000
+CMD ["sh", "-c", "exec node apps/${APP}/server.js"]

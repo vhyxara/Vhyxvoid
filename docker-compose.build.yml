@@ -12,3 +12,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.hub
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP: admin
+        NEXT_PUBLIC_ADMIN_API_URL: https://admin.vhyxvoid.com/api/v1
+        NEXT_PUBLIC_SITE_URL: https://vhyxvoid.com
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP: web
+        NEXT_PUBLIC_API_URL_LIVE: https://api.vhyxvoid.com/api/v1

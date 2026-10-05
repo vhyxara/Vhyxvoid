@@ -156,9 +156,14 @@ declare module "fastify" {
     ) => Promise<void>;
   }
   interface FastifyRequest {
+    // Set by userAuthGuard from a verified user access token.
     user?: {
-      id: string;
+      sub: string;
+      userId: string;
       email: string;
+      tokenVersion: number;
+      roles: string[];
+      abilities: string[];
     };
 
     admin?: {

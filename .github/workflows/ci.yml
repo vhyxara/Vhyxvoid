@@ -49,3 +49,28 @@ jobs:
 
       - name: Test (api-kit, web, admin)
         run: pnpm test:apps
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: api, file: Dockerfile.api, args: "" }
+          - { name: hub, file: Dockerfile.hub, args: "" }
+          - { name: web, file: Dockerfile.next, args: "APP=web" }
+          - { name: admin, file: Dockerfile.next, args: "APP=admin" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build only (no push): proves every image still builds from this repo.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.args }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
