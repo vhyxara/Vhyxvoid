@@ -1,0 +1,33 @@
+{
+  "name": "@vhyxvoid/api-kit",
+  "version": "1.0.0",
+  "description": "HTTP client, query-key factory and React Query client shared by apps/web and apps/admin",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist/**/*"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root .",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.102.8",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
+  }
+}

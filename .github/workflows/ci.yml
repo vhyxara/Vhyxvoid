@@ -5,10 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
     name: Typecheck, build, test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -21,29 +26,26 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # apps/web is intentionally excluded from CI. It consumes
-      # @vhyxui/react and @vhyxui/tokens via pnpm's link: protocol pointing
-      # at a sibling VhyxUI repo checkout (see
-      # internal-tools/user-frontend/decision.md, 2026-09-09 "VhyxUI stays
-      # a separate repo"), which does not exist in a plain checkout of
-      # this repo alone — `pnpm install` for apps/web would fail here.
-      # Covering apps/web in CI needs a real decision (checkout VhyxUI too
-      # via a second repo + credentials? publish it? vendor it?) that's
-      # out of scope for this minimal pass — see
-      # internal-tools/shared/context.md / decision.md, 2026-09-12, "CI:
-      # minimal backend pipeline, apps/web excluded".
-      - name: Install dependencies (excludes apps/web)
-        run: pnpm install --filter '!@vhyxvoid/web' --frozen-lockfile
+      # Every workspace installs from npm and this repo alone: apps/web and
+      # apps/admin use the published @vhyxui/* packages and the in-repo
+      # @vhyxvoid/api-kit (they used to link sibling checkouts and were
+      # excluded here).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
 
       - name: Typecheck
-        run: pnpm turbo run typecheck --filter='!@vhyxvoid/web'
+        run: pnpm turbo run typecheck
 
-      # packages/next and packages/middleware used to fail here (missing
-      # @vhyxvoid/agent dependency declaration — context.md risk #15,
-      # fixed 2026-09-13, see decision.md). Both build cleanly now; no
-      # exclusion needed beyond apps/web.
       - name: Build
-        run: pnpm turbo run build --filter='!@vhyxvoid/web'
+        run: pnpm turbo run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
 
-      - name: Test
+      - name: Test (api, hub, packages)
         run: pnpm test
+
+      - name: Test (api-kit, web, admin)
+        run: pnpm test:apps

@@ -1,13 +1,13 @@
 // Refreshes the two VhyxUI-derived stylesheets this app carries as copies.
 //
-//   src/styles/vhyxui-tokens.css          <- ../../../VhyxUI/packages/tokens/index.css
+//   src/styles/vhyxui-tokens.css          <- apps/web's installed @vhyxui/tokens/index.css
 //                                            minus its trailing reset.css section
 //   src/styles/vhyxui-brand-override.css  <- ../web/src/app/vhyxui-brand-override.css
 //
-// Copied (not `link:`ed) because a public docs site must build without the
-// sibling VhyxUI checkout. Manual, developer-run: needs the sibling repo
-// present, so it is deliberately NOT part of `build`/CI. Re-run and commit the
-// diff whenever apps/web's linked VhyxUI tokens or brand override change.
+// Copied so the docs keep Fumadocs' own preflight instead of VhyxUI's reset.
+// Developer-run (needs `pnpm install`), not part of `build`/CI. Re-run and
+// commit the diff whenever apps/web's @vhyxui/tokens version or brand override
+// changes.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,16 +16,20 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const sources = [
   {
-    from: resolve(root, '../../../VhyxUI/packages/tokens/index.css'),
+    from: resolve(root, '../web/node_modules/@vhyxui/tokens/index.css'),
     to: resolve(root, 'src/styles/vhyxui-tokens.css'),
     label: '@vhyxui/tokens index.css',
     // index.css is a concatenation ending in VhyxUI's global reset
     // (`* { margin: 0; padding: 0 }`, body/focus rules). Fumadocs/Tailwind bring
     // their own preflight; VhyxUI's reset on top zeroes every margin and padding
     // in the docs layout. Tokens only.
-    transform: text => text.slice(0, text.indexOf('/* === src/reset.css === */')).trimEnd() + '\n',
+    transform: text => {
+      const at = text.indexOf('/* === src/reset.css')
+
+      return (at === -1 ? text : text.slice(0, at)).trimEnd() + '\n'
+    },
     version: () => {
-      const pkg = resolve(root, '../../../VhyxUI/packages/tokens/package.json')
+      const pkg = resolve(root, '../web/node_modules/@vhyxui/tokens/package.json')
 
       return existsSync(pkg) ? JSON.parse(readFileSync(pkg, 'utf8')).version : 'unknown'
     }

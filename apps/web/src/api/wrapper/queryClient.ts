@@ -1,10 +1,10 @@
-import { createQueryClient as createSharedQueryClient, ApiError } from '@vhyx/api-kit'
+import { createQueryClient as createSharedQueryClient, ApiError } from '@vhyxvoid/api-kit'
 import type { QueryClient } from '@tanstack/react-query'
 
 import toast from 'react-hot-toast'
 
 /**
- * VhyxVoid's wiring of the shared @vhyx/api-kit QueryClient factory --
+ * VhyxVoid's wiring of the shared @vhyxvoid/api-kit QueryClient factory --
  * see TABLE_API_ARCHITECTURE_COMPARISON.md and decision.md, 2026-09-15.
  *
  * Uses react-hot-toast, not react-toastify: investigated before "fixing"

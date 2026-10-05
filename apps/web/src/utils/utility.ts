@@ -141,9 +141,9 @@ export function buildQuery(params: Record<string, any>) {
   return searchParams
 }
 
-// createQueryKeys moved to the shared @vhyx/api-kit package (2026-09-15) --
+// createQueryKeys moved to the shared @vhyxvoid/api-kit package (2026-09-15) --
 // see TABLE_API_ARCHITECTURE_COMPARISON.md and decision.md. Import it from
-// '@vhyx/api-kit' directly rather than re-adding it here.
+// '@vhyxvoid/api-kit' directly rather than re-adding it here.
 
 export const withId = (url: string, id: string) => url.replace(':id', id)
 

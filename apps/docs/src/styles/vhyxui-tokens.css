@@ -1,4 +1,4 @@
-/* COPY — do not edit here. Source: @vhyxui/tokens index.css (0.1.3-alpha).
+/* COPY — do not edit here. Source: @vhyxui/tokens index.css (0.4.0).
    Refresh with: pnpm --filter @vhyxvoid/docs sync-tokens */
 
 /* AUTO-GENERATED — do not edit directly.
@@ -21,7 +21,33 @@
   --vhyx-primitive-slate-900:  #0f172a;
   --vhyx-primitive-slate-950:  #020617;
 
-  /* Indigo — default accent */
+  /* Orange — default accent ("signal orange") */
+  --vhyx-primitive-orange-50:  #fff3ea;
+  --vhyx-primitive-orange-100: #ffe2cc;
+  --vhyx-primitive-orange-200: #ffc49a;
+  --vhyx-primitive-orange-300: #ffa266;
+  --vhyx-primitive-orange-400: #ff8a3d;
+  --vhyx-primitive-orange-500: #f26a1b;
+  --vhyx-primitive-orange-600: #d9480f;
+  --vhyx-primitive-orange-700: #b93e0c;
+  --vhyx-primitive-orange-800: #9a330a;
+  --vhyx-primitive-orange-900: #7a2a0b;
+  --vhyx-primitive-orange-950: #2a1708;
+
+  /* Rose — VhyxUI's accent (Vhyxara family: UI rose, Seal emerald, Chart sky) */
+  --vhyx-primitive-rose-50:  #fff1f2;
+  --vhyx-primitive-rose-100: #ffe4e6;
+  --vhyx-primitive-rose-200: #fecdd3;
+  --vhyx-primitive-rose-300: #fda4af;
+  --vhyx-primitive-rose-400: #fb7185;
+  --vhyx-primitive-rose-500: #f43f5e;
+  --vhyx-primitive-rose-600: #e11d48;
+  --vhyx-primitive-rose-700: #be123c;
+  --vhyx-primitive-rose-800: #9f1239;
+  --vhyx-primitive-rose-900: #881337;
+  --vhyx-primitive-rose-950: #2a0b14;
+
+  /* Indigo — previous default accent, kept for overrides */
   --vhyx-primitive-indigo-50:  #eef2ff;
   --vhyx-primitive-indigo-100: #e0e7ff;
   --vhyx-primitive-indigo-200: #c7d2fe;
@@ -76,7 +102,8 @@
 }
 
 /* === src/semantic/colors.css === */
-:root {
+:root,
+[data-theme="light"] {
   /* Background */
   --vhyx-color-bg:              var(--vhyx-primitive-slate-50);
   --vhyx-color-bg-subtle:       var(--vhyx-primitive-slate-100);
@@ -94,7 +121,7 @@
   /* Border */
   --vhyx-color-border:          var(--vhyx-primitive-slate-200);
   --vhyx-color-border-strong:   var(--vhyx-primitive-slate-300);
-  --vhyx-color-border-focus:    var(--vhyx-primitive-indigo-500);
+  --vhyx-color-border-focus:    var(--vhyx-primitive-rose-600);
 
   /* Text */
   --vhyx-color-text:            var(--vhyx-primitive-slate-900);
@@ -105,11 +132,12 @@
   --vhyx-color-text-on-accent:  #ffffff;
 
   /* Accent */
-  --vhyx-color-accent:          var(--vhyx-primitive-indigo-500);
-  --vhyx-color-accent-hover:    var(--vhyx-primitive-indigo-600);
-  --vhyx-color-accent-active:   var(--vhyx-primitive-indigo-700);
-  --vhyx-color-accent-subtle:   var(--vhyx-primitive-indigo-50);
-  --vhyx-color-accent-muted:    var(--vhyx-primitive-indigo-100);
+  /* Orange 600 keeps white text above 4.5:1 */
+  --vhyx-color-accent:          var(--vhyx-primitive-rose-600);
+  --vhyx-color-accent-hover:    var(--vhyx-primitive-rose-700);
+  --vhyx-color-accent-active:   var(--vhyx-primitive-rose-800);
+  --vhyx-color-accent-subtle:   var(--vhyx-primitive-rose-50);
+  --vhyx-color-accent-muted:    var(--vhyx-primitive-rose-100);
 
   /* Success */
   --vhyx-color-success:         var(--vhyx-primitive-green-500);
@@ -257,10 +285,26 @@
                        0 10px 10px rgba(0, 0, 0, 0.04);
   --vhyx-shadow-2xl:   0 25px 50px rgba(0, 0, 0, 0.25);
   --vhyx-shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
 
-  /* Focus ring — consistent across all interactive elements */
-  --vhyx-shadow-focus:        0 0 0 3px rgba(99, 102, 241, 0.4);
-  --vhyx-shadow-focus-danger: 0 0 0 3px rgba(239, 68, 68, 0.4);
+/*
+ * Focus rings, derived from the theme so they always match the accent (including a custom one).
+ *
+ *   --vhyx-shadow-focus        solid controls (buttons, checkboxes, tabs, links): a crisp accent ring
+ *                              with a 2px gap in the page background. Meets the WCAG 2.2 3:1
+ *                              focus-indicator contrast on both filled and quiet controls.
+ *   --vhyx-shadow-focus-field  text fields whose border already turns accent on focus: a soft halo.
+ *
+ * Re-declared on [data-theme] sections because a custom property resolves var() where it is
+ * declared: a nested light or dark section must recompute the ring from its own colours.
+ */
+:root,
+[data-theme="light"],
+[data-theme="dark"] {
+  --vhyx-shadow-focus:              0 0 0 2px var(--vhyx-color-bg), 0 0 0 4px var(--vhyx-color-border-focus);
+  --vhyx-shadow-focus-danger:       0 0 0 2px var(--vhyx-color-bg), 0 0 0 4px var(--vhyx-color-danger);
+  --vhyx-shadow-focus-field:        0 0 0 3px color-mix(in srgb, var(--vhyx-color-accent) 28%, transparent);
+  --vhyx-shadow-focus-field-danger: 0 0 0 3px color-mix(in srgb, var(--vhyx-color-danger) 28%, transparent);
 }
 
 /* === src/semantic/motion.css === */
@@ -280,6 +324,10 @@
   --vhyx-easing-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
   --vhyx-easing-bounce:     cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --vhyx-easing-smooth:     cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* State changes (toggles, selection, indicators): quick start, long soft settle, no overshoot */
+  --vhyx-easing-out:        cubic-bezier(0.22, 1, 0.36, 1);
+  /* Small pops (checkmarks, radio dots): a gentle overshoot that reads as tactile, not bouncy */
+  --vhyx-easing-out-back:   cubic-bezier(0.34, 1.45, 0.64, 1);
 }
 
 /* Reduced motion — collapses all durations */
@@ -413,32 +461,79 @@
 }
 
 /* === src/themes/dark.css === */
-[data-theme="dark"] {
-  --vhyx-color-bg:              var(--vhyx-primitive-slate-950);
-  --vhyx-color-bg-subtle:       var(--vhyx-primitive-slate-900);
-  --vhyx-color-bg-muted:        var(--vhyx-primitive-slate-800);
-  --vhyx-color-bg-inverse:      var(--vhyx-primitive-slate-50);
+[data-theme="dark"],
+.dark {
+  color-scheme: dark;
+  /* Deep navy neutrals */
+  --vhyx-color-bg:              #07090f;
+  --vhyx-color-bg-subtle:       #0a0d15;
+  --vhyx-color-bg-muted:        #111726;
+  --vhyx-color-bg-inverse:      #e6e9f2;
 
-  --vhyx-color-surface:         var(--vhyx-primitive-slate-900);
-  --vhyx-color-surface-raised:  var(--vhyx-primitive-slate-800);
-  --vhyx-color-surface-overlay: var(--vhyx-primitive-slate-800);
-  --vhyx-color-overlay:         rgba(0, 0, 0, 0.65);
+  --vhyx-color-surface:         #0d111b;
+  --vhyx-color-surface-raised:  #111726;
+  --vhyx-color-surface-overlay: #111726;
+  --vhyx-color-overlay:         rgba(2, 4, 10, 0.72);
 
-  --vhyx-color-border:          var(--vhyx-primitive-slate-800);
-  --vhyx-color-border-strong:   var(--vhyx-primitive-slate-700);
-  --vhyx-color-border-focus:    var(--vhyx-primitive-indigo-400);
+  --vhyx-color-border:          #1c2333;
+  --vhyx-color-border-strong:   #2a3247;
+  --vhyx-color-border-focus:    var(--vhyx-primitive-rose-400);
 
-  --vhyx-color-text:            var(--vhyx-primitive-slate-50);
-  --vhyx-color-text-subtle:     var(--vhyx-primitive-slate-400);
-  --vhyx-color-text-muted:      var(--vhyx-primitive-slate-500);
-  --vhyx-color-text-disabled:   var(--vhyx-primitive-slate-600);
-  --vhyx-color-text-inverse:    var(--vhyx-primitive-slate-900);
+  --vhyx-color-text:            #e6e9f2;
+  --vhyx-color-text-subtle:     #a3abbe;
+  --vhyx-color-text-muted:      #8a93a8;
+  --vhyx-color-text-disabled:   #4a5368;
+  --vhyx-color-text-inverse:    #0d111b;
 
-  --vhyx-color-accent-subtle:   #1e1b4b;
-  --vhyx-color-accent-muted:    #312e81;
+  /* Bright rose with dark text on top */
+  --vhyx-color-accent:          var(--vhyx-primitive-rose-400);
+  --vhyx-color-accent-hover:    var(--vhyx-primitive-rose-300);
+  --vhyx-color-accent-active:   var(--vhyx-primitive-rose-500);
+  --vhyx-color-accent-subtle:   var(--vhyx-primitive-rose-950);
+  --vhyx-color-accent-muted:    #3d1220;
+  --vhyx-color-text-on-accent:  #24040c;
 
-  --vhyx-color-success-subtle:  #052e16;
-  --vhyx-color-danger-subtle:   #450a0a;
-  --vhyx-color-warning-subtle:  #431407;
-  --vhyx-color-info-subtle:     #0c1a45;
+  --vhyx-color-success-subtle:  #0b2a1d;
+  --vhyx-color-danger-subtle:   #2a0e10;
+  --vhyx-color-warning-subtle:  #2a1d0b;
+  --vhyx-color-info-subtle:     #0b1a2e;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    color-scheme: dark;
+    /* Deep navy neutrals */
+    --vhyx-color-bg:              #07090f;
+    --vhyx-color-bg-subtle:       #0a0d15;
+    --vhyx-color-bg-muted:        #111726;
+    --vhyx-color-bg-inverse:      #e6e9f2;
+  
+    --vhyx-color-surface:         #0d111b;
+    --vhyx-color-surface-raised:  #111726;
+    --vhyx-color-surface-overlay: #111726;
+    --vhyx-color-overlay:         rgba(2, 4, 10, 0.72);
+  
+    --vhyx-color-border:          #1c2333;
+    --vhyx-color-border-strong:   #2a3247;
+    --vhyx-color-border-focus:    var(--vhyx-primitive-rose-400);
+  
+    --vhyx-color-text:            #e6e9f2;
+    --vhyx-color-text-subtle:     #a3abbe;
+    --vhyx-color-text-muted:      #8a93a8;
+    --vhyx-color-text-disabled:   #4a5368;
+    --vhyx-color-text-inverse:    #0d111b;
+  
+    /* Bright rose with dark text on top */
+    --vhyx-color-accent:          var(--vhyx-primitive-rose-400);
+    --vhyx-color-accent-hover:    var(--vhyx-primitive-rose-300);
+    --vhyx-color-accent-active:   var(--vhyx-primitive-rose-500);
+    --vhyx-color-accent-subtle:   var(--vhyx-primitive-rose-950);
+    --vhyx-color-accent-muted:    #3d1220;
+    --vhyx-color-text-on-accent:  #24040c;
+  
+    --vhyx-color-success-subtle:  #0b2a1d;
+    --vhyx-color-danger-subtle:   #2a0e10;
+    --vhyx-color-warning-subtle:  #2a1d0b;
+    --vhyx-color-info-subtle:     #0b1a2e;
+  }
 }

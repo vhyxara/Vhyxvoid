@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { FormProvider, useFormContext } from 'react-hook-form'
-import { ApiError } from '@vhyx/api-kit'
+import { ApiError } from '@vhyxvoid/api-kit'
 
 const create = vi.fn()
 const update = vi.fn()

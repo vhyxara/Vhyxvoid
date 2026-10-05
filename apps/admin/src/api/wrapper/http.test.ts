@@ -19,7 +19,7 @@ import { httpClient } from './http'
 // beforeEach already clears.
 
 // Tests apps/admin's OWN auth wiring (getAuthHeaders / onUnauthorized in
-// this file), not @vhyx/api-kit's generic transport mechanics -- those are
+// this file), not @vhyxvoid/api-kit's generic transport mechanics -- those are
 // already covered by that package's own httpClient.test.ts. This is real
 // coverage apps/web's equivalent http.ts never had (grepped apps/web/src/api
 // for a matching test file -- none exists), per this session's explicit

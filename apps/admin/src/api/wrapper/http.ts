@@ -1,9 +1,9 @@
-import { createHttpClient } from '@vhyx/api-kit'
-import type { HttpMethod, HttpRequestConfig } from '@vhyx/api-kit'
+import { createHttpClient } from '@vhyxvoid/api-kit'
+import type { HttpMethod, HttpRequestConfig } from '@vhyxvoid/api-kit'
 
 export type { HttpMethod, HttpRequestConfig }
 
-// Wires @vhyx/api-kit's transport scaffold to apps/admin's OWN auth model --
+// Wires @vhyxvoid/api-kit's transport scaffold to apps/admin's OWN auth model --
 // deliberately not a copy of apps/web's http.ts. The two differ in exactly
 // the way internal-tools/admin-frontend/decision.md's Part 3.3 predicted:
 // admin login/refresh return both tokens in the JSON body with zero cookie
@@ -16,7 +16,7 @@ export type { HttpMethod, HttpRequestConfig }
 //
 // This is also this session's real confirmation of
 // internal-tools/admin-frontend/decision.md's open question: whether
-// @vhyx/api-kit's getAuthHeaders/onUnauthorized injection surface actually
+// @vhyxvoid/api-kit's getAuthHeaders/onUnauthorized injection surface actually
 // fits a second, differently-shaped auth model cleanly. It does -- nothing
 // here needed to reach past what the package already exposes.
 

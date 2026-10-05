@@ -22,17 +22,12 @@ if (!docsOrigin && process.env.NODE_ENV === 'production') {
 
 const nextConfig: NextConfig = {
   // basePath: process.env.BASEPATH
-  turbopack: {
-    // Pin the workspace root explicitly rather than letting Next.js infer it
-    // from the nearest lockfile (which can pick up an unrelated one elsewhere
-    // on disk). This is widened one level past the monorepo root itself, to
-    // the common parent of Black-Server and the separate VhyxUI repo, because
-    // @vhyxui/react and @vhyxui/tokens are consumed via pnpm's `link:` protocol
-    // pointing at VhyxUI's package directories — Turbopack only resolves
-    // modules reached through a symlink if the symlink's target falls inside
-    // this configured root.
-    root: path.join(__dirname, '..', '..', '..')
-  },
+  // The monorepo root (pnpm workspace): every dependency, including the
+  // in-repo @vhyxvoid/api-kit, resolves inside it.
+  turbopack: { root: path.join(__dirname, '..', '..') },
+  output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '..', '..'),
+  poweredByHeader: false,
   // Read by src/proxy.ts to keep next-intl's locale handling off /docs.
   env: { DOCS_ORIGIN_RESOLVED: docsOrigin },
   async rewrites() {

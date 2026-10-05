@@ -1,10 +1,10 @@
-import { createHttpClient } from '@vhyx/api-kit'
-import type { HttpMethod, HttpRequestConfig } from '@vhyx/api-kit'
+import { createHttpClient } from '@vhyxvoid/api-kit'
+import type { HttpMethod, HttpRequestConfig } from '@vhyxvoid/api-kit'
 
 export type { HttpMethod, HttpRequestConfig }
 
 // The transport mechanics (signing/envelope/error-typing scaffold) now live
-// in the shared @vhyx/api-kit package -- see TABLE_API_ARCHITECTURE_COMPARISON.md
+// in the shared @vhyxvoid/api-kit package -- see TABLE_API_ARCHITECTURE_COMPARISON.md
 // and decision.md, 2026-09-15. This file only wires VhyxVoid's own,
 // project-specific auth model into it: where the current access token
 // comes from, and what to do when a request comes back unauthorized.

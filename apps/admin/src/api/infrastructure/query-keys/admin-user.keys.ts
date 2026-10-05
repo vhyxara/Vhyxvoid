@@ -1,4 +1,4 @@
-import { createQueryKeys } from '@vhyx/api-kit'
+import { createQueryKeys } from '@vhyxvoid/api-kit'
 
 // adminUserKeys.list({ status }) is the real server-backed query (GET
 // /admin/identity/users' only real param). The table hook's client-side

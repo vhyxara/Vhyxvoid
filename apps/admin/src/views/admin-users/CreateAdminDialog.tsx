@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 
 import { Alert, Button, Dialog, Form, TextField, toast } from '@vhyxui/react'
-import { ApiError } from '@vhyx/api-kit'
+import { ApiError } from '@vhyxvoid/api-kit'
 
 import { useCreateAdmin } from '@/api/application/hooks/useAdminUsers'
 import { createAdminSchema, toCreateAdminPayload, type CreateAdminFormValues } from './adminUserForms.schema'

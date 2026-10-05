@@ -1,9 +1,9 @@
-import { createQueryClient as createSharedQueryClient, ApiError } from '@vhyx/api-kit'
+import { createQueryClient as createSharedQueryClient, ApiError } from '@vhyxvoid/api-kit'
 import type { QueryClient } from '@tanstack/react-query'
 
 import { toast } from '@vhyxui/react'
 
-// apps/admin's wiring of the shared @vhyx/api-kit QueryClient factory.
+// apps/admin's wiring of the shared @vhyxvoid/api-kit QueryClient factory.
 // Uses VhyxUI's own toast() (mounted via VhyxUIProvider in
 // components/VhyxUIRoot.tsx) rather than apps/web's react-hot-toast --
 // apps/admin has no legacy second toast library to route around, and

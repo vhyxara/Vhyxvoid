@@ -1,4 +1,4 @@
-import { createQueryKeys } from '@vhyx/api-kit'
+import { createQueryKeys } from '@vhyxvoid/api-kit'
 
 // GET /admin/identity/roles has zero query params at all (isActive: true is
 // hardcoded server-side) -- one real query, adminRoleKeys.list().

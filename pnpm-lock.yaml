@@ -57,15 +57,15 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@vhyx/api-kit':
-        specifier: link:../../../vhyx-api-kit
-        version: link:../../../vhyx-api-kit
       '@vhyxui/react':
-        specifier: link:../../../VhyxUI/packages/react
-        version: link:../../../VhyxUI/packages/react
+        specifier: 0.4.11
+        version: 0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3)
       '@vhyxui/tokens':
-        specifier: link:../../../VhyxUI/packages/tokens
-        version: link:../../../VhyxUI/packages/tokens
+        specifier: 0.4.0
+        version: 0.4.0
+      '@vhyxvoid/api-kit':
+        specifier: workspace:*
+        version: link:../../packages/api-kit
       classnames:
         specifier: 2.5.1
         version: 2.5.1
@@ -403,15 +403,15 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@vhyx/api-kit':
-        specifier: link:../../../vhyx-api-kit
-        version: link:../../../vhyx-api-kit
       '@vhyxui/react':
-        specifier: link:../../../VhyxUI/packages/react
-        version: link:../../../VhyxUI/packages/react
+        specifier: 0.4.11
+        version: 0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3)
       '@vhyxui/tokens':
-        specifier: link:../../../VhyxUI/packages/tokens
-        version: link:../../../VhyxUI/packages/tokens
+        specifier: 0.4.0
+        version: 0.4.0
+      '@vhyxvoid/api-kit':
+        specifier: workspace:*
+        version: link:../../packages/api-kit
       classnames:
         specifier: 2.5.1
         version: 2.5.1
@@ -591,6 +591,18 @@ importers:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
+
+  packages/api-kit:
+    devDependencies:
+      '@tanstack/react-query':
+        specifier: 5.102.8
+        version: 5.102.8(react@19.2.6)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.15
+        version: 4.0.15(@types/node@24.10.1)(jiti@2.7.0)(jsdom@30.0.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.1)
 
   packages/middleware:
     dependencies:
@@ -3329,6 +3341,47 @@ packages:
   '@upstash/redis@1.36.1':
     resolution: {integrity: sha512-N6SjDcgXdOcTAF+7uNoY69o7hCspe9BcA7YjQdxVu5d25avljTwyLaHBW3krWjrP0FfocgMk94qyVtQbeDp39A==}
 
+  '@vhyxseal/core@1.0.0-rc.6':
+    resolution: {integrity: sha512-GVKmx2hjGz9rFSlJdd1zAFIFk456YI2O8CBmQWkNSKj1gGJguDg4T8BK0Phgb5S7XRhN1KomizmpLRNghgX9Ug==}
+    engines: {node: '>=20.19'}
+
+  '@vhyxseal/react@1.0.0-rc.6':
+    resolution: {integrity: sha512-CcDV24a3qgH0aWtAwgh7P/If44Rjd3TSNmiyjMNCE6GcEgcUG8BbwWpKNBdkEQ2VxJcrEAhvv83ZoJ/Aa61wPg==}
+    engines: {node: '>=20.19'}
+    peerDependencies:
+      react: '>=18.0.0'
+
+  '@vhyxui/core@0.2.3':
+    resolution: {integrity: sha512-Md4bLcgvvFugQw5yErfEql64AaXhNSbo0lMRSXnz9PGpuN2EGKu9EaLSTsbNX0I/kYpWU8PUAiM18qzb88Rlug==}
+    engines: {node: '>=20.19'}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
+
+  '@vhyxui/icons@0.2.3':
+    resolution: {integrity: sha512-d2mXhVAgwB7VbjXrl3vjvQ202uXnbMFdBKqHp3pX48vFK3nnrjfG/APzKoXJ7qcGFm0GbDaJBr0YZPXerl+9Bg==}
+    engines: {node: '>=20.19'}
+    peerDependencies:
+      react: '>=18'
+
+  '@vhyxui/react@0.4.11':
+    resolution: {integrity: sha512-Eols0rEMd7m2NPuHiT4SYXMKyjo38Ny3Aaftb55yz/RP2Qp9Kz2S8Z35f3+IAI2AdebjIqVdrieyg3pB+f7lcw==}
+    engines: {node: '>=20.19'}
+    peerDependencies:
+      '@testing-library/react': '>=14'
+      react: '>=18'
+      react-dom: '>=18'
+      react-hook-form: '>=7'
+    peerDependenciesMeta:
+      '@testing-library/react':
+        optional: true
+      react-hook-form:
+        optional: true
+
+  '@vhyxui/tokens@0.4.0':
+    resolution: {integrity: sha512-qaKrf8vSHpv2KZK4BKDo5cKdDEnXSBGDYWAkzKx4eW1Fv1z3TxAqZAH9vl1HkzWLJLt3bXa85uuhARrXNhV2hQ==}
+    engines: {node: '>=20.19'}
+
   '@vitejs/plugin-react@5.2.0':
     resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -3371,61 +3424,73 @@ packages:
     resolution: {integrity: sha512-Rvr0/EkPfPgc0C1wx8dz4bv6o4I4yeYI06tcHUL0f4ZdwSyIreABoLHNW51Ap0VNA7aDRVQ4izRNQh/LuykofA==}
     cpu: [arm64]
     os: [android]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-darwin-arm64@0.9.5':
     resolution: {integrity: sha512-sh9DaXzkVmedM9aWvjCAAluRtvz/trk5VSosF7dPhqDf3IhrJW2DOh9iuA+YQzWSktP/ILsKfKili2UZ/ZjRzw==}
     cpu: [arm64]
     os: [darwin]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-darwin-x64@0.9.5':
     resolution: {integrity: sha512-qPKyWlGK92vjwwFdAKwGkfqF3rye4UR8X2WPvzhOSt/plATd2pPJFyMBhF1aclRMBNbk20YnctWYRYLS8FBgAg==}
     cpu: [x64]
     os: [darwin]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-freebsd-x64@0.9.5':
     resolution: {integrity: sha512-LeSbxDQ7k0WFyddM3BiFW3i55eSkWwi4hgG8PmqNBGL9dZ4sysYOwcy3We8vyxc/fyhuhc0CYxa6p6v14+UBow==}
     cpu: [x64]
     os: [freebsd]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm-gnu@0.9.5':
     resolution: {integrity: sha512-GVtm5UmUhKMnicVz/Q4QgRr7OFyvxDrr7j9u0Mrgnisj/GmABhcFhzqVwW+rbS+EFnUHY7yIamwY2Fc3CoCTCw==}
     cpu: [arm]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm-musl@0.9.5':
     resolution: {integrity: sha512-c/9lCWXRwp0eaAvbTZslrplIjaLhiFCdc5bF/hCV13HrYYyICSwEcCgx3/OEEpwfHpdQsqejhsntUKc/0Ylbfg==}
     cpu: [arm]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm64-gnu@0.9.5':
     resolution: {integrity: sha512-BwZYDPfnuP9gh8KphdjClzN3XRV0smbc2nNGkxvSOEYB/uRW0e+S2Jh82QKMSCK5TptQfovmFWe55Z5lToLAfA==}
     cpu: [arm64]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-arm64-musl@0.9.5':
     resolution: {integrity: sha512-xglOsssSkPQGwendJdWud5maVWoM6h5SwlouStfg0eUACjxV8uLvnub2NT+euQJQMVzH3aRc5RuPPqzvMFeDTA==}
     cpu: [arm64]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-x64-gnu@0.9.5':
     resolution: {integrity: sha512-X7J/LWSnNsyx1E4hv6CFofXQft4GMePfc4pDn00B4lG6BO3HNR/zGlYZ5ayQsxhRNLxtAlvSFSaguaSuyz6p6g==}
     cpu: [x64]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-linux-x64-musl@0.9.5':
     resolution: {integrity: sha512-gmi9vazzSs4PLpHjgkFLPGCDMzG7ths3mcip0qZEHhLwLJthH5PTA+LYKi+7FRKHNQT4A50RTVox5CjdUC+prw==}
     cpu: [x64]
     os: [linux]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-win32-arm64@0.9.5':
     resolution: {integrity: sha512-0iKC5sGOCrFqumzSHLv2qCQa0OTytK605dSJrdHah5CoLT13oStEfk3jwNltYB77J3BiSagg896d5YmTY8HQPA==}
     cpu: [arm64]
     os: [win32]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-analyzer/binding-win32-x64@0.9.5':
     resolution: {integrity: sha512-dSb5o6D9JugPmKRsjVLDLpgHRdSd1oCvNhY6AP6+OCzMwn0kbiNxhf2DwXYtt4xIBjliYQnw+ZsvIy1d0lHtSg==}
     cpu: [x64]
     os: [win32]
+    deprecated: yuku-analyzer runs on yuku-core since 0.14
 
   '@yuku-toolchain/types@0.9.5':
     resolution: {integrity: sha512-KiuLNNgX9uNealaWAR+G3/cMXnRk9x4TY2EkYe/KIag+UPdwiA0RRf1hr1WAxzTP8KGzCTkqUdLPvqh32sEO3w==}
@@ -9472,6 +9537,11 @@ snapshots:
       '@tanstack/query-core': 5.102.8
       react: 19.2.3
 
+  '@tanstack/react-query@5.102.8(react@19.2.6)':
+    dependencies:
+      '@tanstack/query-core': 5.102.8
+      react: 19.2.6
+
   '@tanstack/react-table@8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@tanstack/table-core': 8.21.3
@@ -10001,6 +10071,36 @@ snapshots:
   '@upstash/redis@1.36.1':
     dependencies:
       uncrypto: 0.1.3
+
+  '@vhyxseal/core@1.0.0-rc.6': {}
+
+  '@vhyxseal/react@1.0.0-rc.6(react@19.2.3)':
+    dependencies:
+      '@vhyxseal/core': 1.0.0-rc.6
+      react: 19.2.3
+
+  '@vhyxui/core@0.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      '@vhyxseal/core': 1.0.0-rc.6
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+
+  '@vhyxui/icons@0.2.3(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
+
+  '@vhyxui/react@0.4.11(@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-hook-form@7.88.0(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      '@vhyxseal/react': 1.0.0-rc.6(react@19.2.3)
+      '@vhyxui/core': 0.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@vhyxui/icons': 0.2.3(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+    optionalDependencies:
+      '@testing-library/react': 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react-hook-form: 7.88.0(react@19.2.3)
+
+  '@vhyxui/tokens@0.4.0': {}
 
   '@vitejs/plugin-react@5.2.0(vite@7.2.7(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.20.6)(yaml@2.9.1))':
     dependencies:

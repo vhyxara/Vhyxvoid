@@ -19,7 +19,7 @@ import { useAdminAuthStore } from '@/api/domain/auth/auth.store'
 // middleware), and a missing session just redirects to /login. Building a
 // real bootstrap/silent-refresh-on-load flow is dashboard-shell-proper
 // scope for a later session, not this one's (Part 1's placeholder-shell
-// ask), and would need @vhyx/api-kit's onUnauthorized path exercised on
+// ask), and would need @vhyxvoid/api-kit's onUnauthorized path exercised on
 // app mount rather than on first stale-token request, a different flow.
 export default function AdminAuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter()

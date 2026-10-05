@@ -1,4 +1,4 @@
-import { createQueryKeys } from '@vhyx/api-kit'
+import { createQueryKeys } from '@vhyxvoid/api-kit'
 
 import type { FetchParams } from '@/libs/table/GenericServerTable'
 
