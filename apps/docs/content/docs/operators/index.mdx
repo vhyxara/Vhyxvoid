@@ -1,0 +1,37 @@
+---
+title: Running VhyxVoid
+description: What runs where, and what an operator can change without a developer.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/platform.plugin.ts
+  - packages/shared/src/settings.ts
+  - docker-compose.yml
+---
+
+This section is for the people who run VhyxVoid: deploying it, configuring it, and looking after users. Everything here is done from the admin console or with one command; nothing needs a code change.
+
+## The pieces
+
+| Service | What it does | Default port |
+| --- | --- | --- |
+| `api` | REST API for the dashboard, admin console, billing webhooks and public site data. Runs database migrations on start. | 9000 |
+| `hub` | Accepts agent connections and forwards public tunnel traffic to them. | 9001 |
+| `web` | Marketing site and user dashboard (Next.js). | 3000 |
+| `admin` | Operations console (Next.js). | 3000 |
+| Postgres | Accounts, users, keys, settings, site content, audit logs. | 5432 |
+| Redis (Upstash REST) | Rate limits, caches, tunnel registry, usage counters. | — |
+
+## What you control from the admin console
+
+- **Users and accounts**: search, suspend, reactivate, change plan limits per account, add notes, force sign-out.
+- **API keys and tunnels**: see every key, revoke one, see live agents, disconnect a tunnel.
+- **Billing**: subscriptions, invoices and payment status from Stripe, per account.
+- **Logs**: user audit log, admin audit log (CSV export), and system health.
+- **Settings**: maintenance mode, announcement banner, sign-up policy, trial length, checkout switch, plan limits, tunnel switches, support links, feature switches. See the [settings reference](/docs/operators/settings-reference).
+- **Content**: landing page, pricing page and any number of markdown pages (terms, privacy, about) with drafts, publishing and revision history. See [site content](/docs/operators/content).
+- **Admins and roles**: invite admins, give them roles built from abilities, reset an admin's password.
+
+Changes to settings reach every API and hub process within 30 seconds. Published content reaches the website within a minute.

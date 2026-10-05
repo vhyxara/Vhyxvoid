@@ -1,0 +1,96 @@
+---
+title: Admin console
+description: A tour of every screen in the operations console and who can use it.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - apps/admin/src/components/AdminShell.tsx
+  - apps/api/src/modules/identity/domain/entities/admin/AdminAbility.entities.ts
+  - apps/api/src/modules/platform/admin/admin.users.routes.ts
+  - apps/api/src/modules/platform/admin/admin.accounts.routes.ts
+---
+
+The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps to a user (type an email) or an account (type a name or slug).
+
+## Overview
+
+**Dashboard** shows users, accounts, paying subscriptions, revenue, active API keys and live tunnels over 7, 30 or 90 days, with daily sign-ups and requests. **System** shows the health of Postgres, Redis and the hub, the build that is running, and the effective plan limits.
+
+## People and workspaces
+
+**Users**: search by email or name, filter by status. A user's page shows their workspaces, active sessions and security events. Actions:
+
+- *Suspend* or *reactivate* (a reason is required and recorded).
+- *Sign out everywhere*: revokes every session and access token at once.
+- *Unlock*: clears a lockout after repeated failed sign-ins (5 failures lock a user account for 15 minutes).
+- *Send password reset*: emails the user a reset link.
+
+**Accounts** (workspaces): filter by plan and status. An account's page has tabs for members, API keys, tunnels, billing and limit overrides. Actions:
+
+- *Suspend*, *restrict* or *reactivate* the whole workspace (a reason is required and recorded).
+- *Limit overrides*: change any plan limit for this one account (more agents for a design partner, a higher request quota during a launch). Empty means "use the plan's limit"; *Unlimited* removes the cap.
+- *Notes*: free text visible only to admins.
+
+## Tunnels and keys
+
+**API keys** lists every key on the platform with its scopes and last use; *Revoke* takes effect immediately, including for a connected agent. **Tunnels** has two tabs: *Live* (connected agents across hubs, with *Disconnect*) and *History* (past sessions and their request counts).
+
+## Money
+
+**Billing** summarises paying subscriptions, revenue, outstanding invoices, past-due accounts and trials ending within 7 days, with subscription and invoice lists.
+
+## Records
+
+**Logs** has three views: security events (sign-ins, lockouts, token reuse), customer activity (the per-account audit trail) and tunnelled requests. **Admin audit log** records every admin action with who, what, when and from where; export it as CSV for compliance reviews. **Feedback** is the inbox for bug reports and feature requests from the dashboard's feedback button.
+
+## Configuration
+
+**Settings** and **Content** are covered in the [settings reference](/docs/operators/settings-reference) and [site content](/docs/operators/content).
+
+## Admins, roles and abilities
+
+Every console action checks an *ability*. Roles are named bundles of abilities; an admin can hold several roles. Super admins bypass the checks and are the only ones who can change another admin's password.
+
+To give a support engineer read-only access, create a role with the `*.read` abilities plus `logs.read`, then invite them under **Admin users**.
+
+| Ability | Grants |
+| --- | --- |
+| `user.create` | Create new user |
+| `user.read` | View user details |
+| `user.update` | Update user information |
+| `user.delete` | Delete/deactivate user |
+| `role.create` | Create new role |
+| `role.read` | View role details |
+| `role.update` | Update role |
+| `role.delete` | Delete role |
+| `role.assign` | Assign roles to admins |
+| `ability.create` | Create new ability |
+| `ability.read` | View ability details |
+| `ability.update` | Update ability |
+| `ability.delete` | Delete ability |
+| `admin.create` | Create new admin user |
+| `admin.read` | View admin details |
+| `admin.update` | Update admin information |
+| `admin.delete` | Delete/deactivate admin |
+| `admin.enable` | Enable admin account |
+| `admin.disable` | Disable admin account |
+| `audit.read` | View audit logs |
+| `audit.export` | Export audit logs |
+| `settings.read` | View system settings |
+| `settings.update` | Update system settings |
+| `system.read` | View dashboard, system health and plan limits |
+| `account.read` | View customer accounts |
+| `account.update` | Suspend, restrict, reactivate accounts; edit limits and notes |
+| `account.delete` | Delete customer accounts |
+| `apikey.read` | View API keys of every account |
+| `apikey.revoke` | Revoke any API key |
+| `tunnel.read` | View live tunnels and connection history |
+| `tunnel.disconnect` | Force-disconnect a live agent |
+| `billing.read` | View subscriptions, invoices and revenue |
+| `logs.read` | View security events, user activity and request logs |
+| `content.read` | View website content |
+| `content.update` | Create and edit website content drafts |
+| `content.publish` | Publish and unpublish website content |
+| `content.delete` | Delete website content |

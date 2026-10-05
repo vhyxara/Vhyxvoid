@@ -1,0 +1,40 @@
+---
+title: Plans and billing
+description: How plan limits are decided, how to change them for everyone or for one account, and how checkout and trials work.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - packages/shared/src/settings.ts
+  - packages/shared/src/planLimits.ts
+  - apps/api/src/modules/billing/presentation/http/billing.routes.ts
+  - apps/api/src/modules/billing/application/use-cases/billing/CreateCheckoutSession.usecase.ts
+  - apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts
+---
+
+## Where a limit comes from
+
+Each account's effective limits are worked out in three layers, last one wins:
+
+1. **Built-in plan limits** for FREE, PRO and ENTERPRISE, shipped with the code.
+2. **Plan overrides** (`plans.overrides` under **Settings → Plan limits**): change a limit for every account on a plan, for example raising FREE to 2 agents.
+3. **Account overrides** (the *Limit overrides* tab on an account): change a limit for one account only.
+
+In both override editors an empty field means "inherit", and *Unlimited* removes the cap. **System → Effective limits** shows the result of layers 1 and 2; the account page shows all three.
+
+The API, the hub and the public pricing table all read the same effective values, so what you see on the pricing page is what is enforced.
+
+## Checkout
+
+Users upgrade from **Billing** in their workspace. The browser sends the plan name only; the API maps it to the Stripe price from `STRIPE_PRO_PRICE_ID` / `STRIPE_ENTERPRISE_PRICE_ID`, and only accepts return URLs on your own site.
+
+- `billing.checkoutEnabled` off hides *Upgrade* in the dashboard and refuses new checkouts. Existing subscriptions are untouched. Use it while prices are being changed.
+- `billing.trialDays` sets the free trial for an account's **first** subscription. Later subscriptions start paid. `0` disables trials.
+- An account whose subscription is past due or unpaid cannot start a second checkout; it has to fix payment in the Stripe customer portal first.
+
+Prices, currencies, taxes, coupons and refunds are managed in the Stripe dashboard.
+
+## When payment fails
+
+Stripe retries according to your Stripe settings. The account moves to *past due* (it keeps working) and the owner is emailed. If Stripe finally cancels the subscription, the account returns to the FREE plan's limits. Past-due accounts are listed on the console's **Billing** screen.

@@ -1,0 +1,102 @@
+---
+title: Settings reference
+description: Every runtime setting an admin can change, its type, default and effect.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - packages/shared/src/settings.ts
+  - apps/api/src/modules/platform/settings/settings.service.ts
+---
+
+Settings are edited under **Settings** in the console. Each change is validated, written to the admin audit log, and picked up by every API and hub process within 30 seconds. *Reset* returns a key to its default.
+
+Settings marked *public* are readable without signing in (the website uses them for the banner, footer links and sign-up switches). Never put secrets in a setting; secrets belong in environment variables.
+
+{/* Generated from packages/shared/src/settings.ts (SETTING_DEFINITIONS). */}
+
+## General
+
+Product name and public links.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `general.productName` | string | `"VhyxVoid"` | yes | Product name. Shown in page titles, emails and the dashboard. |
+| `general.tagline` | string | see admin panel | yes | Tagline. One line under the product name. |
+| `general.statusPageUrl` | url | `""` | yes | Status page URL. Linked from the footer when set. |
+| `general.twitterUrl` | url | `""` | yes | X / Twitter URL. Footer link when set. |
+| `general.githubUrl` | url | `""` | yes | GitHub URL. Footer link when set. |
+
+## Maintenance
+
+Take the dashboard and API offline for users while admins keep working.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `maintenance.enabled` | boolean | `false` | yes | Maintenance mode. Users get a maintenance page and the user API answers 503. Admin panel, public pages, webhooks and running tunnels keep working. |
+| `maintenance.message` | text | see admin panel | yes | Maintenance message. Shown to users while maintenance mode is on. |
+
+## Announcement banner
+
+A banner shown on the website and dashboard.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `announcement.enabled` | boolean | `false` | yes | Show banner. Show the announcement banner. |
+| `announcement.message` | string | `""` | yes | Message. Banner text. |
+| `announcement.tone` | enum (info, success, warning, danger) | `"info"` | yes | Tone. Banner colour. |
+| `announcement.linkText` | string | `""` | yes | Link text. Optional link label. |
+| `announcement.linkUrl` | url | `""` | yes | Link URL. Optional link target. |
+
+## Sign-up and sign-in
+
+Who can create an account and how.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `auth.signupsEnabled` | boolean | `true` | yes | Allow sign-ups. When off, new accounts can only join through an invitation. |
+| `auth.allowedEmailDomains` | stringList | `[]` | no | Allowed email domains. Only these domains may sign up (e.g. company.com). Empty allows every domain. |
+| `auth.blockedEmailDomains` | stringList | `[]` | no | Blocked email domains. Sign-ups from these domains are refused (disposable mail providers, for example). |
+
+## Billing
+
+Checkout and trial policy. Prices themselves live in Stripe.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `billing.checkoutEnabled` | boolean | `true` | yes | Allow upgrades. When off, the upgrade buttons are hidden and checkout is refused. |
+| `billing.trialDays` | number 0–90 | `14` | yes | Trial length (days). Free trial on an account's first paid subscription only. 0 disables trials. |
+
+## Plan limits
+
+Override the built-in limits of each plan.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `plans.overrides` | json | `{}` | no | Plan limit overrides. Per-plan overrides of the built-in limits. Use null for unlimited. Changes apply within a minute. |
+
+## Tunnels
+
+Tunnel behaviour for every account.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `tunnels.newAgentsEnabled` | boolean | `true` | no | Accept new agent connections. When off, the hub refuses new agent registrations (running tunnels stay up). For incidents. |
+
+## Support
+
+Where users get help.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `support.email` | email | `"support@vhyxvoid.com"` | yes | Support email. Shown on the website and in emails. |
+| `support.docsUrl` | url | `"/docs"` | yes | Documentation URL. Where 'Docs' links go. |
+
+## Features
+
+Turn product features on or off.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `features.feedbackEnabled` | boolean | `true` | yes | Feedback form. Let signed-in users send feedback from the dashboard. |

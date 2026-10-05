@@ -1,0 +1,52 @@
+---
+title: Runbook
+description: What to do when something goes wrong, and the routine jobs.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/platform.plugin.ts
+  - apps/hub/src/HubServer.ts
+  - packages/shared/src/settings.ts
+---
+
+## Planned maintenance
+
+1. Set an announcement (**Settings → Announcement banner**) a day ahead.
+2. At the start, turn on `maintenance.enabled` with a message. Users see a maintenance screen; the user API answers 503. The admin console, public pages, Stripe webhooks and already-connected tunnels keep working.
+3. Do the work, check **System**, turn maintenance off, clear the banner.
+
+## A user is being abused or is abusing
+
+- **Compromised user**: *Sign out everywhere*, then *Send password reset*. Their API keys are separate credentials: revoke them under **API keys**.
+- **Abusive workspace**: *Suspend* the account (its agents are disconnected and cannot reconnect, its API keys stop working, workspace actions are refused) and disconnect its live tunnels under **Tunnels → Live**. Record why in the reason; it is kept in the admin audit log.
+- **Too much load from one account**: lower its limits with an account override instead of suspending.
+
+## Stop new tunnels quickly
+
+Turn off `tunnels.newAgentsEnabled`. Connected agents keep running; new connections are refused within 30 seconds. Use it during an incident on the hub or to shed load.
+
+## Close sign-ups
+
+Turn off `auth.signupsEnabled`, or limit sign-ups to certain email domains with `auth.allowedEmailDomains` and `auth.blockedEmailDomains`.
+
+## Health checks
+
+| Check | Healthy |
+| --- | --- |
+| `GET https://api.vhyxvoid.com/health` | `{"status":"ok"}` |
+| Hub `GET /health` (inside the Docker network) | 200 |
+| Hub `GET /metrics` (inside the Docker network) | Prometheus text: connected agents, sockets, pending requests |
+| Console **System** page | Postgres, Redis and hub all green |
+
+## Backups
+
+Back up Postgres daily (`pg_dump` or your provider's snapshots) and test a restore. Redis holds only caches, counters and the live tunnel registry; losing it costs this month's usage counters, not accounts or keys.
+
+## Routine
+
+- Read the admin audit log weekly; export it for compliance as CSV.
+- Watch **Billing** for past-due accounts and trials ending soon.
+- Triage **Feedback**.
+- Rotate `HUB_INTERNAL_SECRET` on the API and hub together. Never rotate `SERVER_HMAC_PEPPER`: every API key depends on it.

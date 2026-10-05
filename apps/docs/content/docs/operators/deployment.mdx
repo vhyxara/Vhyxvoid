@@ -1,0 +1,112 @@
+---
+title: Deployment
+description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
+verified:
+  date: "2026-10-05"
+  commit: "97f3736"
+  packages: {}
+sources:
+  - docker-compose.yml
+  - docker-compose.build.yml
+  - Dockerfile.api
+  - Dockerfile.hub
+  - Dockerfile.next
+  - nginx.conf
+  - apps/api/bootstrap.js
+---
+
+VhyxVoid ships as four images built from the repository root. The reference setup is one VPS running Docker Compose behind Cloudflare, with the website optionally hosted anywhere that runs Next.js.
+
+## Build the images
+
+```bash
+docker build -f Dockerfile.api -t vhyxvoid-api .
+docker build -f Dockerfile.hub -t vhyxvoid-hub .
+docker build -f Dockerfile.next --build-arg APP=admin \
+  --build-arg NEXT_PUBLIC_ADMIN_API_URL=https://admin.vhyxvoid.com/api/v1 \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://vhyxvoid.com \
+  -t vhyxvoid-admin .
+docker build -f Dockerfile.next --build-arg APP=web \
+  --build-arg NEXT_PUBLIC_API_URL_LIVE=https://api.vhyxvoid.com/api/v1 \
+  -t vhyxvoid-web .
+```
+
+Or `docker compose -f docker-compose.yml -f docker-compose.build.yml build`. `NEXT_PUBLIC_*` values are compiled into the browser bundle, so a change to them needs a rebuild. CI builds all four images on every pull request.
+
+All images run as the unprivileged `node` user on Node 24.
+
+## Environment
+
+### API (`apps/api/.env.production`)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Postgres connection string. |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | yes | Redis over REST. |
+| `PRIVATE_KEY_B64`, `PUBLIC_KEY_B64` (or `PRIVATE_KEY`, `PUBLIC_KEY`) | yes | RS256 key pair that signs access tokens. |
+| `SERVER_HMAC_PEPPER` | yes | Pepper for API key hashes. Never change it after launch: every key would stop working. |
+| `APP_URL` | yes | Public website origin, e.g. `https://vhyxvoid.com`. Used in emails and as an allowed CORS origin. |
+| `ADMIN_URL` | yes | Admin console origin, e.g. `https://admin.vhyxvoid.com`. |
+| `CORS_ORIGINS` | no | Extra allowed origins, comma separated. |
+| `RESEND_API_KEY`, `EMAIL_FROM` | yes in production | Transactional email. The API refuses to start in production without them. |
+| `APP_NAME`, `SUPPORT_EMAIL`, `ADMIN_FEEDBACK_EMAIL` | no | Email copy and recipients. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for billing | Stripe API and webhook signature. |
+| `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | for billing | The recurring price of each paid plan. |
+| `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. |
+| `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_FIRST_NAME`, `SUPER_ADMIN_LAST_NAME` | first run | The first admin, created by the seed. |
+
+### Hub (`apps/hub/.env.production`)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Reads runtime settings (for example, whether new agents may connect). |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | yes | Shared tunnel registry and usage counters. |
+| `PUBLIC_KEY_B64` or `PUBLIC_KEY` | yes | Verifies agent tokens. |
+| `SERVER_HMAC_PEPPER` | yes | Same value as the API. |
+| `HUB_DOMAIN` | yes | Base domain of tunnel URLs, e.g. `vhyxvoid.com`. |
+| `HUB_INTERNAL_SECRET` | for the admin console | Same value as the API. |
+| `HUB_INSTANCE_ID` | no | Name of this hub instance in logs and metrics. Default `hub-primary`. |
+| `TUNNEL_REQUEST_TIMEOUT_MS` | no | How long a public request waits for the agent. |
+
+### Website (`web`)
+
+| Variable | When | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_URL_LIVE` | build | Public API base URL used by the browser. |
+| `API_INTERNAL_URL` | runtime | API base URL used for server rendering (inside Compose: `http://api:9000/api/v1`). Falls back to the public one. |
+
+### Admin console (`admin`)
+
+| Variable | When | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_ADMIN_API_URL` | build | `https://admin.vhyxvoid.com/api/v1`: the admin API through the admin host. |
+| `NEXT_PUBLIC_SITE_URL` | build | Website origin, for "view on site" links from the content editor. |
+
+## First start
+
+```bash
+docker compose up -d                       # api runs `prisma migrate deploy` on start
+docker compose exec api node bootstrap.js seed
+```
+
+`seed` creates the system abilities, the built-in admin roles and the super admin from `SUPER_ADMIN_*`. It is safe to run again: existing rows are left alone. New abilities added by an upgrade are also created automatically when the API starts.
+
+Sign in at `https://admin.vhyxvoid.com`, change the super admin password from the profile menu, then remove `SUPER_ADMIN_PASSWORD` from the env file.
+
+## The admin host
+
+nginx serves the console at `admin.vhyxvoid.com` and proxies `/api/v1/admin/` on that host to the API, so the browser talks to one origin and the admin refresh cookie stays first-party. The same paths return 404 on `api.vhyxvoid.com`.
+
+Protect the host with [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) (an application for `admin.vhyxvoid.com` with a policy listing your team's emails). The admin login is then the second gate rather than the only one. Like `api.` and `hub.`, the host only accepts connections from Cloudflare's edge.
+
+Admin sign-in is rate limited per IP, and every admin action is written to the admin audit log.
+
+## Stripe
+
+1. Create a product per paid plan with one recurring price each; put the price IDs in `STRIPE_PRO_PRICE_ID` and `STRIPE_ENTERPRISE_PRICE_ID`.
+2. Add a webhook endpoint `https://api.vhyxvoid.com/api/v1/billing/webhooks/stripe` for the `customer.*`, `customer.subscription.*` and `invoice.*` events; put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+3. Set the trial length and switch checkout on or off from **Settings → Billing** in the console.
+
+## Upgrades
+
+Pull or build the new images and `docker compose up -d`. The API applies new migrations before it starts listening; the hub reconnects agents automatically (agents retry with backoff).
