@@ -15,8 +15,6 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
   LOG_LEVEL: z.string().default("info"),
-  JWT_SECRET: z.string().min(1),
-  JWT_EXPIRES_IN: z.string().default("7d"),
   REDIS_URL: z.string().optional(),
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
@@ -33,7 +31,6 @@ const envSchema = z.object({
   APP_NAME: z.string().optional(),
   SUPPORT_EMAIL: z.string().optional(),
   DEV_EMAIL: z.string().optional(),
-  CLIENT_123_SECRET: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);

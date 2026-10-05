@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { PrismaUnitOfWork } from "../../apps/api/src/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { PrismaClient } from "../../packages/shared/generated/prisma";
 import { AdminRefreshTokenUseCase } from "../../apps/api/src/modules/identity/application/use-cases/admin/AdminRefreshToken.usecase";
@@ -160,13 +160,43 @@ function transactionalAdminUow(seed: any[]) {
     committed = staged; // commit only on success
     return result;
   };
-  const uow: any = { execute: run, transaction: run, afterCommit: (fn: () => unknown) => fn() };
+  // Prisma-shaped transaction client over the same table (the admin refresh
+  // use case locks and writes rows through prisma.$transaction directly).
+  const txClient = (rows: Map<string, any>) => ({
+    $queryRaw: async () => [],
+    adminSession: {
+      findUnique: async ({ where }: any) =>
+        (where.id ? rows.get(where.id) : [...rows.values()].find((r) => r.tokenHash === where.tokenHash)) ?? null,
+      create: async ({ data }: any) => {
+        const row = { revokedAt: null, replacedById: null, replacementTokenCipher: null, ...data };
+        rows.set(row.id, row);
+        return row;
+      },
+      update: async ({ where, data }: any) => Object.assign(rows.get(where.id), data),
+      updateMany: async () => ({ count: 0 }),
+    },
+    adminAuditLog: { create: async () => ({}) },
+  });
+  const prisma = {
+    $transaction: async (fn: any) => {
+      const staged = new Map([...committed].map(([k, v]) => [k, { ...v }]));
+      const result = await fn(txClient(staged));
+      committed = staged;
+      return result;
+    },
+  };
+  const uow: any = { execute: run, transaction: run, afterCommit: (fn: () => unknown) => fn(), prisma, adminUserRepository };
   // Root-level writes (outside any transaction) go straight to the table.
   Object.defineProperty(uow, "adminSessionRepository", { get: () => repoOver(committed) });
   return { uow, sessions: () => [...committed.values()] };
 }
 
 describe("AdminRefreshToken reuse detection survives a real transaction", () => {
+  // The successor cipher derives its key from the pepper.
+  beforeAll(() => {
+    process.env.SERVER_HMAC_PEPPER ??= "p".repeat(40);
+  });
+
   it("revokes every session of the admin when a revoked refresh token is re-presented", async () => {
     const future = new Date(Date.now() + 86_400_000);
     const { uow, sessions } = transactionalAdminUow([
@@ -198,5 +228,20 @@ describe("AdminRefreshToken reuse detection survives a real transaction", () => 
     const all = sessions();
     expect(all.find((s) => s.id === "s1")!.revokedAt).not.toBeNull();
     expect(all.some((s) => s.tokenHash === TokenHasher.hash("new-raw") && !s.revokedAt)).toBe(true);
+  });
+
+  it("a token presented again within the grace window gets the same successor, not a revoke-all", async () => {
+    const future = new Date(Date.now() + 86_400_000);
+    const { uow, sessions } = transactionalAdminUow([
+      { id: "s1", adminId: "adm1", tokenHash: TokenHasher.hash("live"), revokedAt: null, expiresAt: future, ipAddress: "", userAgent: "" },
+    ]);
+    let n = 0;
+    const useCase = new AdminRefreshTokenUseCase(uow, { sign: () => "jwt" } as any, { generate: () => `new-raw-${++n}` } as any);
+
+    const first = await useCase.execute("live");
+    const second = await useCase.execute("live"); // the other tab, a moment later
+
+    expect(second.refreshToken).toBe(first.refreshToken);
+    expect(sessions().filter((s) => !s.revokedAt)).toHaveLength(1);
   });
 });

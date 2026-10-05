@@ -1,6 +1,8 @@
 // identity/presentation/routes/admin/adminRoutes.ts
 
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { AdminTTL } from "@/core/constant/ttl.constant";
+import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
 import { AUTH_RATE_LIMITS } from "@/core/constant/rateLimit.constant";
 
 import {
@@ -26,9 +28,37 @@ import {
   refreshTokenSchema,
   updateAdminSchema,
   updateRoleSchema,
+  changeOwnPasswordSchema,
+  setAdminPasswordSchema,
 } from "@/modules/identity/application/dto/admin.dto";
 import { successResponse } from "@/core/utils/response.util";
-import { NotFoundError, ValidationError } from "@/core/errors/error.format";
+import { NotFoundError, UnauthorizedError, ValidationError } from "@/core/errors/error.format";
+
+// ===== REFRESH TOKEN TRANSPORT =====
+// The admin refresh token travels in an httpOnly cookie scoped to the admin
+// auth routes, so script injected into the admin panel can't read a 30-day
+// credential (audit M19; it used to live in sessionStorage). Clients that
+// can't hold cookies (scripts) ask for it in the body with
+// `x-admin-token-transport: body`.
+const ADMIN_REFRESH_COOKIE = "vv_admin_rt";
+const ADMIN_COOKIE_PATH = "/api/v1/admin/identity/auth";
+
+function deliverAdminTokens<T extends { refreshToken: string }>(request: FastifyRequest, reply: FastifyReply, result: T) {
+  reply.setCookie(ADMIN_REFRESH_COOKIE, result.refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: ADMIN_COOKIE_PATH,
+    maxAge: Math.floor(AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS / 1000),
+  });
+  if (request.headers["x-admin-token-transport"] === "body") return result;
+  const { refreshToken: _omit, ...rest } = result;
+  return rest;
+}
+
+function clearAdminCookie(reply: FastifyReply) {
+  reply.clearCookie(ADMIN_REFRESH_COOKIE, { path: ADMIN_COOKIE_PATH });
+}
 
 // ===== SCHEMAS =====
 
@@ -58,7 +88,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
         userAgent,
       );
 
-      return successResponse(reply, "Login successful", 200, result);
+      return successResponse(reply, "Login successful", 200, deliverAdminTokens(request, reply, result));
     },
   );
 
@@ -67,11 +97,18 @@ export async function adminRoutes(fastify: FastifyInstance) {
    * POST /admin/auth/refresh
    */
   fastify.post("/auth/refresh", async (request, reply) => {
-    const input = refreshTokenSchema.parse(request.body);
+    const input = refreshTokenSchema.parse(request.body ?? {});
+    const token = input.refreshToken ?? request.cookies?.[ADMIN_REFRESH_COOKIE];
+    if (!token) throw new UnauthorizedError("No refresh token");
 
     const useCase = fastify.adminRefreshTokenUseCase;
-    const result = await useCase.execute(input.refreshToken);
-    return successResponse(reply, "Token refreshed successfully", 200, result);
+    try {
+      const result = await useCase.execute(token);
+      return successResponse(reply, "Token refreshed successfully", 200, deliverAdminTokens(request, reply, result));
+    } catch (err) {
+      clearAdminCookie(reply);
+      throw err;
+    }
   });
 
   /**
@@ -85,9 +122,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const input = logoutSchema.parse(request.body ?? {});
       const admin = getAdminContext(request);
 
-      // Revoke the refresh session, when the client sends it.
-      if (input.refreshToken) {
-        const tokenHash = TokenHasher.hash(input.refreshToken);
+      // Revoke the refresh session (body for scripts, cookie for browsers).
+      const refreshToken = input.refreshToken ?? request.cookies?.[ADMIN_REFRESH_COOKIE];
+      clearAdminCookie(reply);
+      if (refreshToken) {
+        const tokenHash = TokenHasher.hash(refreshToken);
         const session =
           await fastify.uow.adminSessionRepository.findByTokenHash(tokenHash);
         if (session && session.adminId === admin.id) {
@@ -110,6 +149,64 @@ export async function adminRoutes(fastify: FastifyInstance) {
       await fastify.uow.adminAuditLogRepository.save(auditLog);
 
       return successResponse(reply, "Logged out successfully", 204);
+    },
+  );
+
+  // ============== PASSWORDS ==============
+
+  /**
+   * Change your own password. Signs out every other session of yours.
+   * POST /admin/identity/me/password
+   */
+  fastify.post(
+    "/me/password",
+    { onRequest: [fastify.adminAuthGuard], config: { rateLimit: AUTH_RATE_LIMITS.adminLogin } },
+    async (request, reply) => {
+      const input = changeOwnPasswordSchema.parse(request.body);
+      const admin = getAdminContext(request);
+      const hasher = new BcryptPasswordHasher();
+      const row = await fastify.prisma.adminUser.findUnique({ where: { id: admin.id }, select: { passwordHash: true } });
+      if (!row || !(await hasher.compare(input.currentPassword, row.passwordHash))) {
+        throw new ValidationError("Current password is incorrect");
+      }
+      if (input.currentPassword === input.newPassword) throw new ValidationError("Choose a password you haven't used here");
+      await fastify.prisma.$transaction([
+        fastify.prisma.adminUser.update({ where: { id: admin.id }, data: { passwordHash: await hasher.hash(input.newPassword), tokenVersion: { increment: 1 } } }),
+        fastify.prisma.adminSession.updateMany({ where: { adminId: admin.id, revokedAt: null }, data: { revokedAt: new Date() } }),
+      ]);
+      await fastify.authStateCache.invalidateAdmin(admin.id);
+      clearAdminCookie(reply);
+      await fastify.uow.adminAuditLogRepository.save(
+        AdminAuditLog.create({ adminId: admin.id, action: AuditAction.ADMIN_PASSWORD_CHANGED, targetType: "AdminUser", targetId: admin.id, metadata: getAuditMetadata(request, 200) }),
+      );
+      return successResponse(reply, "Password changed. Sign in again with your new password.", 200);
+    },
+  );
+
+  /**
+   * Set another admin's password (super admins only), e.g. a forgotten one.
+   * Signs that admin out everywhere.
+   * POST /admin/identity/users/:id/password
+   */
+  fastify.post<{ Params: { id: string } }>(
+    "/users/:id/password",
+    { onRequest: [fastify.adminAuthGuard, fastify.requireSuperAdmin] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const input = setAdminPasswordSchema.parse(request.body);
+      const admin = getAdminContext(request);
+      const target = await fastify.prisma.adminUser.findUnique({ where: { id }, select: { id: true, deletedAt: true } });
+      if (!target || target.deletedAt) throw new NotFoundError("Admin not found");
+      const hasher = new BcryptPasswordHasher();
+      await fastify.prisma.$transaction([
+        fastify.prisma.adminUser.update({ where: { id }, data: { passwordHash: await hasher.hash(input.newPassword), tokenVersion: { increment: 1 } } }),
+        fastify.prisma.adminSession.updateMany({ where: { adminId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
+      ]);
+      await fastify.authStateCache.invalidateAdmin(id);
+      await fastify.uow.adminAuditLogRepository.save(
+        AdminAuditLog.create({ adminId: admin.id, action: AuditAction.ADMIN_PASSWORD_CHANGED, targetType: "AdminUser", targetId: id, metadata: { ...getAuditMetadata(request, 200), reason: "set by super admin" } }),
+      );
+      return successResponse(reply, "Password set. The admin has been signed out everywhere.", 200);
     },
   );
 

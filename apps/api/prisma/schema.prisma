@@ -758,6 +758,13 @@ model AdminSession {
   ipAddress String
   userAgent String
 
+  // Rotation grace (same scheme as Session): the session that replaced this
+  // one, and the successor's raw token encrypted for 30 s, so a token
+  // presented twice at once (two tabs) gets the same successor instead of
+  // triggering reuse detection.
+  replacedById           String?
+  replacementTokenCipher String?
+
   admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   @@index([adminId])

@@ -221,7 +221,7 @@ describe("admin tokens follow the admin's current state", () => {
     } as any);
     await routes.get("POST /auth/logout")!(
       { body: {}, admin: { id: "a1", email: "a1@company.local", isSuperAdmin: false }, headers: {}, ip: "127.0.0.1" },
-      { code: () => ({ send: () => {} }), status: () => ({ send: () => {} }), send: () => {} },
+      { code: () => ({ send: () => {} }), status: () => ({ send: () => {} }), send: () => {}, setCookie: () => {}, clearCookie: () => {} },
     );
 
     await rejects(g.adminAuthGuard(req(token), {}), 401);
@@ -237,7 +237,7 @@ describe("admin tokens follow the admin's current state", () => {
     await adminRoutes(fake);
     await routes.get("POST /users/:id/disable")!(
       { params: { id: "a1" }, admin: { id: "root", email: "root@company.local", isSuperAdmin: true }, headers: {}, ip: "127.0.0.1" },
-      { code: () => ({ send: () => {} }), status: () => ({ send: () => {} }), send: () => {} },
+      { code: () => ({ send: () => {} }), status: () => ({ send: () => {} }), send: () => {}, setCookie: () => {}, clearCookie: () => {} },
     );
 
     await rejects(g.adminAuthGuard(req(token), {}), 401);

@@ -30,7 +30,7 @@ describe("login before email verification", () => {
 
   it("a wrong password still answers 401 (the verified state is not revealed)", async () => {
     const user = unverifiedUser();
-    const uow = { userRepository: { findByEmail: async () => user, save: async () => {} }, execute: vi.fn() };
+    const uow = { userRepository: { findByEmail: async () => user, save: async () => {} }, execute: vi.fn(), prisma: { $executeRaw: vi.fn(async () => 1) } };
     const login = new LoginUseCase(uow as any, {} as any, {} as any, { compare: async () => false } as any, 900, 1000);
     const err = await login.execute("victim@example.com", "pw", "ip", "ua").catch((e) => e);
     expect(err?.statusCode).toBe(401);

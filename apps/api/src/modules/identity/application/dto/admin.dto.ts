@@ -60,7 +60,15 @@ export const auditLogsQuerySchema = z.object({
 export const enableAdminSchema = z.object({});
 export const disableAdminSchema = z.object({});
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(32).max(256),
+  // Optional: browsers send it as the httpOnly admin refresh cookie instead.
+  refreshToken: z.string().min(32).max(256).optional(),
+});
+export const changeOwnPasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(12, "Use at least 12 characters").max(200),
+});
+export const setAdminPasswordSchema = z.object({
+  newPassword: z.string().min(12, "Use at least 12 characters").max(200),
 });
 export const logoutSchema = z.object({
   refreshToken: z.string().regex(/^[a-f0-9]+$/i).optional(),

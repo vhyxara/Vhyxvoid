@@ -85,6 +85,11 @@ import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/Prism
 //   }
 // }
 
+const MAX_FAILED_LOGINS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
+// bcrypt hash of a random string, compared against when the email is unknown.
+const DUMMY_BCRYPT_HASH = "$2a$12$CwTycUXWue0Thq9StjUM0uJ8.LQKfNMbOdRv1C2b0eb3U2cG8Nn2G";
+
 export class LoginUseCase {
   constructor(
     private readonly uow: PrismaUnitOfWork,
@@ -104,7 +109,12 @@ export class LoginUseCase {
     const now = new Date();
     // 1️⃣ Find user OUTSIDE transaction
     const user = await this.uow.userRepository.findByEmail(email);
-    if (!user) throw new UnauthorizedError("Invalid credentials");
+    if (!user) {
+      // Same bcrypt cost as a real check, so response time doesn't reveal
+      // which addresses have accounts (audit M15).
+      await this.passwordHasher.compare(password, DUMMY_BCRYPT_HASH).catch(() => false);
+      throw new UnauthorizedError("Invalid credentials");
+    }
     user.ensureCanLogin(now);
 
     // 2️⃣ Verify password OUTSIDE transaction
@@ -113,9 +123,17 @@ export class LoginUseCase {
       user.passwordHash,
     );
     if (!isValid) {
-      // ✅ Save failure directly — no transaction, no rollback
-      user.recordFailedLoginAttempt(now);
-      await this.uow.userRepository.save(user);
+      // One atomic UPDATE (audit M15): the old read-modify-write of the
+      // entity let N parallel guesses all read 0 failures, so the lockout
+      // never triggered.
+      await this.uow.prisma.$executeRaw`
+        UPDATE "User"
+        SET "failedLoginAttempts" = "failedLoginAttempts" + 1,
+            "lockedUntil" = CASE WHEN "failedLoginAttempts" + 1 >= ${MAX_FAILED_LOGINS}
+                                 THEN ${new Date(now.getTime() + LOCKOUT_MS)}
+                                 ELSE "lockedUntil" END,
+            "updatedAt" = ${now}
+        WHERE id = ${user.id}`;
       throw new UnauthorizedError("Invalid credentials");
     }
 

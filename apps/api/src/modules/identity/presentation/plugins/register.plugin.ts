@@ -3,7 +3,6 @@ import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCompress from "@fastify/compress";
 import fastifyCookie from "@fastify/cookie";
-import { fastifyJwt } from "@fastify/jwt";
 import { allowedOrigins } from "@/core/constant/hub.constant";
 import { GLOBAL_RATE_LIMIT } from "@/core/constant/rateLimit.constant";
 import { registerRateLimitFirst } from "@/core/utils/rateLimitFirst";
@@ -60,10 +59,6 @@ export const registerPlugins = async (server: FastifyInstance) => {
   await server.register(fastifyHelmet);
   await server.register(fastifyCompress);
   await server.register(fastifyCookie);
-  await server.register(fastifyJwt, {
-    secret: process.env.JWT_SECRET!,
-    cookie: { cookieName: "access_token", signed: false },
-  });
 
   await server.register(fastifyCors, {
     origin: (origin, cb) => {

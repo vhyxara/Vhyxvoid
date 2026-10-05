@@ -99,4 +99,14 @@ export class PrismaAccountBillingRepository implements AccountBillingRepository 
     });
     return (member as any)?.user?.email ?? null;
   }
+
+  async getAccountOwnerContact(accountId: string): Promise<{ email: string; firstName: string; accountName: string } | null> {
+    const member = await this.prisma.accountMember.findFirst({
+      where: { accountId, roleLevel: 100 }, // OWNER
+      select: { user: { select: { email: true, firstName: true } }, account: { select: { name: true, type: true } } },
+    });
+    if (!member) return null;
+    const accountName = member.account.type === "PERSONAL" ? "your personal workspace" : member.account.name;
+    return { email: member.user.email, firstName: member.user.firstName ?? "", accountName };
+  }
 }

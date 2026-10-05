@@ -95,4 +95,5 @@ export interface AccountBillingRepository {
 
   // Get the account owner's email
   getAccountOwnerEmail(accountId: string): Promise<string | null>;
+  getAccountOwnerContact?(accountId: string): Promise<{ email: string; firstName: string; accountName: string } | null>;
 }

@@ -463,8 +463,7 @@ export class HandleStripeWebhookUseCase {
       this.notificationService.sendSubscriptionCanceled
         .execute({
           to: ownerEmail,
-          firstName: "",
-          accountName: sub.accountId,
+          ...(await this.ownerNames(sub.accountId)),
           accessEndsAt: sub.currentPeriodEnd,
           accountId: sub.accountId,
         })
@@ -510,8 +509,7 @@ export class HandleStripeWebhookUseCase {
     this.notificationService.sendTrialEnding
       .execute({
         to: ownerEmail,
-        firstName: "",
-        accountName: accountId,
+        ...(await this.ownerNames(accountId)),
         trialEndsAt,
         daysLeft,
         accountId,
@@ -551,8 +549,7 @@ export class HandleStripeWebhookUseCase {
           this.notificationService.sendPaymentSucceeded
             .execute({
               to: ownerEmail,
-              firstName: "",
-              accountName: sub.accountId,
+              ...(await this.ownerNames(sub.accountId)),
               amountFormatted,
               invoiceUrl: stripeInvoice.hosted_invoice_url ?? "",
               periodEnd: sub.currentPeriodEnd,
@@ -636,8 +633,7 @@ export class HandleStripeWebhookUseCase {
           this.notificationService.sendPaymentFailed
             .execute({
               to: ownerEmail,
-              firstName: "",
-              accountName: sub.accountId,
+              ...(await this.ownerNames(sub.accountId)),
               amountFormatted,
               graceEndsAt,
               accountId: sub.accountId,
@@ -722,6 +718,12 @@ export class HandleStripeWebhookUseCase {
     });
 
     await this.invoiceRepo.save(invoice);
+  }
+
+  /** Greeting name and account name for billing emails (was blank / the account UUID). */
+  private async ownerNames(accountId: string): Promise<{ firstName: string; accountName: string }> {
+    const contact = await this.accountBillingRepo.getAccountOwnerContact?.(accountId).catch(() => null);
+    return { firstName: contact?.firstName ?? "", accountName: contact?.accountName ?? "your account" };
   }
 
   private async resolveAccountIdFromCustomer(
