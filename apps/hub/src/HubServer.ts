@@ -1,9 +1,8 @@
 // apps/hub/src/HubServer.ts
-// uWebSockets.js server — maximum throughput (~1.2M msg/sec per core).
-// Two WS endpoints: /agent (agent connections) and /sdk (SDK TunnelClient connections).
-// Health + metrics endpoints for load balancer probes.
+// Node http + ws server. Two WS endpoints: /agent (agent connections) and
+// /sdk (SDK TunnelClient connections); tunnel hosts are proxied to agents.
+// /health and /metrics answer only on non-tunnel hosts.
 
-// import uWS from 'uWebSockets.js';
 import { Redis } from '@upstash/redis';
 import { v4 as uuid } from 'uuid';
 import { AgentRegistry } from '@/registry/Agent.registry';
@@ -20,12 +19,21 @@ import { HubPubSub } from '@/services/HubPubSub';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
 import { IValidateApiKeyUseCase } from '@vhyxvoid/shared';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
-// const uWS = require('uWebSockets.js');
-import { createServer } from 'http';
+import { createServer, type Server } from 'http';
 import { WebSocketServer } from 'ws';
 import { SubdomainRegistry } from './services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from './handlers/HttpTunnel.handler';
 import WebSocket from 'ws';
+import { isInternalRequestAuthorized } from './utils/internalAuth';
+
+/** Largest WS frame accepted once a socket is registered (10 MB body as base64 + JSON). */
+const MAX_FRAME_BYTES = 32 * 1024 * 1024;
+/** Largest frame accepted before registration (a register message is tiny). */
+const MAX_PREAUTH_FRAME_BYTES = 64 * 1024;
+/** A socket that has not registered by then is closed (audit M7). */
+const AUTH_DEADLINE_MS = 10_000;
+/** Unregistered sockets allowed per remote address at once. */
+const MAX_PENDING_PER_IP = 20;
 
 interface WebSocketWithMeta extends WebSocket {
   meta: {
@@ -68,6 +76,8 @@ export class HubServer {
   // private listenSocket: any = null;
   private readonly subdomainRegistry: SubdomainRegistry;
   private readonly httpTunnelHandler: HttpTunnelHandler;
+  private httpServer: Server | null = null;
+  private readonly pendingAuthByIp = new Map<string, number>();
   constructor(private readonly config: HubServerConfig) {
     this.hubInstanceId = config.hubInstanceId ?? `hub_${uuid().replace(/-/g, '').slice(0, 12)}`;
 
@@ -172,8 +182,12 @@ export class HubServer {
     this.publicPathUsageLimiter.start();
 
     const server = createServer(async (req, res) => {
+      // Tunnel hosts belong to tenants: their /health and /metrics are the
+      // developer's own routes, never the hub's (audit M1).
+      const isTunnel = this.httpTunnelHandler.isTunnelRequest(req);
+
       // ── Health check ──────────────────────────────────────────
-      if (req.url === '/health') {
+      if (!isTunnel && req.url === '/health') {
         const body = JSON.stringify({
           status: 'ok',
           instanceId: this.hubInstanceId,
@@ -188,13 +202,19 @@ export class HubServer {
       }
 
       // ── Metrics ───────────────────────────────────────────────
-      if (req.url === '/metrics') {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end(`hub_agents_connected ${this.agentRegistry.totalCount()}`);
+      if (!isTunnel && req.url === '/metrics') {
+        res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4' });
+        res.end(this.metricsText());
         return;
       }
 
-      if (this.httpTunnelHandler.isTunnelRequest(req)) {
+      // ── Internal admin endpoints (apps/api only, shared secret) ──
+      if (!isTunnel && req.url?.startsWith('/internal/')) {
+        this.handleInternal(req, res);
+        return;
+      }
+
+      if (isTunnel) {
         await this.httpTunnelHandler.handle(req, res).catch((err: Error) => {
           console.error({ err: err.message }, '[hub] unhandled error in HTTP tunnel handler');
           if (!res.headersSent) {
@@ -210,8 +230,7 @@ export class HubServer {
 
     const wss = new WebSocketServer({
       noServer: true,
-      // server,
-      maxPayload: 100 * 1024 * 1024,
+      maxPayload: MAX_FRAME_BYTES,
     });
 
     server.on('upgrade', (req, socket, head) => {
@@ -219,6 +238,12 @@ export class HubServer {
 
       // Only handle WebSocket upgrades for known paths
       if (pathname === '/agent' || pathname === '/sdk') {
+        const ip = req.socket.remoteAddress ?? 'unknown';
+        if ((this.pendingAuthByIp.get(ip) ?? 0) >= MAX_PENDING_PER_IP) {
+          socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+          socket.destroy();
+          return;
+        }
         wss.handleUpgrade(req, socket, head, (ws) => {
           (ws as unknown as WebSocketWithMeta).meta = {
             connectedAt: Date.now(),
@@ -245,10 +270,38 @@ export class HubServer {
 
     wss.on('connection', (ws: WebSocketWithMeta) => {
       const { type, ip } = ws.meta;
+      const ipKey = ip ?? 'unknown';
+      const isRegistered = () =>
+        type === 'agent' ? !!this.agentRegistry.findByWs(ws) : !!this.sdkRegistry.findByWs(ws);
+
+      // Pre-auth accounting (audit M7): a cap per address, a deadline, and a
+      // small frame limit until the socket has registered.
+      this.pendingAuthByIp.set(ipKey, (this.pendingAuthByIp.get(ipKey) ?? 0) + 1);
+      let pendingAuth = true;
+      const leavePendingAuth = () => {
+        if (!pendingAuth) return;
+        pendingAuth = false;
+        const left = (this.pendingAuthByIp.get(ipKey) ?? 1) - 1;
+        if (left <= 0) this.pendingAuthByIp.delete(ipKey);
+        else this.pendingAuthByIp.set(ipKey, left);
+      };
+      const authDeadline = setTimeout(() => {
+        if (!isRegistered()) ws.close(4001, 'Registration timeout');
+        leavePendingAuth();
+      }, AUTH_DEADLINE_MS);
+      authDeadline.unref?.();
 
       console.info({ type, ip }, '[hub] connected');
 
       ws.on('message', (message: Buffer) => {
+        if (pendingAuth) {
+          if (isRegistered()) {
+            leavePendingAuth();
+          } else if (message.length > MAX_PREAUTH_FRAME_BYTES) {
+            ws.close(1009, 'Register first');
+            return;
+          }
+        }
         if (type === 'agent') {
           // this.router.routeAgentMessage(ws, message, ip).catch(console.error);
           this.router.routeAgentMessage(ws, message, ip ?? 'unknown').catch(console.error);
@@ -259,6 +312,8 @@ export class HubServer {
       });
 
       ws.on('close', async () => {
+        clearTimeout(authDeadline);
+        leavePendingAuth();
         if (type === 'agent') {
           // Awaited so the close handler's own async work (subdomain
           // unregister, session-disconnect DB write) actually runs to
@@ -280,6 +335,7 @@ export class HubServer {
       });
     });
 
+    this.httpServer = server;
     return new Promise((resolve) => {
       server.listen(this.config.port, () => {
         console.info('[hub] ✅ WS server started (ws)');
@@ -299,8 +355,119 @@ export class HubServer {
     this.publicPathUsageLimiter.flush();
     this.publicPathUsageLimiter.stop();
     await this.pubsub.stop();
+
+    // Release this instance's routes and mark its sessions disconnected
+    // BEFORE closing sockets (audit H7): evictAll() empties the registry
+    // first, so the per-socket close handlers would find nothing to clean.
+    await Promise.allSettled([
+      this.subdomainRegistry.unregisterAllForHub(this.hubInstanceId),
+      this.config.tunnelSessionRepo.evictStaleForInstance(this.hubInstanceId),
+    ]);
     this.agentRegistry.evictAll();
+    this.httpServer?.close();
 
     console.info('[hub] server stopped');
+  }
+
+  /** Instance id: stable across restarts so start-up cleanup finds the previous run's state. */
+  get instanceId(): string {
+    return this.hubInstanceId;
+  }
+
+  /** Live counters for the admin panel (served by apps/api through /internal/stats). */
+  stats() {
+    const mem = process.memoryUsage();
+    return {
+      instanceId: this.hubInstanceId,
+      uptimeSeconds: Math.round(process.uptime()),
+      agents: this.agentRegistry.totalCount(),
+      sdks: this.sdkRegistry.totalCount(),
+      pendingRequests: this.pendingRegistry.size(),
+      tunnelWebSockets: this.httpTunnelHandler.webSocketCount(),
+      pendingAuthSockets: [...this.pendingAuthByIp.values()].reduce((a, b) => a + b, 0),
+      memory: {
+        heapUsedMb: Math.round(mem.heapUsed / 1048576),
+        rssMb: Math.round(mem.rss / 1048576),
+      },
+      nodeVersion: process.version,
+    };
+  }
+
+  /** Every connected agent, for the admin panel's live tunnel view. */
+  listAgents() {
+    return this.agentRegistry.allSessions().map((s) => ({
+      agentId: s.agentId,
+      accountId: s.accountId,
+      label: s.label,
+      agentVersion: s.agentVersion,
+      ip: s.ip,
+      connectedAt: s.connectedAt.toISOString(),
+      lastSeenAt: s.lastSeenAt.toISOString(),
+      missedPings: s.missedPings,
+      capabilities: s.capabilities ?? [],
+    }));
+  }
+
+  /** Force-disconnect one agent (admin action). The agent stops and does not reconnect. */
+  disconnectAgent(agentId: string, reason: string): boolean {
+    const session = this.agentRegistry.findByAgentId(agentId);
+    if (!session) return false;
+    try {
+      session.ws.send(
+        JSON.stringify({ v: '1', type: 'hub:error', code: 'AUTH_FAILED', message: reason, fatal: true }),
+      );
+    } catch {
+      // socket already gone
+    }
+    session.ws.close(4001, 'Disconnected by an administrator');
+    return true;
+  }
+
+  /**
+   * GET  /internal/stats                       live counters
+   * GET  /internal/agents                      connected agents
+   * POST /internal/agents/:agentId/disconnect  force-disconnect one agent
+   * Authorized by `x-hub-internal-secret` = HUB_INTERNAL_SECRET; fails closed.
+   * nginx must not expose /internal/ publicly (see nginx.conf).
+   */
+  private handleInternal(req: import('http').IncomingMessage, res: import('http').ServerResponse): void {
+    const send = (status: number, body: unknown) => {
+      const json = JSON.stringify(body);
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(json);
+    };
+    if (!isInternalRequestAuthorized(req.headers['x-hub-internal-secret'], process.env.HUB_INTERNAL_SECRET)) {
+      return send(process.env.HUB_INTERNAL_SECRET ? 401 : 503, { error: 'Unauthorized' });
+    }
+    const url = new URL(req.url ?? '/', 'http://hub');
+    if (req.method === 'GET' && url.pathname === '/internal/stats') return send(200, this.stats());
+    if (req.method === 'GET' && url.pathname === '/internal/agents') {
+      const accountId = url.searchParams.get('accountId');
+      const agents = this.listAgents().filter((a) => !accountId || a.accountId === accountId);
+      return send(200, { agents });
+    }
+    const m = url.pathname.match(/^\/internal\/agents\/([A-Za-z0-9_]+)\/disconnect$/);
+    if (req.method === 'POST' && m) {
+      const ok = this.disconnectAgent(m[1], 'This tunnel was disconnected by an administrator');
+      return send(ok ? 200 : 404, { disconnected: ok });
+    }
+    return send(404, { error: 'Not found' });
+  }
+
+  private metricsText(): string {
+    const s = this.stats();
+    return [
+      '# TYPE hub_agents_connected gauge',
+      `hub_agents_connected ${s.agents}`,
+      '# TYPE hub_sdk_sessions gauge',
+      `hub_sdk_sessions ${s.sdks}`,
+      '# TYPE hub_pending_requests gauge',
+      `hub_pending_requests ${s.pendingRequests}`,
+      '# TYPE hub_tunnel_websockets gauge',
+      `hub_tunnel_websockets ${s.tunnelWebSockets}`,
+      '# TYPE hub_heap_used_megabytes gauge',
+      `hub_heap_used_megabytes ${s.memory.heapUsedMb}`,
+      '',
+    ].join('\n');
   }
 }

@@ -26,7 +26,7 @@ import { PrismaClient } from '@vhyxvoid/shared/generated/prisma/client';
 // See integration-notes.ts for the full setup guide.
 
 async function main() {
-  const port = parseInt(process.env.HUB_PORT ?? '3001', 10);
+  const port = parseInt(process.env.HUB_PORT ?? '9001', 10);
   const pepper = process.env.SERVER_HMAC_PEPPER;
 
   // ── Env validation ──────────────────────────────────────────────────────────
@@ -118,7 +118,10 @@ async function main() {
 
   // ── Start hub ────────────────────────────────────────────────────────────────
   const hub = new HubServer({
-    port: Number(process.env.HUB_PORT ?? 9001),
+    port,
+    // Stable across restarts so start-up cleanup finds the previous run's
+    // sessions and routes (audit H7). One hub process per id.
+    hubInstanceId: process.env.HUB_INSTANCE_ID || 'hub-primary',
     hubDomain: process.env.HUB_DOMAIN ?? 'vhyxvoid.com',
     pepper: process.env.SERVER_HMAC_PEPPER!,
     loadKeyHash, // ← defined here where prisma is in scope
@@ -133,11 +136,17 @@ async function main() {
   console.info({ port, env: process.env.NODE_ENV ?? 'development' }, '[hub] ✅ Ready');
 
   // ── Graceful shutdown ────────────────────────────────────────────────────────
-  const shutdown = async (signal: string) => {
+  let stopping = false;
+  const shutdown = async (signal: string, exitCode = 0) => {
+    if (stopping) return;
+    stopping = true;
     console.info({ signal }, '[hub] shutting down gracefully...');
-    await hub.stop();
-    await prisma.$disconnect();
-    process.exit(0);
+    // Never hang a deploy: give cleanup 10 s.
+    const force = setTimeout(() => process.exit(exitCode), 10_000);
+    force.unref();
+    await hub.stop().catch((err) => console.error({ err }, '[hub] stop failed'));
+    await prisma.$disconnect().catch(() => {});
+    process.exit(exitCode);
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -147,8 +156,11 @@ async function main() {
   process.on('unhandledRejection', (reason) => {
     console.error({ reason }, '[hub] unhandledRejection — continuing');
   });
+  // After an uncaught exception the process state is undefined: clean up
+  // and exit so the container restarts (audit M13).
   process.on('uncaughtException', (err) => {
-    console.error({ err }, '[hub] uncaughtException — continuing');
+    console.error({ err }, '[hub] uncaughtException — exiting');
+    void shutdown('uncaughtException', 1);
   });
 }
 

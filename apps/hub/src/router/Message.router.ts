@@ -27,6 +27,8 @@ import {
   TunnelResponseStartMsg,
   TunnelResponseChunkMsg,
   TunnelResponseEndMsg,
+  normalizeLabel,
+  labelProblem,
 } from '@vhyxvoid/protocol';
 // import { WebSocket } from 'uWebSockets.js';
 // import { AgentRegistry, AgentSession, SdkRegistry, PendingRegistry } from '../registry';
@@ -86,22 +88,33 @@ export class MessageRouter {
       );
     }
 
+    // Everything but agent:register needs a registered socket: an anonymous
+    // socket must not resolve, reject or keep alive anybody's requests
+    // (audit M2).
+    const sender = msg.type === 'agent:register' ? undefined : this.agentRegistry.findByWs(ws);
+    if (msg.type !== 'agent:register' && !sender) {
+      return this.sendToWs(
+        ws,
+        this.buildHubError('INVALID_MESSAGE', 'Register before sending other messages', undefined, false),
+      );
+    }
+
     try {
       switch (msg.type) {
         case 'agent:register':
           return await this.handleAgentRegister(ws, msg as AgentRegisterMsg, ip);
         case 'agent:pong':
-          return this.handleAgentPong(msg as AgentPongMsg);
+          return this.handleAgentPong(msg as AgentPongMsg, sender!.agentId);
         case 'agent:batch':
-          return this.handleAgentBatch(ws, msg as AgentBatchMsg);
+          return this.handleAgentBatch(ws, msg as AgentBatchMsg, sender!.agentId);
         case 'tunnel:response':
-          return this.handleTunnelResponse(msg as TunnelResponseMsg);
+          return this.handleTunnelResponse(msg as TunnelResponseMsg, sender!.agentId);
         case 'tunnel:response:start':
         case 'tunnel:response:chunk':
         case 'tunnel:response:end':
-          return this.handleStreamMessage(msg as any);
+          return this.handleStreamMessage(msg as any, sender!.agentId);
         case 'tunnel:agent-error':
-          return this.handleTunnelAgentError(msg as TunnelAgentErrorMsg);
+          return this.handleTunnelAgentError(msg as TunnelAgentErrorMsg, sender!.agentId);
         case 'tunnel:ws:message':
           return this.handleAgentWsMessage(ws, msg as TunnelWsMessageMsg);
         case 'tunnel:ws:close':
@@ -219,6 +232,27 @@ export class MessageRouter {
   // ── Agent handlers ─────────────────────────────────────────────────────────
 
   private async handleAgentRegister(ws: any, msg: AgentRegisterMsg, ip: string): Promise<void> {
+    // 0. One registration per socket (audit M5): a second one would leave the
+    // first session behind as a ghost that counts against the plan limit.
+    if (this.agentRegistry.findByWs(ws)) {
+      this.sendToWs(
+        ws,
+        this.buildHubError('INVALID_MESSAGE', 'This connection is already registered', undefined, false),
+      );
+      return;
+    }
+
+    // Labels become hostnames; browsers lowercase hosts, so an uppercase or
+    // otherwise invalid label was registered but unreachable (audit M6).
+    const label = normalizeLabel(msg.label);
+    const problem = labelProblem(label);
+    if (problem) {
+      this.sendToWs(ws, this.buildHubError('INVALID_LABEL', `Invalid label "${msg.label}": ${problem}`, undefined, true));
+      ws.close();
+      return;
+    }
+    msg = { ...msg, label };
+
     // 1. Authenticate
     let auth: Awaited<ReturnType<HubAuthService['authenticateAgent']>>;
     try {
@@ -305,7 +339,27 @@ export class MessageRouter {
     }
     this.agentRegistry.register(session);
 
-    // 6. Send registered response with tunnelUrl included
+    // 6. Route the public URL BEFORE announcing it, and independently of the
+    // session row (audit M4): a slow or failing Postgres used to leave a
+    // "live" tunnel whose URL answered 404 until the next reconnect.
+    if (accountSlug) {
+      await this.subdomainRegistry
+        .register({
+          agentId,
+          accountId: apiKey.accountId,
+          label: msg.label,
+          accountSlug,
+          hubInstanceId: this.hubInstanceId,
+        })
+        .catch((err: Error) => {
+          console.error({ err: err.message, agentId }, '[router] failed to register subdomain');
+        });
+    }
+    // The socket may have closed while Redis answered; don't announce a
+    // tunnel for a session that is already gone.
+    if (this.agentRegistry.findByAgentId(agentId) !== session) return;
+
+    // 7. Send registered response with tunnelUrl included
     const registered: HubRegisteredMsg = {
       v: '1',
       type: 'hub:registered',
@@ -321,7 +375,7 @@ export class MessageRouter {
       '[router] agent registered',
     );
 
-    // 7. Persist session + register subdomain in Redis (fire and forget — don't block agent)
+    // 8. Persist the session for the dashboard (fire and forget).
     this.sessionRepo
       .upsert({
         agentId,
@@ -332,35 +386,7 @@ export class MessageRouter {
         hubInstanceId: this.hubInstanceId,
         metadata: { agentVersion: msg.agentVersion, ip },
       })
-      .then(async () => {
-        console.info({ agentId }, '[router] session persisted to DB');
-        if (accountSlug) {
-          debugLog('[debug] calling subdomainRegistry.register with:', {
-            agentId,
-            accountId: apiKey.accountId,
-            label: msg.label,
-            accountSlug,
-            hubInstanceId: this.hubInstanceId,
-          });
-          await this.subdomainRegistry
-            .register({
-              agentId,
-              accountId: apiKey.accountId,
-              label: msg.label,
-              accountSlug,
-              hubInstanceId: this.hubInstanceId,
-            })
-            .then(() => debugLog('[debug] subdomain registered in Redis'))
-            .catch((err: Error) => {
-              console.error(
-                { err: err.message, errStack: err.stack },
-                '[router] failed to register subdomain',
-              );
-            });
-        } else {
-          debugLog('[debug] accountSlug is null — skipping subdomain registration');
-        }
-      })
+      .then(() => debugLog('[debug] session persisted', agentId))
       .catch((err) => {
         console.error(
           { err: err.message, agentId, accountId: apiKey.accountId },
@@ -390,22 +416,24 @@ export class MessageRouter {
     }
   }
 
-  private handleAgentPong(msg: AgentPongMsg): void {
+  private handleAgentPong(msg: AgentPongMsg, fromAgentId: string): void {
+    // A pong only counts for the agent whose socket sent it (audit M2).
+    if (msg.agentId !== fromAgentId) return;
     this.heartbeat.handlePong(msg.agentId);
   }
 
-  private handleAgentBatch(ws: any, msg: AgentBatchMsg): void {
+  private handleAgentBatch(ws: any, msg: AgentBatchMsg, fromAgentId: string): void {
     for (const item of msg.messages) {
       try {
         switch (item.type) {
           case 'tunnel:response':
-            this.handleTunnelResponse(item);
+            this.handleTunnelResponse(item, fromAgentId);
             break;
           case 'tunnel:agent-error':
-            this.handleTunnelAgentError(item);
+            this.handleTunnelAgentError(item, fromAgentId);
             break;
           case 'agent:pong':
-            this.handleAgentPong(item);
+            this.handleAgentPong(item, fromAgentId);
             break;
           // Agents before the WS-relay fix batched WebSocket frames; without
           // these cases every frame that shared a 50ms window with another
@@ -433,13 +461,14 @@ export class MessageRouter {
   /** Streamed response pieces (agents that announced "stream"). */
   private handleStreamMessage(
     msg: TunnelResponseStartMsg | TunnelResponseChunkMsg | TunnelResponseEndMsg,
+    fromAgentId: string,
   ): void {
     if (msg.type === 'tunnel:response:start') {
-      this.pendingRegistry.streamStart(msg.requestId, msg.status, msg.headers ?? {});
+      this.pendingRegistry.streamStart(msg.requestId, msg.status, msg.headers ?? {}, fromAgentId);
     } else if (msg.type === 'tunnel:response:chunk') {
-      this.pendingRegistry.streamChunk(msg.requestId, Buffer.from(msg.data ?? '', 'base64'));
+      this.pendingRegistry.streamChunk(msg.requestId, Buffer.from(msg.data ?? '', 'base64'), fromAgentId);
     } else {
-      if (this.pendingRegistry.streamEnd(msg.requestId, msg.error)) {
+      if (this.pendingRegistry.streamEnd(msg.requestId, msg.error, fromAgentId)) {
         this.requestRepo
           .recordResponse(msg.requestId, { status: 200, durationMs: msg.durationMs })
           .catch(() => {});
@@ -447,8 +476,8 @@ export class MessageRouter {
     }
   }
 
-  private handleTunnelResponse(msg: TunnelResponseMsg): void {
-    const resolved = this.pendingRegistry.resolve(msg.requestId, msg);
+  private handleTunnelResponse(msg: TunnelResponseMsg, fromAgentId: string): void {
+    const resolved = this.pendingRegistry.resolve(msg.requestId, msg, fromAgentId);
     if (!resolved) {
       // Already timed out — log but don't error
       console.warn({ requestId: msg.requestId }, '[router] response for unknown/timed-out request');
@@ -464,10 +493,11 @@ export class MessageRouter {
       .catch(() => {});
   }
 
-  private handleTunnelAgentError(msg: TunnelAgentErrorMsg): void {
-    const rejected = this.pendingRegistry.reject(msg.requestId, msg.code, msg.message);
+  private handleTunnelAgentError(msg: TunnelAgentErrorMsg, fromAgentId: string): void {
+    const rejected = this.pendingRegistry.reject(msg.requestId, msg.code, msg.message, fromAgentId);
     if (!rejected) {
       console.warn({ requestId: msg.requestId }, '[router] agent error for unknown request');
+      return;
     }
 
     this.requestRepo
@@ -587,12 +617,16 @@ export class MessageRouter {
       );
     }
 
-    // 4. Enqueue pending request
+    // 4. Enqueue pending request under a hub-generated id (audit M3): the SDK
+    // chooses msg.requestId, so two callers (or two accounts) could collide on
+    // it. The SDK's own id is used only in the reply to that SDK.
+    const hubRequestId = `req_${uuid().replace(/-/g, '')}`;
     await this.pendingRegistry.enqueue({
-      requestId: msg.requestId,
+      requestId: hubRequestId,
       accountId: auth.accountId,
       agentLabel: agent.label,
       keyId: auth.keyId,
+      agentId: agent.agentId,
       enqueuedAt: Date.now(),
       resolve: (response: TunnelResponseMsg) => {
         const sdkResponse: SdkResponseMsg = {
@@ -617,7 +651,7 @@ export class MessageRouter {
       },
       timer: setTimeout(() => {
         this.pendingRegistry.reject(
-          msg.requestId,
+          hubRequestId,
           'AGENT_TIMEOUT',
           'Request timed out waiting for agent response',
         );
@@ -628,7 +662,7 @@ export class MessageRouter {
     const forward: TunnelForwardMsg = {
       v: '1',
       type: 'tunnel:forward',
-      requestId: msg.requestId,
+      requestId: hubRequestId,
       method: msg.method,
       path: msg.path,
       query: msg.query,
@@ -653,7 +687,7 @@ export class MessageRouter {
         accountId: agent.accountId, // ← from DB-verified AgentSession
         apiKeyId: agent.keyId, // ← internal UUID (NOT auth.keyId which is public)
         sessionId: agent.agentId, // ← agt_xxx — repo will resolve to TunnelSession.id
-        requestId: msg.requestId,
+        requestId: hubRequestId,
         method: msg.method,
         path: msg.path,
       })

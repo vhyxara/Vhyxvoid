@@ -39,6 +39,30 @@ import type { PublicPathUsageLimiter } from '@/services/PublicPathUsageLimiter.s
 const MAX_STREAM_BUFFER_BYTES = 8 * 1024 * 1024;
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 
+/**
+ * The request's hostname: port removed, lowercased (browsers lowercase hosts,
+ * other clients may not) and a trailing FQDN dot dropped (audit L8).
+ */
+export function requestHostname(req: IncomingMessage): string {
+  const host = (req.headers.host ?? '').trim().toLowerCase();
+  const withoutPort = host.startsWith('[') ? host : host.split(':')[0];
+  return withoutPort.endsWith('.') ? withoutPort.slice(0, -1) : withoutPort;
+}
+
+/** What a public caller is told when the agent could not produce a response. */
+export function publicAgentErrorMessage(code: string): string {
+  switch (code) {
+    case 'AGENT_TIMEOUT':
+      return 'The service behind this tunnel did not respond in time.';
+    case 'AGENT_DISCONNECTED':
+      return 'The tunnel agent disconnected while handling this request. Try again.';
+    case 'SEND_FAILED':
+      return 'The request could not be delivered to the tunnel agent. Try again.';
+    default:
+      return 'The service behind this tunnel is not reachable right now.';
+  }
+}
+
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -61,9 +85,7 @@ export class HttpTunnelHandler {
    * Returns false if it should fall through to other handlers (health, metrics etc).
    */
   isTunnelRequest(req: IncomingMessage): boolean {
-    const host = req.headers.host ?? '';
-    // Strip port if present
-    const hostname = host.split(':')[0];
+    const hostname = requestHostname(req);
     // NOTE: called on EVERY incoming HTTP request — must stay gated, not just
     // "debug-labeled", or it floods logs at real traffic volume.
     debugLog('[tunnel] isTunnelRequest check:', hostname, 'domain:', this.hubDomain);
@@ -72,7 +94,9 @@ export class HttpTunnelHandler {
     if (!hostname.endsWith(`.${this.hubDomain}`)) return false;
     // Exclude the apex domain itself
     if (hostname === this.hubDomain) return false;
-    return true;
+    // A tunnel host is always `<slug>--<label>`; service hosts such as hub.
+    // and api. never contain "--" and keep the hub's own routes (/health).
+    return hostname.slice(0, -(this.hubDomain.length + 1)).includes('--');
   }
 
   /**
@@ -80,8 +104,7 @@ export class HttpTunnelHandler {
    * Writes the response directly to res.
    */
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const host = req.headers.host ?? '';
-    const hostname = host.split(':')[0];
+    const hostname = requestHostname(req);
     // CORS preflights (OPTIONS) are forwarded to the backend like any other
     // request, so the backend's own CORS policy decides. The hub used to
     // answer every preflight itself with the caller's Origin and
@@ -133,7 +156,7 @@ export class HttpTunnelHandler {
         404,
         [
           `No active tunnel found for "${hostname}".`,
-          `Start the agent with: vhyxvoid --key YOUR_KEY --secret YOUR_SECRET --port YOUR_PORT --label ${label}`,
+          `If this is your tunnel, start the agent with label "${label}".`,
         ].join(' '),
       );
     }
@@ -195,7 +218,19 @@ export class HttpTunnelHandler {
     }
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const rawBuffer = await this.readBody(req, MAX_BODY_BYTES);
+      let rawBuffer: Buffer;
+      try {
+        rawBuffer = await this.readBody(req, MAX_BODY_BYTES);
+      } catch {
+        // A chunked body over the cap, or the caller hung up mid-upload
+        // (audit M14: this used to surface as a 500).
+        if (res.headersSent || res.destroyed) return;
+        return this.sendError(
+          res,
+          413,
+          `Request body too large. Maximum is ${MAX_BODY_BYTES / 1024 / 1024}MB`,
+        );
+      }
       if (rawBuffer.length > 0) {
         bodyEncoding = isBinaryContentType(req.headers['content-type']) ? 'base64' : 'utf8';
         body = rawBuffer.toString(bodyEncoding);
@@ -258,6 +293,7 @@ export class HttpTunnelHandler {
         accountId: entry.accountId,
         agentLabel: label,
         keyId: agent.keyId,
+        agentId: agent.agentId,
         enqueuedAt: Date.now(),
 
         resolve: (response: TunnelResponseMsg) => {
@@ -276,7 +312,10 @@ export class HttpTunnelHandler {
             res.destroy();
           } else {
             const status = code === 'AGENT_TIMEOUT' ? 504 : 502;
-            this.sendError(res, status, message);
+            // Agent messages carry local detail (ports, loopback addresses,
+            // errno strings) that must not reach the public (audit M10).
+            this.sendError(res, status, publicAgentErrorMessage(code), { body: { code } });
+            debugLog('[tunnel] agent error', code, message);
           }
           outerResolve();
         },
@@ -325,8 +364,7 @@ export class HttpTunnelHandler {
   }
 
   async handleWebSocket(req: IncomingMessage, socket: Socket, head: Buffer): Promise<void> {
-    const host = req.headers.host ?? '';
-    const hostname = host.split(':')[0];
+    const hostname = requestHostname(req);
     const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
     const parsed = this.parseSubdomain(subdomain);
 
@@ -459,6 +497,11 @@ export class HttpTunnelHandler {
   }
 
   /** Closes every tunnel WebSocket owned by an agent whose hub link is gone. */
+  /** Open browser WebSockets relayed through tunnels. */
+  webSocketCount(): number {
+    return this.tunnelWsRegistry.size();
+  }
+
   closeAllForAgent(agentId: string, code: number, reason: string): number {
     return this.tunnelWsRegistry.closeAllForAgent(agentId, code, reason);
   }

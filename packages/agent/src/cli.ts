@@ -166,6 +166,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createPrompter } from "./prompt";
+import { labelProblem, normalizeLabel } from "@vhyxvoid/protocol";
 
 // Load .env, .env.local, .env.vhyxvoid in order (last wins). quiet: dotenv 17
 // otherwise prints an "injecting env ... tip" line for every file on start.
@@ -334,6 +335,14 @@ program
     const port = parseInt(opts.port, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
       console.error(`\n❌  Invalid port: "${opts.port}"\n`);
+      process.exit(1);
+    }
+
+    // Labels become part of the public hostname; check before connecting.
+    opts.label = normalizeLabel(opts.label);
+    const labelError = labelProblem(opts.label);
+    if (labelError) {
+      console.error(`\n❌  Invalid label "${opts.label}": ${labelError}\n`);
       process.exit(1);
     }
 

@@ -10,6 +10,11 @@ export interface PendingRequest {
   accountId: string;
   agentLabel: string;
   keyId: string;
+  /**
+   * The agent the request was forwarded to. Only that agent's socket may
+   * answer it (audit M2): any other socket's response is dropped.
+   */
+  agentId?: string;
   enqueuedAt: number;
   resolve: (r: TunnelResponseMsg) => void;
   reject: (code: TunnelErrorCode, msg: string) => void;
@@ -37,11 +42,25 @@ export class PendingRegistry {
   // in Redis that nothing ever read (reserved for a multi-hub design that
   // doesn't exist): two billed Upstash commands per tunnelled request.
   async enqueue(req: PendingRequest): Promise<void> {
+    // Ids are hub-generated, so a collision is a bug, never something a
+    // client can cause (audit M3). Refuse rather than orphan the first timer.
+    if (this.pending.has(req.requestId)) {
+      clearTimeout(req.timer);
+      throw new Error(`duplicate pending requestId ${req.requestId}`);
+    }
     this.pending.set(req.requestId, req);
   }
 
-  resolve(requestId: string, response: TunnelResponseMsg): boolean {
+  /** The entry, if `fromAgentId` (when given) is the agent that owns it. */
+  private owned(requestId: string, fromAgentId?: string): PendingRequest | undefined {
     const req = this.pending.get(requestId);
+    if (!req) return undefined;
+    if (fromAgentId !== undefined && req.agentId !== undefined && req.agentId !== fromAgentId) return undefined;
+    return req;
+  }
+
+  resolve(requestId: string, response: TunnelResponseMsg, fromAgentId?: string): boolean {
+    const req = this.owned(requestId, fromAgentId);
     if (!req) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
@@ -49,8 +68,8 @@ export class PendingRegistry {
     return true;
   }
 
-  reject(requestId: string, code: TunnelErrorCode, message: string): boolean {
-    const req = this.pending.get(requestId);
+  reject(requestId: string, code: TunnelErrorCode, message: string, fromAgentId?: string): boolean {
+    const req = this.owned(requestId, fromAgentId);
     if (!req) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);
@@ -58,8 +77,13 @@ export class PendingRegistry {
     return true;
   }
 
-  streamStart(requestId: string, status: number, headers: Record<string, string>): boolean {
-    const req = this.pending.get(requestId);
+  streamStart(
+    requestId: string,
+    status: number,
+    headers: Record<string, string>,
+    fromAgentId?: string,
+  ): boolean {
+    const req = this.owned(requestId, fromAgentId);
     if (!req?.stream) return false;
     // The request timeout covers waiting for a response to begin; a stream
     // may then run as long as the caller keeps it open.
@@ -68,15 +92,15 @@ export class PendingRegistry {
     return true;
   }
 
-  streamChunk(requestId: string, data: Buffer): boolean {
-    const req = this.pending.get(requestId);
+  streamChunk(requestId: string, data: Buffer, fromAgentId?: string): boolean {
+    const req = this.owned(requestId, fromAgentId);
     if (!req?.stream) return false;
     req.stream.chunk(data);
     return true;
   }
 
-  streamEnd(requestId: string, error?: string): boolean {
-    const req = this.pending.get(requestId);
+  streamEnd(requestId: string, error?: string, fromAgentId?: string): boolean {
+    const req = this.owned(requestId, fromAgentId);
     if (!req?.stream) return false;
     clearTimeout(req.timer);
     this.pending.delete(requestId);

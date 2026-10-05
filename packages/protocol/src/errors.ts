@@ -11,6 +11,7 @@ export type HubErrorCode =
   | "RATE_LIMITED"
   | "AGENT_LIMIT_REACHED"
   | "INVALID_MESSAGE"
+  | "INVALID_LABEL"
   | "INTERNAL_ERROR";
 
 export type TunnelErrorCode =

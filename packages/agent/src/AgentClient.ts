@@ -107,6 +107,7 @@ const FATAL_STOP_CODES: ReadonlySet<string> = new Set([
   "SCOPE_MISSING",
   "KEY_REVOKED",
   "KEY_EXPIRED",
+  "INVALID_LABEL",
 ]);
 
 export class AgentClient {
