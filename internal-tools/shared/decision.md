@@ -836,3 +836,16 @@ Commit 00aae30.
 5. **Credentials are stored** (unlike the inspector): delivery must be faithful (signatures, auth). They are masked in every API response; rows are deleted after 7 days.
 **Status:** active.
 
+### 2026-10-06 — Custom domains and alerts (session upbeat-cannon, part 4)
+
+Commits 0ad047c, 9d3beac, 8b4f728.
+
+1. **Edge = nginx SNI router + Caddy on-demand TLS**, not ACME inside the API/hub. nginx's 443 became a `stream` server that peeks at SNI: our own hostnames stay on the existing nginx servers (wildcard cert, Cloudflare origin lock, now keyed on `$proxy_protocol_addr`), every other hostname goes to Caddy. Caddy asks the API (`/public/domains/allow`) before requesting a certificate, so only verified domains ever get one (no certificate-request amplification). Writing our own ACME client and certificate storage was rejected: Caddy already does issuance, renewal, OCSP and rate-limit backoff correctly. PROXY protocol on both hops keeps the client IP for access rules. Verified end to end with real nginx + Caddy locally (13 checks).
+2. **Ownership by TXT (`_vhyxvoid.<host>`), routing by CNAME (or matching A/AAAA).** Verification and routing are separate states so the UI can say exactly which record is missing. Only one account can hold a verified hostname (partial unique index); verifying removes other accounts' pending claims. Pending domains are auto-checked for 7 days, verified ones every 5 minutes; losing routing never un-verifies (no flapping), it only shows "DNS not pointing here".
+3. **The hub resolves custom hosts itself** (Postgres lookup cached 60 s / 30 s negative, explicit invalidation from the API) and passes a `TunnelRoute` into the same handler as subdomain traffic, so access rules, inspector, inbox and limits behave identically.
+4. **Alerts are evaluated in the API, from Postgres.** The hub writes per-minute request/5xx counts (`tunnel_minute_stats`, one batched upsert per flush, 7-day retention), the API evaluates rules every minute. State rules (offline, error rate, usage) notify on FIRING and RESOLVED by diffing stored `alert_states`; event rules use a cursor (inbox failures) or are emitted directly (domain verified/broken). At most 12 notifications per rule per hour, extra ones recorded as suppressed. Webhook channel resolves DNS through an SSRF guard (no private addresses, no redirects, 5 s).
+5. **Background jobs use leases in Postgres** (`job_leases`) so several API instances run each job once; API and hub shut down gracefully on SIGTERM and release leases (the Dockerfile `exec`s node so the signal arrives). Before this a restart left a lease held for its full TTL.
+6. **Email templates now escape every interpolated value.** Alert emails carry customer-controlled text (tunnel labels, rule names); escaping was added for all templates, not just the new one, since names/feedback text reached HTML unescaped before.
+7. **Plan defaults:** FREE gets 0 custom domains and 3 alert rules; PRO 5 / 25; ENTERPRISE 100 / 200. All overridable from the console like every other limit.
+**Status:** active.
+

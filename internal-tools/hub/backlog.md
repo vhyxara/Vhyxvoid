@@ -16,4 +16,6 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] Multi-hub: TunnelPolicyCache invalidation reaches only the hub the API calls (HUB_INTERNAL_URL); other instances wait out the 30 s TTL. Publish invalidations over HubPubSub when multi-hub lands. Found 2026-10-06, session upbeat-cannon.
 - [ ] Webhook inbox: delivery is sequential per tunnel and one tunnel per sweep tick runs to completion before the next; a tunnel with thousands waiting delays others on the same hub for that tick. Bound per-tick work (e.g. 100 per tunnel) once there are real numbers. Found 2026-10-06, session upbeat-cannon.
 - [ ] Webhook inbox: stored bodies/headers sit in Postgres in clear text for up to 7 days (masked in responses). Consider encrypting `body` and `headers` at rest with a key from env. Found 2026-10-06, session upbeat-cannon.
+- [ ] Multi-hub: custom-domain cache invalidation (`/internal/domains/invalidate`) reaches only the hub the API calls; others wait out the 60 s TTL. Same fix as the policy cache (HubPubSub). Found 2026-10-06, session upbeat-cannon.
+- [ ] Custom domains: WebSocket upgrades on a custom host are routed, but the inspector/stats only see the upgrade request (same as subdomains). Found 2026-10-06, session upbeat-cannon.
 
