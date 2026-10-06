@@ -1,0 +1,49 @@
+---
+title: Custom domains
+description: Serve a tunnel on your own hostname, with HTTPS certificates issued automatically.
+verified:
+  date: "2026-10-06"
+  commit: "9d3beac"
+  packages: {}
+sources:
+  - apps/web/src/views/org/domains/DomainsView.tsx
+  - packages/shared/src/customDomains.ts
+  - apps/api/src/modules/platform/domains/domains.routes.ts
+  - apps/api/src/modules/platform/domains/domains.service.ts
+  - apps/hub/src/services/CustomDomainResolver.service.ts
+  - Caddyfile
+---
+
+Instead of `acme--web.vhyxvoid.com`, a tunnel can answer on a hostname you own, like `api.yourcompany.com`. Everything works the same on it: [access rules](/docs/dashboard/tunnel-access), the [request inspector](/docs/dashboard/request-inspector) and the [webhook inbox](/docs/dashboard/webhook-inbox).
+
+## Add a domain
+
+1. Open **Domains** under a workspace, enter the hostname and pick the tunnel (by its `--label`). Owners and admins can do this.
+2. Create the two DNS records shown, where your domain's DNS is hosted (Cloudflare, Route 53, your registrar):
+
+| Record | Name | Value | Why |
+| --- | --- | --- | --- |
+| `TXT` | `_vhyxvoid.<your hostname>` | `vhyxvoid-verify=…` | proves you own the domain |
+| `CNAME` | `<your hostname>` | the target shown on the page | sends visitors to us |
+
+3. That's it. We check DNS every few minutes (or press **Check DNS now**). When both records are found the domain shows **active**, and the HTTPS certificate is issued automatically on the first visit, which takes a few seconds.
+
+For a root domain (`yourcompany.com`, no subdomain), DNS does not allow a CNAME. Use your provider's ALIAS or "CNAME flattening" record pointing at the same target; we accept any record whose addresses match ours.
+
+If you use Cloudflare's proxy (orange cloud), turn it off for this record (DNS only): the certificate is issued by us, so Cloudflare must pass the connection through.
+
+## States
+
+| State | Meaning |
+| --- | --- |
+| waiting for DNS | The TXT record has not been seen yet. Nothing is served on the hostname. |
+| verified, DNS not pointing here | Ownership is proven, but the hostname does not point at us (yet, or any more). |
+| active | Requests to the hostname reach the tunnel. |
+
+The **Tunnel** picker on a domain moves it to another tunnel immediately. **Remove** stops serving it immediately.
+
+## Good to know
+
+- A hostname can only be active in one workspace. Someone else can add it to theirs, but only the first to prove ownership with the TXT record gets it.
+- Your plan sets how many custom domains you can have. Domains you already have keep working if your plan changes.
+- Turn on an alert of type **Custom domain changes** to hear when a domain is verified, or stops pointing at us (for example after someone edits DNS). See [alerts](/docs/dashboard/alerts).

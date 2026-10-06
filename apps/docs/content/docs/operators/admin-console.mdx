@@ -2,21 +2,22 @@
 title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
-  date: "2026-10-05"
-  commit: "00aae30"
+  date: "2026-10-06"
+  commit: "9d3beac"
   packages: {}
 sources:
   - apps/admin/src/components/AdminShell.tsx
   - apps/api/src/modules/identity/domain/entities/admin/AdminAbility.entities.ts
   - apps/api/src/modules/platform/admin/admin.users.routes.ts
   - apps/api/src/modules/platform/admin/admin.accounts.routes.ts
+  - apps/api/src/modules/platform/admin/admin.domains.routes.ts
 ---
 
 The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps to a user (type an email) or an account (type a name or slug).
 
 ## Overview
 
-**Dashboard** shows users, accounts, paying subscriptions, revenue, active API keys and live tunnels over 7, 30 or 90 days, with daily sign-ups and requests. **System** shows the health of Postgres, Redis and the hub, the build that is running, and the effective plan limits.
+**Dashboard** shows users, accounts, paying subscriptions, revenue, active API keys and live tunnels over 7, 30 or 90 days, with daily sign-ups and requests. **System** shows the health of Postgres, Redis and the hub, the build that is running, and the effective plan limits. *Run alert checks now* evaluates every alert rule immediately instead of waiting for the next minute.
 
 ## People and workspaces
 
@@ -35,7 +36,7 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 
 ## Tunnels and keys
 
-**API keys** lists every key on the platform with its scopes and last use; *Revoke* takes effect immediately, including for a connected agent. **Tunnels** has two tabs: *Live* (connected agents across hubs, with *Disconnect*) and *History* (past sessions and their request counts).
+**API keys** lists every key on the platform with its scopes and last use; *Revoke* takes effect immediately, including for a connected agent. **Tunnels** has two tabs: *Live* (connected agents across hubs, with *Disconnect*) and *History* (past sessions and their request counts). **Custom domains** lists every customer hostname with its account, tunnel and DNS state; *Remove* (with a reason, audit-logged) takes a domain off the platform at once, for example a phishing hostname.
 
 ## Money
 

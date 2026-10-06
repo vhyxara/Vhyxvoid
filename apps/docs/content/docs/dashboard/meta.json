@@ -7,6 +7,8 @@
     "request-inspector",
     "webhook-inbox",
     "tunnel-access",
+    "custom-domains",
+    "alerts",
     "members-and-roles",
     "billing",
     "feedback-and-notifications"

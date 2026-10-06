@@ -2,8 +2,8 @@
 title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
-  date: "2026-10-05"
-  commit: "00aae30"
+  date: "2026-10-06"
+  commit: "9d3beac"
   packages: {}
 sources:
   - docker-compose.yml
@@ -12,6 +12,7 @@ sources:
   - Dockerfile.hub
   - Dockerfile.next
   - nginx.conf
+  - Caddyfile
   - apps/api/bootstrap.js
 ---
 
@@ -69,6 +70,13 @@ All images run as the unprivileged `node` user on Node 24.
 | `HUB_INTERNAL_SECRET` | for the admin console | Same value as the API. |
 | `HUB_INSTANCE_ID` | no | Name of this hub instance in logs and metrics. Default `hub-primary`. |
 | `TUNNEL_REQUEST_TIMEOUT_MS` | no | How long a public request waits for the agent. |
+| `TUNNEL_STATS_RETENTION_DAYS` | no | How long per-minute request counts (used by error-rate alerts) are kept. Default 7. |
+
+### Edge (`docker-compose.yml`)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `ACME_EMAIL` | for custom domains | Contact address of the Let's Encrypt account Caddy uses for customers' domains. Default `ops@vhyxvoid.com`. |
 
 ### Website (`web`)
 
@@ -103,6 +111,22 @@ Protect the host with [Cloudflare Access](https://developers.cloudflare.com/clou
 
 Admin sign-in is rate limited per IP, and every admin action is written to the admin audit log.
 
+## Custom domains
+
+Customers can serve a tunnel on their own hostname ([custom domains](/docs/dashboard/custom-domains)). The edge is built for it:
+
+- **nginx port 443 is an SNI router.** It reads the hostname of each TLS connection without decrypting it. Hostnames under `vhyxvoid.com` go to nginx's own HTTPS servers (wildcard certificate, as before); any other hostname goes to the `caddy` container. Both hops carry the PROXY protocol, so the real client address reaches the hub, access rules and the inspector.
+- **Caddy issues certificates on demand.** The first visit to a hostname asks the API (`/api/v1/public/domains/allow`) whether it is a *verified* custom domain; only then is a Let's Encrypt certificate requested. Unknown hostnames get no certificate. Certificates live in the `caddy_data` volume: keep it across upgrades (Let's Encrypt rate-limits re-issuing).
+- **Port 80** answers ACME HTTP-01 challenges for those hostnames through Caddy and redirects the rest to HTTPS.
+
+To turn it on:
+
+1. Create a DNS record for the edge, e.g. `edge.vhyxvoid.com`, as an **A/AAAA record to the server's IP, DNS only (grey cloud)**. Customers' CNAMEs must reach your server directly; Cloudflare's proxy would terminate TLS for hostnames it does not own.
+2. In the console, set **Settings → Tunnels → Custom domain target** (`tunnels.customDomainTarget`) to that hostname. While it is empty, nobody can add a domain.
+3. Check the plan limit `maxCustomDomains` (FREE: 0, PRO: 5, ENTERPRISE: 100) and the switch `features.customDomains`.
+
+Domains are rechecked every 5 minutes by a background job on the API; the console's **Custom domains** screen lists them all.
+
 ## Stripe
 
 You can launch without Stripe: billing mode starts as **free**. When you are ready to charge:
@@ -114,3 +138,5 @@ You can launch without Stripe: billing mode starts as **free**. When you are rea
 ## Upgrades
 
 Pull or build the new images and `docker compose up -d`. The API applies new migrations before it starts listening; the hub reconnects agents automatically (agents retry with backoff).
+
+On `SIGTERM` the API and hub stop accepting work, flush what they hold (request counts, job leases) and exit within 15 seconds, so a rolling restart does not leave background jobs blocked. Background jobs (alerts every minute, domain checks every 5 minutes) run on one API instance at a time through leases in Postgres; set `DISABLE_BACKGROUND_JOBS=1` on instances that should never run them.

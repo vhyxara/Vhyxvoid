@@ -1,0 +1,60 @@
+---
+title: Alerts
+description: Get an email, a dashboard notification or a Slack message when a tunnel goes down, errors climb, usage runs high, a webhook cannot be delivered or a domain changes.
+verified:
+  date: "2026-10-06"
+  commit: "9d3beac"
+  packages: {}
+sources:
+  - apps/web/src/views/org/alerts/AlertsView.tsx
+  - packages/shared/src/alerts.ts
+  - apps/api/src/modules/platform/alerts/alerts.worker.ts
+  - apps/api/src/modules/platform/alerts/alerts.service.ts
+  - apps/api/src/modules/platform/alerts/webhook.ts
+  - apps/hub/src/services/TrafficStats.service.ts
+---
+
+Open **Alerts** under a workspace and choose **New alert**. Owners and admins can create and change alerts; everyone in the workspace can see them.
+
+## What you can be alerted about
+
+| Alert | Fires when | You set |
+| --- | --- | --- |
+| Tunnel offline | A tunnel's agent disconnected and has not come back | the tunnel (or any), minutes to wait (default 5) |
+| Server errors | The share of requests answered with a `5xx` reaches a threshold | the tunnel (or any), percentage (default 10%), window in minutes (default 5), minimum number of requests (default 20) |
+| Monthly usage | This month's requests reach a share of your plan | percentage (default 80%) |
+| Webhook delivery failed | A webhook held by the [inbox](/docs/dashboard/webhook-inbox) gives up after its retries | the tunnel (or any) |
+| Custom domain changes | A [custom domain](/docs/dashboard/custom-domains) is verified, or stops pointing at us | — |
+
+Alerts are checked every minute. **Server errors** counts what callers received, including `502`/`504` when your local server did not answer. "Any tunnel" offline alerts only consider tunnels seen in the last day, so long-retired tunnels do not alert.
+
+## Where alerts go
+
+- **Owners and admins of the workspace**: an email and a notification in the dashboard's bell.
+- **Other email addresses**: up to 10, for example an on-call list.
+- **A webhook URL**: Slack and Discord incoming webhooks work as they are (the message is in `text` / `content`). Other services receive JSON:
+
+```json
+{
+  "text": "🔴 Tunnel api is offline\n…",
+  "content": "🔴 Tunnel api is offline\n…",
+  "alert": {
+    "rule": { "id": "…", "name": "API down", "type": "TUNNEL_OFFLINE", "description": "tunnel api offline for 5 min" },
+    "kind": "FIRING",
+    "subject": "api",
+    "title": "Tunnel api is offline",
+    "message": "…",
+    "url": "https://…/organizations/…/tunnels",
+    "accountId": "…",
+    "at": "2026-10-06T12:00:00.000Z"
+  }
+}
+```
+
+`kind` is `FIRING` when a problem starts, `RESOLVED` when it ends, and `EVENT` for one-off events (and tests). Webhook URLs must be `https://` and reachable on the internet.
+
+## No floods
+
+You get one message when something goes wrong and one when it recovers, never a repeat while it stays wrong. On top of that, one alert sends at most 12 messages an hour; anything beyond that is recorded but not sent, so a tunnel that keeps reconnecting cannot flood anyone.
+
+**Send test** delivers a test message on every channel of an alert and shows what was delivered. The **Recent** list shows every alert sent, with what happened on each channel.

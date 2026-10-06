@@ -2,13 +2,15 @@
 title: Runbook
 description: What to do when something goes wrong, and the routine jobs.
 verified:
-  date: "2026-10-05"
-  commit: "00aae30"
+  date: "2026-10-06"
+  commit: "9d3beac"
   packages: {}
 sources:
   - apps/api/src/modules/platform/platform.plugin.ts
   - apps/hub/src/HubServer.ts
   - packages/shared/src/settings.ts
+  - apps/api/src/modules/platform/alerts/alerts.worker.ts
+  - apps/api/src/modules/platform/domains/domains.service.ts
 ---
 
 ## Planned maintenance
@@ -21,6 +23,7 @@ sources:
 
 - **Compromised user**: *Sign out everywhere*, then *Send password reset*. Their API keys are separate credentials: revoke them under **API keys**.
 - **Abusive workspace**: *Suspend* the account (its agents are disconnected and cannot reconnect, its API keys stop working, workspace actions are refused) and disconnect its live tunnels under **Tunnels → Live**. Record why in the reason; it is kept in the admin audit log.
+- **Abusive custom domain** (phishing on a customer's hostname): remove it under **Custom domains**; the hub stops serving it immediately and Caddy will not renew its certificate.
 - **Too much load from one account**: lower its limits with an account override instead of suspending.
 
 ## Stop new tunnels quickly
@@ -38,7 +41,20 @@ Turn off `auth.signupsEnabled`, or limit sign-ups to certain email domains with 
 | `GET https://api.vhyxvoid.com/health` | `{"status":"ok"}` |
 | Hub `GET /health` (inside the Docker network) | 200 |
 | Hub `GET /metrics` (inside the Docker network) | Prometheus text: connected agents, sockets, pending requests |
+| `docker compose logs caddy` | No repeated ACME errors |
 | Console **System** page | Postgres, Redis and hub all green |
+
+## Custom domain does not work
+
+1. In **Custom domains**, check its state. *Waiting for DNS*: the TXT record `_vhyxvoid.<host>` is missing or wrong. *DNS not pointing here*: verified, but the CNAME/A record does not lead to the custom domain target.
+2. `dig +short CNAME <host>` and `dig +short A <host>` should give the target or its addresses. If the customer proxies the record through their own Cloudflare, ask them to set it to DNS only.
+3. Certificate errors: `docker compose logs caddy` shows ACME failures (Let's Encrypt rate limits, port 80 blocked). Caddy retries by itself.
+
+## Alerts are not arriving
+
+- Each rule sends at most 12 notifications an hour; the rule's history shows suppressed ones.
+- Email needs `RESEND_API_KEY`; webhooks must answer 2xx within 5 seconds and cannot point at private addresses. Each history entry shows what happened on each channel.
+- `features.alerts` off stops evaluation. **System → Run alert checks now** runs it immediately; a 409 means another API instance holds the job.
 
 ## Backups
 
