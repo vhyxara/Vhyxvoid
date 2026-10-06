@@ -3,7 +3,7 @@ title: Mock APIs
 description: A working API at a public URL before the backend exists, with realistic data, rules, errors and delays. Created from a template or an OpenAPI file.
 verified:
   date: "2026-10-06"
-  commit: "96d4bac"
+  commit: "8323f22"
   packages: {}
 sources:
   - packages/shared/src/mockApi.ts
@@ -13,6 +13,9 @@ sources:
   - apps/web/src/views/org/mocks/MocksView.tsx
   - apps/web/src/views/org/mocks/MockEditorView.tsx
   - apps/web/src/views/org/mocks/mockForm.ts
+  - apps/web/src/views/org/mocks/MockPhase2Parts.tsx
+  - packages/shared/src/mockResources.ts
+  - packages/shared/src/mockInterop.ts
 ---
 
 A mock API answers at `https://<slug>--<label>.vhyxvoid.com`, the same kind of URL as a tunnel, with no agent and no server of your own. Frontend developers, tests and webhook senders can use it before the backend exists. When the real backend is ready, start the agent on the **same label**: the URL stays the same and moves to your server, route by route.
@@ -27,7 +30,7 @@ Open **Mock APIs** under a workspace and pick a starting point:
 | **REST resource** | List, read, create, update and delete users, with realistic fake data, a `404` for id `0` and a `422` when `email` is missing. |
 | **Auth** | `POST /auth/login` that accepts the password `secret`, and `GET /me` that needs a bearer token. |
 | **Errors and slowness** | A 3-second endpoint, one that fails every other call, and one that is always rate limited. |
-| **From OpenAPI** | Paste or upload an OpenAPI 3 or Swagger 2 document (JSON or YAML). Every operation becomes an endpoint, answering with its `example`, the first of its `examples`, or a sample built from its schema. |
+| **Import a file** | Paste or upload an OpenAPI 3 or Swagger 2 document (JSON or YAML), a Postman collection, a Mockoon environment, a HAR file recorded in your browser, or a VhyxVoid export. The format is detected; see [Import](#import). |
 
 Give it a name and a label (lowercase letters, digits and single hyphens). The mock answers as soon as it is created; the editor opens on it.
 
@@ -93,12 +96,70 @@ A request to a mock's URL that matches no endpoint, with no agent running, gets 
 
 **Latency for every answer** adds a delay to every response, on top of each response's own extra delay (up to 30 seconds in total per answer).
 
-## Try, see requests, import and export
+## Resources: a REST API with stored data
+
+Add a **resource** (under the endpoints) and the mock gets a complete REST collection, with no endpoints to write. A resource called `users` at `/users` answers:
+
+| Request | Does |
+| --- | --- |
+| `GET /users` | List. Filter on any field (`?role=admin`, `?address.city=Lisbon`), search all fields (`?q=ada`), sort (`?_sort=name&_order=desc`), page (`?_page=2&_limit=10`). The total is in the `X-Total-Count` header. |
+| `POST /users` | Create from a JSON body. The id comes from the body, or is the next number (or a UUID when ids are text). Answers `201` with a `Location` header, `409` if the id exists. |
+| `GET /users/:id` | Read, or `404`. |
+| `PUT /users/:id` | Replace (the id stays). |
+| `PATCH /users/:id` | Change the fields you send. |
+| `DELETE /users/:id` | Delete (`204`). |
+
+Data starts from the **seed** (a JSON list of objects you edit in the dashboard) and is kept between requests, for everyone who calls the URL. **Live data** shows what is stored now; **Reset to seed** puts it back, which you also need after changing the seed. A body that isn't a JSON object gets `400`. A resource holds up to 1,000 items of up to 64 KB each, and a mock has up to 20 resources. Data nobody wrote to for 30 days is dropped and starts again from the seed.
+
+Endpoints come first: an endpoint for `GET /users/me` answers that path even though `/users` is a resource, so you can override any route by hand. **Try** answers resource routes from the live data, exactly like the URL (so a `POST` in Try really creates an item).
+
+## Record from real traffic
+
+Already have a working backend? Let it write the mock:
+
+- **Record** (in the editor) lists the requests the [request inspector](/dashboard/request-inspector) captured on a tunnel. Pick the ones you want and they become endpoints with the real responses.
+- **Add to a mock API** (on any request in the inspector) does the same for one request.
+
+Ids in paths (numbers, UUIDs, long tokens such as `cus_NffrFeUfNV2Hib`) become parameters, so `/users/42` and `/users/43` become one `GET /users/:id` endpoint. When the same route answered with different statuses, each becomes a response, and the non-`2xx` ones get a rule on the id they were seen with (for example `404` only for id `99`). Only `Content-Type`, `Location`, `Cache-Control`, `Retry-After` and `WWW-Authenticate` response headers are kept, never cookies or credentials. Routes the mock already has are skipped. Requests answered by a mock or a traffic rule are not offered (they aren't your backend's answers).
+
+## Import
+
+**Import** (and **Import a file** when creating a mock) accepts, detected automatically:
+
+| Format | What becomes what |
+| --- | --- |
+| OpenAPI 3 / Swagger 2 (JSON or YAML) | Each operation an endpoint; responses from `example`, the first of `examples`, or a sample built from the schema. |
+| Postman collection (v2.0 / v2.1) | Each request an endpoint, its saved examples the responses; `{{baseUrl}}` and other variables in paths become parameters. |
+| Mockoon environment | Routes, responses, rules (equals, regex, null, inverted), sequential and random modes, latency; CRUD routes with their data buckets become resources. Mockoon's own templating is kept as text. |
+| HAR (from your browser's network tab) | Like **Record**: each request with its real response. |
+| VhyxVoid export | Everything, including resources and settings. |
+
+By default, routes and resources the mock already has are kept, so importing twice is harmless; **Replace all endpoints** starts over. Anything that could not be carried over is listed after the import.
+
+## Export
+
+**Export** downloads the saved mock as:
+
+| Format | Use it for |
+| --- | --- |
+| OpenAPI (YAML or JSON) | Docs, code generators, Swagger UI. Response bodies become examples; the mock's URL is the server. |
+| Mock Service Worker | A TypeScript file of [msw](https://mswjs.io) v2 handlers that behaves like the mock: rules (including body rules), each-in-turn and random responses, latency, and resources as in-memory collections. Use it in your frontend's dev mode or tests with `setupWorker(...handlers)` / `setupServer(...handlers)`. Templated bodies are sent as written. |
+| Postman collection | Every endpoint as a request with its responses as saved examples, and a folder of requests per resource. |
+| Mockoon | An environment for the Mockoon app or `@mockoon/cli`: rules, modes and latency carry over, resources become CRUD routes with data buckets, and the common template tags are translated. |
+| VhyxVoid JSON | Everything, to back up, move to another workspace, or run offline. |
+
+## Run it offline
+
+Any JSON export runs on your machine with no account and no network, through the agent's [`vhyxvoid mock`](/cli/mock) command:
+
+```bash
+npx @vhyxvoid/agent mock ./users-api.vhyxvoid-mock.json --port 4010
+```
+
+## Try and see requests
 
 - **Try** sends a request through the same engine the URL uses, including your unsaved changes, and shows which endpoint and response answered.
-- **Requests** opens the [request inspector](/dashboard/request-inspector) for the mock's label: every call is captured there, marked ◇ with the endpoint and response that answered.
-- **Import** adds the operations of an OpenAPI document. By default routes the mock already has (same method and path) are kept, so importing twice is harmless; **Replace all endpoints** starts over. The import is saved at once.
-- **OpenAPI** downloads the mock as an OpenAPI 3 document (YAML), with each response's body as its example and the mock's URL as the server.
+- **Requests** opens the [request inspector](/dashboard/request-inspector) for the mock's label: every call is captured there, marked ◇ with the endpoint (or resource) and response that answered.
 
 ## Saving
 
@@ -107,6 +168,7 @@ Changes are a draft until **Save** (or Ctrl+S / ⌘S); the page warns before you
 ## Things to know
 
 - Mock answers count like any other request to your tunnel URLs: the per-minute limit, monthly usage, [traffic charts](/dashboard/tunnels#traffic) and [alerts](/dashboard/alerts) all include them.
+- If the data store is briefly unavailable, resource routes answer `503` with `x-vhyxvoid-error: MOCK_STORE_UNAVAILABLE`; endpoints keep answering.
 - [Tunnel access rules](/dashboard/tunnel-access) on the same label protect the mock too, and [traffic rules](/dashboard/traffic-rules) run before it (a traffic rule can still inject an error or add headers to mocked answers). The [webhook inbox](/dashboard/webhook-inbox) only stores requests the mock doesn't answer.
 - A [custom domain](/dashboard/custom-domains) pointed at the label serves the mock as well.
 - How many mock APIs a workspace can have, and how many endpoints each, depends on the plan (see [Plans and limits](/reference/plans-and-limits)). Mocks that exist keep answering after a downgrade.

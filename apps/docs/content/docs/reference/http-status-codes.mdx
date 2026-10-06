@@ -3,7 +3,7 @@ title: HTTP status codes
 description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
 verified:
   date: "2026-10-06"
-  commit: "96d4bac"
+  commit: "8323f22"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -43,6 +43,7 @@ When VhyxVoid answers, the body is JSON of this shape, and the response carries 
 | `502` | `The tunnel agent disconnected while handling this request. Try again.` | The agent lost its connection to VhyxVoid while your request was in flight (code `AGENT_DISCONNECTED`). Retry it, after checking the agent is running. |
 | `502` | `The request could not be delivered to the tunnel agent. Try again.` | The hub couldn't hand the request to the agent (code `SEND_FAILED`). Retry. |
 | `503` | `Tunnel is registered but agent is not connected. …` | The label is known but the agent isn't connected right now, for instance while it reconnects. Restart it if it stays down. |
+| `503` | `The mock’s data store is unavailable right now. Try again shortly.` | A [mock API](/dashboard/mock-apis) resource route could not reach its data (code `MOCK_STORE_UNAVAILABLE`). Retry; endpoints of the mock keep answering. |
 | `503` | `The tunnel is offline and its inbox is full. Try again later.` | The tunnel's [webhook inbox](/dashboard/webhook-inbox) already holds as many requests as your plan allows. Has a `Retry-After` header, so webhook providers retry later. |
 | `504` | `The service behind this tunnel did not respond in time.` | Nobody answered within the hub's request timeout (120 seconds by default; code `AGENT_TIMEOUT`). A slow server usually gives the `502` above first. |
 

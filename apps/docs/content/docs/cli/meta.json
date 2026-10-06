@@ -3,6 +3,7 @@
   "pages": [
     "reference",
     "doctor",
+    "mock",
     "configuration"
   ]
 }

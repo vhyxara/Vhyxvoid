@@ -903,3 +903,15 @@ Commits b534990 (engine, storage, hub, API), 96d4bac (dashboard), docs commit af
 7. **Sequential counters live in the hub's cache entry**: per hub instance, reset on save. Acceptable for a development tool; noted in the backlog for multi-hub.
 **Status:** active.
 
+### 2026-10-06 — Mock APIs phase 2: resources, record, interop, offline CLI (session upbeat-cannon)
+
+Commits 0f62342 (engine, hub, API, CLI), 8323f22 (dashboard), docs commit after it.
+
+1. **Resources are declared, not coded** (json-server/Mockoon CRUD semantics): six routes per collection with filters, `q`, sort, paging and X-Total-Count. Endpoints win over resource routes so any route can be overridden. No user code runs.
+2. **Data in Redis, one hash per resource** (field = id, value = {seq, item}), not one JSON blob: writes to different items never lose each other; create uses HSETNX (retry on a taken next number); the INCR sequence key doubles as the "seeded" marker so an emptied resource stays empty. Same-item concurrent PUT/PATCH is last-write-wins (acceptable for a mock; noted). 30-day idle expiry bounds storage; caps 1,000 items x 64 KB, 20 resources per mock.
+3. **Try uses live resource data** (a POST in Try creates an item), because a dry run against a copy would show data the URL doesn't serve. Documented on the page.
+4. **Record keeps only safe headers** (content type, location, cache control, retry-after, www-authenticate): captures can contain session cookies and tokens; they must not become public mock responses. Mock and rule answers are excluded from recording (not the backend's behaviour).
+5. **Exports are generated code that is executed in tests**: the MSW module is transpiled with esbuild and run against an msw stand-in, so "it compiles and behaves" is checked, not just string shape (this caught two real bugs: `??` mixed with `&&`, and data declared after use).
+6. **`vhyxvoid mock` reads JSON only** and imports the engine through a narrow `@vhyxvoid/shared/mock` entry (CJS shared index would have bundled server code). Adding a YAML parser to the agent wasn't worth the dependency; the dashboard exports JSON for every format.
+**Status:** active.
+

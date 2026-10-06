@@ -1,0 +1,49 @@
+---
+title: vhyxvoid mock
+description: Serve a mock API on your machine, offline, from a dashboard export or an OpenAPI, Postman, Mockoon or HAR file.
+verified:
+  date: "2026-10-06"
+  commit: "8323f22"
+  packages:
+    "@vhyxvoid/agent": "1.1.0"
+sources:
+  - packages/agent/src/mockServer.ts
+  - packages/agent/src/cli.ts
+  - packages/shared/src/mockInterop.ts
+  - packages/shared/src/mockResources.ts
+---
+
+`vhyxvoid mock` serves a [mock API](/dashboard/mock-apis) on your own machine with the same engine as the hosted one: endpoints, rules, templating, latency, CORS and resources. It needs no account, no key and no network, so it works on a plane, in CI and in tests. It ships with agent 1.1.0 (not on npm yet).
+
+```bash
+npx @vhyxvoid/agent mock ./users-api.vhyxvoid-mock.json
+```
+
+```text
+  🧪  Mock "Users API" (vhyxvoid) on http://127.0.0.1:4010
+      5 endpoints, resources: /todos
+      Ctrl+C to stop.
+
+  GET /users/7 → 200 (Get a user) 2 ms
+  POST /todos → 201 (resource todos create) 1 ms
+```
+
+## The file
+
+Export the mock from the dashboard as **VhyxVoid JSON** (everything) or **OpenAPI (JSON)**, or use any JSON document the dashboard can import: OpenAPI 3 / Swagger 2, a Postman collection, a Mockoon environment or a HAR file. YAML isn't read here; export JSON instead. A file that isn't one of these stops with a message that says so.
+
+## Options
+
+| Option | Default | |
+| --- | --- | --- |
+| `-p, --port <port>` | `4010` | Port to listen on. |
+| `--host <host>` | `127.0.0.1` | Address to listen on; `0.0.0.0` lets other devices (a phone on the same network) reach it. |
+| `--no-watch` | watching | Don't reload when the file changes. |
+| `-q, --quiet` | | Don't print a line per request. |
+
+## Behaviour
+
+- Endpoints answer first, then resources, exactly as on the hosted URL. A request nothing answers gets `404` with `x-vhyxvoid-error: MOCK_NO_ROUTE`.
+- Resources keep their data in memory while the command runs, starting from the seed. Stopping the command forgets it.
+- When the file changes, the mock reloads within a moment. Resource data is kept unless the resources themselves changed. If the new file can't be read, the previous version keeps serving and the reason is printed.
+- Every answer carries `x-vhyxvoid-mock` with the endpoint that answered, like the hosted mock.

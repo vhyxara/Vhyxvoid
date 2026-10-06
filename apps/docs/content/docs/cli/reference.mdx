@@ -3,7 +3,7 @@ title: CLI reference
 description: Commands, flags, and environment variables of the vhyxvoid command.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "8323f22"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -72,15 +72,18 @@ Usage: vhyxvoid [options] [command]
 Platform tunnel agent — connects your local server to the platform.
 
 Options:
-  -V, --version     output the version number
-  -h, --help        display help for command
+  -V, --version          output the version number
+  -h, --help             display help for command
 
 Commands:
-  init              Interactive setup — saves credentials to .env.vhyxvoid
-  doctor [options]  Check your setup: credentials, local server, hub, sign-in,
-                    custom domain
-  start [options]   Start the tunnel agent
-  help [command]    display help for command
+  init                   Interactive setup — saves credentials to .env.vhyxvoid
+  doctor [options]       Check your setup: credentials, local server, hub,
+                         sign-in, custom domain
+  mock [options] <file>  Serve a mock API on this machine, offline (a VhyxVoid
+                         mock export, OpenAPI, Postman, Mockoon or HAR file, as
+                         JSON)
+  start [options]        Start the tunnel agent
+  help [command]         display help for command
 ```
 
 ```text title="vhyxvoid start --help"
