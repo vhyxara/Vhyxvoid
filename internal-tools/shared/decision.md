@@ -878,3 +878,15 @@ Commits 8b8435e, f57a494.
 7. **Activity rows: one per change.** Found that the tunnel-access, custom-domain and inbox routes already wrote their own audit rows (dotted names), so the activity hook added in 349ff83 double-recorded them. The hook no longer lists those routes; the feed reads the dotted names.
 **Status:** active.
 
+### 2026-10-06 — Agent fleet view (session production-stable, part 3)
+
+Commit 51d08e7.
+
+1. **Versions are console settings, not code constants.** The newest published agent changes outside this repo's deploys, so `tunnels.recommendedAgentVersion` (drives the dashboard's update note) and `tunnels.minimumAgentVersion` (hub refuses older agents) live in settings, validated as versions. The console's Live tab counts agents per version so an operator sees who a new minimum would lock out.
+2. **The minimum is checked before authentication** and sent as a fatal VERSION_UNSUPPORTED, which every published agent already treats as "stop, do not retry", with the update command in the message. Connected agents are not evicted when the minimum rises; they meet it on their next connect (an eviction sweep was rejected: it would cut live tunnels mid-demo for a setting change).
+3. **"Stop" reuses the existing fatal disconnect** (AUTH_FAILED with a custom message) so it works with agents already in the field; the hub now forwards a reason so the agent prints who stopped it. A new code would have needed an agent release first. Stop only accepts agent ids the hub lists for that account (no cross-workspace stop by guessing ids).
+4. **Health is derived, not stored**: from lastSeenAt and missedPings that the heartbeat already keeps (10 s pings). One missed ping = lagging, two or 45 s silent = not responding.
+5. **The hub's per-agent keyId is the key's row id** (ApiKey.id). The first API version matched it against the public key id and showed no keys; caught in the live run, fixed, and now asserted in agentFleetRoutes.test.ts.
+6. **IP addresses of agents are shown to owners and admins only**, like IPs in the activity feed.
+**Status:** active.
+

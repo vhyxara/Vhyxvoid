@@ -3,9 +3,11 @@ title: Runbook
 description: What to do when something goes wrong, and the routine jobs.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "51d08e7"
   packages: {}
 sources:
+  - packages/shared/src/agentFleet.ts
+  - apps/hub/src/router/Message.router.ts
   - apps/api/src/modules/platform/routes.ts
   - apps/api/src/modules/platform/platform.plugin.ts
   - apps/hub/src/HubServer.ts
@@ -60,6 +62,15 @@ Turn off `auth.signupsEnabled`, or limit sign-ups to certain email domains with 
 ## An admin is locked out
 
 Five wrong passwords lock an admin account for 15 minutes; waiting is the fix. To unlock sooner, a super admin can set a new password for them under **Admin users**, or run `UPDATE "AdminUser" SET "failedLoginAttempts" = 0, "lockedUntil" = NULL WHERE email = '…';` against the database.
+
+## Requiring a newer agent
+
+Two settings under **Settings → Tunnels** steer agent versions without a deploy:
+
+- **Recommended agent version**: older agents get an "update available" note on the customer's Agents card. Raise it after each agent release.
+- **Minimum agent version**: the hub refuses older agents at connect time with the update command; they stop instead of retrying. Agents already connected stay until they reconnect. Use it for security fixes or protocol changes.
+
+Before raising the minimum, open **Tunnels → Live** in the console: the **Versions** line shows how many connected agents run each version, so you see who would be locked out. Announce it first (Settings → Announcement banner).
 
 ## Background jobs
 

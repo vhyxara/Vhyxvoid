@@ -2055,3 +2055,17 @@ files by `"date"` — every entry carries its own date and session_id.
 }
 ```
 
+```json
+{
+  "session_id": "production-stable (part 3)",
+  "date": "2026-10-06",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/vhyxvoid-production-stable-zfjdqv); libraries unchanged",
+  "brief_summary": "Continue with the agent fleet view (roadmap next #3).",
+  "status": "completed",
+  "summary": "Agents card on the Tunnels page (health, version status, uptime, last ping, in flight, key with expiry warning, IP for admins, stop, recent disconnects, update note), API /api/v1/agents, hub agent listing with keyId and in-flight counts and a disconnect reason, console-set recommended/minimum agent version with the minimum enforced at registration, console Live tab version breakdown.",
+  "verification": "root vitest 735 (101 files) incl. real-DB tests; web 69; admin 110; turbo typecheck 16/16; docs build 48 pages, check:fresh clean for touched pages; live local stack: two agents (1.1.0 and 1.0.20), fleet API and card (desktop + phone screenshots, no page errors), stop from the API (agent printed the reason and stopped, AGENT_STOPPED in Activity), minimum 1.1.0 set through the admin API ('latest' refused), the 1.0.20 agent refused with the update command and stopped, console Live versions breakdown.",
+  "commits": "51d08e7 + docs/records commit"
+}
+```
+

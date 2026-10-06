@@ -3,9 +3,10 @@ title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "51d08e7"
   packages: {}
 sources:
+  - apps/admin/src/views/tunnels/TunnelsView.tsx
   - apps/api/src/modules/identity/application/use-cases/admin/AdminLogin.usecase.ts
   - apps/admin/src/views/dashboard/TrafficSection.tsx
   - apps/admin/src/components/AdminShell.tsx
@@ -38,7 +39,7 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 
 ## Tunnels and keys
 
-**API keys** lists every key on the platform with its scopes and last use; *Revoke* takes effect immediately, including for a connected agent. **Tunnels** has two tabs: *Live* (connected agents across hubs, with *Disconnect*) and *History* (past sessions and their request counts). **Custom domains** lists every customer hostname with its account, tunnel and DNS state; *Remove* (with a reason, audit-logged) takes a domain off the platform at once, for example a phishing hostname.
+**API keys** lists every key on the platform with its scopes and last use; *Revoke* takes effect immediately, including for a connected agent. **Tunnels** has two tabs: *Live* (connected agents across hubs with their version, missed pings and requests in flight, a count of agents per version and how many are older than the recommended version, and *Disconnect*) and *History* (past sessions and their request counts). **Custom domains** lists every customer hostname with its account, tunnel and DNS state; *Remove* (with a reason, audit-logged) takes a domain off the platform at once, for example a phishing hostname.
 
 ## Money
 

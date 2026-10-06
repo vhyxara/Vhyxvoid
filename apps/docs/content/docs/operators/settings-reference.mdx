@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-06"
-  commit: "f57a494"
+  commit: "51d08e7"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -89,6 +89,8 @@ Tunnel behaviour for every account.
 | Key | Type | Default | Public | What it does |
 | --- | --- | --- | --- | --- |
 | `tunnels.customDomainTarget` | string | `""` | yes | Custom domain target. The hostname customers point their domains at with a CNAME (e.g. edge.vhyxvoid.com, an A record on your edge server). Empty disables adding custom domains. |
+| `tunnels.recommendedAgentVersion` | string | `"1.1.0"` | yes | Recommended agent version. Agents older than this get an "update available" note on the dashboard's Agents card (they keep working). Set it to the newest published @vhyxvoid/agent after a release. Empty: no note. |
+| `tunnels.minimumAgentVersion` | string | `""` | yes | Minimum agent version. The hub refuses agents older than this at connect time with an "update the agent" message (connected agents stay until they reconnect). For security fixes or protocol changes. Empty: any version may connect. |
 | `tunnels.newAgentsEnabled` | boolean | `true` | no | Accept new agent connections. When off, the hub refuses new agent registrations (running tunnels stay up). For incidents. |
 
 ## Support

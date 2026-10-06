@@ -1,12 +1,15 @@
 ---
 title: Tunnels
-description: See which agents are connected right now, traffic over time per tunnel, and the history of past connections.
+description: See your connected agents (health, version, load, key), stop one, follow traffic over time per tunnel, and browse past connections.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "51d08e7"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
+  - packages/shared/src/agentFleet.ts
+  - apps/api/src/modules/platform/agents/agents.routes.ts
+  - apps/web/src/views/org/tunnels/AgentFleetCard.tsx
   - packages/shared/src/traffic.ts
   - apps/api/src/modules/platform/traffic/traffic.routes.ts
   - apps/web/src/components/charts/TrafficChart.tsx
@@ -15,13 +18,24 @@ sources:
   - apps/web/src/views/org/tunnels/TunnelsView.tsx
 ---
 
-Open **Tunnels** under your personal workspace or under an organization in the sidebar. The page is read-only: it shows connections, and you start and stop tunnels with the [agent](/cli/reference) or an [integration](/integrations/nextjs), not from here. Everyone in an organization can see its page.
+Open **Tunnels** under your personal workspace or under an organization in the sidebar. You start tunnels with the [agent](/docs/cli/reference) or an [integration](/docs/integrations/nextjs); this page shows them, their traffic and their history, and lets owners and admins stop an agent. Everyone in a workspace can see its page.
 
-## Active tunnels
+## Agents
 
-A card at the top lists the agents connected right now. It refreshes every 30 seconds, so a tunnel can take up to that long to appear or disappear.
+The **Agents** card lists the agents connected right now and refreshes every 15 seconds. For each one:
 
-For each connected agent it shows the **label** you started it with, the agent's ID, the **name of the API key** it connected with, and the time it connected. The badge at the top of the card says how many are connected (`0 connected` when there are none, with **No active tunnels** in the card).
+| | |
+| --- | --- |
+| Health | **Healthy** (answering the hub's pings every 10 s), **Lagging** (missed one: a busy machine or slow network) or **Not responding** (missed several; the hub drops it soon) |
+| Version | The agent's version, with **Update available** when it is older than the version the platform recommends, or **Too old** when it is below the oldest version the platform accepts |
+| Up for, Last ping | How long it has been connected, and when it last answered |
+| In flight | Requests waiting for its answer right now |
+| Key | The API key it signed in with (marked when it expires within 7 days); links to API keys |
+| From | The address it connects from (owners and admins only) |
+
+Click a URL to copy it. When agents run an older version, a note above the list gives the update command (`npm i -D @vhyxvoid/agent@latest`, then restart the agent). **Show disconnects** lists the last 24 hours of disconnections, including those the hub made for unresponsive agents.
+
+**Stop** (owners and admins) disconnects one agent: the agent prints "Stopped from the dashboard by &lt;your name&gt;" and exits instead of reconnecting, so someone has to start it again. Requests to its URL then get the usual offline answer (or the [webhook inbox](/docs/dashboard/webhook-inbox) or an [offline traffic rule](/docs/dashboard/traffic-rules) takes them). Each stop is recorded on the [Activity](/docs/dashboard/activity) page. To cut off an agent for good, revoke its key under API keys instead.
 
 ## Traffic
 
@@ -49,4 +63,4 @@ Individual requests are in the [request inspector](/docs/dashboard/request-inspe
 
 ## When a tunnel isn't listed
 
-If your agent prints its public URL but is missing from **Active tunnels**, wait for the next 30 second refresh and reload. If the agent isn't running, or has stopped reconnecting, requests to its URL get a `503`. See [Troubleshooting](/troubleshooting).
+If your agent prints its public URL but is missing from **Agents**, wait for the next 15 second refresh and reload. If the agent isn't running, or has stopped reconnecting, requests to its URL get a `503`. See [Troubleshooting](/troubleshooting).

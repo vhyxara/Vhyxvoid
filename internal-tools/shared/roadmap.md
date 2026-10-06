@@ -40,6 +40,7 @@ an item ships (move it to *Shipped* with its commits) or the order changes
 | 10 | GitHub Action for preview environments (`actions/tunnel`) | Must move to a public repo to be usable by customers (shared backlog) | d28cd42 |
 | 11 | CLI `vhyxvoid doctor` | Ships with the next agent publish | 4ef82d9 |
 | 12 | Traffic rules: mocks, injected errors and latency, redirects, path rewrites, header changes, offline answers; inspector "Mock this response" | Plan limit `maxTrafficRules`, switch `features.trafficRules` | 8b8435e, f57a494 |
+| 13 | Agent fleet view (health, version, uptime, in-flight, key, stop; console-set recommended/minimum agent version enforced at the hub) | Settings `tunnels.recommendedAgentVersion`, `tunnels.minimumAgentVersion` | 51d08e7 |
 | — | Launch backlog: absolute session lifetime + pruning (M23), admin lockout, CMS optimistic lock, weighted usage mean, tunnel-password guessing limit, per-workspace inspector opt-out | | 349ff83, ce7ff76, 49499c7 |
 
 ## Next, in order (re-ranked 2026-10-06 after items 1-5 shipped)
@@ -51,9 +52,8 @@ an item ships (move it to *Shipped* with its commits) or the order changes
 2. ~~Traffic policies and mock responses~~ shipped 2026-10-06 (#12 above).
    Follow-ups if customers ask: rules for WebSocket upgrades, response-body
    rewriting, rule hit counters on the Rules page.
-3. **Agent fleet view** (user-frontend F7): agent version, uptime, outdated
-   banner, disconnect/rotate from the dashboard. Data mostly exists (sessions,
-   handshake metadata); teams with many agents need it.
+3. ~~Agent fleet view~~ shipped 2026-10-06 (#13 above). Not done: rotating a
+   key from the fleet card (it links to API keys, which has rotation).
 4. **Per-key usage and traffic CSV** (F13 remainder) and a workspace switcher
    on the overview. Small; supports upgrade decisions.
 5. **Account and user deletion (GDPR/DPDP, api backlog G10/F15).** Not a
