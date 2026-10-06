@@ -113,6 +113,8 @@ export interface AccessRequest {
 export type AccessDecision =
   | { allow: true; stripAuthorization: boolean }
   | { allow: false; status: 401 | 403; reason: string }
+  /** Too many wrong passwords from this address: try again after retryAfterSeconds. */
+  | { allow: false; status: 429; reason: string; retryAfterSeconds: number }
   /** A valid share token in the URL: redirect to the clean URL with this cookie. */
   | { allow: false; status: 302; location: string; cookie: { value: string; maxAgeSeconds: number } };
 
@@ -177,4 +179,59 @@ export function stripAccessCookie(cookie: string | undefined): string | undefine
     .map((p) => p.trim())
     .filter((p) => p && !p.startsWith(`${ACCESS_COOKIE}=`));
   return kept.length ? kept.join("; ") : undefined;
+}
+
+// ── Password guessing ─────────────────────────────────────────────────────────
+// Wrong tunnel passwords per (account, tunnel, client IP) in a sliding minute.
+// Past the limit the hub answers 429 without checking the password at all.
+// In-process (per hub), like the public-path abuse limiter.
+
+export const PASSWORD_GUESS_LIMIT = 10;
+export const PASSWORD_GUESS_WINDOW_MS = 60_000;
+const MAX_TRACKED = 50_000;
+
+export class PasswordGuessLimiter {
+  private failures = new Map<string, number[]>();
+
+  constructor(
+    private readonly limit = PASSWORD_GUESS_LIMIT,
+    private readonly windowMs = PASSWORD_GUESS_WINDOW_MS,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  static key(accountId: string, label: string, ip: string | null | undefined): string {
+    return `${accountId}\u0000${label}\u0000${ip ?? "?"}`;
+  }
+
+  /** Seconds until another attempt is allowed, or 0 when not blocked. */
+  blockedFor(key: string): number {
+    const list = this.recent(key);
+    if (list.length < this.limit) return 0;
+    return Math.max(1, Math.ceil((list[0] + this.windowMs - this.now()) / 1000));
+  }
+
+  fail(key: string): void {
+    const list = this.recent(key);
+    list.push(this.now());
+    if (list.length > this.limit) list.shift();
+    this.failures.set(key, list);
+    if (this.failures.size > MAX_TRACKED) this.sweep();
+  }
+
+  reset(key: string): void {
+    this.failures.delete(key);
+  }
+
+  private recent(key: string): number[] {
+    const cutoff = this.now() - this.windowMs;
+    const list = (this.failures.get(key) ?? []).filter((t) => t > cutoff);
+    if (list.length) this.failures.set(key, list);
+    else this.failures.delete(key);
+    return list;
+  }
+
+  private sweep(): void {
+    const cutoff = this.now() - this.windowMs;
+    for (const [k, list] of this.failures) if (!list.some((t) => t > cutoff)) this.failures.delete(k);
+  }
 }

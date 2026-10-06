@@ -151,6 +151,12 @@ export class TunnelSessionRepository {
     return getEffectivePlanLimitsForAccount(this.prisma as any, accountId, await currentPlanOverrides());
   }
 
+  /** Whether the workspace lets the request inspector store its requests. */
+  async findInspectorCapture(accountId: string): Promise<boolean> {
+    const row = await this.prisma.account.findUnique({ where: { id: accountId }, select: { inspectorCapture: true } });
+    return row?.inspectorCapture ?? true;
+  }
+
   /**
    * Real current status for a set of accounts, in one query — used by the
    * eviction sweep (Sweep.service.ts) to check every connected account's

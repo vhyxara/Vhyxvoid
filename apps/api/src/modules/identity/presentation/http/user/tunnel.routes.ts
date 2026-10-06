@@ -603,13 +603,7 @@ export async function tunnelRoutes(fastify: FastifyInstance) {
           hourly: stats,
           totals: {
             requests: stats.reduce((sum, h) => sum + h.count, 0),
-            avgDurationMs:
-              stats.length > 0
-                ? Math.round(
-                    stats.reduce((sum, h) => sum + (h.avgDurationMs ?? 0), 0) /
-                      stats.length,
-                  )
-                : null,
+            avgDurationMs: weightedAverageMs(stats),
           },
         });
       } catch (err: any) {
@@ -765,4 +759,20 @@ export async function tunnelRoutes(fastify: FastifyInstance) {
       });
     },
   );
+}
+
+/**
+ * Mean duration over hourly buckets, weighted by each hour's request count
+ * (a quiet hour no longer counts as much as a busy one; audit M21). Hours
+ * without a duration are left out.
+ */
+export function weightedAverageMs(stats: Array<{ count: number; avgDurationMs: number | null }>): number | null {
+  let n = 0;
+  let total = 0;
+  for (const h of stats) {
+    if (h.avgDurationMs === null || h.count <= 0) continue;
+    n += h.count;
+    total += h.avgDurationMs * h.count;
+  }
+  return n > 0 ? Math.round(total / n) : null;
 }

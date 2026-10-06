@@ -148,3 +148,65 @@ describe.skipIf(!url)("admin lockout, admin session cap and pruning (real databa
     expect(await prisma.adminSession.count({ where: { tokenHash: TokenHasher.hash(`${mark}-live`) } })).toBe(1);
   });
 });
+
+describe("usage totals (M21 remainder)", async () => {
+  const { weightedAverageMs } = await import("../../apps/api/src/modules/identity/presentation/http/user/tunnel.routes");
+  it("weights the mean duration by requests per hour", () => {
+    expect(weightedAverageMs([{ count: 99, avgDurationMs: 10 }, { count: 1, avgDurationMs: 1010 }])).toBe(20);
+    expect(weightedAverageMs([{ count: 0, avgDurationMs: null }])).toBeNull();
+    expect(weightedAverageMs([])).toBeNull();
+  });
+});
+
+describe("tunnel password guessing (hub backlog)", async () => {
+  const { PasswordGuessLimiter, hashTunnelPassword } = await import("../../packages/shared/src/tunnelAccess");
+  const { HttpTunnelHandler } = await import("../../apps/hub/src/handlers/HttpTunnel.handler");
+
+  it("blocks after the limit within the window, then lets attempts through again", () => {
+    let now = 0;
+    const l = new PasswordGuessLimiter(3, 60_000, () => now);
+    const k = PasswordGuessLimiter.key("a", "web", "1.2.3.4");
+    for (let i = 0; i < 3; i++) l.fail(k);
+    expect(l.blockedFor(k)).toBe(60);
+    expect(l.blockedFor(PasswordGuessLimiter.key("a", "web", "5.6.7.8"))).toBe(0); // other clients unaffected
+    now = 30_000;
+    expect(l.blockedFor(k)).toBe(30);
+    now = 60_001;
+    expect(l.blockedFor(k)).toBe(0);
+  });
+
+  it("the hub answers 429 after ten wrong passwords, even for the right one, and never counts the first visit", async () => {
+    const pepper = "pepper";
+    const policy = { accountId: "acc", label: "web", passwordHash: hashTunnelPassword(pepper, "acc", "web", "right"), ipAllowlist: [], shareVersion: 1 };
+    const policies = { get: async () => policy } as any;
+    const h = new (HttpTunnelHandler as any)({}, {}, {}, "vv.test", undefined, undefined, undefined, policies, pepper);
+    const req = (pw?: string) => ({ headers: { ...(pw ? { authorization: `Basic ${Buffer.from(`u:${pw}`).toString("base64")}` } : {}) }, socket: { remoteAddress: "9.9.9.9" }, url: "/" });
+    const check = (pw?: string) => h.checkAccess("acc", "web", req(pw));
+
+    for (let i = 0; i < 20; i++) expect((await check()).status).toBe(401); // no password sent: not a guess
+    for (let i = 0; i < 10; i++) expect((await check("wrong")).status).toBe(401);
+    const blocked = await check("right");
+    expect(blocked).toMatchObject({ allow: false, status: 429 });
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+  });
+});
+
+describe("inspector opt-out per workspace (api backlog)", async () => {
+  const { RequestInspectorService } = await import("../../apps/hub/src/services/RequestInspector.service");
+
+  it("keeps nothing when the workspace switched capture off, until the cache is invalidated", async () => {
+    let capture = false;
+    const limits = { findPlanLimitsForAccount: async () => ({ plan: "FREE" as const, inspectorRequests: 50 }), findInspectorCapture: async () => capture };
+    const svc = new RequestInspectorService({} as any, limits as any);
+    expect(await svc.keepFor("a")).toBe(0);
+    capture = true;
+    expect(await svc.keepFor("a")).toBe(0); // cached for a minute
+    svc.invalidate("a");
+    expect(await svc.keepFor("a")).toBe(50);
+  });
+
+  it("sources without the switch keep the plan's number (older wiring)", async () => {
+    const svc = new RequestInspectorService({} as any, { findPlanLimitsForAccount: async () => ({ plan: "FREE" as const, inspectorRequests: 7 }) } as any);
+    expect(await svc.keepFor("b")).toBe(7);
+  });
+});

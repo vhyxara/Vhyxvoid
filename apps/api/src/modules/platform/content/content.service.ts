@@ -142,10 +142,26 @@ export class ContentService {
     }
   }
 
-  async update(id: string, input: { title?: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null }, adminId: string) {
+  /**
+   * Save the working copy. With `expectedUpdatedAt` (what the editor loaded),
+   * a save that would overwrite someone else's newer save is refused with
+   * 409 instead of silently winning.
+   */
+  async update(
+    id: string,
+    input: { title?: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null; expectedUpdatedAt?: Date },
+    adminId: string,
+  ) {
     const row = await this.prisma.contentEntry.findUnique({ where: { id } });
     if (!row) throw new NotFoundError("Content entry not found");
     const data = input.data !== undefined ? parseData(row.kind, input.data) : undefined;
+    if (input.expectedUpdatedAt) {
+      const res = await this.prisma.contentEntry.updateMany({
+        where: { id, updatedAt: input.expectedUpdatedAt },
+        data: { updatedById: adminId },
+      });
+      if (res.count === 0) throw new ConflictError("Someone saved this entry after you opened it. Reload to see their changes, then make yours again.");
+    }
     const updated = await this.prisma.contentEntry.update({
       where: { id },
       data: {

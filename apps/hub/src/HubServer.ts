@@ -82,6 +82,7 @@ export class HubServer {
   private readonly usageService: HubUsageService;
   private readonly publicPathUsageLimiter: PublicPathUsageLimiter;
   private readonly policyCache: TunnelPolicyCache;
+  private readonly inspector: RequestInspectorService;
   private readonly inbox: InboxService | undefined;
   private readonly customDomains: CustomDomainResolver | undefined;
   private readonly trafficStats: TrafficStatsService | undefined;
@@ -154,6 +155,7 @@ export class HubServer {
         })
       : undefined;
 
+    this.inspector = new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo);
     this.httpTunnelHandler = new HttpTunnelHandler(
       this.subdomainRegistry,
       this.agentRegistry,
@@ -161,7 +163,7 @@ export class HubServer {
       config.hubDomain,
       new TunnelWsRegistry(),
       this.publicPathUsageLimiter,
-      new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo),
+      this.inspector,
       this.policyCache,
       config.pepper,
       this.inbox,
@@ -508,7 +510,7 @@ export class HubServer {
    * GET  /internal/stats                       live counters
    * GET  /internal/agents                      connected agents
    * POST /internal/agents/:agentId/disconnect  force-disconnect one agent
-   * POST /internal/policies/invalidate?accountId=&label=  drop cached access rules
+   * POST /internal/policies/invalidate?accountId=&label=  drop cached access rules (and the workspace's inspector setting)
    * POST /internal/inbox/drain?accountId=&label=          deliver a tunnel's inbox now (if connected)
    * POST /internal/inbox/invalidate?accountId=&label=     drop cached inbox settings
    * POST /internal/stats/flush                            write traffic stats now
@@ -537,6 +539,8 @@ export class HubServer {
       const accountId = url.searchParams.get('accountId');
       if (!accountId) return send(400, { error: 'accountId is required' });
       this.policyCache.invalidate(accountId, url.searchParams.get('label') ?? undefined);
+      // Workspace-level settings (inspector capture) ride on the same call.
+      this.inspector.invalidate(accountId);
       return send(200, { invalidated: true });
     }
     if (req.method === 'POST' && url.pathname === '/internal/stats/flush') {

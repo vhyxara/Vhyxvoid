@@ -37,6 +37,7 @@ export const ACTIVITY_ROUTES: Record<string, ActivityRoute> = {
   "POST /api/v1/inbox/:accountId/:label/:id/redeliver": { action: "INBOX_REDELIVERED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
   "DELETE /api/v1/inbox/:accountId/:label": { action: "INBOX_CLEARED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
   "POST /api/v1/inspector/:accountId/:label/:id/replay": { action: "REQUEST_REPLAYED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
+  "PUT /api/v1/inspector/:accountId/settings": { action: "INSPECTOR_CAPTURE_CHANGED", resourceType: "Account", meta: (_p, b) => ({ capture: typeof b?.capture === "boolean" ? b.capture : undefined }) },
   "DELETE /api/v1/inspector/:accountId/:label": { action: "INSPECTOR_CLEARED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
 };
 

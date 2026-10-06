@@ -27,6 +27,7 @@ import {
   isInboxMethod,
   captureBody,
   evaluateTunnelAccess,
+  PasswordGuessLimiter,
   INSPECT_BODY_MAX_BYTES,
   isBinaryForInspector,
   maskHeaders,
@@ -121,6 +122,8 @@ export class HttpTunnelHandler {
     private readonly inbox?: InboxService,
     // Per-minute traffic stats (alerts, charts); absent means none.
     private readonly stats?: TrafficStatsService,
+    // Wrong tunnel passwords per (account, tunnel, IP); 429 past the limit.
+    private readonly passwordGuesses: PasswordGuessLimiter = new PasswordGuessLimiter(),
   ) {}
 
   /**
@@ -522,7 +525,7 @@ export class HttpTunnelHandler {
     // a browser opening a WebSocket already carries the cookie).
     const wsAccess = await this.checkAccess(entry.accountId, label, req);
     if (!wsAccess.allow) {
-      const line = wsAccess.status === 403 ? '403 Forbidden' : '401 Unauthorized';
+      const line = wsAccess.status === 403 ? '403 Forbidden' : wsAccess.status === 429 ? '429 Too Many Requests' : '401 Unauthorized';
       socket.write(`HTTP/1.1 ${line}\r\n${wsAccess.status === 401 ? `WWW-Authenticate: Basic realm="${label}", charset="UTF-8"\r\n` : ''}\r\n`);
       socket.destroy();
       return;
@@ -683,11 +686,20 @@ export class HttpTunnelHandler {
     if (this.isInternal(req)) return { allow: true, stripAuthorization: false };
     try {
       const policy = await this.policies.get(accountId, label);
-      return evaluateTunnelAccess(
+      const ip = clientIp(req);
+      const guessKey = PasswordGuessLimiter.key(accountId, label, ip);
+      if (policy?.passwordHash) {
+        const wait = this.passwordGuesses.blockedFor(guessKey);
+        if (wait > 0) return { allow: false, status: 429, reason: 'Too many wrong passwords. Try again shortly.', retryAfterSeconds: wait };
+      }
+      const decision = evaluateTunnelAccess(
         policy,
-        { ip: clientIp(req), authorization: req.headers.authorization, cookie: req.headers.cookie, url: req.url ?? '/' },
+        { ip, authorization: req.headers.authorization, cookie: req.headers.cookie, url: req.url ?? '/' },
         this.pepper,
       );
+      // Only a presented, wrong password counts as a guess (not the first unauthenticated visit).
+      if (!decision.allow && decision.status === 401 && req.headers.authorization) this.passwordGuesses.fail(guessKey);
+      return decision;
     } catch {
       return { allow: false, status: 403, reason: 'Access rules for this tunnel could not be checked. Try again shortly.' };
     }
@@ -709,7 +721,11 @@ export class HttpTunnelHandler {
       res,
       d.status,
       d.reason,
-      d.status === 401 ? { headers: { 'WWW-Authenticate': `Basic realm="${label}", charset="UTF-8"` } } : undefined,
+      d.status === 401
+        ? { headers: { 'WWW-Authenticate': `Basic realm="${label}", charset="UTF-8"` } }
+        : d.status === 429
+          ? { headers: { 'Retry-After': String(d.retryAfterSeconds) } }
+          : undefined,
     );
   }
 

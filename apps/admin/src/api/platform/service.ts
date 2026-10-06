@@ -78,7 +78,7 @@ export const platformService = {
   content: list<ContentRow>('/admin/content'),
   contentEntry: (id: string) => get<ContentDetail>(`/admin/content/${id}`),
   createContent: (body: { slug: string; kind: string; title: string; data?: unknown }) => post<ContentDetail>('/admin/content', body),
-  saveContent: (id: string, body: { title?: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null }) => put<ContentDetail>(`/admin/content/${id}`, body),
+  saveContent: (id: string, body: { title?: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null; expectedUpdatedAt?: string }) => put<ContentDetail>(`/admin/content/${id}`, body),
   publishContent: (id: string, note?: string) => post<ContentDetail>(`/admin/content/${id}/publish`, { note }),
   unpublishContent: (id: string, archive = false) => post<ContentDetail>(`/admin/content/${id}/unpublish`, { archive }),
   restoreRevision: (id: string, revisionId: string) => post(`/admin/content/${id}/revisions/${revisionId}/restore`),

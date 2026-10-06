@@ -108,6 +108,8 @@ export function describeActivity(item: ActivityItem): string {
       return `cleared the webhook inbox of${t}`
     case 'REQUEST_REPLAYED':
       return `replayed a request on${t}`
+    case 'INSPECTOR_CAPTURE_CHANGED':
+      return m.capture === false ? 'turned off request capture for the workspace' : 'turned on request capture for the workspace'
     case 'INSPECTOR_CLEARED':
       return `cleared captured requests of${t}`
     default:

@@ -5,6 +5,7 @@ const base = (accountId: string) => `/inspector/${encodeURIComponent(accountId)}
 
 export const inspectorService = {
   overview: (accountId: string) => httpClient<InspectorOverview>({ url: base(accountId), method: 'GET' }),
+  setCapture: (accountId: string, capture: boolean) => httpClient<{ capture: boolean }>({ url: `${base(accountId)}/settings`, method: 'PUT', data: { capture } }),
   list: (accountId: string, label: string, limit = 100) =>
     httpClient<{ label: string; requests: InspectedSummary[] }>({
       url: `${base(accountId)}/${encodeURIComponent(label)}`,

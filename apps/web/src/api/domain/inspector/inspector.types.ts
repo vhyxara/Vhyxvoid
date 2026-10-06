@@ -36,6 +36,11 @@ export type InspectedSummary = {
 
 export type InspectorOverview = {
   enabled: boolean
+  /** The workspace's own capture switch. */
+  capture: boolean
+  /** Plan and feature allow the inspector (independent of `capture`). */
+  available: boolean
+  canManage: boolean
   keepPerTunnel: number
   bodyLimitBytes: number
   retentionHours: number

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 
 import Link from 'next/link'
 
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+
 import { Alert, Badge, Button, Card, SelectField, Skeleton, Switch, Tabs, toast } from '@vhyxui/react'
 
 import { Typography } from '@/components/vhyxui-shims'
@@ -15,6 +17,7 @@ import {
   useReplayRequest
 } from '@/api/application/hooks/useInspector'
 import type { InspectedRequest, InspectedSummary } from '@/api/domain/inspector/inspector.types'
+import { inspectorService } from '@/api/infrastructure/services/inspector.service'
 import { formatBytes, prettyBody, statusVariant, toCurl } from './inspectorFormat'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
@@ -229,6 +232,15 @@ export default function InspectorView({ accountId }: { accountId: string }) {
   const overview = useInspectorOverview(accountId, live)
   const list = useInspectorList(accountId, label, live)
   const clear = useClearInspector(accountId, label ?? '')
+  const qc = useQueryClient()
+  const setCapture = useMutation({
+    mutationFn: (on: boolean) => inspectorService.setCapture(accountId, on),
+    onSuccess: (_d, on) => {
+      toast.success(on ? 'Capture turned on' : 'Capture turned off; stored requests deleted')
+      void qc.invalidateQueries({ queryKey: ['inspector', accountId] })
+    },
+    onError: (e: Error) => toast.danger(e.message)
+  })
 
   const tunnels = useMemo(() => overview.data?.tunnels ?? [], [overview.data])
 
@@ -272,6 +284,20 @@ export default function InspectorView({ accountId }: { accountId: string }) {
             <Switch checked={live} onCheckedChange={setLive} aria-label='Live updates' />
             <Typography variant='body2'>Live</Typography>
           </label>
+          {overview.data?.available && overview.data.canManage && (
+            <label className='flex items-center gap-2' title='Off: requests are never stored for this workspace, and what was kept is deleted.'>
+              <Switch
+                checked={overview.data.capture}
+                disabled={setCapture.isPending}
+                onCheckedChange={(on: boolean) => {
+                  if (!on && !window.confirm('Stop storing requests for every tunnel in this workspace? Requests kept so far are deleted.')) return
+                  setCapture.mutate(on)
+                }}
+                aria-label='Store requests for this workspace'
+              />
+              <Typography variant='body2'>Capture</Typography>
+            </label>
+          )}
         </div>
       </div>
 
@@ -279,6 +305,11 @@ export default function InspectorView({ accountId }: { accountId: string }) {
         <Skeleton height='16rem' />
       ) : overview.error ? (
         <Alert variant='danger'>{(overview.error as Error).message}</Alert>
+      ) : overview.data?.available && !overview.data.capture ? (
+        <Alert variant='info' title='Request capture is off for this workspace'>
+          Requests reach your tunnels as usual; none are stored.{' '}
+          {overview.data.canManage ? 'Turn capture on above to inspect and replay them.' : 'An owner or admin can turn it back on.'}
+        </Alert>
       ) : !overview.data?.enabled ? (
         <Alert variant='info' title='The inspector is not available on this plan'>
           Requests still reach your tunnels; they are just not kept for inspection.{' '}

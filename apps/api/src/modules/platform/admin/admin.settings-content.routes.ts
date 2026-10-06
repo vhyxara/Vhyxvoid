@@ -50,7 +50,7 @@ export async function adminContentRoutes(fastify: FastifyInstance) {
 
   fastify.put<{ Params: { id: string } }>("/:id", { onRequest: [fastify.requireAbility("content.update")] }, async (request, reply) => {
     const body = z
-      .object({ title: z.string().trim().min(1).max(120).optional(), data: z.unknown().optional(), seoTitle: z.string().max(120).nullable().optional(), seoDescription: z.string().max(300).nullable().optional() })
+      .object({ title: z.string().trim().min(1).max(120).optional(), data: z.unknown().optional(), seoTitle: z.string().max(120).nullable().optional(), seoDescription: z.string().max(300).nullable().optional(), expectedUpdatedAt: z.coerce.date().optional() })
       .parse(request.body);
     const admin = getAdminContext(request);
     const { before, after } = await content().update(request.params.id, body, admin.id);

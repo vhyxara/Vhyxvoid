@@ -245,6 +245,9 @@ model Account {
   // limits (same shape as one plan in the plans.overrides setting; null =
   // unlimited). statusReason: why an admin suspended/restricted it.
   limitOverrides Json?
+  // Workspace setting: false stops the request inspector from storing any
+  // request of this workspace's tunnels (customers who must not keep payloads).
+  inspectorCapture Boolean @default(true)
   statusReason   String?
   adminNotes     String?
 

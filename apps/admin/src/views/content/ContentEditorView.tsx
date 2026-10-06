@@ -50,7 +50,7 @@ export function ContentEditorView({ id }: { id: string }) {
   }, [entry])
 
   const save = usePlatformMutation(['content'], () =>
-    platformService.saveContent(id, { title, data, seoTitle: seoTitle || null, seoDescription: seoDescription || null })
+    platformService.saveContent(id, { title, data, seoTitle: seoTitle || null, seoDescription: seoDescription || null, expectedUpdatedAt: entry?.updatedAt })
   )
   const publish = usePlatformMutation(['content'], (note: string) => platformService.publishContent(id, note || undefined))
   const unpublish = usePlatformMutation(['content'], () => platformService.unpublishContent(id))

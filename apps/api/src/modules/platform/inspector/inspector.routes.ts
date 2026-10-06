@@ -7,6 +7,8 @@
 //   GET    /:accountId/:label/:id            one request in full
 //   POST   /:accountId/:label/:id/replay     send it through the tunnel again
 //   DELETE /:accountId/:label                clear (admins and owners)
+//   PUT    /:accountId/settings              { capture } workspace switch (admins and owners);
+//                                            turning it off also deletes what was kept
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 
@@ -65,6 +67,7 @@ export async function inspectorRoutes(fastify: FastifyInstance, opts: { hub: Hub
     const user = getUserContext(request);
     const m = await prisma.accountMember.findUnique({ where: { userId_accountId: { userId: user.id, accountId } }, select: { roleLevel: true } });
     if (!m || m.roleLevel < minLevel) throw new ForbiddenError("You do not have access to this account");
+    return m.roleLevel;
   }
 
   async function entries(accountId: string, label: string): Promise<InspectedRequest[]> {
@@ -73,15 +76,21 @@ export async function inspectorRoutes(fastify: FastifyInstance, opts: { hub: Hub
 
   fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    await member(request, accountId);
-    const [enabled, limits, labels] = await Promise.all([
+    const level = await member(request, accountId);
+    const [enabled, limits, labels, account] = await Promise.all([
       fastify.platformSettings.get("features.requestInspector"),
       getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides()),
       redis.hgetall(inspectorKeys.labels(accountId)),
+      prisma.account.findUnique({ where: { id: accountId }, select: { inspectorCapture: true } }),
     ]);
     const keep = Number.isFinite(limits.inspectorRequests) ? limits.inspectorRequests : 5_000;
+    const capture = account?.inspectorCapture ?? true;
     return successResponse(reply, "Success", 200, {
-      enabled: Boolean(enabled) && keep > 0,
+      enabled: Boolean(enabled) && keep > 0 && capture,
+      // The workspace's own switch, separate from the plan/feature switch above.
+      capture,
+      available: Boolean(enabled) && keep > 0,
+      canManage: level >= RoleLevel.ADMIN,
       keepPerTunnel: enabled ? keep : 0,
       bodyLimitBytes: INSPECT_BODY_MAX_BYTES,
       retentionHours: INSPECT_TTL_SECONDS / 3600,
@@ -89,6 +98,19 @@ export async function inspectorRoutes(fastify: FastifyInstance, opts: { hub: Hub
         .map(([label, lastAt]) => ({ label, lastAt: String(lastAt) }))
         .sort((a, b) => b.lastAt.localeCompare(a.lastAt)),
     });
+  });
+
+  fastify.put("/:accountId/settings", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+    const { accountId } = params.parse(request.params);
+    const { capture } = z.object({ capture: z.boolean() }).parse(request.body);
+    await member(request, accountId, RoleLevel.ADMIN);
+    await prisma.account.update({ where: { id: accountId }, data: { inspectorCapture: capture } });
+    if (!capture) {
+      const labels = Object.keys((await redis.hgetall(inspectorKeys.labels(accountId))) ?? {});
+      if (labels.length) await redis.del(...labels.map((l) => inspectorKeys.list(accountId, l)), inspectorKeys.labels(accountId));
+    }
+    await opts.hub.invalidatePolicy(accountId);
+    return successResponse(reply, capture ? "Capture turned on" : "Capture turned off and stored requests deleted", 200, { capture });
   });
 
   fastify.get("/:accountId/:label", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
