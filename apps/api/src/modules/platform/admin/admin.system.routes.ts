@@ -198,6 +198,7 @@ export async function adminSystemRoutes(fastify: FastifyInstance, opts: { hub: H
       enforcement: {
         maxAgents: "enforced (hub, at agent connect)",
         accessRules: "enforced (creating or changing tunnel access rules; existing rules keep protecting after a downgrade)",
+        inboxRequests: "enforced (hub stops holding requests for a tunnel once this many are waiting; 0 = no inbox)",
         inspectorRequests: "enforced (hub keeps this many recent requests per tunnel for 24 h; 0 turns capture off)",
         maxMembers: "enforced (invite and accept)",
         maxApiKeys: "enforced (key creation)",

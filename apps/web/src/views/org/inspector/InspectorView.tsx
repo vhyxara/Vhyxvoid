@@ -48,7 +48,7 @@ function RequestRow({ r, active, onClick }: { r: InspectedSummary; active: boole
     >
       <span style={{ ...mono, fontWeight: 600 }}>{r.method}</span>
       <span style={{ ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.path}>
-        {r.replayOf ? '↻ ' : ''}
+        {r.replayOf ? '↻ ' : r.inboxId ? '⤓ ' : ''}
         {r.path}
       </span>
       <span className='flex items-center gap-2'>
@@ -147,6 +147,7 @@ function Detail({ accountId, label, id }: { accountId: string; label: string; id
           <Typography variant='caption' style={muted}>
             {new Date(r.at).toLocaleString()} · {r.durationMs ?? '—'} ms{r.clientIp ? ` · from ${r.clientIp}` : ''}
             {r.replayOf ? ' · replay' : ''}
+            {r.inboxId ? ' · delivered from the webhook inbox' : ''}
           </Typography>
         </div>
         <div className='flex gap-2'>

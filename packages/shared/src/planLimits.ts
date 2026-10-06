@@ -38,6 +38,7 @@ export interface PlanLimits {
   prioritySupport: boolean; // priority support tier
   accessRules: boolean; // can protect tunnels with a password, IP allowlist and share links
   inspectorRequests: number; // requests kept per tunnel in the request inspector (0 = inspector off); kept 24 h
+  inboxRequests: number; // requests a tunnel's webhook inbox holds while its agent is offline (0 = no inbox)
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -61,6 +62,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     prioritySupport: false,
     accessRules: false,
     inspectorRequests: 20,
+    inboxRequests: 25,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -83,6 +85,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     prioritySupport: true,
     accessRules: true,
     inspectorRequests: 200,
+    inboxRequests: 1_000,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -103,6 +106,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     prioritySupport: true,
     accessRules: true,
     inspectorRequests: 1_000,
+    inboxRequests: 10_000,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

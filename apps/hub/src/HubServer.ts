@@ -27,6 +27,7 @@ import WebSocket from 'ws';
 import { isInternalRequestAuthorized } from './utils/internalAuth';
 import { RequestInspectorService } from '@/services/RequestInspector.service';
 import { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
+import { InboxService } from '@/services/Inbox.service';
 import { replayInspectedRequest } from '@/services/Replay.service';
 import type { InspectorRedisWriter } from '@vhyxvoid/shared';
 
@@ -64,6 +65,8 @@ export interface HubServerConfig {
   validateKeyUseCase: IValidateApiKeyUseCase;
   tunnelSessionRepo: TunnelSessionRepository;
   tunnelRequestRepo: TunnelRequestRepository;
+  /** Prisma client for the webhook inbox; absent means no inbox. */
+  prisma?: unknown;
 }
 
 export class HubServer {
@@ -76,6 +79,7 @@ export class HubServer {
   private readonly usageService: HubUsageService;
   private readonly publicPathUsageLimiter: PublicPathUsageLimiter;
   private readonly policyCache: TunnelPolicyCache;
+  private readonly inbox: InboxService | undefined;
   private readonly pubsub: HubPubSub;
   private readonly router: MessageRouter;
   // private listenSocket: any = null;
@@ -132,6 +136,16 @@ export class HubServer {
     );
 
     this.policyCache = new TunnelPolicyCache(config.tunnelSessionRepo);
+    this.inbox = config.prisma
+      ? new InboxService({
+          prisma: config.prisma,
+          limits: config.tunnelSessionRepo,
+          isConnected: (accountId, label) => this.agentRegistry.find(accountId, label) !== null,
+          hubPort: config.port,
+          hubDomain: config.hubDomain,
+          secret: () => process.env.HUB_INTERNAL_SECRET,
+        })
+      : undefined;
 
     this.httpTunnelHandler = new HttpTunnelHandler(
       this.subdomainRegistry,
@@ -143,6 +157,7 @@ export class HubServer {
       new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo),
       this.policyCache,
       config.pepper,
+      this.inbox,
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on
@@ -173,6 +188,11 @@ export class HubServer {
       config.hubDomain,
       this.httpTunnelHandler,
     );
+    // An agent (re)connecting is when its tunnel's inbox can be delivered.
+    if (this.inbox) {
+      const inbox = this.inbox;
+      this.router.onTunnelRegistered = (accountId, label) => inbox.drainSoon(accountId, label);
+    }
   }
 
   async start(): Promise<void> {
@@ -190,6 +210,7 @@ export class HubServer {
     this.heartbeat.start();
     this.statusSweep.start();
     this.publicPathUsageLimiter.start();
+    this.inbox?.start();
 
     const server = createServer(async (req, res) => {
       // Tunnel hosts belong to tenants: their /health and /metrics are the
@@ -364,6 +385,7 @@ export class HubServer {
     // PublicPathUsageLimiter's own header comment).
     this.publicPathUsageLimiter.flush();
     this.publicPathUsageLimiter.stop();
+    this.inbox?.stop();
     await this.pubsub.stop();
 
     // Release this instance's routes and mark its sessions disconnected
@@ -438,6 +460,8 @@ export class HubServer {
    * GET  /internal/agents                      connected agents
    * POST /internal/agents/:agentId/disconnect  force-disconnect one agent
    * POST /internal/policies/invalidate?accountId=&label=  drop cached access rules
+   * POST /internal/inbox/drain?accountId=&label=          deliver a tunnel's inbox now (if connected)
+   * POST /internal/inbox/invalidate?accountId=&label=     drop cached inbox settings
    * POST /internal/replay                      replay an inspected request {accountId, label, id}
    * Authorized by `x-hub-internal-secret` = HUB_INTERNAL_SECRET; fails closed.
    * nginx must not expose /internal/ publicly (see nginx.conf).
@@ -463,6 +487,15 @@ export class HubServer {
       if (!accountId) return send(400, { error: 'accountId is required' });
       this.policyCache.invalidate(accountId, url.searchParams.get('label') ?? undefined);
       return send(200, { invalidated: true });
+    }
+    if (req.method === 'POST' && (url.pathname === '/internal/inbox/drain' || url.pathname === '/internal/inbox/invalidate')) {
+      const accountId = url.searchParams.get('accountId');
+      const label = url.searchParams.get('label');
+      if (!accountId || !label) return send(400, { error: 'accountId and label are required' });
+      if (!this.inbox) return send(503, { error: 'Inbox is not available' });
+      this.inbox.invalidate(accountId, label);
+      if (url.pathname === '/internal/inbox/drain') this.inbox.drainSoon(accountId, label, 0);
+      return send(200, { ok: true, connected: this.agentRegistry.find(accountId, label) !== null });
     }
     if (req.method === 'POST' && url.pathname === '/internal/replay') {
       readJsonBody(req)

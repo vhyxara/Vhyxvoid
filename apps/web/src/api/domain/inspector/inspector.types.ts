@@ -16,6 +16,7 @@ export type InspectedRequest = {
   durationMs: number | null
   error: string | null
   replayOf: string | null
+  inboxId?: string | null
 }
 
 export type InspectedSummary = {
@@ -27,6 +28,7 @@ export type InspectedSummary = {
   durationMs: number | null
   error: string | null
   replayOf: string | null
+  inboxId?: string | null
   requestSize: number
   responseSize: number
   contentType: string | null

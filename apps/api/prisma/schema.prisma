@@ -251,6 +251,8 @@ model Account {
   securityEvents     SecurityEvent[]
   tunnelSessions     TunnelSession[]
   tunnelPolicies     TunnelPolicy[]
+  tunnelInboxes      TunnelInbox[]
+  inboxRequests      InboxRequest[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1064,5 +1066,58 @@ model TunnelPolicy {
 
   @@unique([accountId, label])
   @@map("tunnel_policies")
+}
+
+// Webhook inbox for one tunnel (account + label): while its agent is
+// offline, the hub stores requests instead of answering 404/503, and
+// delivers them in order when the agent reconnects.
+model TunnelInbox {
+  id          String   @id @default(uuid())
+  accountId   String
+  label       String
+  enabled     Boolean  @default(true)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, label])
+  @@map("tunnel_inboxes")
+}
+
+enum InboxStatus {
+  QUEUED
+  DELIVERING
+  DELIVERED
+  FAILED
+}
+
+// One request held by a tunnel's inbox. Deleted INBOX_RETENTION_DAYS after
+// it arrived, whatever its state.
+model InboxRequest {
+  id             String      @id @default(uuid())
+  accountId      String
+  label          String
+  method         String
+  path           String
+  headers        Json
+  body           Bytes?
+  bodySize       Int         @default(0)
+  receivedAt     DateTime    @default(now())
+  status         InboxStatus @default(QUEUED)
+  attempts       Int         @default(0)
+  nextAttemptAt  DateTime    @default(now())
+  lastError      String?
+  responseStatus Int?
+  deliveredAt    DateTime?
+  updatedAt      DateTime    @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, label, status, receivedAt])
+  @@index([status, nextAttemptAt])
+  @@index([receivedAt])
+  @@map("inbox_requests")
 }
 

@@ -15,8 +15,15 @@
 
 import type { RequestInspectorService } from '@/services/RequestInspector.service';
 import type { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
+import type { InboxService } from '@/services/Inbox.service';
 import {
   ACCESS_COOKIE,
+  HUB_ERROR_HEADER,
+  INBOX_ACK_STATUS,
+  INBOX_BODY_MAX_BYTES,
+  INBOX_DELIVERY_HEADER,
+  inboxStoredHeaders,
+  isInboxMethod,
   captureBody,
   evaluateTunnelAccess,
   INSPECT_BODY_MAX_BYTES,
@@ -103,6 +110,8 @@ export class HttpTunnelHandler {
     // Access rules (password / IP allowlist / share links); absent means none.
     private readonly policies?: TunnelPolicyCache,
     private readonly pepper: string = process.env.SERVER_HMAC_PEPPER ?? '',
+    // Webhook inbox for offline tunnels; absent means none.
+    private readonly inbox?: InboxService,
   ) {}
 
   /**
@@ -176,6 +185,7 @@ export class HttpTunnelHandler {
     const entry = await this.subdomainRegistry.resolve(label, accountSlug);
 
     if (!entry) {
+      if (await this.tryInbox(req, res, null, label, accountSlug)) return;
       return this.sendError(
         res,
         404,
@@ -183,6 +193,7 @@ export class HttpTunnelHandler {
           `No active tunnel found for "${hostname}".`,
           `If this is your tunnel, start the agent with label "${label}".`,
         ].join(' '),
+        { code: 'TUNNEL_OFFLINE' },
       );
     }
 
@@ -220,6 +231,7 @@ export class HttpTunnelHandler {
       // cleanup and re-registers the label first, this becomes a correct
       // no-op instead of deleting the fresh, valid entry.
       await this.subdomainRegistry.unregister(label, accountSlug, entry.agentId);
+      if (await this.tryInbox(req, res, entry.accountId, label, accountSlug, access)) return;
       return this.sendError(
         res,
         503,
@@ -227,6 +239,7 @@ export class HttpTunnelHandler {
           'Tunnel is registered but agent is not connected.',
           'The agent may have disconnected. Please restart it.',
         ].join(' '),
+        { code: 'TUNNEL_OFFLINE' },
       );
     }
 
@@ -285,6 +298,7 @@ export class HttpTunnelHandler {
     const forwardHeaders = this.sanitizeHeaders(req.headers as Record<string, string>);
     delete forwardHeaders['x-vhyxvoid-internal'];
     delete forwardHeaders['x-vhyxvoid-replay-of'];
+    delete forwardHeaders[INBOX_DELIVERY_HEADER];
     // The tunnel's own credentials are not the app's: don't forward them.
     this.withoutTunnelCredentials(forwardHeaders, access.stripAuthorization);
 
@@ -329,6 +343,7 @@ export class HttpTunnelHandler {
         durationMs: response?.durationMs ?? Date.now() - startedAt,
         error,
         replayOf,
+        inboxId: this.inboxMarker(req),
       };
       this.inspector.record(entryAccountId, entry);
     };
@@ -648,8 +663,9 @@ export class HttpTunnelHandler {
   /** Access rules for this tunnel; fails closed if they cannot be read. */
   private async checkAccess(accountId: string, label: string, req: IncomingMessage): Promise<AccessDecision> {
     if (!this.policies) return { allow: true, stripAuthorization: false };
-    // A dashboard replay (the API already checked the user is a member).
-    if (this.replayMarker(req)) return { allow: true, stripAuthorization: false };
+    // A dashboard replay or an inbox delivery: sent by this hub itself (the
+    // API checked membership for replays; inbox rows passed the rules when stored).
+    if (this.isInternal(req)) return { allow: true, stripAuthorization: false };
     try {
       const policy = await this.policies.get(accountId, label);
       return evaluateTunnelAccess(
@@ -701,14 +717,108 @@ export class HttpTunnelHandler {
 
   /** The replayed request id, only when the hub itself sent this request. */
   private replayMarker(req: IncomingMessage): string | null {
+    const of = req.headers['x-vhyxvoid-replay-of'];
+    if (typeof of !== 'string' || !this.isInternal(req)) return null;
+    return /^req_[a-f0-9]{32}$/.test(of) ? of : null;
+  }
+
+  /** The inbox row this request delivers, only when the hub itself sent it. */
+  private inboxMarker(req: IncomingMessage): string | null {
+    const id = req.headers[INBOX_DELIVERY_HEADER];
+    if (typeof id !== 'string' || !this.isInternal(req)) return null;
+    return /^[0-9a-f-]{36}$/.test(id) ? id : null;
+  }
+
+  /** Sent by this hub (replay, inbox delivery): carries HUB_INTERNAL_SECRET. */
+  private isInternal(req: IncomingMessage): boolean {
     const secret = process.env.HUB_INTERNAL_SECRET;
     const given = req.headers['x-vhyxvoid-internal'];
-    const of = req.headers['x-vhyxvoid-replay-of'];
-    if (!secret || typeof given !== 'string' || typeof of !== 'string') return null;
+    if (!secret || typeof given !== 'string') return false;
     const a = Buffer.from(given);
     const b = Buffer.from(secret);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    return /^req_[a-f0-9]{32}$/.test(of) ? of : null;
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+
+  /**
+   * Webhook inbox: a write request for a tunnel whose agent is offline is
+   * stored and acknowledged with 202 when the tunnel's inbox is on.
+   * Returns true when the response has been sent. Any inbox problem falls
+   * back to the normal offline answer (returns false).
+   */
+  private async tryInbox(
+    req: IncomingMessage,
+    res: ServerResponse,
+    knownAccountId: string | null,
+    label: string,
+    accountSlug: string,
+    knownAccess?: AccessDecision,
+  ): Promise<boolean> {
+    if (!this.inbox || !isInboxMethod(req.method) || this.isInternal(req)) return false;
+    let accountId = knownAccountId;
+    try {
+      accountId ??= await this.inbox.accountIdForSlug(accountSlug);
+      if (!accountId) return false;
+      const cfg = await this.inbox.configFor(accountId, label);
+      if (!cfg.enabled) return false;
+    } catch {
+      return false;
+    }
+
+    // Same gates as live traffic: abuse limit and access rules.
+    let access = knownAccess;
+    if (!access) {
+      if (this.usageLimiter) {
+        const rate = await this.usageLimiter.checkRequest(accountId);
+        if (!rate.allowed) {
+          this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {
+            headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+          });
+          return true;
+        }
+      }
+      access = await this.checkAccess(accountId, label, req);
+      if (!access.allow) {
+        this.sendAccessDenied(res, access, label);
+        return true;
+      }
+    }
+    if (!access.allow) return false;
+
+    let body: Buffer;
+    try {
+      body = await this.readBody(req, INBOX_BODY_MAX_BYTES);
+    } catch {
+      if (!res.headersSent && !res.destroyed) {
+        this.sendError(res, 413, `The tunnel is offline and its inbox keeps bodies up to ${INBOX_BODY_MAX_BYTES / 1024 / 1024} MB`);
+      }
+      return true;
+    }
+
+    const headers = this.withoutTunnelCredentials(inboxStoredHeaders(req.headers), access.stripAuthorization);
+    try {
+      const r = await this.inbox.tryStore(accountId, label, { method: req.method ?? 'POST', path: req.url ?? '/', headers, body });
+      if (!r.stored) {
+        if (r.reason === 'full') {
+          this.sendError(res, 503, 'The tunnel is offline and its inbox is full. Try again later.', {
+            headers: { 'Retry-After': '60' },
+            code: 'TUNNEL_OFFLINE',
+          });
+          return true;
+        }
+        return false;
+      }
+      const json = JSON.stringify({ queued: true, id: r.id, message: 'The tunnel is offline; this request will be delivered when it reconnects.' });
+      res.writeHead(INBOX_ACK_STATUS, {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(json),
+        [INBOX_DELIVERY_HEADER]: r.id,
+      });
+      res.end(json);
+      return true;
+    } catch (err) {
+      console.error({ err: (err as Error).message, accountId, label }, '[inbox] could not store request');
+      return false;
+    }
   }
 
   private parseSubdomain(subdomain: string): { label: string; accountSlug: string } | null {
@@ -800,8 +910,14 @@ export class HttpTunnelHandler {
     res: ServerResponse,
     status: number,
     message: string,
-    extra?: { headers?: Record<string, string>; body?: Record<string, unknown> },
+    extra?: { headers?: Record<string, string>; body?: Record<string, unknown>; code?: string },
   ): void {
+    // Marks the response as the hub's own (not the app's), with a reason
+    // code; the webhook inbox relies on it to tell "offline" from "app error".
+    const code =
+      extra?.code ??
+      (typeof extra?.body?.code === 'string' ? (extra.body.code as string) : null) ??
+      (status === 429 ? 'RATE_LIMITED' : status === 401 || status === 403 ? 'ACCESS_DENIED' : status === 413 ? 'BODY_TOO_LARGE' : 'HUB_ERROR');
     const body = JSON.stringify({
       error: message,
       status,
@@ -811,6 +927,7 @@ export class HttpTunnelHandler {
     res.writeHead(status, {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
+      [HUB_ERROR_HEADER]: code,
       ...(extra?.headers ?? {}),
     });
     res.end(body);

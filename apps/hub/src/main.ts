@@ -138,6 +138,7 @@ async function main() {
     validateKeyUseCase,
     tunnelSessionRepo,
     tunnelRequestRepo,
+    prisma,
   });
 
   await hub.start();

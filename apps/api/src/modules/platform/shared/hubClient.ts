@@ -100,6 +100,13 @@ export class HubClient {
     await this.call(`/internal/policies/invalidate?${q}`, "POST").catch(() => {});
   }
 
+  /** Tell the hub an inbox changed (settings or redelivery); `drain` also delivers now. Best effort. */
+  async inbox(action: "drain" | "invalidate", accountId: string, label: string): Promise<{ connected: boolean } | null> {
+    if (!this.configured) return null;
+    const q = new URLSearchParams({ accountId, label });
+    return this.call<{ connected: boolean }>(`/internal/inbox/${action}?${q}`, "POST").catch(() => null);
+  }
+
   /** Disconnect every live agent of an account (suspension, deletion). Best effort. */
   async disconnectAccount(accountId: string): Promise<number> {
     if (!this.configured) return 0;

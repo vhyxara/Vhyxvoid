@@ -1033,6 +1033,70 @@ if (process.env.ADMIN_EMAIL) {
     assert(after.json.data.limitOverrides == null, `overrides not cleared: ${JSON.stringify(after.json.data.limitOverrides)}`);
   });
 
+  await step("webhook inbox: offline writes are held (202) and delivered in order when the agent connects", async () => {
+    const I = (m, p, o = {}) => api(m, `/inbox/${s.personal}${p}`, { token: s.token, ...o });
+    const host = s.host.replace(/--[^.]+/, "--hooks");
+    const before = await tunnel(host, "POST", "/webhook/1", { body: "{}" });
+    assert(before.status === 404, `inbox off: expected 404, got ${before.status}`);
+    const on = await I("PUT", "/hooks", { body: { enabled: true } });
+    assert(on.status === 200 && on.json.data.enabled, `enable ${on.status}: ${JSON.stringify(on.json)}`);
+    const ids = [];
+    for (const n of [1, 2, 3]) {
+      const r = await tunnel(host, "POST", `/echo?n=${n}`, { headers: { "content-type": "application/json", "stripe-signature": `t=${n}` }, body: JSON.stringify({ n }) });
+      assert(r.status === 202 && r.headers["x-vhyxvoid-inbox"], `held ${r.status}: ${r.body}`);
+      ids.push(r.headers["x-vhyxvoid-inbox"]);
+    }
+    const read = await tunnel(host, "GET", "/echo");
+    assert(read.status === 404, `GET to an offline tunnel should not be held: ${read.status}`);
+    const queued = await I("GET", "/hooks?status=QUEUED");
+    assert(queued.json.data.requests.length === 3, `queued ${queued.json.data.requests.length}`);
+    const one = await I("GET", `/hooks/${ids[0]}`);
+    assert(one.json.data.headers["stripe-signature"] === "t=1" && one.json.data.body.data === '{"n":1}', "stored request incomplete");
+
+    const grant = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxAgents: 2 } } });
+    assert(grant.status === 200, `override ${grant.status}`);
+    const agent = startAgent({ key: s.adminKey.keyId, secret: s.adminKey.secret, port: s.backendPort, label: "hooks" });
+    try {
+      await agent.waitFor(/Public:\s+(\S+)/, 20_000);
+      let rows = [];
+      for (let i = 0; i < 60; i++) {
+        rows = (await I("GET", "/hooks")).json.data.requests;
+        if (rows.length === 3 && rows.every((r) => r.status === "DELIVERED")) break;
+        await sleep(250);
+      }
+      assert(rows.every((r) => r.status === "DELIVERED" && r.responseStatus === 200), `not delivered: ${JSON.stringify(rows.map((r) => [r.status, r.lastError]))}`);
+      const order = [...rows].sort((a, b) => new Date(a.deliveredAt) - new Date(b.deliveredAt)).map((r) => r.id);
+      assert(JSON.stringify(order) === JSON.stringify(ids), "delivered out of order");
+
+      const again = await I("POST", `/hooks/${ids[1]}/redeliver`);
+      assert(again.status === 200, `redeliver ${again.status}`);
+      let back;
+      for (let i = 0; i < 40 && back?.status !== "DELIVERED"; i++) {
+        await sleep(250);
+        back = (await I("GET", `/hooks/${ids[1]}`)).json.data;
+      }
+      assert(back.status === "DELIVERED" && back.attempts === 1, `redelivered ${JSON.stringify([back.status, back.attempts])}`);
+      const o = await I("GET", "");
+      const t = o.json.data.tunnels.find((x) => x.label === "hooks");
+      assert(t && t.enabled && t.delivered === 3 && t.queued === 0, `overview ${JSON.stringify(t)}`);
+    } finally {
+      agent.child.kill("SIGINT");
+      await Promise.race([agent.exited, sleep(5_000)]);
+      await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    }
+    const off = await I("PUT", "/hooks", { body: { enabled: false } });
+    assert(off.status === 200, `disable ${off.status}`);
+    let after;
+    for (let i = 0; i < 20; i++) {
+      after = await tunnel(host, "POST", "/echo", { body: "{}" });
+      if (after.status !== 202) break;
+      await sleep(250);
+    }
+    assert(after.status === 404 || after.status === 503, `inbox off but held: ${after.status}`);
+    const purge = await I("DELETE", "/hooks?status=DELIVERED");
+    assert(purge.status === 200 && purge.json.data.deleted === 3, `purge ${JSON.stringify(purge.json)}`);
+  });
+
   await step("admin v2: suspending an account needs a reason, refuses its keys, and reactivates", async () => {
     const noReason = await P("PATCH", `/accounts/${s.personal}`, { body: { status: "SUSPENDED" } });
     assert(noReason.status === 400, `suspend without reason: ${noReason.status}`);

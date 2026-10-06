@@ -45,6 +45,11 @@
       "label": "Tunnel access rules (password, IP allowlist, share links)",
       "evidence": "apps/api/src/modules/platform/tunnel-access/tunnelAccess.routes.ts, apps/hub/src/handlers/HttpTunnel.handler.ts",
       "note": "Needed to create or change rules. Rules that exist keep protecting the tunnel after a downgrade."
+    },
+    "inboxRequests": {
+      "label": "Requests held by a tunnel's webhook inbox while the agent is offline",
+      "evidence": "apps/hub/src/services/Inbox.service.ts",
+      "note": "Once this many are waiting, further requests to the offline tunnel get 503. 0 means no inbox."
     }
   },
   "notEnforced": {

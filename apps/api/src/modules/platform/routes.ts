@@ -10,6 +10,7 @@ import { adminContentRoutes, adminSettingsRoutes } from "./admin/admin.settings-
 import { publicRoutes } from "./public/public.routes";
 import { inspectorRoutes } from "./inspector/inspector.routes";
 import { tunnelAccessRoutes } from "./tunnel-access/tunnelAccess.routes";
+import { inboxRoutes } from "./inbox/inbox.routes";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
   const hub = new HubClient();
@@ -25,4 +26,5 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(publicRoutes, { prefix: "/api/v1/public" });
   await server.register(inspectorRoutes, { prefix: "/api/v1/inspector", hub });
   await server.register(tunnelAccessRoutes, { prefix: "/api/v1/tunnel-access", hub });
+  await server.register(inboxRoutes, { prefix: "/api/v1/inbox", hub });
 }

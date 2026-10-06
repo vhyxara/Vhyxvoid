@@ -61,6 +61,8 @@ export interface InspectedRequest {
   error: string | null;
   /** Set on a request created by "Replay": the id it replays. */
   replayOf: string | null;
+  /** Set when the webhook inbox delivered this request: the inbox row id. */
+  inboxId?: string | null;
 }
 
 export const inspectorKeys = {

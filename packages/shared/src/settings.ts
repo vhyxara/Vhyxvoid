@@ -60,6 +60,7 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "rateLimitPerMinute",
   "analyticsRetentionDays",
   "inspectorRequests",
+  "inboxRequests",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
@@ -164,6 +165,7 @@ export const SETTING_DEFINITIONS = {
   "support.docsUrl": { group: "support", label: "Documentation URL", description: "Where 'Docs' links go.", type: "url", default: "/docs", public: true },
 
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
+  "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.feedbackEnabled": { group: "features", label: "Feedback form", description: "Let signed-in users send feedback from the dashboard.", type: "boolean", default: true, public: true },
 } as const satisfies Record<string, SettingDefinition>;
 

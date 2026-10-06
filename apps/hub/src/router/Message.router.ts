@@ -71,6 +71,9 @@ export class MessageRouter {
     private readonly httpTunnelHandler: HttpTunnelHandler,
   ) {}
 
+  /** Called after a tunnel is registered and announced (webhook inbox delivery). */
+  onTunnelRegistered?: (accountId: string, label: string) => void;
+
   // ── Agent message routing ──────────────────────────────────────────────────
 
   async routeAgentMessage(ws: any, data: Buffer | string, ip: string): Promise<void> {
@@ -380,6 +383,11 @@ export class MessageRouter {
       tunnelUrl, // ← now defined
     };
     this.sendToWs(ws, registered);
+    try {
+      this.onTunnelRegistered?.(apiKey.accountId, msg.label);
+    } catch {
+      // never let a hook break registration
+    }
 
     console.info(
       { agentId, accountId: apiKey.accountId, label: msg.label, tunnelUrl },

@@ -14,7 +14,8 @@ export const NUMERIC_LIMITS = [
   ['rateLimitPerMinute', 'SDK requests / minute / key'],
   ['publicPathRateLimitPerMinute', 'Public URL requests / minute'],
   ['analyticsRetentionDays', 'Analytics retention (days)'],
-  ['inspectorRequests', 'Inspector: requests kept per tunnel (0 = off)']
+  ['inspectorRequests', 'Inspector: requests kept per tunnel (0 = off)'],
+  ['inboxRequests', 'Webhook inbox: requests held per tunnel (0 = off)']
 ] as const
 
 export const BOOLEAN_LIMITS = [

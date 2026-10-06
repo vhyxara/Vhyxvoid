@@ -49,6 +49,7 @@ function summary(e: InspectedRequest) {
     durationMs: e.durationMs,
     error: e.error,
     replayOf: e.replayOf,
+    inboxId: e.inboxId ?? null,
     requestSize: e.request.body.size,
     responseSize: e.response?.body.size ?? 0,
     contentType: e.request.headers["content-type"] ?? null,

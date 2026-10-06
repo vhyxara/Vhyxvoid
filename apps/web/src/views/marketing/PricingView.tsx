@@ -15,6 +15,7 @@ const LIMIT_ROWS: Array<[string, string]> = [
   ['maxApiKeys', 'API keys'],
   ['publicPathRateLimitPerMinute', 'Public requests per minute'],
   ['inspectorRequests', 'Requests kept in the inspector (per tunnel)'],
+  ['inboxRequests', 'Webhooks held while you are offline (per tunnel)'],
   ['accessRules', 'Password, IP allowlist and share links'],
   ['prodKeysAllowed', 'Production keys'],
   ['rotationAllowed', 'Key rotation'],
@@ -28,7 +29,8 @@ const COUNT_LABELS: Record<string, string> = {
   maxMembers: 'team members',
   maxApiKeys: 'API keys',
   publicPathRateLimitPerMinute: 'public requests per minute',
-  inspectorRequests: 'requests kept in the inspector'
+  inspectorRequests: 'requests kept in the inspector',
+  inboxRequests: 'webhooks held while you are offline'
 }
 
 function show(v: unknown) {
