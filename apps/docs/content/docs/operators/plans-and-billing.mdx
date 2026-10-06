@@ -3,7 +3,7 @@ title: Plans and billing
 description: How plan limits are decided, how to change them for everyone or for one account, and how checkout and trials work.
 verified:
   date: "2026-10-05"
-  commit: "97f3736"
+  commit: "2112350"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -13,11 +13,24 @@ sources:
   - apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts
 ---
 
+Everything on this page is on **Plans & pricing** in the admin console.
+
+## Launch for free, charge later
+
+**Billing mode** has two values:
+
+- **Free** (the default): nobody is asked to pay. Upgrade buttons are hidden, checkout is refused, the pricing page shows a single free plan with your *free mode message*, and Stripe does not need to be configured at all.
+- **Paid**: Pro and Enterprise can be bought through Stripe checkout.
+
+Switching back and forth never touches existing subscriptions: an account that pays keeps paying and keeps its plan.
+
+**Plan for accounts that don't pay** (`billing.defaultPlan`) decides what everyone without a paid subscription gets. During a launch you can set it to PRO to be generous, and edit each plan's limits below. When you later switch to paid mode, set it back to FREE: accounts without a subscription drop to the FREE limits within a minute.
+
 ## Where a limit comes from
 
 Each account's effective limits are worked out in three layers, last one wins:
 
-1. **Built-in plan limits** for FREE, PRO and ENTERPRISE, shipped with the code.
+1. **Built-in plan limits** for FREE, PRO and ENTERPRISE, shipped with the code. Which plan an account is on: its paying subscription's plan, otherwise the default plan above.
 2. **Plan overrides** (`plans.overrides` under **Settings → Plan limits**): change a limit for every account on a plan, for example raising FREE to 2 agents.
 3. **Account overrides** (the *Limit overrides* tab on an account): change a limit for one account only.
 
@@ -27,7 +40,11 @@ The API, the hub and the public pricing table all read the same effective values
 
 ## Checkout
 
-Users upgrade from **Billing** in their workspace. The browser sends the plan name only; the API maps it to the Stripe price from `STRIPE_PRO_PRICE_ID` / `STRIPE_ENTERPRISE_PRICE_ID`, and only accepts return URLs on your own site.
+Users upgrade from **Billing** in their workspace (paid mode only). The browser sends the plan name only; the API maps it to the plan's Stripe price and only accepts return URLs on your own site.
+
+**Prices.** Create a product with a monthly price for each paid plan in the Stripe dashboard and paste the price IDs (`price_…`) into **Plans & pricing → Payments**. *Save and check* looks the price up in Stripe and shows its amount, interval and whether it is active, so a typo shows up immediately. The `STRIPE_PRO_PRICE_ID` / `STRIPE_ENTERPRISE_PRICE_ID` environment variables still work as a fallback. To change a price, create a new price in Stripe and paste its ID; existing subscribers stay on the price they bought until you migrate them in Stripe. The price *shown* on the pricing page is text you edit under **Website content → Pricing page**; keep the two the same.
+
+If paid mode is on but something is missing (Stripe keys, a price, an archived price), the screen lists exactly what.
 
 - `billing.checkoutEnabled` off hides *Upgrade* in the dashboard and refuses new checkouts. Existing subscriptions are untouched. Use it while prices are being changed.
 - `billing.trialDays` sets the free trial for an account's **first** subscription. Later subscriptions start paid. `0` disables trials.

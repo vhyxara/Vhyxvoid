@@ -3,7 +3,7 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-05"
-  commit: "97f3736"
+  commit: "2112350"
   packages: {}
 sources:
   - docker-compose.yml
@@ -50,8 +50,8 @@ All images run as the unprivileged `node` user on Node 24.
 | `CORS_ORIGINS` | no | Extra allowed origins, comma separated. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | yes in production | Transactional email. The API refuses to start in production without them. |
 | `APP_NAME`, `SUPPORT_EMAIL`, `ADMIN_FEEDBACK_EMAIL` | no | Email copy and recipients. |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for billing | Stripe API and webhook signature. |
-| `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | for billing | The recurring price of each paid plan. |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for paid mode | Stripe API and webhook signature. Without them the API still runs (free mode); billing endpoints answer 503. |
+| `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | no | Fallback price IDs. Prefer setting prices in the console (Plans & pricing). |
 | `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. |
 | `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_FIRST_NAME`, `SUPER_ADMIN_LAST_NAME` | first run | The first admin, created by the seed. |
 
@@ -103,9 +103,11 @@ Admin sign-in is rate limited per IP, and every admin action is written to the a
 
 ## Stripe
 
-1. Create a product per paid plan with one recurring price each; put the price IDs in `STRIPE_PRO_PRICE_ID` and `STRIPE_ENTERPRISE_PRICE_ID`.
+You can launch without Stripe: billing mode starts as **free**. When you are ready to charge:
+
+1. Create a product per paid plan with one recurring price each, and paste the price IDs into **Plans & pricing** in the console.
 2. Add a webhook endpoint `https://api.vhyxvoid.com/api/v1/billing/webhooks/stripe` for the `customer.*`, `customer.subscription.*` and `invoice.*` events; put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-3. Set the trial length and switch checkout on or off from **Settings → Billing** in the console.
+3. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, restart the API, then switch **Billing mode** to *Paid* on **Plans & pricing** (also where the trial length and the upgrades switch are).
 
 ## Upgrades
 

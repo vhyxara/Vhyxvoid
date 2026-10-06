@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-05"
-  commit: "97f3736"
+  commit: "2112350"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -65,6 +65,10 @@ Checkout and trial policy. Prices themselves live in Stripe.
 
 | Key | Type | Default | Public | What it does |
 | --- | --- | --- | --- | --- |
+| `billing.mode` | enum (free, paid) | `"free"` | yes | Billing mode. free: everyone uses the product without paying (launch / early access); upgrades and pricing tiers are hidden. paid: plans can be bought through Stripe. Existing subscriptions keep working in either mode. |
+| `billing.defaultPlan` | enum (FREE, PRO, ENTERPRISE) | `"FREE"` | yes | Plan for accounts that don't pay. The plan every account without a paid subscription gets. Raise it to PRO during a launch to be generous; edit each plan's limits under Plan limits. |
+| `billing.freeModeMessage` | string | see admin panel | yes | Free mode message. Shown on the pricing and billing pages while billing mode is free. |
+| `billing.stripePrices` | json | `{}` | no | Stripe price IDs. The recurring Stripe price for each paid plan, e.g. \{"PRO": "price_123", "ENTERPRISE": "price_456"\}. Overrides the STRIPE_*_PRICE_ID environment variables. Create prices in the Stripe dashboard. |
 | `billing.checkoutEnabled` | boolean | `true` | yes | Allow upgrades. When off, the upgrade buttons are hidden and checkout is refused. |
 | `billing.trialDays` | number 0–90 | `14` | yes | Trial length (days). Free trial on an account's first paid subscription only. 0 disables trials. |
 
