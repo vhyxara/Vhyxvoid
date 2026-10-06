@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
+
 import { PageHeader } from '@vhyxui/blocks'
-import { Alert, Button, Grid, Table, Text } from '@vhyxui/react'
+import { Alert, Button, Grid, Table, Text, toast } from '@vhyxui/react'
 
 import { useSystemHealth } from '@/api/platform/hooks'
+import { platformService } from '@/api/platform/service'
 import type { Probe } from '@/api/platform/types'
 import { formatDate, formatNumber } from '@/components/ui/format'
 import { KeyValue } from '@/components/ui/KeyValue'
@@ -78,6 +81,7 @@ function ProbeCard({ name, probe }: { name: string; probe: Probe }) {
 export function SystemHealthView() {
   const { data, isLoading, isFetching, error, refetch } = useSystemHealth()
   const api = data?.api.details
+  const [runningAlerts, setRunningAlerts] = useState(false)
 
   return (
     <div className='flex flex-col gap-6'>
@@ -85,6 +89,22 @@ export function SystemHealthView() {
         title='System health'
         description='Each dependency is checked on its own: one failing never hides the others.'
         actions={[
+          <Button
+            key='alerts'
+            variant='ghost'
+            size='sm'
+            loading={runningAlerts}
+            onClick={() => {
+              setRunningAlerts(true)
+              platformService
+                .runJob('alerts')
+                .then(r => toast.success(`Alert rules evaluated in ${r.ms} ms`))
+                .catch(e => toast.danger(e.message))
+                .finally(() => setRunningAlerts(false))
+            }}
+          >
+            Run alert checks now
+          </Button>,
           <Button key='r' variant='outline' size='sm' loading={isFetching} onClick={() => refetch()}>
             Check again
           </Button>

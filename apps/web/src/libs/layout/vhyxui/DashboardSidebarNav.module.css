@@ -8,6 +8,12 @@
   flex: 1;
 }
 
+/* A long nav scrolls; its rows and section headings keep their height
+   (flex items shrink by default, which squashed the headings to a sliver). */
+.nav > * {
+  flex-shrink: 0;
+}
+
 .sectionLabel {
   font-size: var(--vhyx-text-2xs, 0.625rem);
   font-weight: var(--vhyx-weight-semibold, 600);

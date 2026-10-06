@@ -124,6 +124,12 @@ function OrgSubNav({
           <NavLink href={`/organizations/${id}/access`} icon='tabler-lock' onNavigate={onNavigate}>
             Access
           </NavLink>
+          <NavLink href={`/organizations/${id}/domains`} icon='tabler-world-www' onNavigate={onNavigate}>
+            Domains
+          </NavLink>
+          <NavLink href={`/organizations/${id}/alerts`} icon='tabler-bell' onNavigate={onNavigate}>
+            Alerts
+          </NavLink>
           {isOwner && (
             <NavLink href={`/organizations/${id}/billing`} icon='tabler-credit-card' onNavigate={onNavigate}>
               Billing

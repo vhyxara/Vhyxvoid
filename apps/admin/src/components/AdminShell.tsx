@@ -24,6 +24,7 @@ import {
   SettingsIcon,
   ShieldIcon,
   SunIcon,
+  GlobeIcon,
   TagIcon,
   UserLockIcon,
   UsersIcon
@@ -50,6 +51,7 @@ const NAV: Array<{ label: string; items: Array<{ label: string; href: string; ic
       { label: 'Users', href: '/users', icon: <UsersIcon /> },
       { label: 'API keys', href: '/api-keys', icon: <KeyIcon /> },
       { label: 'Tunnels', href: '/tunnels', icon: <RadioIcon /> },
+      { label: 'Custom domains', href: '/domains', icon: <GlobeIcon /> },
       { label: 'Billing', href: '/billing', icon: <CreditCardIcon /> },
       { label: 'Feedback', href: '/feedback', icon: <MessageSquareIcon /> }
     ]

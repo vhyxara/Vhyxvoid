@@ -66,17 +66,19 @@ export async function domainRoutes(fastify: FastifyInstance, opts: { hub: HubCli
   fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const level = await role(request, accountId);
-    const [rows, lim, target, enabled] = await Promise.all([
+    const [rows, lim, target, enabled, labels] = await Promise.all([
       prisma.customDomain.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }),
       limits(accountId),
       opts.domains.target(),
       fastify.platformSettings.get("features.customDomains"),
+      prisma.tunnelSession.findMany({ where: { accountId }, distinct: ["label"], select: { label: true }, orderBy: { label: "asc" }, take: 200 }),
     ]);
     return successResponse(reply, "Success", 200, {
       available: Boolean(enabled) && Boolean(target),
       target,
       maxDomains: lim.max,
       canManage: level >= RoleLevel.ADMIN,
+      tunnelLabels: labels.map((l) => l.label),
       domains: (rows as DomainRow[]).map((d) => view(d, target)),
     });
   });

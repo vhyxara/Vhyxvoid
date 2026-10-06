@@ -20,7 +20,8 @@ import type {
   TunnelSessionRow,
   UserDetail,
   UserRow,
-  BillingSetup
+  BillingSetup,
+  CustomDomainRow
 } from './types'
 
 const list = <T>(url: string) => (params: ListParams = {}) =>
@@ -51,6 +52,9 @@ export const platformService = {
   deleteUser: (id: string, reason: string) => del(`/admin/users/${id}`, { reason }),
 
   apiKeys: list<ApiKeyRow>('/admin/api-keys'),
+  customDomains: list<CustomDomainRow>('/admin/domains'),
+  removeCustomDomain: (id: string, reason: string) => del(`/admin/domains/${id}`, { reason }),
+  runJob: (name: 'alerts' | 'domains') => post<{ job: string; result: unknown; ms: number }>(`/admin/system/jobs/${name}/run`),
   revokeApiKey: (id: string, reason: string) => post(`/admin/api-keys/${id}/revoke`, { reason }),
 
   liveTunnels: (accountId?: string) =>

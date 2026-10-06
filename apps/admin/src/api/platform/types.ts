@@ -264,3 +264,16 @@ export type BillingSetup = {
   problems: string[]
 }
 
+export type CustomDomainRow = {
+  id: string
+  hostname: string
+  label: string
+  status: 'PENDING_VERIFICATION' | 'ACTIVE' | 'DNS_NOT_POINTING'
+  verifiedAt: string | null
+  routingOk: boolean
+  lastCheckedAt: string | null
+  lastError: string | null
+  createdAt: string
+  account: { id: string; name: string; slug: string }
+}
+
