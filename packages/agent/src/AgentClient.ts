@@ -92,6 +92,8 @@ export interface AgentConfig {
   };
   /** @deprecated Ignored: there is no SQLite queue any more (see queuePath). */
   disableQueue?: boolean;
+  /** No console output of its own (the "Tunnel active" banner, fatal-error text); the logger still gets everything. */
+  quiet?: boolean;
 }
 
 /**
@@ -327,21 +329,23 @@ export class AgentClient {
     this.agentId = msg.agentId;
     this.reconnectDelay = TIMING.RECONNECT_INITIAL_MS; // reset backoff on success
     this.setState("CONNECTED");
-    console.log("");
-    console.log("  ✅  Tunnel active");
-    console.log("");
-    if (msg.tunnelUrl) {
-      this.config.onTunnelUrl?.(msg.tunnelUrl);
-      console.log(`  Local:   http://localhost:${this.config.port}`);
-      console.log(`  Public:  ${msg.tunnelUrl}`);
+    if (!this.config.quiet) {
       console.log("");
-      console.log("  Share the Public URL — it is stable and never changes.");
-      console.log("  Put it in webhooks, .env files, or share with teammates.");
-    } else {
-      console.log(`  Local:  http://localhost:${this.config.port}`);
-      console.log(`  Label:  ${this.config.label}`);
+      console.log("  ✅  Tunnel active");
+      console.log("");
+      if (msg.tunnelUrl) {
+        console.log(`  Local:   http://localhost:${this.config.port}`);
+        console.log(`  Public:  ${msg.tunnelUrl}`);
+        console.log("");
+        console.log("  Share the Public URL — it is stable and never changes.");
+        console.log("  Put it in webhooks, .env files, or share with teammates.");
+      } else {
+        console.log(`  Local:  http://localhost:${this.config.port}`);
+        console.log(`  Label:  ${this.config.label}`);
+      }
+      console.log("");
     }
-    console.log("");
+    if (msg.tunnelUrl) this.config.onTunnelUrl?.(msg.tunnelUrl);
 
     this.log.info(
       {
@@ -383,7 +387,7 @@ export class AgentClient {
     if (!msg.fatal) return;
 
     if (FATAL_STOP_CODES.has(msg.code)) {
-      console.error(
+      if (!this.config.quiet) console.error(
         `\n❌ Fatal error: ${msg.message}\n` +
           `   Check your API key and agent version, then restart.\n`,
       );

@@ -167,6 +167,7 @@ import * as path from "path";
 import * as os from "os";
 import { createPrompter } from "./prompt";
 import { labelProblem, normalizeLabel } from "@vhyxvoid/protocol";
+import { formatResults, realDeps, runDoctor, type DoctorDeps } from "./doctor";
 
 // Load .env, .env.local, .env.vhyxvoid in order (last wins). quiet: dotenv 17
 // otherwise prints an "injecting env ... tip" line for every file on start.
@@ -259,6 +260,44 @@ program
       console.error(`\n❌  Setup failed: ${(err as Error).message}\n`);
       process.exit(1);
     }
+  });
+
+// ── doctor command ────────────────────────────────────────────────────────────
+
+program
+  .command("doctor")
+  .description("Check your setup: credentials, local server, hub, sign-in, custom domain")
+  .option("-k, --key <keyId>", "API key ID. Env: VHYXVOID_API_KEY", process.env.VHYXVOID_API_KEY)
+  .option("-s, --secret <secret>", "API key secret. Env: VHYXVOID_SECRET", process.env.VHYXVOID_SECRET)
+  .option("-p, --port <port>", "Local port. Env: VHYXVOID_PORT", process.env.VHYXVOID_PORT ?? "3000")
+  .option("-l, --label <label>", "Tunnel label. Env: VHYXVOID_LABEL", process.env.VHYXVOID_LABEL ?? "default")
+  .option("--hub <url>", "Hub WebSocket URL. Env: VHYXVOID_HUB_URL", process.env.VHYXVOID_HUB_URL ?? "wss://hub.vhyxvoid.com/agent")
+  .option("--connect", "Also sign in to the hub with a temporary tunnel (uses one agent slot for a few seconds)")
+  .option("--domain <hostname>", "Check the DNS records of a custom domain")
+  .option("--domain-target <hostname>", "The hostname domains should point at (read from the API when omitted)")
+  .option("--json", "Print the results as JSON")
+  .action(async (opts) => {
+    const port = parseInt(opts.port, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      console.error(`\n❌  Invalid port: "${opts.port}"\n`);
+      process.exit(1);
+    }
+    if (!opts.json) console.log(`\nvhyxvoid doctor (agent v${AGENT_VERSION})`);
+    const results = await runDoctor(
+      {
+        key: opts.key,
+        secret: opts.secret,
+        label: normalizeLabel(opts.label),
+        port,
+        hub: opts.hub,
+        connect: !!opts.connect,
+        domain: opts.domain,
+        domainTarget: opts.domainTarget,
+      },
+      realDeps(signInOnce),
+    );
+    console.log(opts.json ? JSON.stringify({ version: AGENT_VERSION, results }, null, 2) : formatResults(results));
+    process.exit(results.some((r) => r.status === "fail") ? 1 : 0);
   });
 
 // ── start command (default) ───────────────────────────────────────────────────
@@ -416,6 +455,47 @@ program
 program.parse(process.argv);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Registers a temporary tunnel, waits for the hub's answer, then disconnects. */
+function signInOnce(o: Parameters<DoctorDeps["signIn"]>[0]): ReturnType<DoctorDeps["signIn"]> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const quiet = () => {};
+    const agent: AgentClient = new AgentClient({
+      hubUrl: o.hub,
+      keyId: o.key,
+      secret: o.secret,
+      label: o.label,
+      port: 1,
+      localDiscovery: false,
+      quiet: true,
+      onStateChange: (state) => {
+        if (state === "CONNECTED") finish({ ok: true });
+      },
+      logger: {
+        info: quiet,
+        warn: quiet,
+        error: (obj: object) => {
+          const e = obj as { code?: string; message?: string };
+          if (e.code) finish({ ok: false, code: e.code, message: e.message ?? "" });
+        },
+      },
+    });
+    const timer = setTimeout(() => finish({ ok: false, code: "TIMEOUT", message: `no answer within ${o.timeoutMs} ms` }), o.timeoutMs);
+    function finish(r: { ok: true } | { ok: false; code: string; message: string }) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        agent.stop();
+      } catch {
+        // already stopped
+      }
+      resolve(r);
+    }
+    agent.start();
+  });
+}
 
 function writeEnvVar(filePath: string, key: string, value: string): void {
   try {
