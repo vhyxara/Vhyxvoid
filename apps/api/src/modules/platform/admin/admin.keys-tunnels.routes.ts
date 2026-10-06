@@ -1,4 +1,5 @@
 // /api/v1/admin/api-keys and /api/v1/admin/tunnels
+import { agentVersionStatus } from "@vhyxvoid/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { NotFoundError, ValidationError } from "@/core/errors/error.format";
@@ -68,12 +69,29 @@ export async function adminTunnelRoutes(fastify: FastifyInstance, opts: { hub: H
       const accounts = await prisma.account.findMany({ where: { id: { in: [...new Set(agents.map((a) => a.accountId))] } }, select: { id: true, name: true, slug: true } });
       const byId = new Map(accounts.map((a) => [a.id, a]));
       const domain = process.env.HUB_DOMAIN ?? "vhyxvoid.com";
+      const [recommended, minimum] = await Promise.all([
+        fastify.platformSettings.get("tunnels.recommendedAgentVersion"),
+        fastify.platformSettings.get("tunnels.minimumAgentVersion"),
+      ]);
+      const rows = agents.map((a) => {
+        const account = byId.get(a.accountId) ?? null;
+        return {
+          ...a,
+          account,
+          url: account?.slug ? `https://${account.slug}--${a.label}.${domain}` : null,
+          versionStatus: agentVersionStatus(a.agentVersion, String(recommended ?? ""), String(minimum ?? "")),
+        };
+      });
+      // Which versions are out there: before raising the minimum, see who it would lock out.
+      const versions: Record<string, number> = {};
+      for (const a of rows) versions[a.agentVersion ?? "unknown"] = (versions[a.agentVersion ?? "unknown"] ?? 0) + 1;
       return successResponse(reply, "Success", 200, {
         available: true,
-        agents: agents.map((a) => {
-          const account = byId.get(a.accountId) ?? null;
-          return { ...a, account, url: account?.slug ? `https://${account.slug}--${a.label}.${domain}` : null };
-        }),
+        recommendedVersion: recommended || null,
+        minimumVersion: minimum || null,
+        versions,
+        outdated: rows.filter((a) => a.versionStatus === "outdated" || a.versionStatus === "unsupported").length,
+        agents: rows,
       });
     } catch (err) {
       if (err instanceof HubUnavailableError) return successResponse(reply, "Hub unreachable", 200, { available: false, agents: [], message: err.message });

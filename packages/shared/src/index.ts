@@ -25,3 +25,4 @@ export * from "./customDomains";
 export * from "./alerts";
 export * from "./traffic";
 export * from "./trafficRules";
+export * from "./agentFleet";

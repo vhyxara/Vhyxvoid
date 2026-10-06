@@ -36,6 +36,23 @@ function LiveTunnels() {
       <Text size='sm' tone='muted'>
         {live.data ? `${live.data.agents.length} agent(s) connected · refreshes every 15 s` : 'Loading…'}
       </Text>
+      {live.data?.versions && Object.keys(live.data.versions).length > 0 && (
+        <div className='flex flex-wrap items-center gap-2'>
+          <Text size='sm' tone='muted'>
+            Versions:
+          </Text>
+          {Object.entries(live.data.versions)
+            .sort((a, b) => b[1] - a[1])
+            .map(([v, n]) => (
+              <Badge key={v} variant='outline' size='sm'>{`${v} × ${n}`}</Badge>
+            ))}
+          <Text size='sm' tone='muted'>
+            {live.data.outdated
+              ? `${live.data.outdated} older than the recommended ${live.data.recommendedVersion ?? '—'}${live.data.minimumVersion ? ` (minimum ${live.data.minimumVersion})` : ''}. Change both under Settings → Tunnels.`
+              : `All at or above the recommended ${live.data.recommendedVersion ?? 'version'}.`}
+          </Text>
+        </div>
+      )}
       <div style={{ overflowX: 'auto' }}>
         <Table
           density='compact'
@@ -45,10 +62,19 @@ function LiveTunnels() {
           columns={[
             { key: 'url', header: 'Tunnel', cell: (r: any) => (r.url ? <a href={r.url} target='_blank' rel='noreferrer'>{r.url.replace(/^https:\/\//, '')}</a> : r.label) },
             { key: 'account', header: 'Account', cell: (r: any) => (r.account ? <Link href={`/accounts/${r.account.id}`}>{r.account.name}</Link> : r.accountId) },
-            { key: 'agentVersion', header: 'Agent', cell: (r: any) => <Badge variant='outline' size='sm'>{r.agentVersion ?? '?'}</Badge> },
+            {
+              key: 'agentVersion',
+              header: 'Agent',
+              cell: (r: any) => (
+                <Badge variant={r.versionStatus === 'unsupported' ? 'danger' : r.versionStatus === 'outdated' ? 'warning' : 'outline'} size='sm'>
+                  {r.agentVersion ?? '?'}
+                </Badge>
+              )
+            },
             { key: 'ip', header: 'IP' },
             { key: 'connectedAt', header: 'Connected', cell: (r: any) => timeAgo(r.connectedAt) },
             { key: 'missedPings', header: 'Missed pings', align: 'end' },
+            { key: 'inFlight', header: 'In flight', align: 'end', cell: (r: any) => r.inFlight ?? 0 },
             {
               key: 'x',
               header: '',

@@ -59,7 +59,7 @@ export const platformService = {
   revokeApiKey: (id: string, reason: string) => post(`/admin/api-keys/${id}/revoke`, { reason }),
 
   liveTunnels: (accountId?: string) =>
-    httpClient<{ available: boolean; agents: LiveAgent[]; message?: string }>({ url: '/admin/tunnels/live', method: 'GET', params: { accountId } }),
+    httpClient<{ available: boolean; agents: LiveAgent[]; message?: string; versions?: Record<string, number>; outdated?: number; recommendedVersion?: string | null; minimumVersion?: string | null }>({ url: '/admin/tunnels/live', method: 'GET', params: { accountId } }),
   disconnectAgent: (agentId: string, reason: string) => post(`/admin/tunnels/live/${agentId}/disconnect`, { reason }),
   tunnelSessions: list<TunnelSessionRow>('/admin/tunnels/sessions'),
 

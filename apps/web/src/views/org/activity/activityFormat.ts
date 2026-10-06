@@ -127,6 +127,8 @@ export function describeActivity(item: ActivityItem): string {
       return `redelivered a held webhook on ${item.resourceId ?? 'a tunnel'}`
     case 'tunnel.inbox.purged':
       return `cleared ${typeof m.count === 'number' ? `${m.count} ` : ''}held webhooks of ${item.resourceId ?? 'a tunnel'}`
+    case 'AGENT_STOPPED':
+      return `stopped the agent for${t}${s(m.version) ? ` (v${m.version})` : ''}`
     case 'TRAFFIC_RULES_UPDATED':
       return `changed the traffic rules of${t}${typeof m.count === 'number' ? ` (${m.count} rule${m.count === 1 ? '' : 's'})` : ''}`
     case 'INSPECTOR_CAPTURE_CHANGED':

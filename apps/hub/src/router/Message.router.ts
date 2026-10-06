@@ -41,7 +41,7 @@ import {
 // } from '../services';
 import { TunnelSessionRepository } from '@/repositories/TunnelSession.repository';
 import { TunnelRequestRepository } from '@/repositories/TunnelRequest.repository';
-import { Plan, PLAN_LIMITS, readSetting } from '@vhyxvoid/shared';
+import { Plan, PLAN_LIMITS, minimumVersionProblem, readSetting } from '@vhyxvoid/shared';
 import { HeartbeatService } from '@/services/Heartbeat.service';
 import { HubAuthService, HubAuthError } from '@/services/HubAuth.service';
 import { HubPubSub } from '@/services/HubPubSub';
@@ -263,6 +263,16 @@ export class MessageRouter {
         ws,
         this.buildHubError('RATE_LIMITED', 'New tunnel connections are paused. Try again in a few minutes.', undefined, false),
       );
+      ws.close();
+      return;
+    }
+
+    // Minimum agent version from the console (tunnels.minimumAgentVersion).
+    // Fatal: the agent stops with the update command instead of retrying.
+    const minimum = String((await readSetting('tunnels.minimumAgentVersion').catch(() => '')) ?? '');
+    const tooOld = minimumVersionProblem(msg.agentVersion, minimum);
+    if (tooOld) {
+      this.sendToWs(ws, this.buildHubError('VERSION_UNSUPPORTED', tooOld, undefined, true));
       ws.close();
       return;
     }

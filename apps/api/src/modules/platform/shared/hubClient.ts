@@ -6,6 +6,10 @@
 export type HubAgent = {
   agentId: string;
   accountId: string;
+  /** Row id (ApiKey.id) of the key the agent signed in with. */
+  keyId?: string;
+  /** Requests waiting for this agent's answer right now. */
+  inFlight?: number;
   label: string;
   agentVersion?: string;
   ip?: string;
@@ -70,8 +74,9 @@ export class HubClient {
     return (await this.call<{ agents: HubAgent[] }>(`/internal/agents${q}`)).agents ?? [];
   }
 
-  async disconnect(agentId: string): Promise<boolean> {
-    return (await this.call<{ disconnected: boolean }>(`/internal/agents/${encodeURIComponent(agentId)}/disconnect`, "POST")).disconnected === true;
+  async disconnect(agentId: string, reason?: string): Promise<boolean> {
+    const q = reason ? `?${new URLSearchParams({ reason })}` : "";
+    return (await this.call<{ disconnected: boolean }>(`/internal/agents/${encodeURIComponent(agentId)}/disconnect${q}`, "POST")).disconnected === true;
   }
 
   /**

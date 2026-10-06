@@ -10,6 +10,7 @@
 // Prisma-free like the rest of this package: callers pass a loader.
 
 import { Plan, PLAN_LIMITS, type PlanLimits } from "./planLimits";
+import { isValidVersion } from "./agentFleet";
 
 export type SettingType = "boolean" | "number" | "string" | "text" | "enum" | "url" | "email" | "stringList" | "json";
 
@@ -165,6 +166,8 @@ export const SETTING_DEFINITIONS = {
   "plans.overrides": { group: "plans", label: "Plan limit overrides", description: "Per-plan overrides of the built-in limits. Use null for unlimited. Changes apply within a minute.", type: "json", default: {}, public: false, validate: validatePlanOverrides },
 
   "tunnels.customDomainTarget": { group: "tunnels", label: "Custom domain target", description: "The hostname customers point their domains at with a CNAME (e.g. edge.vhyxvoid.com, an A record on your edge server). Empty disables adding custom domains.", type: "string", default: "", public: true, maxLength: 253 },
+  "tunnels.recommendedAgentVersion": { group: "tunnels", label: "Recommended agent version", description: "Agents older than this get an \"update available\" note on the dashboard's Agents card (they keep working). Set it to the newest published @vhyxvoid/agent after a release. Empty: no note.", type: "string", default: "1.1.0", public: true, maxLength: 40, validate: (v) => (v === "" || isValidVersion(v) ? undefined : "Must be a version like 1.2.0") },
+  "tunnels.minimumAgentVersion": { group: "tunnels", label: "Minimum agent version", description: "The hub refuses agents older than this at connect time with an \"update the agent\" message (connected agents stay until they reconnect). For security fixes or protocol changes. Empty: any version may connect.", type: "string", default: "", public: true, maxLength: 40, validate: (v) => (v === "" || isValidVersion(v) ? undefined : "Must be a version like 1.0.0") },
   "tunnels.newAgentsEnabled": { group: "tunnels", label: "Accept new agent connections", description: "When off, the hub refuses new agent registrations (running tunnels stay up). For incidents.", type: "boolean", default: true, public: false },
 
   "support.email": { group: "support", label: "Support email", description: "Shown on the website and in emails.", type: "email", default: "support@vhyxvoid.com", public: true },
@@ -237,6 +240,8 @@ export function validateSettingValue(key: string, value: unknown): { ok: true; v
       if (def.maxLength !== undefined && v.length > def.maxLength) return { ok: false, error: `At most ${def.maxLength} characters` };
       if (def.type === "url" && v && !/^(https?:\/\/[^\s]+|\/[^\s]*)$/i.test(v)) return { ok: false, error: "Must be an http(s) URL or a path starting with /" };
       if (def.type === "email" && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { ok: false, error: "Must be an email address" };
+      const err = def.validate?.(v);
+      if (err) return { ok: false, error: err };
       return { ok: true, value: v };
     }
   }

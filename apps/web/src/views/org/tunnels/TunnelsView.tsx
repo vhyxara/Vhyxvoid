@@ -2,14 +2,15 @@
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table'
 
-import { Badge, Card } from '@vhyxui/react'
+import { Badge } from '@vhyxui/react'
 
 import { Typography } from '@/components/vhyxui-shims'
 import { GenericServerTable } from '@/libs/table/GenericServerTable'
 import { useServerTable } from '@/libs/table/useServerTable'
-import { useActiveTunnels, useTunnelHistoryTableList } from '@/api/application/hooks/useTunnels'
-import type { TunnelStatus, ActiveTunnel, TunnelSession } from '@/api/domain/key-management/types/tunnel.types'
+import { useTunnelHistoryTableList } from '@/api/application/hooks/useTunnels'
+import type { TunnelStatus, TunnelSession } from '@/api/domain/key-management/types/tunnel.types'
 import { TrafficCard } from './TrafficCard'
+import { AgentFleetCard } from './AgentFleetCard'
 
 // ── Status helpers ────────────────────────────────────────────────────────
 
@@ -20,86 +21,12 @@ function statusBadgeVariant(status: TunnelStatus) {
   return 'danger' as const
 }
 
-function statusDot(status: TunnelStatus) {
-  const colors = { CONNECTED: '#22c55e', DISCONNECTED: '#94a3b8', EVICTED: '#ef4444' }
-
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        width: 8,
-        height: 8,
-        borderRadius: '50%',
-        backgroundColor: colors[status],
-        ...(status === 'CONNECTED' && {
-          boxShadow: '0 0 0 2px rgba(34,197,94,0.3)'
-        })
-      }}
-    />
-  )
-}
-
 function durationMs(ms: number | null) {
   if (!ms) return '—'
   if (ms < 1000) return `${ms}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
 
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`
-}
-
-// ── Active tunnels card ───────────────────────────────────────────────────
-
-function ActiveTunnelsCard({ accountId }: { accountId: string }) {
-  const { data, isLoading } = useActiveTunnels(accountId)
-
-  if (isLoading) return null
-
-  const tunnels = data?.activeSessions ?? []
-
-  return (
-    <Card>
-      <div className='flex justify-between items-center mb-4'>
-        <div>
-          <Typography variant='subtitle1'>Active tunnels</Typography>
-          <Typography variant='body2'>Live connections — refreshes every 30s</Typography>
-        </div>
-        <Badge variant={data?.activeCount ? 'success' : 'default'} size='sm'>
-          {`${data?.activeCount ?? 0} connected`}
-        </Badge>
-      </div>
-
-      {tunnels.length === 0 ? (
-        <div className='py-8 text-center'>
-          <i className='tabler-plug-x text-4xl text-disabled mb-2' style={{ display: 'block' }} />
-          <Typography variant='body2'>No active tunnels</Typography>
-        </div>
-      ) : (
-        <div className='flex flex-col gap-2'>
-          {tunnels.map((tunnel: ActiveTunnel) => (
-            <div
-              key={tunnel.agentId}
-              className='flex items-center gap-4 p-3 rounded-lg border'
-              style={{ borderColor: 'var(--vhyx-color-border)' }}
-            >
-              {statusDot(tunnel.status)}
-              <div className='flex-1'>
-                <Typography variant='body2'>{tunnel.label}</Typography>
-                <Typography variant='caption' style={{ fontFamily: 'monospace' }}>
-                  {tunnel.agentId}
-                </Typography>
-              </div>
-              {tunnel.apiKey && (
-                <Badge variant='outline' size='sm'>
-                  {tunnel.apiKey.name}
-                </Badge>
-              )}
-              <Typography variant='caption'>{new Date(tunnel.connectedAt).toLocaleTimeString()}</Typography>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
 }
 
 // ── History columns ───────────────────────────────────────────────────────
@@ -177,7 +104,7 @@ export default function TunnelsView({ accountId }: Props) {
 
   return (
     <div className='flex flex-col gap-6'>
-      <ActiveTunnelsCard accountId={accountId} />
+      <AgentFleetCard accountId={accountId} />
       <TrafficCard accountId={accountId} />
 
       {/* Original MUI version wrapped this in a Card containing a single-item

@@ -59,6 +59,13 @@ export class PendingRegistry {
     return req;
   }
 
+  /** Requests waiting for each agent's answer right now (fleet view). */
+  countByAgent(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const req of this.pending.values()) if (req.agentId) out.set(req.agentId, (out.get(req.agentId) ?? 0) + 1);
+    return out;
+  }
+
   resolve(requestId: string, response: TunnelResponseMsg, fromAgentId?: string): boolean {
     const req = this.owned(requestId, fromAgentId);
     if (!req) return false;

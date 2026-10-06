@@ -40,7 +40,7 @@ const putBody = z
   .strict();
 const shareBody = z.object({ hours: z.number().int().min(1).max(MAX_SHARE_LINK_HOURS).default(24) });
 
-function tunnelUrl(slug: string, label: string): string | null {
+export function tunnelUrl(slug: string, label: string): string | null {
   const domain = process.env.HUB_DOMAIN;
   if (!domain) return null;
   const scheme = process.env.TUNNEL_URL_SCHEME ?? "https";

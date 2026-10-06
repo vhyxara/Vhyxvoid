@@ -482,9 +482,12 @@ export class HubServer {
 
   /** Every connected agent, for the admin panel's live tunnel view. */
   listAgents() {
+    const inFlight = this.pendingRegistry.countByAgent();
     return this.agentRegistry.allSessions().map((s) => ({
       agentId: s.agentId,
       accountId: s.accountId,
+      keyId: s.keyId,
+      inFlight: inFlight.get(s.agentId) ?? 0,
       label: s.label,
       agentVersion: s.agentVersion,
       ip: s.ip,
@@ -586,7 +589,9 @@ export class HubServer {
     }
     const m = url.pathname.match(/^\/internal\/agents\/([A-Za-z0-9_]+)\/disconnect$/);
     if (req.method === 'POST' && m) {
-      const ok = this.disconnectAgent(m[1], 'This tunnel was disconnected by an administrator');
+      // Optional reason shown by the agent (printable text only, bounded).
+      const reason = (url.searchParams.get('reason') ?? '').replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '').slice(0, 200).trim();
+      const ok = this.disconnectAgent(m[1], reason || 'This tunnel was disconnected by an administrator');
       return send(ok ? 200 : 404, { disconnected: ok });
     }
     return send(404, { error: 'Not found' });

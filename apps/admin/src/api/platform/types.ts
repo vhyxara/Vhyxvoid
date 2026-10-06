@@ -118,6 +118,8 @@ export type LiveAgent = {
   capabilities: string[]
   account?: { id: string; name: string; slug: string | null } | null
   url?: string | null
+  inFlight?: number
+  versionStatus?: 'current' | 'outdated' | 'unsupported' | 'unknown'
 }
 
 export type TunnelSessionRow = {

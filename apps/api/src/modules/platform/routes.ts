@@ -27,6 +27,7 @@ import { recordActivity } from "./shared/activity";
 import { runMaintenance } from "./shared/maintenance";
 import { activityRoutes } from "./activity/activity.routes";
 import { trafficRuleRoutes } from "./traffic-rules/trafficRules.routes";
+import { agentRoutes } from "./agents/agents.routes";
 import type { NotificationService } from "@/modules/notification/application/use-cases";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
@@ -49,6 +50,7 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(trafficRoutes, { prefix: "/api/v1/traffic" });
   await server.register(activityRoutes, { prefix: "/api/v1/activity" });
   await server.register(trafficRuleRoutes, { prefix: "/api/v1/traffic-rules", hub });
+  await server.register(agentRoutes, { prefix: "/api/v1/agents", hub });
   await server.register(adminTrafficRoutes, { prefix: "/api/v1/admin/traffic" });
 
   // Custom domains and alerts share one AlertService (domain events notify through it).
