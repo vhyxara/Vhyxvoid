@@ -1,0 +1,43 @@
+---
+title: Request inspector
+description: See every request that reaches your tunnels, with headers, bodies and your server's response, and replay one after you fix your code.
+verified:
+  date: "2026-10-06"
+  commit: "63eeae4"
+  packages: {}
+sources:
+  - apps/web/src/views/org/inspector/InspectorView.tsx
+  - packages/shared/src/inspector.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/services/Replay.service.ts
+  - apps/api/src/modules/platform/inspector/inspector.routes.ts
+---
+
+Open **Inspector** under a workspace in the sidebar. Pick a tunnel at the top; its most recent requests are listed newest first and, with **Live** on, new ones appear within a few seconds.
+
+Select a request to see:
+
+- **Request**: method, path and query, headers, and the body (JSON is formatted, form fields are listed one per line, binary bodies show their size).
+- **Response**: your server's status, headers and body. For streamed responses (server-sent events, chunked) the first part of the body is kept.
+- How long it took and, for failures, what went wrong in plain words (for example, the agent could not reach your local server).
+
+## Replay
+
+**Replay** sends the same request through your tunnel again, to whatever is running locally now. Use it after fixing a webhook handler instead of triggering the provider again. The replay shows up in the list marked ↻.
+
+- Headers that carry credentials (`Authorization`, `Cookie`, `X-Api-Key` and similar) are never stored, so a replay is sent without them.
+- Signed webhooks may reject a replay: providers like Stripe put a timestamp in the signature and refuse old ones.
+- A request whose body was larger than the inspector keeps cannot be replayed exactly, so Replay is disabled for it.
+
+**Copy as curl** gives you the same request as a command line, to send from your terminal.
+
+## What is kept
+
+| | |
+| --- | --- |
+| Requests per tunnel | Depends on your plan (shown above the list) |
+| Body size | The first 16 KB of each request and response body |
+| How long | 24 hours after the tunnel's last request |
+| Never stored | Values of `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, CSRF tokens |
+
+Anyone who is a member of the workspace can view and replay; **Clear** (admins and owners) deletes a tunnel's captured requests immediately.

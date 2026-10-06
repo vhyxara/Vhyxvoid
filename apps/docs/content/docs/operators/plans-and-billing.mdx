@@ -3,7 +3,7 @@ title: Plans and billing
 description: How plan limits are decided, how to change them for everyone or for one account, and how checkout and trials work.
 verified:
   date: "2026-10-05"
-  commit: "2112350"
+  commit: "63eeae4"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -33,6 +33,8 @@ Each account's effective limits are worked out in three layers, last one wins:
 1. **Built-in plan limits** for FREE, PRO and ENTERPRISE, shipped with the code. Which plan an account is on: its paying subscription's plan, otherwise the default plan above.
 2. **Plan overrides** (`plans.overrides` under **Settings → Plan limits**): change a limit for every account on a plan, for example raising FREE to 2 agents.
 3. **Account overrides** (the *Limit overrides* tab on an account): change a limit for one account only.
+
+`inspectorRequests` is how many recent requests the [request inspector](/docs/dashboard/request-inspector) keeps per tunnel (0 turns it off for that plan or account). The inspector as a whole can be switched off with `features.requestInspector`.
 
 In both override editors an empty field means "inherit", and *Unlimited* removes the cap. **System → Effective limits** shows the result of layers 1 and 2; the account page shows all three.
 

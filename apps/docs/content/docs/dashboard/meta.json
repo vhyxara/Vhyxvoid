@@ -4,6 +4,7 @@
     "account-and-organizations",
     "api-keys",
     "tunnels",
+    "request-inspector",
     "members-and-roles",
     "billing",
     "feedback-and-notifications"

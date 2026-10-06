@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-05"
-  commit: "2112350"
+  commit: "63eeae4"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -103,4 +103,5 @@ Turn product features on or off.
 
 | Key | Type | Default | Public | What it does |
 | --- | --- | --- | --- | --- |
+| `features.requestInspector` | boolean | `true` | yes | Request inspector. The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests. |
 | `features.feedbackEnabled` | boolean | `true` | yes | Feedback form. Let signed-in users send feedback from the dashboard. |
