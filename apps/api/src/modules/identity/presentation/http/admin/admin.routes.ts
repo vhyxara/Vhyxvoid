@@ -199,7 +199,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       if (!target || target.deletedAt) throw new NotFoundError("Admin not found");
       const hasher = new BcryptPasswordHasher();
       await fastify.prisma.$transaction([
-        fastify.prisma.adminUser.update({ where: { id }, data: { passwordHash: await hasher.hash(input.newPassword), tokenVersion: { increment: 1 } } }),
+        fastify.prisma.adminUser.update({ where: { id }, data: { passwordHash: await hasher.hash(input.newPassword), tokenVersion: { increment: 1 }, failedLoginAttempts: 0, lockedUntil: null } }),
         fastify.prisma.adminSession.updateMany({ where: { adminId: id, revokedAt: null }, data: { revokedAt: new Date() } }),
       ]);
       await fastify.authStateCache.invalidateAdmin(id);
