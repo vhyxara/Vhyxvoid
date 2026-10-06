@@ -35,6 +35,7 @@ import { TrafficStatsService } from '@/services/TrafficStats.service';
 import { requestHostname, type TunnelRoute } from '@/handlers/HttpTunnel.handler';
 import { replayInspectedRequest } from '@/services/Replay.service';
 import type { InspectorRedisWriter } from '@vhyxvoid/shared';
+import { RedisResourceStore, type ResourceRedis } from '@vhyxvoid/shared';
 
 /** Largest WS frame accepted once a socket is registered (10 MB body as base64 + JSON). */
 const MAX_FRAME_BYTES = 32 * 1024 * 1024;
@@ -177,6 +178,7 @@ export class HubServer {
       this.trafficRules,
       undefined, // password-guess limiter: the handler's default
       this.mockApis,
+      new RedisResourceStore(config.redis as unknown as ResourceRedis),
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on

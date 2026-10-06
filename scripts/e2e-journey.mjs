@@ -817,6 +817,70 @@ await step("mock APIs: template served with no agent, rules and templating, Open
   return `${mock.endpointCount} template endpoints, imported 1, mock-first on the live tunnel`;
 });
 
+await step("mock APIs phase 2: resource CRUD at the URL, data view and reset, record from captured traffic, every export, Postman and native import", async () => {
+  const M = (method, p, body) => api(method, `/mocks/${s.personal}${p}`, { token: s.token, body });
+  const created = await M("POST", "", { label: "store", name: "Store", template: "blank" });
+  assert(created.status === 201, `create ${created.status}: ${JSON.stringify(created.json).slice(0, 200)}`);
+  let mock = created.json.data;
+  const host = new URL(mock.url).host;
+  const resources = [{ id: "res_products", name: "products", path: "/products", enabled: true, idField: "id", seed: [{ id: 1, name: "Lamp", price: 30 }, { id: 2, name: "Desk", price: 120 }] }];
+  const saved = await M("PUT", `/${mock.id}`, { resources, expectedVersion: mock.version });
+  assert(saved.status === 200 && saved.json.data.resourceCount === 1, `save resources ${saved.status}: ${JSON.stringify(saved.json).slice(0, 300)}`);
+  mock = saved.json.data;
+  const bad = await M("PUT", `/${mock.id}`, { resources: [{ ...resources[0], path: "/products/:id" }], expectedVersion: mock.version });
+  assert(bad.status === 400, `invalid resource path should be refused, got ${bad.status}`);
+
+  const list = await tunnel(host, "GET", "/products?_sort=price&_order=desc");
+  assert(list.status === 200 && JSON.parse(list.body)[0].name === "Desk" && list.headers["x-total-count"] === "2", `list ${list.status} ${list.body}`);
+  const made = await tunnel(host, "POST", "/products", { headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Chair", price: 60 }) });
+  assert(made.status === 201 && JSON.parse(made.body).id === 3 && made.headers.location === "/products/3", `create ${made.status} ${made.body}`);
+  const patched = await tunnel(host, "PATCH", "/products/3", { headers: { "content-type": "application/json" }, body: '{"price":55}' });
+  assert(patched.status === 200 && JSON.parse(patched.body).price === 55, `patch ${patched.status} ${patched.body}`);
+  assert((await tunnel(host, "GET", "/health")).status === 200, "template endpoint still answers next to the resource");
+  const data = await M("GET", `/${mock.id}/data/res_products`);
+  assert(data.status === 200 && data.json.data.count === 3 && data.json.data.items[2].price === 55, `data view ${JSON.stringify(data.json).slice(0, 300)}`);
+  const tried = await M("POST", `/${mock.id}/try`, { method: "GET", path: "/products/3" });
+  assert(tried.json.data.matched && JSON.parse(tried.json.data.body).name === "Chair", "try reads live resource data");
+  assert((await M("DELETE", `/${mock.id}/data/res_products`)).status === 200, "reset");
+  assert(JSON.parse((await tunnel(host, "GET", "/products")).body).length === 2, "reset brings the seed back");
+
+  // Record: real traffic through the live tunnel becomes endpoints.
+  for (const p of ["/echo?rec=1", "/status/500"]) await tunnel(s.host, "GET", p);
+  let caps = [];
+  for (let i = 0; i < 20 && caps.length < 2; i++) {
+    await sleep(150);
+    caps = ((await api("GET", `/inspector/${s.personal}/app`, { token: s.token })).json?.data?.requests ?? []).filter((x) => x.path === "/echo?rec=1" || x.path === "/status/500");
+  }
+  assert(caps.length >= 2, `captures for recording ${caps.length}`);
+  const rec = await M("POST", `/${mock.id}/record`, { label: "app", ids: caps.map((c) => c.id) });
+  assert(rec.status === 200 && rec.json.data.added === 2, `record ${rec.status}: ${JSON.stringify(rec.json).slice(0, 300)}`);
+  const echoed = await tunnel(host, "GET", "/echo");
+  assert(echoed.status === 200 && echoed.body.includes("/echo") && echoed.headers["x-vhyxvoid-mock"], `recorded endpoint ${echoed.status} ${echoed.body.slice(0, 120)}`);
+  assert((await tunnel(host, "GET", "/status/500")).status === 500, "recorded 500");
+
+  const formats = { openapi: "openapi: 3.0.3", "openapi-json": '"openapi": "3.0.3"', msw: "from 'msw'", postman: "schema.getpostman.com", mockoon: '"lastMigration"', vhyxvoid: '"vhyxvoid": "mock-api"' };
+  const files = {};
+  for (const [format, needle] of Object.entries(formats)) {
+    const r = await fetch(`${API}/mocks/${s.personal}/${mock.id}/export?format=${format}`, { headers: { authorization: `Bearer ${s.token}` } });
+    const text = await r.text();
+    assert(r.status === 200 && text.includes(needle) && /attachment; filename=/.test(r.headers.get("content-disposition") ?? ""), `export ${format} ${r.status} ${text.slice(0, 120)}`);
+    files[format] = text;
+  }
+  assert(files.msw.includes("/products") && files.postman.includes("List products"), "exports include the resource");
+
+  // Import a Postman collection into the mock, and create a second mock from the native export.
+  const postman = { info: { name: "P", schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" }, item: [{ name: "Ping", request: { method: "GET", url: "{{baseUrl}}/ping" }, response: [{ name: "pong", code: 200, header: [{ key: "Content-Type", value: "text/plain" }], body: "pong" }] }] };
+  const imp = await M("POST", `/${mock.id}/import`, { document: postman });
+  assert(imp.status === 200 && imp.json.data.format === "postman" && imp.json.data.added === 1, `import postman ${JSON.stringify(imp.json).slice(0, 200)}`);
+  assert(String((await tunnel(host, "GET", "/ping")).body) === "pong", "imported Postman example answers");
+  const others = (await M("GET", "")).json.data.mocks;
+  for (const o of others) if (o.id !== mock.id) await M("DELETE", `/${o.id}`);
+  const clone = await M("POST", "", { label: "store-copy", name: "Copy", document: files.vhyxvoid });
+  assert(clone.status === 201 && clone.json.data.resourceCount === 1 && clone.json.data.endpointCount === mock.endpointCount + 2, `clone ${clone.status}: ${JSON.stringify(clone.json).slice(0, 300)}`);
+  for (const id of [mock.id, clone.json.data.id]) assert((await M("DELETE", `/${id}`)).status === 200, "delete");
+  return "resource CRUD, record 2, 6 exports, 2 imports";
+});
+
 await step("traffic chart, activity feed and agent fleet reflect the tunnel", async () => {
   const flush = await fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "" } });
   assert(flush.ok, `stats flush ${flush.status} (is HUB_INTERNAL_SECRET set for the journey?)`);

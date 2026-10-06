@@ -39,6 +39,11 @@ import {
   type TrafficPlan,
   mockHandles,
   resolveMock,
+  resourceHandles,
+  resolveResource,
+  MemoryResourceStore,
+  type MockApiDefinition,
+  type MockResourceStore,
 } from '@vhyxvoid/shared';
 import type { TrafficRuleCache } from '@/services/TrafficRuleCache.service';
 import type { CachedMock, MockApiCache } from '@/services/MockApiCache.service';
@@ -110,6 +115,11 @@ function mockRequestHead(req: IncomingMessage) {
   return { method: req.method ?? 'GET', url: req.url ?? '/', headers: req.headers };
 }
 
+/** Whether a mock's endpoints or resources answer this request (endpoints win). */
+function mockAnswers(def: MockApiDefinition, head: ReturnType<typeof mockRequestHead>): boolean {
+  return mockHandles(def, head) || resourceHandles(def, head);
+}
+
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -140,6 +150,8 @@ export class HttpTunnelHandler {
     private readonly passwordGuesses: PasswordGuessLimiter = new PasswordGuessLimiter(),
     // Hosted mock APIs per label; absent means none.
     private readonly mocks?: MockApiCache,
+    // Data of mock resources (Redis at runtime; memory when absent, for tests).
+    private readonly mockStore: MockResourceStore = new MemoryResourceStore(),
   ) {}
 
   /**
@@ -220,7 +232,7 @@ export class HttpTunnelHandler {
       // then the label's mock API, then the inbox.
       if (await this.tryOfflineRules(req, res, label, accountSlug, hostname)) return;
       const offlineMock = await this.offlineMock(label, accountSlug);
-      if (offlineMock && mockHandles(offlineMock.mock.def, mockRequestHead(req))) {
+      if (offlineMock && mockAnswers(offlineMock.mock.def, mockRequestHead(req))) {
         await this.answerOfflineMock(req, res, offlineMock, { label, accountSlug, hostname });
         return;
       }
@@ -288,7 +300,7 @@ export class HttpTunnelHandler {
     // with an agent connected (the rest go to the agent); "OFFLINE" only
     // while the agent is away. Traffic rules' delay and header changes apply.
     const mock = this.mocks ? await this.mocks.get(entry.accountId, label) : null;
-    if (mock && (mock.def.mode === 'ALWAYS' || !agent) && mockHandles(mock.def, mockRequestHead(req))) {
+    if (mock && (mock.def.mode === 'ALWAYS' || !agent) && mockAnswers(mock.def, mockRequestHead(req))) {
       this.usageLimiter?.recordForwarded(entry.accountId);
       await this.answerFromMock(req, res, mock, { accountId: entry.accountId, label, accountSlug, hostname }, plan);
       return;
@@ -856,11 +868,18 @@ export class HttpTunnelHandler {
         return;
       }
     }
-    const answer = resolveMock(
-      mock.def,
-      { method: req.method ?? 'GET', url: req.url ?? '/', headers: req.headers, body: requestBody?.length ? requestBody.toString('utf8') : undefined },
-      { sequence: mock.sequence },
-    );
+    const mreq = { method: req.method ?? 'GET', url: req.url ?? '/', headers: req.headers, body: requestBody?.length ? requestBody.toString('utf8') : undefined };
+    let answer: ReturnType<typeof resolveMock>;
+    try {
+      answer = mockHandles(mock.def, mreq)
+        ? resolveMock(mock.def, mreq, { sequence: mock.sequence })
+        : await resolveResource(mock.def, mreq, this.mockStore, { mockId: mock.def.id ?? `${ctx.accountId}:${ctx.label}` });
+    } catch (err) {
+      // The resource store (Redis) failed: say so instead of hanging or 500-ing blindly.
+      console.warn({ err: (err as Error).message, label: ctx.label }, '[mocks] resource store failed');
+      this.sendError(res, 503, 'The mock’s data store is unavailable right now. Try again shortly.', { code: 'MOCK_STORE_UNAVAILABLE' });
+      return;
+    }
     if (!answer) {
       // mockHandles() said yes; only a definition swapped mid-request gets here.
       this.sendError(res, 404, 'No mock endpoint matches this request.', { code: 'MOCK_NO_ROUTE' });
@@ -888,6 +907,7 @@ export class HttpTunnelHandler {
     if (!this.inspector) return;
     const endpoint = mock.def.endpoints.find((e) => e.id === answer.endpointId);
     const response = endpoint?.responses.find((r) => r.id === answer.responseId);
+    const resource = answer.endpointId.startsWith('resource:') ? mock.def.resources?.find((r) => `resource:${r.id}` === answer.endpointId) : undefined;
     const flat = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]));
     this.inspector.record(ctx.accountId, {
       id: `req_${randomUUID().replace(/-/g, '')}`,
@@ -911,6 +931,7 @@ export class HttpTunnelHandler {
         endpointId: answer.endpointId,
         responseId: answer.responseId,
         ...(endpoint ? { endpointName: endpoint.name || `${endpoint.method} ${endpoint.path}` } : {}),
+        ...(resource ? { endpointName: `Resource ${resource.name}`, responseName: answer.responseId } : {}),
         ...(response?.name ? { responseName: response.name } : {}),
       },
     });

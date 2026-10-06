@@ -137,6 +137,10 @@ export function describeActivity(item: ActivityItem): string {
       return `${m.enabled === false ? 'switched off' : m.enabled === true ? 'switched on' : 'changed'} the mock API ${s(m.name) ?? s(m.label) ?? ''}${typeof m.endpoints === 'number' ? ` (${m.endpoints} endpoint${m.endpoints === 1 ? '' : 's'})` : ''}`.trim()
     case 'MOCK_API_IMPORTED':
       return `${m.replace ? 'replaced the endpoints of' : 'imported OpenAPI endpoints into'} a mock API`
+    case 'MOCK_API_RECORDED':
+      return `recorded ${typeof m.count === 'number' ? `${m.count} captured request${m.count === 1 ? '' : 's'}` : 'captured requests'} into a mock API`
+    case 'MOCK_API_DATA_RESET':
+      return 'reset the data of a mock API resource'
     case 'MOCK_API_DELETED':
       return 'deleted a mock API'
     case 'INSPECTOR_CAPTURE_CHANGED':

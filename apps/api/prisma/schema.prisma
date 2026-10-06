@@ -1316,6 +1316,8 @@ model MockApi {
   cors        Boolean     @default(true)
   latencyMs   Int         @default(0)
   endpoints   Json        @default("[]")
+  /// Stateful REST collections (packages/shared/src/mockResources.ts); data lives in Redis.
+  resources   Json        @default("[]")
   /// Bumped on every save; a stale save is refused (409).
   version     Int         @default(1)
   createdById String?

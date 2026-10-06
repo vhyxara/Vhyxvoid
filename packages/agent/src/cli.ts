@@ -300,6 +300,57 @@ program
     process.exit(results.some((r) => r.status === "fail") ? 1 : 0);
   });
 
+// ── mock command ──────────────────────────────────────────────────────────────
+
+program
+  .command("mock <file>")
+  .description("Serve a mock API on this machine, offline (a VhyxVoid mock export, OpenAPI, Postman, Mockoon or HAR file, as JSON)")
+  .option("-p, --port <port>", "Port to listen on", "4010")
+  .option("--host <host>", "Address to listen on (0.0.0.0 to reach it from other devices)", "127.0.0.1")
+  .option("--no-watch", "Don't reload when the file changes")
+  .option("-q, --quiet", "Don't print a line per request")
+  .action(async (file: string, opts) => {
+    const port = parseInt(opts.port, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      console.error(`\n❌  Invalid port: "${opts.port}"\n`);
+      process.exit(1);
+    }
+    const { startMockServer } = await import("./mockServer");
+    let started: Awaited<ReturnType<typeof startMockServer>>;
+    try {
+      started = await startMockServer({ file, port, host: opts.host, log: opts.quiet ? undefined : (line) => console.log(`  ${line}`) });
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      console.error(`\n❌  ${e.code === "EADDRINUSE" ? `Port ${port} is already in use. Pick another with --port.` : e.message}\n`);
+      process.exit(1);
+    }
+    const m = started.current();
+    const routes = m.def.endpoints.filter((e) => e.enabled).length;
+    const resources = (m.def.resources ?? []).filter((r) => r.enabled);
+    console.log(`\n  🧪  Mock "${m.name}" (${m.format}) on http://${opts.host === "0.0.0.0" ? "localhost" : opts.host}:${port}`);
+    console.log(`      ${routes} endpoint${routes === 1 ? "" : "s"}${resources.length ? `, resources: ${resources.map((r) => r.path).join(", ")}` : ""}`);
+    for (const w of m.warnings.slice(0, 5)) console.log(`      ⚠ ${w}`);
+    if (opts.watch) {
+      let timer: NodeJS.Timeout | undefined;
+      fs.watch(file, () => {
+        clearTimeout(timer);
+        // Editors write in several steps; reload once things settle.
+        timer = setTimeout(() => {
+          try {
+            const r = started.reload();
+            console.log(`  ↻  Reloaded ${file}: ${r.def.endpoints.length} endpoints`);
+          } catch (err) {
+            console.log(`  ⚠  Not reloaded (keeping the previous version): ${(err as Error).message}`);
+          }
+        }, 150);
+      });
+    }
+    console.log("      Ctrl+C to stop.\n");
+    const stop = () => started.server.close(() => process.exit(0));
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
+
 // ── start command (default) ───────────────────────────────────────────────────
 
 program

@@ -161,10 +161,17 @@ export class TunnelSessionRepository {
   async findMockApi(accountId: string, label: string): Promise<MockApiDefinition | null> {
     const row = await (this.prisma as any).mockApi.findUnique({
       where: { accountId_label: { accountId, label } },
-      select: { enabled: true, mode: true, cors: true, latencyMs: true, endpoints: true },
+      select: { id: true, enabled: true, mode: true, cors: true, latencyMs: true, endpoints: true, resources: true },
     });
     if (!row || !row.enabled) return null;
-    return { mode: row.mode, cors: row.cors, latencyMs: row.latencyMs, endpoints: Array.isArray(row.endpoints) ? row.endpoints : [] };
+    return {
+      id: row.id,
+      mode: row.mode,
+      cors: row.cors,
+      latencyMs: row.latencyMs,
+      endpoints: Array.isArray(row.endpoints) ? row.endpoints : [],
+      resources: Array.isArray(row.resources) ? row.resources : [],
+    };
   }
 
   /** Account of a slug, for tunnel URLs with no agent registered; deleted accounts have none. */

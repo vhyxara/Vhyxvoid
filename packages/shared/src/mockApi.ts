@@ -14,6 +14,8 @@
 //
 // Nothing here evaluates user code.
 
+import type { MockResource } from "./mockResources";
+
 export const MOCK_METHODS = ["ANY", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const;
 export type MockMethod = (typeof MOCK_METHODS)[number];
 
@@ -62,10 +64,14 @@ export interface MockEndpoint {
 }
 
 export interface MockApiDefinition {
+  /** The mock's id; keys its resource data. */
+  id?: string;
   mode: MockMode;
   cors: boolean;
   latencyMs: number;
   endpoints: MockEndpoint[];
+  /** Stateful REST collections (mockResources.ts). Endpoints win over them. */
+  resources?: MockResource[];
 }
 
 export const MOCK_BOUNDS = {

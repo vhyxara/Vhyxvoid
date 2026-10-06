@@ -27,3 +27,5 @@ export * from "./traffic";
 export * from "./trafficRules";
 export * from "./agentFleet";
 export * from "./mockApi";
+export * from "./mockResources";
+export * from "./mockInterop";

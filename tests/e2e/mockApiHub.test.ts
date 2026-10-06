@@ -204,4 +204,18 @@ describe("hosted mock APIs at the hub", () => {
     await call(h.port, "GET", "/third");
     expect(h.lookups.count).toBe(2);
   });
+
+  it("resources: CRUD at the hub with no agent; endpoints win over a resource route; inspector names the resource", async () => {
+    const def = mockDef([ep("GET", "/users/me", [{ status: 200, body: "me" }])], { id: "mock_hub", resources: [{ id: "res_u", name: "users", path: "/users", enabled: true, seed: [{ id: 1, name: "Ada" }] }] });
+    const h = await startHub(def, { registered: false });
+    expect(JSON.parse((await call(h.port, "GET", "/users")).body)).toEqual([{ id: 1, name: "Ada" }]);
+    const made = await call(h.port, "POST", "/users", { "content-type": "application/json" }, '{"name":"Alan"}');
+    expect(made.status).toBe(201);
+    expect(made.headers.location).toBe("/users/2");
+    expect(JSON.parse((await call(h.port, "GET", "/users/2")).body).name).toBe("Alan");
+    expect((await call(h.port, "GET", "/users/me")).body).toBe("me");
+    expect((await call(h.port, "DELETE", "/users/2")).status).toBe(204);
+    expect((await call(h.port, "GET", "/users/2")).status).toBe(404);
+    expect(h.recorded.find((e: any) => e.method === "POST").mock).toMatchObject({ endpointName: "Resource users", responseName: "create" });
+  });
 });

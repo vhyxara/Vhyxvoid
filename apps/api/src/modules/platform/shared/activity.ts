@@ -38,6 +38,8 @@ export const ACTIVITY_ROUTES: Record<string, ActivityRoute> = {
     meta: (p, b) => ({ id: p.id, label: str(b?.label, 63), name: str(b?.name, 80), endpoints: Array.isArray(b?.endpoints) ? b!.endpoints.length : undefined, enabled: typeof b?.enabled === "boolean" ? b.enabled : undefined }),
   },
   "DELETE /api/v1/mocks/:accountId/:id": { action: "MOCK_API_DELETED", resourceType: "MockApi", meta: (p) => ({ id: p.id }) },
+  "POST /api/v1/mocks/:accountId/:id/record": { action: "MOCK_API_RECORDED", resourceType: "MockApi", meta: (p, b) => ({ id: p.id, label: str(b?.label, 63), count: Array.isArray(b?.ids) ? b!.ids.length : undefined }) },
+  "DELETE /api/v1/mocks/:accountId/:id/data/:rid": { action: "MOCK_API_DATA_RESET", resourceType: "MockApi", meta: (p) => ({ id: p.id, resource: p.rid }) },
   "POST /api/v1/mocks/:accountId/:id/import": { action: "MOCK_API_IMPORTED", resourceType: "MockApi", meta: (p, b) => ({ id: p.id, replace: b?.replace === true || undefined }) },
   "PUT /api/v1/inbox/:accountId/:label": { action: "INBOX_SETTINGS_UPDATED", resourceType: "Tunnel", meta: (p, b) => ({ label: p.label, enabled: typeof b?.enabled === "boolean" ? b.enabled : undefined }) },
   "POST /api/v1/inspector/:accountId/:label/:id/replay": { action: "REQUEST_REPLAYED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },

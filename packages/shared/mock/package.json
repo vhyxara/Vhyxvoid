@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "main": "../dist/mockEngine.js",
+  "types": "../dist/mockEngine.d.ts"
+}

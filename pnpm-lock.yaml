@@ -630,6 +630,9 @@ importers:
       '@vhyxvoid/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@vhyxvoid/shared':
+        specifier: workspace:*
+        version: link:../shared
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0

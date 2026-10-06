@@ -14,10 +14,16 @@
       "types": "./generated/prisma/client.d.ts",
       "require": "./generated/prisma/client.js",
       "import": "./generated/prisma/client.js"
+    },
+    "./mock": {
+      "types": "./dist/mockEngine.d.ts",
+      "require": "./dist/mockEngine.js",
+      "import": "./dist/mockEngine.js"
     }
   },
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "mock"
   ],
   "scripts": {
     "build": "tsc -b",
