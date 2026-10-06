@@ -1984,3 +1984,22 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "upbeat-cannon",
+  "date": "2026-10-06",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/upbeat-cannon-dwqaj0); vhyxUI, vhyxseal, vhyxchart unchanged",
+  "brief_summary": "Continue in value order: admin-controlled billing (launch free, charge later), request inspector, tunnel access rules, webhook inbox, custom domains and alerts; then write down the value order.",
+  "status": "completed",
+  "summary": "Billing mode, default plan and Stripe prices moved into the console (free by default; Stripe optional at boot). Built the request inspector with replay, tunnel access rules (password, IP allowlist, expiring share links), the webhook inbox (Postgres-held, in-order delivery on reconnect), custom domains (TXT ownership, CNAME/A routing, nginx SNI router + Caddy on-demand TLS) and alerts (offline, error rate, usage, inbox failures, domain changes; in-app, email, webhook). Each has a features.* switch and plan limits editable in the console, dashboard and admin screens, user and operator docs. Also: background jobs on Postgres leases, graceful SIGTERM shutdown, HTML escaping in every email template. Value order and next items recorded in shared/roadmap.md.",
+  "verification": "root vitest 668 passed; web 54, admin 110, api-kit 20; turbo typecheck/build; docs build and check-fresh for new/operator pages; local e2e journey 65/66 incl. the slow offline-alert path (the remaining failure needs /etc/hosts entries); edge test with real nginx + Caddy 13/13; production nginx.conf passes nginx -t; Playwright screenshots of the new screens.",
+  "commits": "2112350..229f290 + the roadmap commit",
+  "open_items_for_next_session": [
+    "Deploy steps in shared/roadmap.md 'Before launch' (Caddy, ACME_EMAIL, edge record DNS-only, Custom domain target setting).",
+    "Next feature: usage and traffic charts from tunnel_minute_stats (shared/roadmap.md).",
+    "dump.rdb (local test Redis data only) is untracked now but remains in branch history; owner chose not to rewrite history."
+  ]
+}
+```
