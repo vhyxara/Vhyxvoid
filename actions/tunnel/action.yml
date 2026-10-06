@@ -1,0 +1,113 @@
+name: VhyxVoid tunnel
+description: Give the app running in this job a public HTTPS URL (preview environments, webhook and e2e tests), and post it on the pull request.
+author: VhyxVoid
+branding:
+  icon: globe
+  color: purple
+
+inputs:
+  api-key:
+    description: API key ID (vhyxvoid_dev_… or vhyxvoid_live_…) with the tunnel:connect scope. Store it as a secret.
+    required: true
+  secret:
+    description: The API key's secret. Store it as a secret.
+    required: true
+  port:
+    description: Local port the app listens on in this job.
+    required: false
+    default: "3000"
+  label:
+    description: Tunnel label (part of the URL). Defaults to pr-<number> on pull requests, otherwise ci-<run id>.
+    required: false
+    default: ""
+  hub:
+    description: Hub WebSocket URL.
+    required: false
+    default: wss://hub.vhyxvoid.com/agent
+  agent-version:
+    description: "@vhyxvoid/agent version to run."
+    required: false
+    default: latest
+  wait-for-app:
+    description: Seconds to wait for something to listen on `port` before starting the tunnel (0 = do not wait).
+    required: false
+    default: "60"
+  timeout:
+    description: Seconds to wait for the tunnel URL.
+    required: false
+    default: "60"
+  comment:
+    description: "Post (and keep updating) a comment with the URL on the pull request. Needs `pull-requests: write`."
+    required: false
+    default: "true"
+  github-token:
+    description: Token for the pull request comment.
+    required: false
+    default: ${{ github.token }}
+  keep-alive-minutes:
+    description: Keep the job (and the URL) up this many minutes after the tunnel starts, for manual review. 0 returns at once so later steps can use the URL; the tunnel ends with the job either way.
+    required: false
+    default: "0"
+
+outputs:
+  url:
+    description: The public HTTPS URL of the tunnel.
+    value: ${{ steps.start.outputs.url }}
+  label:
+    description: The tunnel label used.
+    value: ${{ steps.start.outputs.label }}
+
+runs:
+  using: composite
+  steps:
+    - name: Start the tunnel
+      id: start
+      shell: bash
+      env:
+        VHYXVOID_API_KEY: ${{ inputs.api-key }}
+        VHYXVOID_SECRET: ${{ inputs.secret }}
+        VHYXVOID_PORT: ${{ inputs.port }}
+        VHYXVOID_HUB_URL: ${{ inputs.hub }}
+        INPUT_LABEL: ${{ inputs.label }}
+        INPUT_AGENT_VERSION: ${{ inputs.agent-version }}
+        INPUT_WAIT_FOR_APP: ${{ inputs.wait-for-app }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RUN_ID: ${{ github.run_id }}
+      run: bash "$GITHUB_ACTION_PATH/start.sh"
+
+    - name: Comment on the pull request
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      uses: actions/github-script@v7
+      env:
+        TUNNEL_URL: ${{ steps.start.outputs.url }}
+        TUNNEL_LABEL: ${{ steps.start.outputs.label }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const marker = `<!-- vhyxvoid-tunnel:${process.env.TUNNEL_LABEL} -->`
+          const sha = (context.payload.pull_request?.head?.sha ?? context.sha).slice(0, 7)
+          const body = [
+            marker,
+            `### Preview: ${process.env.TUNNEL_URL}`,
+            '',
+            `Commit \`${sha}\` · tunnel \`${process.env.TUNNEL_LABEL}\` · [job](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
+            '',
+            '_The URL works while the job runs. Served by [VhyxVoid](https://www.vhyxvoid.com)._',
+          ].join('\n')
+          const { owner, repo } = context.repo
+          const issue_number = context.payload.pull_request.number
+          const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 })
+          const mine = comments.find(c => c.body?.includes(marker))
+          if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body })
+          else await github.rest.issues.createComment({ owner, repo, issue_number, body })
+
+    - name: Keep the preview up
+      if: inputs.keep-alive-minutes != '0'
+      shell: bash
+      env:
+        MINUTES: ${{ inputs.keep-alive-minutes }}
+        TUNNEL_URL: ${{ steps.start.outputs.url }}
+      run: |
+        echo "Preview at $TUNNEL_URL for $MINUTES minutes (cancel the job to stop it sooner)."
+        sleep $(( MINUTES * 60 ))
