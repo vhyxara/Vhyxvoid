@@ -63,6 +63,7 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
+  "accessRules",
   "prioritySupport",
   "rotationAllowed",
   "expiryAllowed",

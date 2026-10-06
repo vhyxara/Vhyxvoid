@@ -40,6 +40,11 @@
       "label": "Requests kept in the request inspector (per tunnel, 24 h)",
       "evidence": "apps/hub/src/services/RequestInspector.service.ts",
       "note": "The hub keeps the most recent N requests of each tunnel for 24 hours; 0 turns capture off for the account."
+    },
+    "accessRules": {
+      "label": "Tunnel access rules (password, IP allowlist, share links)",
+      "evidence": "apps/api/src/modules/platform/tunnel-access/tunnelAccess.routes.ts, apps/hub/src/handlers/HttpTunnel.handler.ts",
+      "note": "Needed to create or change rules. Rules that exist keep protecting the tunnel after a downgrade."
     }
   },
   "notEnforced": {

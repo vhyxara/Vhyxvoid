@@ -15,7 +15,12 @@
 export const TRUST_PROXY = ["loopback", "uniquelocal"];
 
 // Every route, keyed on request.ip.
-export const GLOBAL_RATE_LIMIT = { max: 100, timeWindow: "1 minute" };
+// Per IP, every route. RATE_LIMIT_MAX / RATE_LIMIT_WINDOW_MS tune it (they
+// were declared in env.config but never read).
+export const GLOBAL_RATE_LIMIT = {
+  max: Number(process.env.RATE_LIMIT_MAX) > 0 ? Number(process.env.RATE_LIMIT_MAX) : 100,
+  timeWindow: Number(process.env.RATE_LIMIT_WINDOW_MS) > 0 ? Number(process.env.RATE_LIMIT_WINDOW_MS) : 60_000,
+};
 
 // Tighter per-IP limits on the unauthenticated auth endpoints: credential
 // guessing (login), email sending (forgot-password, resend-verification)

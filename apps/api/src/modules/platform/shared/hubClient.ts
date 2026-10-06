@@ -93,6 +93,13 @@ export class HubClient {
     }
   }
 
+  /** Drop the hub's cached access rules so a change applies at once. Best effort. */
+  async invalidatePolicy(accountId: string, label?: string): Promise<void> {
+    if (!this.configured) return;
+    const q = new URLSearchParams({ accountId, ...(label ? { label } : {}) });
+    await this.call(`/internal/policies/invalidate?${q}`, "POST").catch(() => {});
+  }
+
   /** Disconnect every live agent of an account (suspension, deletion). Best effort. */
   async disconnectAccount(accountId: string): Promise<number> {
     if (!this.configured) return 0;

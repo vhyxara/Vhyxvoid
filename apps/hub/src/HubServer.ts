@@ -26,6 +26,7 @@ import { HttpTunnelHandler } from './handlers/HttpTunnel.handler';
 import WebSocket from 'ws';
 import { isInternalRequestAuthorized } from './utils/internalAuth';
 import { RequestInspectorService } from '@/services/RequestInspector.service';
+import { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
 import { replayInspectedRequest } from '@/services/Replay.service';
 import type { InspectorRedisWriter } from '@vhyxvoid/shared';
 
@@ -74,6 +75,7 @@ export class HubServer {
   private readonly statusSweep: AccountStatusSweepService;
   private readonly usageService: HubUsageService;
   private readonly publicPathUsageLimiter: PublicPathUsageLimiter;
+  private readonly policyCache: TunnelPolicyCache;
   private readonly pubsub: HubPubSub;
   private readonly router: MessageRouter;
   // private listenSocket: any = null;
@@ -129,6 +131,8 @@ export class HubServer {
       this.usageService,
     );
 
+    this.policyCache = new TunnelPolicyCache(config.tunnelSessionRepo);
+
     this.httpTunnelHandler = new HttpTunnelHandler(
       this.subdomainRegistry,
       this.agentRegistry,
@@ -137,6 +141,8 @@ export class HubServer {
       new TunnelWsRegistry(),
       this.publicPathUsageLimiter,
       new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo),
+      this.policyCache,
+      config.pepper,
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on
@@ -431,6 +437,7 @@ export class HubServer {
    * GET  /internal/stats                       live counters
    * GET  /internal/agents                      connected agents
    * POST /internal/agents/:agentId/disconnect  force-disconnect one agent
+   * POST /internal/policies/invalidate?accountId=&label=  drop cached access rules
    * POST /internal/replay                      replay an inspected request {accountId, label, id}
    * Authorized by `x-hub-internal-secret` = HUB_INTERNAL_SECRET; fails closed.
    * nginx must not expose /internal/ publicly (see nginx.conf).
@@ -450,6 +457,12 @@ export class HubServer {
       const accountId = url.searchParams.get('accountId');
       const agents = this.listAgents().filter((a) => !accountId || a.accountId === accountId);
       return send(200, { agents });
+    }
+    if (req.method === 'POST' && url.pathname === '/internal/policies/invalidate') {
+      const accountId = url.searchParams.get('accountId');
+      if (!accountId) return send(400, { error: 'accountId is required' });
+      this.policyCache.invalidate(accountId, url.searchParams.get('label') ?? undefined);
+      return send(200, { invalidated: true });
     }
     if (req.method === 'POST' && url.pathname === '/internal/replay') {
       readJsonBody(req)

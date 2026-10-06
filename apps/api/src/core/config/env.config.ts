@@ -12,7 +12,7 @@ const envSchema = z.object({
     .default("development"),
   PORT: z.coerce.number().default(9000),
   DATABASE_URL: z.string().min(1),
-  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
   LOG_LEVEL: z.string().default("info"),
   REDIS_URL: z.string().optional(),

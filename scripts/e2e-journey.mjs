@@ -947,6 +947,7 @@ if (process.env.ADMIN_EMAIL) {
     assert(k.status === 201 || k.status === 200, `key ${k.status}: ${JSON.stringify(k.json).slice(0, 200)}`);
     const d = k.json.data ?? k.json;
     s.adminKeyUuid = d.key?.id ?? d.id;
+    s.adminKey = { keyId: d.key?.keyId ?? d.keyId, secret: d.secret };
     // FREE allows one agent and the journey's first agent is still connected:
     // a per-account override raises the limit for this account only.
     const refused = startAgent({ key: d.key?.keyId ?? d.keyId, secret: d.secret, port: s.backendPort, label: "overlimit" });
@@ -973,6 +974,63 @@ if (process.env.ADMIN_EMAIL) {
     assert(res && res.code === 1, `agent did not stop: ${JSON.stringify(res)}; ${agent.output().slice(-300)}`);
     const reset = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
     assert(reset.status === 200, `reset override ${reset.status}`);
+  });
+
+  await step("access rules: refused on FREE, then password, share link, revoke, IP allowlist, public again", async () => {
+    const U = (m, p, o = {}) => api(m, `/tunnel-access/${s.personal}${p}`, { token: s.token, ...o });
+    const free = await U("PUT", "/guarded", { body: { password: "correct-horse" } });
+    assert(free.status === 402, `FREE should be refused: ${free.status}`);
+    const grant = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxAgents: 2, accessRules: true } } });
+    assert(grant.status === 200, `override ${grant.status}`);
+    const agent = startAgent({ key: s.adminKey.keyId, secret: s.adminKey.secret, port: s.backendPort, label: "guarded" });
+    const host = new URL((await agent.waitFor(/Public:\s+(\S+)/, 20_000))[1]).host;
+    try {
+      const set = await U("PUT", "/guarded", { body: { password: "correct-horse" } });
+      assert(set.status === 200 && set.json.data.hasPassword, `set ${set.status}: ${JSON.stringify(set.json)}`);
+      const anon = await tunnel(host, "GET", "/echo");
+      assert(anon.status === 401 && /Basic/.test(anon.headers["www-authenticate"] ?? ""), `anonymous ${anon.status}`);
+      const basic = "Basic " + Buffer.from("x:correct-horse").toString("base64");
+      const ok = await tunnel(host, "GET", "/echo", { headers: { authorization: basic } });
+      assert(ok.status === 200, `with password ${ok.status}`);
+      assert(!JSON.parse(ok.body).headers.authorization, "tunnel password reached the backend");
+      const wrong = await tunnel(host, "GET", "/echo", { headers: { authorization: "Basic " + Buffer.from("x:nope").toString("base64") } });
+      assert(wrong.status === 401, `wrong password ${wrong.status}`);
+
+      const link = await U("POST", "/guarded/share-links", { body: { hours: 1 } });
+      assert(link.status === 201, `share link ${link.status}: ${JSON.stringify(link.json)}`);
+      const hop = await tunnel(host, "GET", `/echo?a=1&${link.json.data.query}`);
+      assert(hop.status === 302 && hop.headers.location === "/echo?a=1", `share redirect ${hop.status} ${hop.headers.location}`);
+      const cookie = String(hop.headers["set-cookie"]).split(";")[0];
+      const viaCookie = await tunnel(host, "GET", "/echo", { headers: { cookie: `theirs=1; ${cookie}` } });
+      assert(viaCookie.status === 200, `with share cookie ${viaCookie.status}`);
+      assert(JSON.parse(viaCookie.body).headers.cookie === "theirs=1", "share cookie reached the backend");
+
+      const revoke = await U("POST", "/guarded/revoke-links");
+      assert(revoke.status === 200, `revoke ${revoke.status}`);
+      const revoked = await tunnel(host, "GET", "/echo", { headers: { cookie } });
+      assert(revoked.status === 401, `revoked link still works: ${revoked.status}`);
+
+      const ips = await U("PUT", "/guarded", { body: { ipAllowlist: ["10.0.0.0/8"] } });
+      assert(ips.status === 200, `allowlist ${ips.status}`);
+      const blocked = await tunnel(host, "GET", "/echo", { headers: { authorization: basic } });
+      assert(blocked.status === 403, `outside the allowlist ${blocked.status}`);
+      const badIp = await U("PUT", "/guarded", { body: { ipAllowlist: ["not-an-ip"] } });
+      assert(badIp.status === 400, `invalid allowlist ${badIp.status}`);
+
+      const pub = await U("DELETE", "/guarded");
+      assert(pub.status === 200, `remove ${pub.status}`);
+      const open = await tunnel(host, "GET", "/echo");
+      assert(open.status === 200, `public again ${open.status}`);
+      const listed = await U("GET", "");
+      assert(listed.status === 200 && listed.json.data.planAllows && listed.json.data.liveLabels.includes("guarded"), `overview ${JSON.stringify(listed.json.data)}`);
+    } finally {
+      agent.child.kill("SIGINT");
+      await Promise.race([agent.exited, sleep(5_000)]);
+      await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    }
+    const after = await P("GET", `/accounts/${s.personal}`);
+    assert(after.status === 200, `account ${after.status}: ${JSON.stringify(after.json).slice(0, 200)}`);
+    assert(after.json.data.limitOverrides == null, `overrides not cleared: ${JSON.stringify(after.json.data.limitOverrides)}`);
   });
 
   await step("admin v2: suspending an account needs a reason, refuses its keys, and reactivates", async () => {

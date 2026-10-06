@@ -21,6 +21,7 @@ export const BOOLEAN_LIMITS = [
   ['prodKeysAllowed', 'Production keys'],
   ['rotationAllowed', 'Key rotation'],
   ['expiryAllowed', 'Key expiry'],
+  ['accessRules', 'Tunnel access rules (password, IP allowlist, share links)'],
   ['customDomains', 'Custom domains'],
   ['prioritySupport', 'Priority support']
 ] as const

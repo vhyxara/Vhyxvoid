@@ -1,6 +1,7 @@
 // /api/v1/admin/accounts — support view of customer accounts.
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma";
 import { CONNECTABLE_ACCOUNT_STATUSES, currentPlanOverrides, getEffectivePlanLimitsForAccount, validateLimitOverrides } from "@vhyxvoid/shared";
 import { NotFoundError, ValidationError } from "@/core/errors/error.format";
 import { successResponse } from "@/core/utils/response.util";
@@ -120,7 +121,8 @@ export async function adminAccountRoutes(fastify: FastifyInstance, opts: { hub: 
         ...(body.status !== undefined ? { status: body.status, statusReason: body.status === "ACTIVE" ? null : body.statusReason ?? null } : {}),
         ...(body.statusReason !== undefined && body.status === undefined ? { statusReason: body.statusReason } : {}),
         ...(body.adminNotes !== undefined ? { adminNotes: body.adminNotes } : {}),
-        ...(body.limitOverrides !== undefined ? { limitOverrides: body.limitOverrides === null ? undefined : (body.limitOverrides as object) } : {}),
+        // null clears the column (Prisma.DbNull); `undefined` would leave it as it was.
+        ...(body.limitOverrides !== undefined ? { limitOverrides: body.limitOverrides === null ? Prisma.DbNull : (body.limitOverrides as object) } : {}),
       },
     });
     if (body.limitOverrides === null) await prisma.$executeRaw`UPDATE "Account" SET "limitOverrides" = NULL WHERE id = ${id}`;

@@ -14,7 +14,18 @@
 // It does NOT use Fastify — the hub is a raw Node.js HTTP server.
 
 import type { RequestInspectorService } from '@/services/RequestInspector.service';
-import { captureBody, INSPECT_BODY_MAX_BYTES, isBinaryForInspector, maskHeaders, type InspectedRequest } from '@vhyxvoid/shared';
+import type { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
+import {
+  ACCESS_COOKIE,
+  captureBody,
+  evaluateTunnelAccess,
+  INSPECT_BODY_MAX_BYTES,
+  isBinaryForInspector,
+  maskHeaders,
+  stripAccessCookie,
+  type AccessDecision,
+  type InspectedRequest,
+} from '@vhyxvoid/shared';
 import { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AgentRegistry, PendingRegistry, TunnelWsRegistry, closeBrowserSocket } from '@/registry';
@@ -89,6 +100,9 @@ export class HttpTunnelHandler {
     private readonly usageLimiter?: PublicPathUsageLimiter,
     // Request inspector capture; absent (tests, older wiring) means none.
     private readonly inspector?: RequestInspectorService,
+    // Access rules (password / IP allowlist / share links); absent means none.
+    private readonly policies?: TunnelPolicyCache,
+    private readonly pepper: string = process.env.SERVER_HMAC_PEPPER ?? '',
   ) {}
 
   /**
@@ -191,6 +205,11 @@ export class HttpTunnelHandler {
       }
     }
 
+    // Access rules: checked after the abuse limiter (a password-guessing
+    // flood is still capped) and before anything reaches the agent.
+    const access = await this.checkAccess(entry.accountId, label, req);
+    if (!access.allow) return this.sendAccessDenied(res, access, label);
+
     // Get the agent's live WebSocket connection
     const agent = this.agentRegistry.findByAgentId(entry.agentId);
 
@@ -266,6 +285,8 @@ export class HttpTunnelHandler {
     const forwardHeaders = this.sanitizeHeaders(req.headers as Record<string, string>);
     delete forwardHeaders['x-vhyxvoid-internal'];
     delete forwardHeaders['x-vhyxvoid-replay-of'];
+    // The tunnel's own credentials are not the app's: don't forward them.
+    this.withoutTunnelCredentials(forwardHeaders, access.stripAuthorization);
 
     // Request inspector: one entry per request that reached an agent,
     // written after the response (never on the request's critical path).
@@ -467,6 +488,16 @@ export class HttpTunnelHandler {
       return;
     }
 
+    // Same access rules as plain HTTP (no redirect dance for share links:
+    // a browser opening a WebSocket already carries the cookie).
+    const wsAccess = await this.checkAccess(entry.accountId, label, req);
+    if (!wsAccess.allow) {
+      const line = wsAccess.status === 403 ? '403 Forbidden' : '401 Unauthorized';
+      socket.write(`HTTP/1.1 ${line}\r\n${wsAccess.status === 401 ? `WWW-Authenticate: Basic realm="${label}", charset="UTF-8"\r\n` : ''}\r\n`);
+      socket.destroy();
+      return;
+    }
+
     this.tunnelWss.handleUpgrade(req, socket, head, (browserWs) => {
       const connectionId = `ws_${randomUUID().replace(/-/g, '')}`;
 
@@ -495,7 +526,7 @@ export class HttpTunnelHandler {
         connectionId,
         path: req.url ?? '/',
         query: '',
-        headers: this.sanitizeHeaders(req.headers as Record<string, string>),
+        headers: this.withoutTunnelCredentials(this.sanitizeHeaders(req.headers as Record<string, string>), wsAccess.stripAuthorization),
       };
       agent.ws.send(serialize(openMsg as any));
 
@@ -613,6 +644,60 @@ export class HttpTunnelHandler {
   }
 
   // ── Private helpers ───────────────────────────────────────
+
+  /** Access rules for this tunnel; fails closed if they cannot be read. */
+  private async checkAccess(accountId: string, label: string, req: IncomingMessage): Promise<AccessDecision> {
+    if (!this.policies) return { allow: true, stripAuthorization: false };
+    // A dashboard replay (the API already checked the user is a member).
+    if (this.replayMarker(req)) return { allow: true, stripAuthorization: false };
+    try {
+      const policy = await this.policies.get(accountId, label);
+      return evaluateTunnelAccess(
+        policy,
+        { ip: clientIp(req), authorization: req.headers.authorization, cookie: req.headers.cookie, url: req.url ?? '/' },
+        this.pepper,
+      );
+    } catch {
+      return { allow: false, status: 403, reason: 'Access rules for this tunnel could not be checked. Try again shortly.' };
+    }
+  }
+
+  private sendAccessDenied(res: ServerResponse, d: Exclude<AccessDecision, { allow: true }>, label: string): void {
+    if (d.status === 302) {
+      const secure = this.isSecureRequest(res.req);
+      res.writeHead(302, {
+        Location: d.location,
+        'Set-Cookie': `${ACCESS_COOKIE}=${d.cookie.value}; Max-Age=${d.cookie.maxAgeSeconds}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`,
+        'Cache-Control': 'no-store',
+        'Content-Length': 0,
+      });
+      res.end();
+      return;
+    }
+    this.sendError(
+      res,
+      d.status,
+      d.reason,
+      d.status === 401 ? { headers: { 'WWW-Authenticate': `Basic realm="${label}", charset="UTF-8"` } } : undefined,
+    );
+  }
+
+  /** Drops the tunnel password (when it was used) and the share cookie, in place. */
+  private withoutTunnelCredentials(headers: Record<string, string>, stripAuthorization: boolean): Record<string, string> {
+    if (stripAuthorization) delete headers['authorization'];
+    if (headers['cookie']?.includes(`${ACCESS_COOKIE}=`)) {
+      const kept = stripAccessCookie(headers['cookie']);
+      if (kept) headers['cookie'] = kept;
+      else delete headers['cookie'];
+    }
+    return headers;
+  }
+
+  private isSecureRequest(req: IncomingMessage | undefined): boolean {
+    if (!req) return false;
+    const proto = req.headers['x-forwarded-proto'];
+    return proto === 'https' || (req.socket as { encrypted?: boolean } | undefined)?.encrypted === true;
+  }
 
   /** The replayed request id, only when the hub itself sent this request. */
   private replayMarker(req: IncomingMessage): string | null {

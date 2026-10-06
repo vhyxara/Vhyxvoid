@@ -250,6 +250,7 @@ model Account {
   apiKeys            ApiKey[]
   securityEvents     SecurityEvent[]
   tunnelSessions     TunnelSession[]
+  tunnelPolicies     TunnelPolicy[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1042,3 +1043,26 @@ model ContentRevision {
   @@unique([entryId, version])
   @@map("content_revisions")
 }
+
+// Access rules for one public tunnel (account + label), enforced by the hub
+// before a request reaches the agent. No row = public.
+//   passwordHash: HMAC-SHA256(SERVER_HMAC_PEPPER, accountId|label|password), hex
+//   ipAllowlist:  addresses or CIDRs; empty = any address
+//   version:      signed into share links; bumping it revokes every link
+model TunnelPolicy {
+  id           String   @id @default(uuid())
+  accountId    String
+  label        String
+  passwordHash String?
+  ipAllowlist  String[] @default([])
+  version      Int      @default(1)
+  updatedById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, label])
+  @@map("tunnel_policies")
+}
+

@@ -4,6 +4,7 @@
 // The MessageRouter already resolves the internal apiKey UUID before calling upsert().
 // This repo receives the internal UUID directly — no secondary lookup needed.
 
+import type { TunnelPolicyRecord } from '@vhyxvoid/shared';
 import { PrismaClient } from '@/generated/prisma';
 import { randomUUID } from 'crypto';
 import {
@@ -136,6 +137,14 @@ export class TunnelSessionRepository {
    * The account's real plan and its concurrent-agent limit, by the same rule
    * API-key creation uses (resolvePlanForAccount in @vhyxvoid/shared).
    */
+  /** Access rules of one tunnel (apps/hub TunnelPolicyCache). */
+  async findTunnelPolicy(accountId: string, label: string): Promise<TunnelPolicyRecord | null> {
+    return (this.prisma as any).tunnelPolicy.findUnique({
+      where: { accountId_label: { accountId, label } },
+      select: { accountId: true, label: true, passwordHash: true, ipAllowlist: true, version: true },
+    });
+  }
+
   async findPlanLimitsForAccount(accountId: string): Promise<PlanLimits & { plan: Plan }> {
     // Built-in plan limits with the admin's plan-wide and per-account
     // overrides applied (settings `plans.overrides`, Account.limitOverrides).
