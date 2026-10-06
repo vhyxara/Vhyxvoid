@@ -31,7 +31,7 @@ function copy(text: string) {
   )
 }
 
-type Start = { kind: 'template'; key: string; name: string } | { kind: 'openapi' }
+type Start = { kind: 'template'; key: string; name: string } | { kind: 'file' }
 
 export default function MocksView({ accountId }: { accountId: string }) {
   const ready = useBootstrapReady()
@@ -75,7 +75,13 @@ export default function MocksView({ accountId }: { accountId: string }) {
                 {o.templates.map(t => (
                   <StartCard key={t.key} icon={TEMPLATE_ICON[t.key] ?? 'tabler-file'} title={t.name} body={t.description} disabled={!canCreate} onClick={() => setStart({ kind: 'template', key: t.key, name: t.name })} />
                 ))}
-                <StartCard icon='tabler-file-import' title='From OpenAPI' body='Paste or upload an OpenAPI 3 or Swagger 2 file (JSON or YAML). Every operation becomes an endpoint with its example response.' disabled={!canCreate} onClick={() => setStart({ kind: 'openapi' })} />
+                <StartCard
+                  icon='tabler-file-import'
+                  title='Import a file'
+                  body='OpenAPI or Swagger (JSON or YAML), a Postman collection, a Mockoon environment, a HAR recording from your browser, or a VhyxVoid export. Every request becomes an endpoint with its example response.'
+                  disabled={!canCreate}
+                  onClick={() => setStart({ kind: 'file' })}
+                />
               </div>
             </section>
           )}
@@ -207,7 +213,7 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
   const [name, setName] = useState(start.kind === 'template' && start.key !== 'blank' ? start.name : '')
   const [label, setLabel] = useState(free(suggested))
   const [labelTouched, setLabelTouched] = useState(false)
-  const [openapi, setOpenapi] = useState('')
+  const [doc, setDoc] = useState('')
   const file = useRef<HTMLInputElement>(null)
 
   const labelOk = LABEL_RE.test(label) && !label.includes('--') && !taken.has(label)
@@ -216,7 +222,7 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
       mocksService.create(accountId, {
         name: name.trim() || (start.kind === 'template' ? start.name : 'Imported API'),
         label,
-        ...(start.kind === 'template' ? { template: start.key } : { openapi })
+        ...(start.kind === 'template' ? { template: start.key } : { document: doc })
       }),
     onSuccess: m => {
       toast.success(`${m.name} is live with ${m.endpointCount} endpoint${m.endpointCount === 1 ? '' : 's'}`)
@@ -229,7 +235,7 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
   async function readFile(f: File | undefined) {
     if (!f) return
     if (f.size > 5_000_000) return toast.danger('The file is over 5 MB')
-    setOpenapi(await f.text())
+    setDoc(await f.text())
   }
 
   return (
@@ -237,7 +243,7 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
       <Dialog.Portal>
         <Dialog.Overlay />
         <Dialog.Content>
-          <Dialog.Title>{start.kind === 'template' ? `New mock: ${start.name}` : 'New mock from OpenAPI'}</Dialog.Title>
+          <Dialog.Title>{start.kind === 'template' ? `New mock: ${start.name}` : 'New mock from a file'}</Dialog.Title>
           <form
             className='flex flex-col gap-3'
             onSubmit={e => {
@@ -267,16 +273,16 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
               hint={labelOk ? `The URL is https://<your slug>--${label}.vhyxvoid.com. Use a tunnel’s label to mock part of it.` : undefined}
               error={!label || labelOk ? undefined : taken.has(label) ? 'You already have a mock with this label.' : 'Lowercase letters, digits and single hyphens.'}
             />
-            {start.kind === 'openapi' && (
+            {start.kind === 'file' && (
               <>
-                <TextareaField name='openapi' label='OpenAPI document' rows={10} value={openapi} onChange={e => setOpenapi(e.target.value)} placeholder={'openapi: 3.0.3\ninfo:\n  title: Pets\npaths:\n  /pets: …'} style={mono} />
+                <TextareaField name='document' label='Document' rows={10} value={doc} onChange={e => setDoc(e.target.value)} placeholder={'openapi: 3.0.3\ninfo:\n  title: Pets\npaths:\n  /pets: …'} hint='The format is detected for you.' style={mono} />
                 <div className='flex items-center gap-2'>
-                  <input ref={file} type='file' accept='.json,.yaml,.yml,application/json,text/yaml' hidden onChange={e => readFile(e.target.files?.[0])} />
+                  <input ref={file} type='file' accept='.json,.yaml,.yml,.har,application/json,text/yaml' hidden onChange={e => readFile(e.target.files?.[0])} />
                   <Button type='button' size='sm' variant='outline' onClick={() => file.current?.click()}>
                     Upload a file
                   </Button>
                   <Typography variant='caption' style={muted}>
-                    JSON or YAML, up to 5 MB.
+                    JSON, YAML or .har, up to 5 MB.
                   </Typography>
                 </div>
               </>
@@ -285,7 +291,7 @@ function CreateDialog({ accountId, start, o, onClose }: { accountId: string; sta
               <Button variant='secondary' type='button' onClick={onClose}>
                 Cancel
               </Button>
-              <Button type='submit' loading={create.isPending} disabled={!labelOk || (start.kind === 'openapi' && openapi.trim().length < 10)}>
+              <Button type='submit' loading={create.isPending} disabled={!labelOk || (start.kind === 'file' && doc.trim().length < 10)}>
                 Create mock
               </Button>
             </Dialog.Footer>

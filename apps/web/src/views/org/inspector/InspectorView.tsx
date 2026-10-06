@@ -21,6 +21,7 @@ import type { InspectedRequest, InspectedSummary } from '@/api/domain/inspector/
 import { inspectorService } from '@/api/infrastructure/services/inspector.service'
 import { formatBytes, prettyBody, statusVariant, toCurl } from './inspectorFormat'
 import { DRAFT_KEY, ruleFromCapture } from '../rules/rulesForm'
+import { AddToMockDialog } from '@/views/org/mocks/MockPhase2Parts'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
@@ -122,6 +123,7 @@ function Body({ body, contentType }: { body: InspectedRequest['request']['body']
 function Detail({ accountId, label, id }: { accountId: string; label: string; id: string }) {
   const { data: r, isLoading, error } = useInspectedRequest(accountId, label, id)
   const replay = useReplayRequest(accountId, label)
+  const [addToMock, setAddToMock] = useState(false)
   const router = useRouter()
 
   if (isLoading) return <Skeleton height='20rem' />
@@ -183,6 +185,11 @@ function Detail({ accountId, label, id }: { accountId: string; label: string; id
               }}
             >
               Mock this response
+            </Button>
+          )}
+          {r.response && !r.mock && (
+            <Button size='sm' variant='outline' icon={<i className='tabler-api' />} onClick={() => setAddToMock(true)}>
+              Add to a mock API
             </Button>
           )}
           <Button size='sm' variant='outline' icon={<i className='tabler-terminal-2' />} onClick={copyCurl}>
@@ -252,6 +259,7 @@ function Detail({ accountId, label, id }: { accountId: string; label: string; id
           </div>
         </Tabs.Content>
       </Tabs>
+      {addToMock && <AddToMockDialog accountId={accountId} label={label} requestId={r.id} title={`${r.method} ${r.path}`} onClose={() => setAddToMock(false)} />}
     </div>
   )
 }

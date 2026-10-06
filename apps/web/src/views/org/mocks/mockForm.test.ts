@@ -98,3 +98,21 @@ describe('engine parity', () => {
     expect(examplePath({ path: '/users/{id}' })).toBe('/users/1')
   })
 })
+
+describe('resources', () => {
+  it('new resources get a free path; routes and seed parsing', async () => {
+    const { newResource, resourceRoutes, parseSeed, RESOURCE_PATH_RE } = await import('./mockForm')
+    const a = newResource([])
+    const b = newResource([a])
+
+    expect(a.path).toBe('/users')
+    expect(b.path).not.toBe('/users')
+    expect(resourceRoutes({ path: '/users', idField: 'uid' }).map(r => `${r.method} ${r.path}`)).toContain('PATCH /users/:uid')
+    expect(parseSeed('[{"id":1}]')).toEqual({ seed: [{ id: 1 }] })
+    expect(parseSeed('{"id":1}')).toEqual({ error: expect.stringMatching(/JSON list/) })
+    expect(parseSeed('[1]')).toEqual({ error: expect.stringMatching(/object/) })
+    expect(parseSeed('[')).toEqual({ error: expect.stringMatching(/Not valid JSON/) })
+    expect(RESOURCE_PATH_RE.test('/api/v1/orders')).toBe(true)
+    expect(RESOURCE_PATH_RE.test('/users/:id')).toBe(false)
+  })
+})

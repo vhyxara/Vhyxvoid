@@ -21,6 +21,7 @@ import {
   type MockEndpoint,
   type MockMethod,
   type MockMode,
+  type MockResource,
   type MockResponse,
   type MockRule,
   type MockTryAnswer
@@ -43,6 +44,7 @@ import {
   headersToRows,
   moveItem,
   newEndpoint,
+  newResource,
   newResponse,
   pathParams,
   pathProblem,
@@ -51,11 +53,12 @@ import {
   type HeaderRow
 } from './mockForm'
 import { mockKeys } from './MocksView'
+import { ExportDialog, RecordDialog, ResourceEditor } from './MockPhase2Parts'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
 
-type Draft = Pick<MockApi, 'name' | 'label' | 'description' | 'enabled' | 'mode' | 'cors' | 'latencyMs' | 'endpoints'>
+type Draft = Pick<MockApi, 'name' | 'label' | 'description' | 'enabled' | 'mode' | 'cors' | 'latencyMs' | 'endpoints' | 'resources'>
 
 const draftOf = (m: MockApi): Draft => ({
   name: m.name,
@@ -65,7 +68,8 @@ const draftOf = (m: MockApi): Draft => ({
   mode: m.mode,
   cors: m.cors,
   latencyMs: m.latencyMs,
-  endpoints: m.endpoints
+  endpoints: m.endpoints,
+  resources: m.resources ?? []
 })
 
 function copy(text: string) {
@@ -73,16 +77,6 @@ function copy(text: string) {
     () => toast.success('Copied'),
     () => toast.danger('Could not copy')
   )
-}
-
-function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
 }
 
 export default function MockEditorView({ accountId, mockId }: { accountId: string; mockId: string }) {
@@ -94,12 +88,13 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
   const [draft, setDraft] = useState<Draft | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
-  const [dialog, setDialog] = useState<'try' | 'import' | 'delete' | null>(null)
+  const [dialog, setDialog] = useState<'try' | 'import' | 'delete' | 'export' | 'record' | null>(null)
 
   const d = draft ?? (m ? draftOf(m) : null)
   const dirty = !!m && !!draft && JSON.stringify(draft) !== JSON.stringify(draftOf(m))
   const canEdit = !!m?.canManage
   const endpoint = d?.endpoints.find(e => e.id === selected) ?? null
+  const resource = d?.resources.find(r => r.id === selected) ?? null
 
   useEffect(() => {
     if (d && !selected && d.endpoints.length) setSelected(d.endpoints[0].id)
@@ -118,6 +113,7 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
   const update = (patch: Partial<Draft>) => setDraft({ ...(d as Draft), ...patch })
   const setEndpoints = (fn: (eps: MockEndpoint[]) => MockEndpoint[]) => update({ endpoints: fn(d!.endpoints) })
   const patchEndpoint = (id: string, patch: Partial<MockEndpoint>) => setEndpoints(eps => eps.map(e => (e.id === id ? { ...e, ...patch } : e)))
+  const patchResource = (id: string, patch: Partial<MockResource>) => update({ resources: d!.resources.map(r => (r.id === id ? { ...r, ...patch } : r)) })
 
   const save = useMutation({
     mutationFn: () => mocksService.save(accountId, mockId, { ...draft!, expectedVersion: m!.version }),
@@ -164,13 +160,6 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
   const labelOk = LABEL_RE.test(d.label) && !d.label.includes('--')
   const baseUrl = m.url && d.label === m.label ? m.url : null
 
-  async function exportAs(format: 'json' | 'yaml') {
-    try {
-      download(await mocksService.exportOpenApi(accountId, mockId, format), `${m!.label}.openapi.${format}`)
-    } catch (e) {
-      toast.danger((e as Error).message)
-    }
-  }
 
   return (
     <div className='flex flex-col gap-4'>
@@ -208,9 +197,14 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
               Requests
             </Button>
           </Link>
-          <Button size='sm' variant='ghost' icon={<i className='tabler-file-export' />} onClick={() => exportAs('yaml')}>
-            OpenAPI
+          <Button size='sm' variant='ghost' icon={<i className='tabler-file-export' />} onClick={() => setDialog('export')}>
+            Export
           </Button>
+          {canEdit && (
+            <Button size='sm' variant='ghost' icon={<i className='tabler-player-record' />} onClick={() => setDialog('record')} disabled={dirty} title={dirty ? 'Save or discard your changes first' : 'Create endpoints from captured traffic'}>
+              Record
+            </Button>
+          )}
           {canEdit && (
             <Button size='sm' variant='ghost' icon={<i className='tabler-file-import' />} onClick={() => setDialog('import')} disabled={dirty} title={dirty ? 'Save or discard your changes first' : undefined}>
               Import
@@ -333,11 +327,78 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
             <Typography variant='caption' style={muted}>
               {d.endpoints.length} of {m.maxEndpoints} endpoints. The first match from the top answers.
             </Typography>
+            <div className='flex items-center justify-between gap-2' style={{ borderBlockStart: '1px solid var(--vhyx-color-border)', paddingBlockStart: 10, marginBlockStart: 4 }}>
+              <Typography variant='body2' style={{ fontWeight: 600 }}>
+                Resources
+              </Typography>
+              {canEdit && (
+                <Button
+                  size='xs'
+                  variant='ghost'
+                  icon={<i className='tabler-plus' />}
+                  disabled={d.resources.length >= 20}
+                  onClick={() => {
+                    const r = newResource(d.resources)
+
+                    update({ resources: [...d.resources, r] })
+                    setSelected(r.id)
+                  }}
+                >
+                  Resource
+                </Button>
+              )}
+            </div>
+            {d.resources.length === 0 ? (
+              <Typography variant='caption' style={muted}>
+                A resource is a ready-made REST collection with stored data, like /users with list, create, read, update and delete.
+              </Typography>
+            ) : (
+              d.resources.map(r => (
+                <button
+                  key={r.id}
+                  type='button'
+                  onClick={() => setSelected(r.id)}
+                  aria-current={r.id === selected ? 'true' : undefined}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: 0,
+                    textAlign: 'start',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    background: r.id === selected ? 'var(--vhyx-color-bg-muted)' : 'transparent',
+                    opacity: r.enabled ? 1 : 0.5
+                  }}
+                >
+                  <i className='tabler-database' aria-hidden style={{ color: 'var(--vhyx-color-accent)' }} />
+                  <span style={{ ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.path}</span>
+                  <span style={{ ...muted, fontSize: 12 }}>{r.seed.length} seed</span>
+                </button>
+              ))
+            )}
           </div>
         </Card>
 
         <div style={{ gridColumn: 'span 2', minInlineSize: 0 }}>
-          {endpoint ? (
+          {resource ? (
+            <ResourceEditor
+              key={resource.id}
+              accountId={accountId}
+              mockId={mockId}
+              r={resource}
+              saved={m.resources?.find(x => x.id === resource.id)}
+              baseUrl={baseUrl}
+              canEdit={canEdit}
+              onChange={patch => patchResource(resource.id, patch)}
+              onDelete={() => {
+                update({ resources: d.resources.filter(x => x.id !== resource.id) })
+                setSelected(d.endpoints[0]?.id ?? null)
+              }}
+            />
+          ) : endpoint ? (
             <EndpointEditor
               key={endpoint.id}
               e={endpoint}
@@ -395,6 +456,20 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
         </Card>
       )}
 
+      {dialog === 'export' && <ExportDialog accountId={accountId} mockId={mockId} dirty={dirty} onClose={() => setDialog(null)} />}
+      {dialog === 'record' && (
+        <RecordDialog
+          accountId={accountId}
+          mockId={mockId}
+          defaultLabel={m.label}
+          onClose={() => setDialog(null)}
+          onDone={updated => {
+            qc.setQueryData(mockKeys.one(accountId, mockId), { ...m, ...updated })
+            qc.invalidateQueries({ queryKey: mockKeys.overview(accountId) })
+            setDraft(null)
+          }}
+        />
+      )}
       {dialog === 'try' && <TryDialog accountId={accountId} mockId={mockId} draft={d} endpoint={endpoint} dirty={dirty} baseUrl={baseUrl} onClose={() => setDialog(null)} />}
       {dialog === 'import' && (
         <ImportDialog
@@ -936,7 +1011,7 @@ function ImportDialog({ accountId, mockId, onClose, onDone }: { accountId: strin
     mutationFn: () => mocksService.import(accountId, mockId, text, replace),
     onSuccess: r => {
       onDone(r.mock)
-      toast.success(`Imported ${r.added} endpoint${r.added === 1 ? '' : 's'}${r.skipped ? `; ${r.skipped} already existed` : ''}`)
+      toast.success(`Imported ${r.added} endpoint${r.added === 1 ? '' : 's'}${r.addedResources ? ` and ${r.addedResources} resource${r.addedResources === 1 ? '' : 's'}` : ''}${r.skipped ? `; ${r.skipped} already existed` : ''}`)
       for (const w of r.warnings.slice(0, 3)) toast.info(w)
       onClose()
     },
@@ -948,14 +1023,14 @@ function ImportDialog({ accountId, mockId, onClose, onDone }: { accountId: strin
       <Dialog.Portal>
         <Dialog.Overlay />
         <Dialog.Content>
-          <Dialog.Title>Import from OpenAPI</Dialog.Title>
+          <Dialog.Title>Import endpoints</Dialog.Title>
           <div className='flex flex-col gap-3'>
-            <TextareaField name='openapi' label='OpenAPI 3 or Swagger 2 (JSON or YAML)' rows={10} value={text} onChange={e => setText(e.target.value)} style={mono} />
+            <TextareaField name='document' label='OpenAPI, Postman, Mockoon, HAR or VhyxVoid export (JSON or YAML)' rows={10} value={text} onChange={e => setText(e.target.value)} hint='The format is detected for you.' style={mono} />
             <div className='flex items-center gap-2 flex-wrap'>
               <input
                 ref={file}
                 type='file'
-                accept='.json,.yaml,.yml'
+                accept='.json,.yaml,.yml,.har'
                 hidden
                 onChange={async e => {
                   const f = e.target.files?.[0]
@@ -971,7 +1046,7 @@ function ImportDialog({ accountId, mockId, onClose, onDone }: { accountId: strin
               </label>
             </div>
             <Typography variant='caption' style={muted}>
-              {replace ? 'Every current endpoint is removed first.' : 'Routes the mock already has (same method and path) are kept as they are; new ones are added at the end.'} The import is saved at once.
+              {replace ? 'Every current endpoint and resource is removed first.' : 'Routes and resources the mock already has are kept as they are; new ones are added at the end.'} The import is saved at once.
             </Typography>
           </div>
           <Dialog.Footer>

@@ -1,5 +1,5 @@
 // Pure helpers for the mock API editor (unit-tested in mockForm.test.ts).
-import type { MockEndpoint, MockMethod, MockResponse, MockRule, MockRuleOp, MockRuleSource } from '@/api/infrastructure/services/mocks.service'
+import type { MockEndpoint, MockMethod, MockResource, MockResponse, MockRule, MockRuleOp, MockRuleSource } from '@/api/infrastructure/services/mocks.service'
 
 export const METHODS: MockMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'ANY', 'HEAD', 'OPTIONS']
 
@@ -194,3 +194,67 @@ export function labelFromName(name: string): string {
     .replace(/^-|-$/g, '')
     .slice(0, 40)
 }
+
+// ── Resources ─────────────────────────────────────────────────────────────────
+
+
+export const RESOURCE_PATH_RE = /^(\/[A-Za-z0-9._~-]+)+$/
+
+export function newResource(existing: MockResource[]): MockResource {
+  let name = 'users'
+
+  for (let i = 2; existing.some(r => r.path === `/${name}`); i++) name = `items-${i}`
+
+  return {
+    id: `res_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    path: `/${name}`,
+    enabled: true,
+    idField: 'id',
+    seed: [
+      { id: 1, name: 'Ada Lovelace', email: 'ada@example.com' },
+      { id: 2, name: 'Alan Turing', email: 'alan@example.com' }
+    ]
+  }
+}
+
+/** The routes a resource answers, for the editor's summary. */
+export function resourceRoutes(r: Pick<MockResource, 'path' | 'idField'>): Array<{ method: string; path: string; does: string }> {
+  const one = `${r.path}/:${r.idField || 'id'}`
+
+  return [
+    { method: 'GET', path: r.path, does: 'List (filters, ?q=, ?_sort=, ?_page=&_limit=)' },
+    { method: 'POST', path: r.path, does: 'Create' },
+    { method: 'GET', path: one, does: 'Read' },
+    { method: 'PUT', path: one, does: 'Replace' },
+    { method: 'PATCH', path: one, does: 'Update fields' },
+    { method: 'DELETE', path: one, does: 'Delete' }
+  ]
+}
+
+/** Seed text from the editor: a JSON list of objects, with a readable error. */
+export function parseSeed(text: string): { seed: Array<Record<string, unknown>> } | { error: string } {
+  if (!text.trim()) return { seed: [] }
+  let v: unknown
+
+  try {
+    v = JSON.parse(text)
+  } catch (err) {
+    return { error: `Not valid JSON: ${(err as Error).message}` }
+  }
+
+  if (!Array.isArray(v)) return { error: 'Seed data must be a JSON list: [ {...}, {...} ]' }
+  if (v.some(x => !x || typeof x !== 'object' || Array.isArray(x))) return { error: 'Every item must be a JSON object' }
+  if (v.length > 500) return { error: 'At most 500 seed items' }
+
+  return { seed: v as Array<Record<string, unknown>> }
+}
+
+export const EXPORT_FORMATS = [
+  { value: 'openapi', label: 'OpenAPI (YAML)', help: 'Docs, code generators, Swagger UI.' },
+  { value: 'openapi-json', label: 'OpenAPI (JSON)', help: 'Same as YAML; also runs with vhyxvoid mock.' },
+  { value: 'msw', label: 'Mock Service Worker', help: 'TypeScript handlers for msw v2: mocks inside your frontend and tests.' },
+  { value: 'postman', label: 'Postman collection', help: 'Every endpoint as a request with its responses as examples.' },
+  { value: 'mockoon', label: 'Mockoon', help: 'An environment for the Mockoon app or @mockoon/cli.' },
+  { value: 'vhyxvoid', label: 'VhyxVoid JSON', help: 'Everything, for a backup, another workspace or vhyxvoid mock.' }
+] as const
