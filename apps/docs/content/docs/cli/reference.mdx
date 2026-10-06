@@ -22,7 +22,7 @@ The flag table and the help output below are generated from the built CLI (`vhyx
 | --- | --- |
 | `vhyxvoid start` | Connects your local server to VhyxVoid and prints the public URL. This is the default command, so `vhyxvoid --port 3000` means `vhyxvoid start --port 3000`. |
 | `vhyxvoid init` | Asks for your key ID, secret, port, label, hub URL and an optional account slug, then writes `.env.vhyxvoid` and adds it to `.gitignore`. It takes no flags. |
-| `vhyxvoid doctor` | Checks your setup (key, local server, hub, optionally a real sign-in and a custom domain's DNS) and prints the fix for each problem. See [doctor](/docs/cli/doctor). |
+| `vhyxvoid doctor` | Checks your setup (key, local server, hub, optionally a real sign-in and a custom domain's DNS) and prints the fix for each problem. See [doctor](/cli/doctor). |
 | `vhyxvoid --version` | Prints the version of the installed package. |
 | `vhyxvoid help [command]` | Prints help. `vhyxvoid start --help` and `vhyxvoid help start` print the same thing. |
 
@@ -38,7 +38,7 @@ Every flag has an environment variable except `--no-local-discovery`. Precedence
 | `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port the tunnel forwards to. |
 | `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label: the part of the tunnel URL after `--`. Run one agent per label to expose several servers. |
 | `--hub <url>` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | WebSocket URL of the hub the agent connects to. |
-| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where agent 1.0.20 and earlier keep their on-disk queue. Accepted but ignored from the next release, which has no queue file. Changed in source 2026-09-25, not released yet. |
+| `--queue-path <path>` | `VHYXVOID_QUEUE_PATH` | `~/.vhyxvoid/queue.db` | Where agent 1.0.20 (the version on npm) keeps its on-disk queue. Accepted but ignored from 1.1.0, which has no queue file. |
 | `--no-local-discovery` | none | discovery on | Disable local discovery on port 4242. |
 | `--debug` | `VHYXVOID_DEBUG_LOGGING=true` | off | Print detailed diagnostics: one or more lines per message and per request. Off by default. |
 | `--write-env [file]` | `VHYXVOID_WRITE_ENV` | off | After connecting, write the public URL into a file. Give a file name, or none for `.env.local`. |

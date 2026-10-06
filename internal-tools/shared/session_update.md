@@ -2088,3 +2088,22 @@ files by `"date"` — every entry carries its own date and session_id.
 }
 ```
 
+```json
+{
+  "session_id": "upbeat-cannon",
+  "date": "2026-10-06",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/upbeat-cannon-dwqaj0)",
+  "brief_summary": "Re-verify the stale user docs pages.",
+  "status": "completed",
+  "summary": "Re-read all 26 pages that check:fresh flagged against the current source and against the published npm tarballs (agent 1.0.20, middleware/next 1.0.5, sdk 1.1.0). Fixed content that was wrong: public 502/504 bodies (generic text + code since audit M10), access rules, webhook inbox, inspector and traffic rules missing from limitations/FAQ/quickstart/concepts/webhooks/troubleshooting, Fastify 2.0.0 hooks and port adoption, label rules, fatal agent errors in 1.1.0, cache bypass/size cap, billing free mode and personal-workspace billing, dashboard overview and sidebar, scopes text, SDK errors. Replaced 'next release' with named versions plus 'not on npm yet' notes. Found and fixed 18 links rendering as /docs/docs/... (404) on 16 newer pages; added apps/docs check:links.",
+  "verification": "check:fresh ok (44 pages, generate --check included); docs build 47 pages; check:links ok, and fails on an injected /docs/ link; root pnpm test 735/735.",
+  "commits": "the docs re-verification commit after 77c2542",
+  "open_items_for_next_session": [
+    "Remove server-side 'not deployed yet' notes after the next deploy (docs backlog lists them).",
+    "Simplify 'not on npm yet' notes after publishing agent 1.1.0 / next 1.1.0 / middleware 2.0.0; bump sdk before publishing it.",
+    "Add check:links to the docs CI job."
+  ]
+}
+```
+

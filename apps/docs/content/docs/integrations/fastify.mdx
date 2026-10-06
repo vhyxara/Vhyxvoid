@@ -2,10 +2,10 @@
 title: Fastify
 description: Start a VhyxVoid tunnel from inside a Fastify app with the @vhyxvoid/middleware Fastify plugin.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/middleware": "1.0.5"
+    "@vhyxvoid/middleware": "2.0.0"
 sources:
   - packages/middleware/src/fastify.ts
   - packages/middleware/src/config.ts
@@ -44,7 +44,7 @@ async function main() {
 main()
 ```
 
-The plugin is registered with `fastify-plugin`, so it is not encapsulated and applies to the whole app. It adds no routes or hooks other than `onClose`. When the tunnel connects it logs:
+The plugin is registered with `fastify-plugin`, so it is not encapsulated and applies to the whole app. It adds no routes. Its hooks: `onClose`, and in 2.0.0, when you set no port, one `onListen` hook that reads the port the server really listens on (on a Fastify without `onListen`, the first `onRequest` instead). When the tunnel connects it logs:
 
 ```text
   [vhyxvoid] ✅  Tunnel active
@@ -56,9 +56,9 @@ The plugin is registered with `fastify-plugin`, so it is not encapsulated and ap
 
 The options are the same as Express's: `key`, `secret`, `port`, `label` (default `default`), `hub`, `writeEnv`, `envKey`, `enabled`, `onConnect`, with the same environment variables and defaults. See the [Express options table](/integrations/express#options). Three points carry over exactly:
 
-- `port` is **not** taken from `app.listen`. Set it to the port you listen on.
+- In 1.0.5 (the version on npm) `port` is **not** taken from `app.listen`: set it to the port you listen on. From 2.0.0, when neither `port` nor `VHYXVOID_PORT` is set, the plugin switches to the port the server listens on as soon as it starts listening and prints one line saying so; a port you set is never changed.
 - Only `process.env` is read. `.env.vhyxvoid` is not loaded for you.
-- The tunnel is off when `NODE_ENV` is `production`. The next release makes it start only when `NODE_ENV` is `development` and not on CI; see [Development only](/integrations/express#development-only).
+- In 1.0.5 the tunnel is off when `NODE_ENV` is `production` and on otherwise. 2.0.0 starts it only when `NODE_ENV` is `development` and not on CI; see [Development only](/integrations/express#development-only).
 
 ## What differs from Express
 

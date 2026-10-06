@@ -24,8 +24,8 @@ Open **Alerts** under a workspace and choose **New alert**. Owners and admins ca
 | Tunnel offline | A tunnel's agent disconnected and has not come back | the tunnel (or any), minutes to wait (default 5) |
 | Server errors | The share of requests answered with a `5xx` reaches a threshold | the tunnel (or any), percentage (default 10%), window in minutes (default 5), minimum number of requests (default 20) |
 | Monthly usage | This month's requests reach a share of your plan | percentage (default 80%) |
-| Webhook delivery failed | A webhook held by the [inbox](/docs/dashboard/webhook-inbox) gives up after its retries | the tunnel (or any) |
-| Custom domain changes | A [custom domain](/docs/dashboard/custom-domains) is verified, or stops pointing at us | — |
+| Webhook delivery failed | A webhook held by the [inbox](/dashboard/webhook-inbox) gives up after its retries | the tunnel (or any) |
+| Custom domain changes | A [custom domain](/dashboard/custom-domains) is verified, or stops pointing at us | — |
 
 Alerts are checked every minute. **Server errors** counts what callers received, including `502`/`504` when your local server did not answer. "Any tunnel" offline alerts only consider tunnels seen in the last day, so long-retired tunnels do not alert.
 

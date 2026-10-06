@@ -2,13 +2,14 @@
 title: Accounts and organizations
 description: Where things are in the dashboard, and how to create and rename an organization.
 verified:
-  date: "2026-09-21"
-  commit: dc922f8
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/web/src/views/org/MyAccountsTable.tsx
+  - apps/web/src/views/dashboard/DashboardOverview.tsx
   - apps/web/src/views/org/CreateOrgDialog.tsx
   - apps/web/src/views/org/OrgSettingsView.tsx
   - apps/web/src/views/profile/ProfileView.tsx
@@ -19,7 +20,7 @@ This page describes the dashboard as it works today, from the code of the dashbo
 
 ## Finding your way around
 
-After you sign in you land on **Dashboard**, a table called **My organizations**. Every account you belong to has a row:
+After you sign in you land on **Dashboard**. At the top is an overview of your personal workspace: live tunnels, requests and active API keys, plus how many workspaces you are in. Until you have verified your email, created an API key and started a tunnel, a **Get started** checklist walks you through those; after that a traffic chart takes its place. Below it is a table called **My organizations**. Every account you belong to has a row:
 
 | Column | Shows |
 | --- | --- |
@@ -37,12 +38,15 @@ The sidebar on the left has **Dashboard**, then **Personal workspace**, then **O
 | Members | Everyone in the organization |
 | API Keys | Everyone in the organization |
 | Tunnels | Everyone in the organization |
+| Inspector, Webhook inbox, Traffic rules, Access, Domains, Alerts, Activity | Everyone in the organization (changing them is for admins and owners) |
 | Billing | Owners |
 | Settings | Admins and owners |
 
+The middle row's pages are covered in [Request inspector](/dashboard/request-inspector), [Webhook inbox](/dashboard/webhook-inbox), [Traffic rules](/dashboard/traffic-rules), [Tunnel access](/dashboard/tunnel-access), [Custom domains](/dashboard/custom-domains), [Alerts](/dashboard/alerts) and [Activity](/dashboard/activity).
+
 An Owner or Admin badge appears next to the organization's name in the sidebar.
 
-Under **Personal workspace** is your personal account, which every user gets automatically when they verify their email. It expands into **API Keys** and **Tunnels**, so you can create a key and connect an agent without creating an organization. It has no **Members**, **Billing** or **Settings** link, and its name can't be changed. If you don't belong to an organization, **Organizations** shows a **Create organization** link.
+Under **Personal workspace** is your personal account, which every user gets automatically when they verify their email. It expands into the same links as an organization except **Members** and **Settings**, so you can create a key and connect an agent without creating an organization, and upgrade it from **Billing**. Its name can't be changed, and it can't have members. If you don't belong to an organization, **Organizations** shows a **Create organization** link.
 
 ## Personal accounts and organizations
 

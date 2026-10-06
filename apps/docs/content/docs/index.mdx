@@ -2,10 +2,10 @@
 title: VhyxVoid Documentation
 description: Put your local server on a stable public URL, without a separate tunnel tool to babysit.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - packages/agent/src/AgentClient.ts
@@ -22,6 +22,9 @@ VhyxVoid connects a server running on your machine to a public HTTPS URL. A smal
   </Card>
   <Card title="Call your tunnel from code" href="/sdk/overview">
     The SDK's HTTP client for scripts, CI, and other servers.
+  </Card>
+  <Card title="See and shape your traffic" href="/dashboard/request-inspector">
+    Inspect and replay requests, hold webhooks while you are offline, mock responses, protect a tunnel.
   </Card>
   <Card title="Know the limits" href="/limitations">
     What VhyxVoid doesn't do, stated up front.

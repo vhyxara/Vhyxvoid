@@ -73,7 +73,7 @@
     }
   },
   "notEnforced": {
-    "maxRequestsPerMonth": "Counted (both the SDK/API-key path and, as of 2026-09-22 session S5, the public tunnel-URL path) but not blocking — decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce. The counting mechanism now exists; nothing reads it back to warn a user yet.",
+    "maxRequestsPerMonth": "Counted (both the SDK/API-key path and, as of 2026-09-22 session S5, the public tunnel-URL path) but not blocking — decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce. The counting mechanism exists, and since 2026-10-06 owners and admins get an in-app + email notice at 80% and 100% (apps/api platform/alerts/notices.ts, setting billing.usageNotices).",
     "prioritySupport": "Not a technical limit.",
     "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the public tunnel URL are never rate limited by this per-key field, by design — a tunnel URL has no key to check (public webhook callers hold none). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke). See shared/decision.md, \"S3\". The public tunnel-URL path now has its own, separate, per-account limit instead — see publicPathRateLimitPerMinute below (session S5).",
     "allowedEnvironments": "Unused; prodKeysAllowed is what is checked.",

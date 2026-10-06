@@ -52,8 +52,8 @@ A proxy in `HTTPS_PROXY`/`HTTP_PROXY` is reported as a warning: the agent connec
 
 | Option | |
 | --- | --- |
-| `-k, --key`, `-s, --secret`, `-p, --port`, `-l, --label`, `--hub` | as for [`start`](/docs/cli/reference); read from the same environment variables |
+| `-k, --key`, `-s, --secret`, `-p, --port`, `-l, --label`, `--hub` | as for [`start`](/cli/reference); read from the same environment variables |
 | `--connect` | also sign in with a temporary tunnel named `doctor-xxxxxx` and close it again. It uses one agent slot for a few seconds; on a plan with one agent and another agent running, the result is "the key works, but your plan's agent limit is reached" |
-| `--domain <hostname>` | check a [custom domain](/docs/dashboard/custom-domains)'s CNAME or A records |
+| `--domain <hostname>` | check a [custom domain](/dashboard/custom-domains)'s CNAME or A records |
 | `--domain-target <hostname>` | what the domain should point at; read from the platform when omitted (set `VHYXVOID_API_URL` for a self-hosted API) |
 | `--json` | print `{ version, results: [{ name, status, detail, fix }] }` |

@@ -284,3 +284,10 @@ Original list (kept):
 ## Additions 2026-10-06 (session production-stable)
 
 New pages: dashboard/activity, dashboard/traffic-rules, cli/doctor, integrations/github-actions; changelog written (was a stub). Updated: tunnels (Agents, Traffic), request-inspector, tunnel-access, alerts, operators (admin console, runbook incl. jobs and agent versions, deployment, settings reference regenerated, plans). `VHYXVOID_API_URL` registered in content-config/env-vars.json. Every touched page passes check:fresh; ~27 older pages still do not (backlog).
+
+### Additions 2026-10-06 (session upbeat-cannon, docs re-verification)
+
+- **All 44 non-stub pages pass `check:fresh`** (was 26 stale). Pins now name the repo's package versions (agent 1.1.0, middleware 2.0.0, next 1.1.0, sdk 1.1.0). npm still has agent 1.0.20, middleware/next 1.0.5, sdk 1.1.0, so where behaviour differs the page names both versions ("from 2.0.0 … not on npm yet; npm has 1.0.5"). Never write "the next release" for a package whose next version is already in package.json; name it. Published behaviour was confirmed from the npm tarballs (`npm pack @vhyxvoid/<pkg>@<ver>`), not from memory.
+- **Link convention:** content links are root-relative (`/limitations`, `/dashboard/alerts#…`), never `/docs/...`: `basePath: '/docs'` is added by Next's Link, so `/docs/x` renders as `/docs/docs/x`. `pnpm --filter @vhyxvoid/docs check:links` (after `build`) checks every internal link and anchor in the built HTML; it found 18 such broken links on 2026-10-06.
+- **Server-side "not deployed yet" notes are deliberate** (nothing has been deployed since they were written); they are listed in the backlog to remove after the next deploy.
+

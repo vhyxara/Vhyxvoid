@@ -2,10 +2,10 @@
 title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
-  date: "2026-09-24"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
@@ -17,11 +17,15 @@ sources:
 
 ## Is my tunnel URL private?
 
-No. Anyone who knows or guesses the URL can send requests to your local server, and VhyxVoid checks nothing on it. Tunnel a development server, not anything with real data, and protect sensitive routes in your own app. See [Limitations](/limitations#tunnel-urls-are-public).
+Not by default. Anyone who knows or guesses the URL can send requests to your local server. On Pro and Enterprise you can protect a tunnel with a password or an IP allowlist, and hand out expiring share links; see [Tunnel access](/dashboard/tunnel-access). Without that, tunnel a development server, not anything with real data, and protect sensitive routes in your own app. See [Limitations](/limitations#tunnel-urls-are-public).
 
 ## Where do I find my account slug?
 
 It is the part of your tunnel URL before `--`, and the agent prints the whole URL when it connects (the `Public:` line). The dashboard doesn't display the slug on its own. See the [Quickstart](/getting-started/quickstart).
+
+## Can I use my own domain?
+
+Yes, on plans that include custom domains: add the hostname under **Custom domains**, create a TXT and a CNAME record, and the tunnel answers on it with HTTPS. See [Custom domains](/dashboard/custom-domains).
 
 ## How many tunnels can I run?
 
@@ -29,11 +33,15 @@ Each running agent is one tunnel, with its own label and URL. How many you can r
 
 ## Can I see the requests that came through?
 
-Not in the dashboard. The **Tunnels** page shows which agents are connected and their history, not individual requests, and there is no request inspector. Run the agent with `--debug` for per-request lines in your terminal. See [Tunnels](/dashboard/tunnels).
+Yes. The [request inspector](/dashboard/request-inspector) keeps each tunnel's recent requests and responses (bodies up to 16 KB, credentials hidden, for 24 hours) and can replay one. How many it keeps depends on your plan. The **Tunnels** page charts requests and errors over time. Run the agent with `--debug` for per-request lines in your terminal too.
 
 ## How long can a request take?
 
 The hub's default wait is 120 seconds, and agent 1.0.20 and later wait for your server for as long as the hub allows minus two seconds (118 seconds on the default). Agent 1.0.19 and earlier gave up after 28 seconds. The SDK clients have their own 30 second defaults, so raise `timeout` on any client you call a slow route from. See [Troubleshooting](/troubleshooting#the-request-is-slow-or-times-out).
+
+## Can I fake a response or simulate an outage?
+
+Yes, with [traffic rules](/dashboard/traffic-rules): per tunnel, answer a path with a mock, inject errors or delays, redirect, rewrite paths or change headers, without touching your app.
 
 ## Do WebSockets work through the tunnel?
 
@@ -45,7 +53,7 @@ No. It runs on Node.js only, and its WebSocket client takes your API key secret,
 
 ## What happens to requests while my agent reconnects?
 
-They are not held and replayed: the caller gets an error, and a `POST` may or may not have reached your server. Make handlers idempotent. See [Limitations](/limitations#requests-dont-survive-agent-disconnects).
+By default they are not held and replayed: the caller gets an error, and a `POST` that was in flight may or may not have reached your server. Make handlers idempotent. Turn on the tunnel's [webhook inbox](/dashboard/webhook-inbox) to have `POST`, `PUT`, `PATCH` and `DELETE` requests that arrive while it is offline stored and delivered when it reconnects. See [Limitations](/limitations#requests-dont-survive-agent-disconnects).
 
 ## I lost my API key secret. Can I see it again?
 

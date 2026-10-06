@@ -2,10 +2,10 @@
 title: Next.js
 description: Start a VhyxVoid tunnel automatically whenever next dev runs, with @vhyxvoid/next.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/next": "1.0.5"
+    "@vhyxvoid/next": "1.1.0"
 sources:
   - packages/next/src/index.ts
   - packages/next/package.json
@@ -76,7 +76,7 @@ Pass options as the second argument. Each one falls back to an environment varia
 | `hub` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
 | `writeEnv` | `VHYXVOID_WRITE_ENV` | off | File to write the public URL into, for example `.env.local`. If you use the environment variable, its value is the file name. |
 | `envKey` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name written by `writeEnv`. |
-| `enabled` | none | `true` under `next dev` only | Force the tunnel on or off. |
+| `enabled` | none | `true` under `next dev` only (and, from 1.1.0, not on CI) | Force the tunnel on or off. |
 | `onConnect` | none | none | Callback that receives the public URL. |
 
 If the key or secret is missing, the tunnel does not start and a warning explains why; your dev server keeps running.
@@ -94,7 +94,7 @@ If your setup is unusual, set `port` explicitly.
 
 ## Development only, and the build-time gotcha
 
-By default the tunnel starts only under `next dev`. It is off for `next build` and `next start`, so it will not start during CI or a production build. On Next 16.1.1 this was checked directly: `next dev` starts one tunnel, and `next build` with credentials present starts none. From the next `@vhyxvoid/next` release it also stays off under `next dev` when `CI` is set (any value other than `false` or `0`), the same rule as `@vhyxvoid/middleware`; pass `enabled: true` to start it there anyway. Changed in source 2026-09-25, not released yet.
+By default the tunnel starts only under `next dev`. It is off for `next build` and `next start`, so it will not start during CI or a production build. On Next 16.1.1 this was checked directly: `next dev` starts one tunnel, and `next build` with credentials present starts none. From `@vhyxvoid/next` 1.1.0 it also stays off under `next dev` when `CI` is set (any value other than `false` or `0`), the same rule as `@vhyxvoid/middleware` 2.0.0; pass `enabled: true` to start it there anyway. 1.1.0 is not on npm yet (npm has 1.0.5, which starts under `next dev` on CI too).
 
 Passing `enabled: true` overrides that and **does** start a tunnel during `next build`. Only do that deliberately, for example `enabled: process.env.TUNNEL === '1'`, never as a constant.
 
@@ -108,7 +108,8 @@ With `writeEnv: '.env.local'`, the agent writes `NEXT_PUBLIC_TUNNEL_URL=https://
 - **Host header.** Requests reach Next with `Host` set to `127.0.0.1:<port>`, and `x-forwarded-host` set to the same value, not the public hostname. Code that builds absolute URLs from those headers will produce `127.0.0.1` addresses. Use the public URL from `NEXT_PUBLIC_TUNNEL_URL` instead.
 - **Response caching.** If your server answers a `GET` with `Cache-Control: max-age=…`, the agent may serve repeat requests from memory. Entries are kept per caller: requests with different cookies, `Authorization` or API-key style headers never share one, and responses that set a cookie are not cached. See [Limitations](/limitations#cached-responses).
 - **Public by design.** Anyone with the URL can reach your dev server. See [Limitations](/limitations).
-- **Reconnects.** If the connection to VhyxVoid drops, the agent reconnects by itself. Requests made while it is down are not replayed. See [Limitations](/limitations).
+- **Reconnects.** If the connection to VhyxVoid drops, the agent reconnects by itself. Requests made while it is down get `404` and are not replayed, unless the tunnel's [webhook inbox](/dashboard/webhook-inbox) is on: then `POST`, `PUT`, `PATCH` and `DELETE` requests are kept and delivered when it is back. See [Limitations](/limitations).
+- **Stopping.** One Ctrl+C stops `next dev` and the tunnel. In 1.0.5 the tunnel's signal handler kept Node from exiting on the first Ctrl+C when nothing else handled it; 1.1.0 re-raises the signal after cleaning up.
 
 ## Next steps
 

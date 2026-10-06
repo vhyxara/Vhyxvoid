@@ -2,10 +2,10 @@
 title: Concepts
 description: The few ideas behind VhyxVoid, in one page.
 verified:
-  date: "2026-09-24"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/router/Message.router.ts
@@ -16,10 +16,12 @@ sources:
 
 **Hub.** VhyxVoid's server. It accepts requests on your tunnel URL and passes them to the agent that owns that URL.
 
-**Account slug and label.** A tunnel URL is `https://<account-slug>--<label>.vhyxvoid.com`. The slug identifies your account. The label names a tunnel, so one account can run several (for example `app` and `api`). The default label is `default`.
+**Account slug and label.** A tunnel URL is `https://<account-slug>--<label>.vhyxvoid.com`. The slug identifies your account. The label names a tunnel, so one account can run several (for example `app` and `api`). The default label is `default`. Labels are lowercase letters, digits and single hyphens, up to 63 characters. A tunnel can also answer on a [custom domain](/dashboard/custom-domains) of yours.
 
 **API key.** A key ID plus a secret, created in the dashboard. The agent uses it to prove which account it belongs to. The secret is shown once. Keys have an environment (**DEV** or **PROD**), scopes, and an optional expiry. Agents need the `tunnel:connect` scope.
 
 **Stable URL.** For a given slug and label, the URL doesn't change between runs. Only one agent at a time serves a given URL.
 
-**The tunnel URL is public.** Nothing on the request path checks who is calling. Authentication, if you need it, is your application's job.
+**The tunnel URL is public by default.** Unless you add [access rules](/dashboard/tunnel-access) (a password, an IP allowlist or share links, on Pro and Enterprise), nothing on the request path checks who is calling, and authentication is your application's job.
+
+**On the way through.** The hub can keep a copy of recent requests for the [request inspector](/dashboard/request-inspector), answer for you with [traffic rules](/dashboard/traffic-rules) (mocks, injected errors, rewrites), and hold webhooks in the [webhook inbox](/dashboard/webhook-inbox) while your agent is offline.

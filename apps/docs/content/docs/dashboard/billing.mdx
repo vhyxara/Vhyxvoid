@@ -2,12 +2,13 @@
 title: Billing
 description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
 verified:
-  date: "2026-09-22"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/web/src/views/org/billing/BillingView.tsx
+  - apps/api/src/modules/platform/alerts/notices.ts
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/api/src/modules/billing/application/use-cases/webhook/HandleStripeWebhook.usecase.ts
   - apps/api/src/modules/billing/domain/repositories/PrismaAccountBillingRepository.ts
@@ -20,21 +21,25 @@ sources:
 
 Every account, personal or organization, has its own plan: **FREE**, **PRO** or **ENTERPRISE**. Plans are flat-rate, billed monthly through Stripe. Nothing is metered, so there is no charge per request. What each plan allows is on [Plans and limits](/reference/plans-and-limits).
 
-The **Billing** link is in the sidebar for **owners** of an organization. For a personal workspace the dashboard's next release shows it too, so you can upgrade a personal workspace; until then open `/organizations/<your personal account id>/billing` directly. Changed in source 2026-09-25, not released yet. Other members can open the page by its address and see the plan, but the invoice history is for owners only ("Invoice history is only visible to organization owners.").
+During early access VhyxVoid may run **free for everyone**: then nothing can be bought, the **Upgrade** button is hidden, and the plan card shows the plan every account currently gets (it can be more than FREE) with a short note instead.
+
+The **Billing** link is in the sidebar for **owners**, of an organization or of your personal workspace, so a personal workspace can be upgraded too. Other members can open the page by its address and see the plan, but the invoice history is for owners only ("Invoice history is only visible to organization owners.").
 
 ## The plan card
 
-**Current plan** shows a badge for the plan and, once you have a subscription, a second one for its status, such as `TRIALING`, `ACTIVE`, `PAST_DUE` or `CANCELED`. For a paid plan it also shows **Next billing date** (or **Cancels on**, if the subscription is set to end) and **Trial ends** if you are on a trial.
+**Current plan** shows a badge for the plan and, while you have a paid subscription, a second one for its status, such as `TRIALING`, `ACTIVE`, `PAST_DUE` or `CANCELED`. For a paid plan it also shows **Next billing date** (or **Cancels on**, if the subscription is set to end) and **Trial ends** if you are on a trial.
 
 ## Upgrade
 
-On the FREE plan the card has an **Upgrade** button.
+Without a paid subscription the card has an **Upgrade** button (unless VhyxVoid is in free mode, above). If upgrades are paused for a while, it says "Upgrades are temporarily unavailable." instead.
 
-1. Choose **Upgrade** and pick **Pro** or **Enterprise**. The dialog shows each plan's monthly price.
+1. Choose **Upgrade** and pick **Pro** or **Enterprise**. The dialog shows each plan's monthly price and, when there is one, the length of the free trial a new subscription starts with (only an account's first subscription gets a trial).
 2. Choose **Continue to checkout**. You are sent to Stripe's payment page; VhyxVoid never sees your card details.
 3. After paying you come back to **Billing** with a banner: "Plan upgraded successfully. Welcome to your new plan!"
 
 The plan applies to the account you upgraded from, not to your other accounts.
+
+Owners and admins also get an in-app notice and an email when the account has used 80% and 100% of the month's included requests, and a reminder before a trial ends; see [Alerts](/dashboard/alerts#usage-and-trial-notices).
 
 ## Manage or cancel
 

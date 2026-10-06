@@ -2,10 +2,10 @@
 title: Quickstart
 description: From nothing to a public URL in front of your local server, and a first request through it.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
 sources:
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
@@ -94,14 +94,15 @@ If it doesn't work, these are the responses VhyxVoid itself produces:
 | --- | --- |
 | `404` | No agent is registered for that URL. Start the agent, and check the slug and label. |
 | `503` | The URL is registered but its agent is not connected right now. Restart the agent. |
+| `401` / `403` | The tunnel has [access rules](/dashboard/tunnel-access) (a password or an IP allowlist). |
 | `413` | The request body was over 10 MB. |
 | `502` | The agent is connected but your server didn't answer it: it isn't running on that port, or it took too long (agent 1.0.20 and later wait as long as the hub allows minus two seconds, 118 seconds on the default; 1.0.19 and earlier gave up after 28). |
 | `504` | The agent didn't answer at all within the hub's timeout (120 seconds by default). Unusual. |
 
-Anything else is your own server's response.
+Anything else is your own server's response. VhyxVoid's own answers are JSON with `"tunnel": true`; the full list is on [HTTP status codes](/reference/http-status-codes). From agent 1.1.0, `npx @vhyxvoid/agent doctor` checks the setup for you; see [`vhyxvoid doctor`](/cli/doctor).
 
 <Callout type="warn" title="Anyone with the URL can reach your server">
-  The tunnel URL is public and carries no authentication. Only tunnel a server you're comfortable exposing, and protect sensitive routes in your own application. See [Limitations](/limitations).
+  By default the tunnel URL is public and carries no authentication. On Pro and Enterprise you can add a password or an IP allowlist under [Tunnel access](/dashboard/tunnel-access). Otherwise, only tunnel a server you're comfortable exposing, and protect sensitive routes in your own application. See [Limitations](/limitations).
 </Callout>
 
 ## 4. Call it from code
@@ -133,11 +134,12 @@ The HTTP client is a plain `fetch` to your tunnel URL and sends no VhyxVoid cred
 
 ## A note on retries
 
-Requests sent to the tunnel while the agent is reconnecting can fail with an error (`502`, `503` or `504`) even though your server may have handled them. Retrying a `GET` is safe. Retrying a `POST` or `DELETE` can apply the change twice, so make those handlers idempotent if a duplicate would hurt. Details are on the [Limitations](/limitations) page.
+Requests sent to the tunnel while the agent is reconnecting can fail with an error (`404`, `502`, `503` or `504`) even though your server may have handled them. Webhooks can be kept for you while the agent is offline with the [webhook inbox](/dashboard/webhook-inbox). Retrying a `GET` is safe. Retrying a `POST` or `DELETE` can apply the change twice, so make those handlers idempotent if a duplicate would hurt. Details are on the [Limitations](/limitations) page.
 
 ## Next steps
 
 - Skip the separate process: start the tunnel from inside your app with the [Next.js](/integrations/nextjs), [Express](/integrations/express), or [Fastify](/integrations/fastify) integration.
 - Every option of the `vhyxvoid` command: [CLI](/integrations/standalone-cli).
 - Receive webhooks on your machine: [Webhooks](/integrations/webhooks).
+- See and replay the requests your tunnel received: [Request inspector](/dashboard/request-inspector).
 - Read [Concepts](/getting-started/concepts) for how the pieces fit together.

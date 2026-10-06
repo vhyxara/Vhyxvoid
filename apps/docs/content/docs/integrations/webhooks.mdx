@@ -2,10 +2,10 @@
 title: Webhooks
 description: Receive Stripe, GitHub, and other webhooks on your local machine, using your tunnel URL as the endpoint.
 verified:
-  date: "2026-09-24"
-  commit: "7a71695"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - packages/agent/src/proxy/BackendProxy.ts
@@ -120,7 +120,7 @@ Other providers work the same way: GitHub, for instance, sends a signature heade
 
 Send a test event from the provider. It travels to the VhyxVoid hub, down your agent's connection, and to your local route. Your handler's response goes back the same way. Log inside your handler so you can see what arrived.
 
-VhyxVoid does not currently show individual requests, so there is no request inspector to replay or browse events; the [Tunnels](/dashboard/tunnels) page shows tunnel status and usage. Use your provider's own delivery log to see what it sent and what it got back.
+The [request inspector](/dashboard/request-inspector) shows each request that reached the tunnel with its headers, body (up to 16 KB) and your server's response, and **Replay** sends one again through the tunnel, which is handy while you fix a handler. Credentials such as `Authorization` and cookies are hidden there and are not replayed. Your provider's own delivery log shows what it sent and what it got back.
 
 ## What the tunnel does to the request
 
@@ -133,12 +133,12 @@ These points matter when a signature check or your code depends on the request's
 
 ## Failures and retries
 
-If your agent isn't connected, the tunnel URL answers `503` (or `404` if it was never registered). If your server is slow, it answers `502` once the agent's wait runs out. If your account's tunnel URLs are getting more requests per minute than your plan allows, it answers `429` with a `Retry-After` header — a provider that retries aggressively after a burst of failed deliveries could hit this; see [HTTP status codes](/reference/http-status-codes). Most providers retry failed deliveries on their own schedule, so events sent while you were offline may arrive later. Check your provider's retry policy.
+If your agent isn't connected, the tunnel URL answers `404` (or `503` while the hub still has a stale registration), unless the tunnel's webhook inbox is on (below). If your server is slow, it answers `502` once the agent's wait runs out. If your account's tunnel URLs are getting more requests per minute than your plan allows, it answers `429` with a `Retry-After` header — a provider that retries aggressively after a burst of failed deliveries could hit this; see [HTTP status codes](/reference/http-status-codes). Most providers retry failed deliveries on their own schedule, so events sent while you were offline may arrive later. Check your provider's retry policy.
 
-Requests that arrive while your agent is reconnecting are not held and replayed by VhyxVoid, and a request that reaches you can be retried by the provider after you already processed it. Make handlers **idempotent**: record each event's `id` (Stripe's `evt_…`) and ignore one you have already seen. See [Limitations](/limitations).
+Turn on the [webhook inbox](/dashboard/webhook-inbox) for the tunnel and VhyxVoid keeps webhooks (`POST`, `PUT`, `PATCH`, `DELETE`, up to 1 MB) that arrive while your agent is offline, answers the provider `202`, and delivers them in order when the agent is back. Providers that put a timestamp in the signature, like Stripe, reject a delivery that is too old, so raise your handler's tolerance while testing. Without the inbox, requests that arrive while your agent is reconnecting are not held, and either way a request that reaches you can be retried by the provider after you already processed it. Make handlers **idempotent**: record each event's `id` (Stripe's `evt_…`) and ignore one you have already seen. See [Limitations](/limitations).
 
 ## Things to know
 
-- **The URL is public.** Anyone who knows it can send requests to your webhook route. The signature check is what proves a request really came from the provider, so never skip it, even in development.
+- **The URL is public.** Anyone who knows it can send requests to your webhook route. A tunnel password works with providers that accept a URL with credentials (`https://x:PASSWORD@…`); see [Tunnel access](/dashboard/tunnel-access). The signature check is what proves a request really came from the provider, so never skip it, even in development.
 - **Use a test-mode secret and test data.** Don't point live-mode webhooks at a laptop.
 - **You don't need any special API-key scope for this.** The agent needs only `tunnel:connect`, as in the [Quickstart](/getting-started/quickstart). The `webhook:receive` and `webhook:inspect` scopes exist on API keys, but nothing checks them today.

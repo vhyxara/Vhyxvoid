@@ -2,8 +2,8 @@
 title: SDK errors
 description: The errors the two SDK clients throw and what each code means.
 verified:
-  date: "2026-09-22"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
     "@vhyxvoid/sdk": "1.1.0"
 sources:
@@ -38,7 +38,7 @@ try {
 }
 ```
 
-Note that a `ClientError` with status `502`, `503`, `504` or `404` can come from the tunnel itself rather than from your server. Its `data` then looks like `{ "error": "…", "status": 503, "tunnel": true }`. The `tunnel: true` field is how you tell the two apart. See [HTTP status codes](/reference/http-status-codes).
+Note that a `ClientError` can come from the tunnel itself rather than from your server: a `404`, `502`, `503` or `504` when the agent or your server can't be reached, a `401` or `403` from the tunnel's [access rules](/dashboard/tunnel-access), a `429` from the rate limit, or a `413` for a body over 10 MB. Its `data` then looks like `{ "error": "…", "status": 503, "tunnel": true }` (with a `code` for agent errors), and the response has an `x-vhyxvoid-error` header. The `tunnel: true` field is how you tell the two apart. A status from one of the tunnel's [traffic rules](/dashboard/traffic-rules) is an answer like any other, marked with an `x-vhyxvoid-rule` header. See [HTTP status codes](/reference/http-status-codes).
 
 ## Codes on a `TunnelError`
 
@@ -56,6 +56,7 @@ Note that a `ClientError` with status `502`, `503`, `504` or `404` can come from
 | `SCOPE_MISSING` | The key lacks the `tunnel:connect` scope. | No |
 | `INVALID_MESSAGE` | The request `path` doesn't start with a single `/` (for example, it is a full URL such as `http://…`). Pass a path on your own server, like `/api/orders`. | No |
 | `REPLAY_ATTACK`, `EXPIRED_KEY`, `REVOKED_KEY`, `SUSPENDED_ACCOUNT` | The key was rejected: a request ID was reused, the key expired or was revoked, or the account isn't in a state that can connect. `SUSPENDED_ACCOUNT` no longer fires for an account in its seven-day payment grace period (fixed 2026-09-22) — only once it's actually suspended or worse. | No |
+| `INTERNAL_ERROR` | Something went wrong in the hub while handling the request. Retrying later may work. | No |
 | `RATE_LIMITED` | The key exceeded its per-minute limit. See [plans and limits](/reference/plans-and-limits#not-listed-here). | No |
 
 The list is taken from what the hub's request path and the key validator can return, not from a promise about every future code. If you see one that isn't here, the `message` explains it.

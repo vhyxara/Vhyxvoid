@@ -2,10 +2,10 @@
 title: API key scopes
 description: The scopes an API key can carry and which of them anything actually checks.
 verified:
-  date: "2026-09-22"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/api/src/core/constant/apikey.constant.ts
   - apps/hub/src/services/HubAuth.service.ts
@@ -21,8 +21,8 @@ An API key carries a list of scopes. Today the only one that anything checks is 
 | `tunnel:connect` | Connect an agent to the hub, and register a `TunnelClient` session. | Yes. The hub requires it for agent registration and for `TunnelClient` connections and requests. | Yes |
 | `tunnel:read` | Read tunnel status. | No. Accepted when creating a key; nothing requires it yet. | Yes |
 | `tunnel:write` | Create or configure tunnels. | No. Accepted by the API when creating a key; nothing requires it yet. | No |
-| `webhook:receive` | Receive inbound webhooks. | No. There is no webhook inspection feature; nothing requires it. | No |
-| `webhook:inspect` | Inspect webhook history. | No. There is no webhook inspector; nothing requires it. | No |
+| `webhook:receive` | Receive inbound webhooks. | No. The [webhook inbox](/dashboard/webhook-inbox) is managed from the dashboard with your sign-in, not with an API key; nothing requires this scope. | No |
+| `webhook:inspect` | Inspect webhook history. | No. The [request inspector](/dashboard/request-inspector) is used from the dashboard with your sign-in, not with an API key; nothing requires this scope. | No |
 | `metrics:read` | Read usage metrics. | No. Accepted when creating a key; nothing requires it yet. | Yes |
 | `*` | Every scope. | Satisfies any scope check. Only an organization's owner can create a key that has it. | No |
 {/* generated:end scopes */}

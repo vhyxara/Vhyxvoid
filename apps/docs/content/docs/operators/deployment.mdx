@@ -113,7 +113,7 @@ Admin sign-in is rate limited per IP, and every admin action is written to the a
 
 ## Custom domains
 
-Customers can serve a tunnel on their own hostname ([custom domains](/docs/dashboard/custom-domains)). The edge is built for it:
+Customers can serve a tunnel on their own hostname ([custom domains](/dashboard/custom-domains)). The edge is built for it:
 
 - **nginx port 443 is an SNI router.** It reads the hostname of each TLS connection without decrypting it. Hostnames under `vhyxvoid.com` go to nginx's own HTTPS servers (wildcard certificate, as before); any other hostname goes to the `caddy` container. Both hops carry the PROXY protocol, so the real client address reaches the hub, access rules and the inspector.
 - **Caddy issues certificates on demand.** The first visit to a hostname asks the API (`/api/v1/public/domains/allow`) whether it is a *verified* custom domain; only then is a Let's Encrypt certificate requested. Unknown hostnames get no certificate. Certificates live in the `caddy_data` volume: keep it across upgrades (Let's Encrypt rate-limits re-issuing).

@@ -29,7 +29,7 @@ Open **Webhook inbox** under a workspace and turn it on for a tunnel (by its `--
 
 ## When the agent reconnects
 
-Waiting requests are delivered oldest first, with their original method, path, headers and body, through the tunnel to your app. Each delivery also shows up in the [request inspector](/docs/dashboard/request-inspector), marked as coming from the inbox.
+Waiting requests are delivered oldest first, with their original method, path, headers and body, through the tunnel to your app. Each delivery also shows up in the [request inspector](/dashboard/request-inspector), marked as coming from the inbox.
 
 - Any answer from your app below `500` counts as delivered (a `4xx` is shown so you can fix your handler and **Redeliver**).
 - A `5xx`, or your local server not answering, is retried after 30 s, 1 min, 2 min… up to 8 attempts, then marked **failed**. Requests behind it wait, so they never overtake it.

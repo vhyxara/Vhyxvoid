@@ -2,13 +2,13 @@
 title: Installation
 description: Which VhyxVoid package to install for what.
 verified:
-  date: "2026-09-19"
-  commit: 377c924
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
-    "@vhyxvoid/middleware": "1.0.5"
-    "@vhyxvoid/next": "1.0.5"
+    "@vhyxvoid/middleware": "2.0.0"
+    "@vhyxvoid/next": "1.1.0"
 sources:
   - packages/agent/package.json
   - packages/sdk/package.json
@@ -31,10 +31,10 @@ For most projects, install the one you need as a development dependency:
 npm install --save-dev @vhyxvoid/agent
 ```
 
-You can also run the agent without installing it, with `npx @vhyxvoid/agent`, as the quickstart does.
+You can also run the agent without installing it, with `npx @vhyxvoid/agent`, as the quickstart does. In GitHub Actions, the [tunnel action](/integrations/github-actions) starts it for a job.
 
 <Callout title="Native module">
-  `@vhyxvoid/agent` 1.0.20 and earlier depend on `better-sqlite3`, which includes a native component, for the on-disk queue the CLI uses. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. From the next release the agent has no native dependency at all. Changed in source 2026-09-25, not released yet. `@vhyxvoid/next` and `@vhyxvoid/middleware` run the agent inside your process without that queue, have no dependencies of their own, and install nothing native.
+  `@vhyxvoid/agent` 1.0.20 and earlier depend on `better-sqlite3`, which includes a native component, for the on-disk queue the CLI uses. On common platforms npm downloads a prebuilt binary; on others it compiles one, which needs a C++ toolchain. From 1.1.0 (not on npm yet) the agent has no native dependency at all. `@vhyxvoid/next` and `@vhyxvoid/middleware` run the agent inside your process without that queue, have no dependencies of their own, and install nothing native.
 </Callout>
 
 <Callout type="warn" title="The Next.js integration">

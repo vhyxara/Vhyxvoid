@@ -2,8 +2,8 @@
 title: SDK overview
 description: The two clients in @vhyxvoid/sdk, which to use, and everything the package exports.
 verified:
-  date: "2026-09-21"
-  commit: 8c74574
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
     "@vhyxvoid/sdk": "1.1.0"
 sources:
@@ -37,7 +37,7 @@ Both `import { createClient } from '@vhyxvoid/sdk'` and `require('@vhyxvoid/sdk'
 Start with `createClient`. Use `TunnelClient` only if you have a reason to keep a connection open.
 
 <Callout type="info">
-  The tunnel URL is public: anyone who knows it can call your server, and `createClient` adds no authentication of its own. Anything sensitive needs protecting in your own application. See [Limitations](/limitations#tunnel-urls-are-public).
+  The tunnel URL is public by default: anyone who knows it can call your server, and `createClient` adds no authentication of its own. Anything sensitive needs protecting in your own application, or with the tunnel's [access rules](/dashboard/tunnel-access); for a password-protected tunnel, pass the password as HTTP Basic auth, for example `headers: { authorization: 'Basic ' + Buffer.from('x:' + password).toString('base64') }`. See [Limitations](/limitations#tunnel-urls-are-public).
 </Callout>
 
 ## Everything the package exports

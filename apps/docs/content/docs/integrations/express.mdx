@@ -2,10 +2,10 @@
 title: Express
 description: Start a VhyxVoid tunnel from inside an Express app with @vhyxvoid/middleware.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/middleware": "1.0.5"
+    "@vhyxvoid/middleware": "2.0.0"
 sources:
   - packages/middleware/src/index.ts
   - packages/middleware/src/config.ts
@@ -49,7 +49,7 @@ app.listen(3000)
 The URL is `https://<account-slug>--<label>.vhyxvoid.com`; see [Concepts](/getting-started/concepts).
 
 <Callout type="warn" title="Set port to the port you listen on">
-  The middleware cannot see what you pass to `app.listen`. `port` defaults to `VHYXVOID_PORT`, then `3000`. If your server listens elsewhere and you don't set `port`, the tunnel forwards to the wrong place. From the next release the middleware corrects this itself: when neither `port` nor `VHYXVOID_PORT` is set, it switches to the port your app really listens on, with Express as soon as the first request reaches it (it can't see `app.listen` before that) and with Fastify as soon as the server starts listening, and prints one line saying so. A port you set explicitly is never changed. Changed in source 2026-09-25, not released yet.
+  The middleware cannot see what you pass to `app.listen`. `port` defaults to `VHYXVOID_PORT`, then `3000`. If your server listens elsewhere and you don't set `port`, the tunnel forwards to the wrong place. From `@vhyxvoid/middleware` 2.0.0 the middleware corrects this itself: when neither `port` nor `VHYXVOID_PORT` is set, it switches to the port your app really listens on, with Express as soon as the first request reaches it (it can't see `app.listen` before that) and with Fastify as soon as the server starts listening, and prints one line saying so. A port you set explicitly is never changed. 2.0.0 is not on npm yet; the published 1.0.5 always uses `port`, `VHYXVOID_PORT` or `3000`.
 </Callout>
 
 ### Credentials
@@ -71,7 +71,7 @@ Pass `key` and `secret` as options, or set `VHYXVOID_API_KEY` and `VHYXVOID_SECR
 | `hub` | `VHYXVOID_HUB_URL` | `wss://hub.vhyxvoid.com/agent` | Hub WebSocket URL. |
 | `writeEnv` | `VHYXVOID_WRITE_ENV` | off | File to write the public URL into, for example `.env.local`. |
 | `envKey` | `VHYXVOID_ENV_KEY` | `NEXT_PUBLIC_TUNNEL_URL` | Variable name written by `writeEnv`. |
-| `enabled` | none | `true` unless `NODE_ENV` is `production` (1.0.5 and earlier); see [Development only](#development-only) | Force the tunnel on or off. |
+| `enabled` | none | 2.0.0: on only when `NODE_ENV` is `development` and not on CI. 1.0.5: on unless `NODE_ENV` is `production`. See [Development only](#development-only) | Force the tunnel on or off. |
 | `onConnect` | none | none | Callback that receives the public URL. |
 
 The default label here is `default`, not `app` as in `@vhyxvoid/next`.
@@ -84,13 +84,13 @@ The tunnel is off when `NODE_ENV` is `production`, so deploying the same code do
 app.use(vhyxvoid({ enabled: process.env.VHYXVOID_TUNNEL === '1' }))
 ```
 
-<Callout type="warn" title="Changing in the next release">
-The next `@vhyxvoid/middleware` release makes the tunnel opt-in outside development: it starts only when `NODE_ENV` is `development` and `CI` is not set (any value other than `false` or `0` counts as CI), the same rule as `@vhyxvoid/next` plus the CI check. An unset `NODE_ENV`, `test` or `staging` no longer starts it. If you rely on the tunnel starting in one of those, pass `enabled: true` there. Changed in source 2026-09-25, not released yet.
+<Callout type="warn" title="Changed in 2.0.0">
+`@vhyxvoid/middleware` 2.0.0 makes the tunnel opt-in outside development: it starts only when `NODE_ENV` is `development` and `CI` is not set (any value other than `false` or `0` counts as CI), the same rule as `@vhyxvoid/next` plus the CI check. An unset `NODE_ENV`, `test` or `staging` no longer starts it. If you rely on the tunnel starting in one of those, pass `enabled: true` there. 2.0.0 is not on npm yet; `npm install @vhyxvoid/middleware` still gets 1.0.5, which behaves as described above.
 </Callout>
 
 ## Stopping
 
-The tunnel stops when the process receives `SIGINT` or `SIGTERM` or exits. In `@vhyxvoid/middleware` 2.0.0 and earlier, listening for those signals also stopped Node's default exit, so an app with no shutdown handler of its own needed Ctrl+C twice and `docker stop` waited for the kill timeout. From the next release the middleware re-raises the signal after stopping the tunnel when nothing else handles it, so one Ctrl+C exits; an app with its own `SIGINT`/`SIGTERM` handler keeps control of shutdown. Changed in source 2026-09-25, not released yet.
+The tunnel stops when the process receives `SIGINT` or `SIGTERM` or exits. In `@vhyxvoid/middleware` 1.0.5 and earlier, listening for those signals also stopped Node's default exit, so an app with no shutdown handler of its own needed Ctrl+C twice and `docker stop` waited for the kill timeout. From 2.0.0 the middleware re-raises the signal after stopping the tunnel when nothing else handles it, so one Ctrl+C exits; an app with its own `SIGINT`/`SIGTERM` handler keeps control of shutdown.
 
 To stop it earlier, for example in a test, call `stopTunnel()`:
 

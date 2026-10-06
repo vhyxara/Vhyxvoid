@@ -2,10 +2,10 @@
 title: API keys
 description: Create, scope, rotate, and revoke API keys in the dashboard.
 verified:
-  date: "2026-09-21"
-  commit: "621ee3f"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/web/src/views/org/api-keys/ApiKeysView.tsx
@@ -81,3 +81,5 @@ Choose the trash button in the key's row and confirm **Revoke key**. Revoking ca
 ## What isn't in the dashboard
 
 You can't edit a key's name, scopes or expiry after it is created, or view its usage history. To change scopes, create a new key and revoke the old one.
+
+Related: creating, rotating and revoking keys is recorded on the workspace's [Activity](/dashboard/activity) page, and the **Agents** card on [Tunnels](/dashboard/tunnels#agents) shows which key each running agent connected with, with a warning when it expires within seven days.

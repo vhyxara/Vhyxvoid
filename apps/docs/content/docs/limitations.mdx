@@ -2,13 +2,13 @@
 title: Limitations
 description: What VhyxVoid does not do or guarantee, stated plainly.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
-    "@vhyxvoid/middleware": "1.0.5"
-    "@vhyxvoid/next": "1.0.5"
+    "@vhyxvoid/middleware": "2.0.0"
+    "@vhyxvoid/next": "1.1.0"
 sources:
   - apps/hub/src/handlers/HttpTunnel.handler.ts
   - apps/hub/src/registry/Pending.registry.ts
@@ -22,14 +22,16 @@ sources:
 
 ## Requests don't survive agent disconnects
 
-If your agent loses its connection to VhyxVoid and a request arrives before it reconnects, that request is not held and replayed afterwards. The caller gets an error instead: a `503` if the hub already knows the agent is gone, or a `502` or `504` if the connection dropped while the request was in flight.
+If your agent loses its connection to VhyxVoid and a request arrives before it reconnects, that request is not held and replayed afterwards. The caller gets an error instead: a `404` or `503` if the hub already knows the agent is gone, or a `502` or `504` if the connection dropped while the request was in flight.
+
+The exception is the [webhook inbox](/dashboard/webhook-inbox): with it on for a tunnel, `POST`, `PUT`, `PATCH` and `DELETE` requests that arrive while the agent is offline are stored (the caller gets `202`) and delivered in order when it reconnects. A request already in flight when the connection dropped is still not replayed.
 
 - **`GET` and other safe requests:** retrying is fine.
 - **`POST`, `PUT`, `PATCH`, `DELETE`:** a request that was already handed to your server can still be processed after the caller has been told it failed. Retrying may apply the change twice. Make these handlers idempotent (for example with an idempotency key) if a duplicate would cause harm.
 
 ## Tunnel URLs are public
 
-Anyone who knows or guesses a tunnel URL can send requests to your local server. VhyxVoid does not authenticate callers on the tunnel URL, and the SDK's HTTP client sends no credentials. Don't tunnel a server that holds real data, and protect anything sensitive in your own application. There is a per-account rate limit on this path (see [Plans and limits](/reference/plans-and-limits)), but it exists to catch abuse, not to authenticate or authorize a caller.
+By default, anyone who knows or guesses a tunnel URL can send requests to your local server, and the SDK's HTTP client sends no credentials. On plans that include them (Pro and Enterprise), [access rules](/dashboard/tunnel-access) can put a password or an IP allowlist in front of a tunnel, with expiring share links for people you send it to. Without them, don't tunnel a server that holds real data, and protect anything sensitive in your own application either way. There is a per-account rate limit on this path (see [Plans and limits](/reference/plans-and-limits)), but it exists to catch abuse, not to authenticate or authorize a caller.
 
 ## The SDK is Node.js only
 
@@ -49,25 +51,25 @@ An earlier version of this page, and other descriptions of the SDK, called the W
 A WebSocket connection to a tunnel URL is carried to your server, and a simple connection that sends and receives a few messages works. It is **not yet reliable** for the tools that rely on it:
 
 - Vite hot reload fails, because the relay doesn't handle WebSocket subprotocols. The browser sees the connection close with code `1011`.
-- A message sent right after the connection opens can be lost, which makes socket.io fall back to long polling.
+- With `@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` / `@vhyxvoid/middleware` 1.0.5), a message sent right after the connection opens can be lost, which makes socket.io fall back to long polling. From agent 1.1.0 such messages are held until your server's socket is open and delivered in order (up to 256 messages or 4 MB; beyond that the connection is closed).
 - There is no cap on connections and no keep-alive.
 
-`@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` and `@vhyxvoid/middleware` 1.0.5) fixed messages lost or reordered in bursts, messages arriving after a close, sockets left open after a disconnect and unsendable close codes. Those fixes come in two halves, one in the agent and one in the hub, and this page can't tell you which hub you are talking to. The two problems above are not fixed. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
+`@vhyxvoid/agent` 1.0.20 (and `@vhyxvoid/next` and `@vhyxvoid/middleware` 1.0.5) fixed messages lost or reordered in bursts, messages arriving after a close, sockets left open after a disconnect and unsendable close codes. Those fixes come in two halves, one in the agent and one in the hub, and this page can't tell you which hub you are talking to. The subprotocol problem and the missing cap and keep-alive are not fixed. [Access rules](/dashboard/tunnel-access) apply to WebSocket connections too; [traffic rules](/dashboard/traffic-rules) do not. Hot reload for Next.js and other frameworks over a tunnel hasn't been tested. A tunnelled WebSocket is exactly as public as the tunnel URL itself. The symptoms and workarounds are on [Troubleshooting](/troubleshooting#websockets-and-hot-reload-through-a-tunnel).
 
 ## Streaming responses
 
 In `@vhyxvoid/agent` 1.0.20 and earlier (and the `@vhyxvoid/next` / `@vhyxvoid/middleware` versions that bundle it), a response reaches the caller only once your server has finished it. Server-Sent Events, NDJSON and other chunked responses arrive all at once at the end, and an endless stream never arrives (the caller eventually gets a `504`).
 
-From the next agent release, together with the matching hub, those responses are relayed as your server writes them: `text/event-stream`, NDJSON, and chunked responses without a `Content-Length`. Once a streamed response has started it can stay open as long as the caller keeps it open. Everything else is still sent in one piece (up to 10 MiB). When a caller disconnects before the answer is complete, the hub now tells the agent, and the agent aborts the request to your server instead of letting it run on for nobody. The HTTP client in `@vhyxvoid/sdk` and `TunnelClient` still receive complete responses. Changed in source 2026-09-25, not released yet.
+From agent 1.1.0 (with `@vhyxvoid/next` 1.1.0 and `@vhyxvoid/middleware` 2.0.0, which bundle it), together with the current hub, those responses are relayed as your server writes them: `text/event-stream`, NDJSON, and chunked responses without a `Content-Length`. Once a streamed response has started it can stay open as long as the caller keeps it open. Everything else is still sent in one piece (up to 10 MiB). When a caller disconnects before the answer is complete, the hub now tells the agent, and the agent aborts the request to your server instead of letting it run on for nobody. The HTTP client in `@vhyxvoid/sdk` and `TunnelClient` still receive complete responses. These versions are not on npm yet (it has agent 1.0.20, next and middleware 1.0.5).
 
 ## Cached responses
 
 The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server's response is a `2xx` with a `Cache-Control` header whose `max-age` is above zero, and it marks responses with an `x-vhyxvoid-cache: HIT` or `MISS` header.
 
 - **Per caller.** Entries are keyed by path and query string and by the caller's credentials: cookies, `Authorization`, and headers whose names look like credentials (`x-api-key`, `x-auth-token`, `x-csrf-token`, `x-session-id`, and similar). Two callers with different credentials never share an entry, and an anonymous response is never given to a credentialed caller.
-- **Never cached:** responses that set a cookie, or send `Vary: *`. A `Vary` header is honoured for the request headers it names.
+- **Never cached:** responses that set a cookie, are marked `private`, or send `Vary: *`. A `Vary` header is honoured for the request headers it names.
 - **What is not covered:** a custom credential header whose name matches none of those patterns. If your server authenticates that way, send `Vary` or `Cache-Control: no-store`.
-- **Next agent release (changed in source 2026-09-25, not released yet):** the cache is capped at 50 MB as well as 500 entries and evicts the least recently used entry first; a request that sends `Cache-Control: no-cache`, `max-age=0` or `Pragma: no-cache` (a browser hard refresh) always goes to your server; and a `POST`/`PUT`/`PATCH`/`DELETE` clears cached entries by whole path segments, so a write to `/users` clears `/users` and `/users/5` but no longer `/users-archive`.
+- **From agent 1.1.0 (not on npm yet):** the cache is capped at 50 MB as well as 500 entries and evicts the least recently used entry first; a request that sends `Cache-Control: no-cache`, `max-age=0` or `Pragma: no-cache` (a browser hard refresh) always goes to your server; and a `POST`/`PUT`/`PATCH`/`DELETE` clears cached entries by whole path segments, so a write to `/users` clears `/users` and `/users/5` but no longer `/users-archive`.
 - **Older agents.** In `@vhyxvoid/agent` 1.0.18 and earlier the cache ignored credentials, so a response produced for one user could be handed to another. Upgrade to 1.0.19 or later. The in-process integrations bundle the agent, so upgrade `@vhyxvoid/next` and `@vhyxvoid/middleware` to 1.0.4 or later too.
 
 ## Your server sees a local Host header

@@ -16,7 +16,7 @@ sources:
 
 Open **Traffic rules** under a workspace and pick a tunnel. Rules belong to a tunnel **label**, so they keep applying when you restart the agent. Owners and admins change them; everyone in the workspace can see them and test requests against them.
 
-VhyxVoid applies rules on its side, after [access rules](/docs/dashboard/tunnel-access) and the rate limit and before the request reaches your agent. A rule never opens a protected tunnel.
+VhyxVoid applies rules on its side, after [access rules](/dashboard/tunnel-access) and the rate limit and before the request reaches your agent. A rule never opens a protected tunnel.
 
 ## What a rule can do
 
@@ -51,8 +51,8 @@ Changes are a draft until you choose **Save rules**; the whole list is saved at 
 
 ## In the inspector and charts
 
-Answers from a rule count as requests (plan usage, [traffic charts](/docs/dashboard/tunnels#traffic)) and appear in the [request inspector](/docs/dashboard/request-inspector) marked ⚑, with the header `x-vhyxvoid-rule` naming the rule. In the inspector, **Mock this response** turns any captured response into a mock rule for that method and path.
+Answers from a rule count as requests (plan usage, [traffic charts](/dashboard/tunnels#traffic)) and appear in the [request inspector](/dashboard/request-inspector) marked ⚑, with the header `x-vhyxvoid-rule` naming the rule. In the inspector, **Mock this response** turns any captured response into a mock rule for that method and path.
 
 ## Limits
 
-The number of rules per tunnel depends on the plan. Rules saved before a downgrade keep working; saving more than the new limit is refused. WebSocket connections are not affected by rules. Every save is recorded on the [Activity](/docs/dashboard/activity) page.
+The number of rules per tunnel depends on the plan. Rules saved before a downgrade keep working; saving more than the new limit is refused. WebSocket connections are not affected by rules. Every save is recorded on the [Activity](/dashboard/activity) page.

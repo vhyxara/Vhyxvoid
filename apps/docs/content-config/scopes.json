@@ -17,12 +17,12 @@
   },
   "webhook:receive": {
     "description": "Receive inbound webhooks.",
-    "checked": "No. There is no webhook inspection feature; nothing requires it.",
+    "checked": "No. The [webhook inbox](/dashboard/webhook-inbox) is managed from the dashboard with your sign-in, not with an API key; nothing requires this scope.",
     "inDashboard": false
   },
   "webhook:inspect": {
     "description": "Inspect webhook history.",
-    "checked": "No. There is no webhook inspector; nothing requires it.",
+    "checked": "No. The [request inspector](/dashboard/request-inspector) is used from the dashboard with your sign-in, not with an API key; nothing requires this scope.",
     "inDashboard": false
   },
   "metrics:read": {

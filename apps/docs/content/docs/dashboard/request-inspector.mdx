@@ -30,7 +30,7 @@ Select a request to see:
 - Headers that carry credentials (`Authorization`, `Cookie`, `X-Api-Key` and similar) are never stored, so a replay is sent without them.
 - Signed webhooks may reject a replay: providers like Stripe put a timestamp in the signature and refuse old ones.
 - A request whose body was larger than the inspector keeps cannot be replayed exactly, so Replay is disabled for it.
-- Replays reach a [password-protected](/docs/dashboard/tunnel-access) tunnel without the password: only members of the workspace can replay.
+- Replays reach a [password-protected](/dashboard/tunnel-access) tunnel without the password: only members of the workspace can replay.
 
 **Copy as curl** gives you the same request as a command line, to send from your terminal.
 
@@ -47,8 +47,8 @@ Anyone who is a member of the workspace can view and replay; **Clear** (admins a
 
 ## Mock this response
 
-**Mock this response** on a captured request creates a [traffic rule](/docs/dashboard/traffic-rules) that answers the same method and path with the same status, content type and body, without your app. Review it, then **Save rules**. Requests answered by a rule are marked ⚑ in the list.
+**Mock this response** on a captured request creates a [traffic rule](/dashboard/traffic-rules) that answers the same method and path with the same status, content type and body, without your app. Review it, then **Save rules**. Requests answered by a rule are marked ⚑ in the list.
 
 ## Turning capture off
 
-If your workspace must not have request data stored (health data, payments, customer data under contract), an owner or admin can switch **Capture** off at the top of the page. From then on no request of any tunnel in the workspace is kept, and the requests kept so far are deleted at once. Tunnels keep working as before. The switch is recorded on the [Activity](/docs/dashboard/activity) page; turn it back on the same way.
+If your workspace must not have request data stored (health data, payments, customer data under contract), an owner or admin can switch **Capture** off at the top of the page. From then on no request of any tunnel in the workspace is kept, and the requests kept so far are deleted at once. Tunnels keep working as before. The switch is recorded on the [Activity](/dashboard/activity) page; turn it back on the same way.

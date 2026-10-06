@@ -2,10 +2,10 @@
 title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
-  date: "2026-09-25"
-  commit: "8babfbc"
+  date: "2026-10-06"
+  commit: "77c2542"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
   - packages/agent/src/cli.ts
   - packages/agent/src/AgentClient.ts
@@ -42,7 +42,9 @@ Creating an API key is covered in the [Quickstart](/getting-started/quickstart#1
   Share the Public URL — it is stable and never changes.
 ```
 
-Stop it with Ctrl+C. If the connection to VhyxVoid drops it reconnects on its own.
+Stop it with Ctrl+C. If the connection to VhyxVoid drops it reconnects on its own. If something is wrong with the key itself (wrong secret, revoked, expired, missing the `tunnel:connect` scope) or with the label, it stops with a message and exits with status 1 instead of retrying; see [Troubleshooting](/troubleshooting).
+
+If it does not connect, `npx @vhyxvoid/agent doctor` checks your key, local server and connection to VhyxVoid and says what to fix; see [`vhyxvoid doctor`](/cli/doctor). It ships in agent 1.1.0, which is not on npm yet (npm has 1.0.20).
 
 ## Keep credentials in a file, not on the command line
 
@@ -81,7 +83,7 @@ npx vhyxvoid --write-env .env.development --env-key API_PUBLIC_URL
 
 ### Several tunnels
 
-Each tunnel is one agent process with its own label and port, and its own URL:
+Each tunnel is one agent process with its own label and port, and its own URL. A label becomes part of a hostname, so it may contain only lowercase letters, digits and single hyphens (1–63 characters, starting and ending with a letter or digit, no `--`). Uppercase is lowered for you; anything else is refused before the agent connects.
 
 ```bash
 npx vhyxvoid --label web --port 3000
@@ -90,12 +92,13 @@ npx vhyxvoid --label api --port 4000   # in another terminal
 
 ### Disconnects and local discovery
 
-- **Queue.** In agent 1.0.20 and earlier the agent keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`) and writes responses it could not send while disconnected to it, response bodies included. From the next release there is no queue file and no `better-sqlite3`: such responses are held in memory only (up to 100 responses, 20 MB, and two minutes, the time VhyxVoid waits for an answer), `--queue-path` is accepted but ignored, and the CLI deletes a `~/.vhyxvoid/queue.db` an older agent left behind. Changed in source 2026-09-25, not released yet. Requests that arrive while the agent is disconnected are not replayed; see [Limitations](/limitations).
+- **Queue.** Agent 1.0.20 (the version on npm) keeps a small SQLite file (`~/.vhyxvoid/queue.db` unless you set `--queue-path`) and writes responses it could not send while disconnected to it, response bodies included. From 1.1.0 there is no queue file and no `better-sqlite3`: such responses are held in memory only (up to 100 responses, 20 MB, and two minutes, the time VhyxVoid waits for an answer), `--queue-path` is accepted but ignored, and the CLI deletes a `~/.vhyxvoid/queue.db` an older agent left behind.
+- **Requests while disconnected** get `404` and are not replayed, unless the tunnel's [webhook inbox](/dashboard/webhook-inbox) is on: then `POST`, `PUT`, `PATCH` and `DELETE` requests are kept and delivered when the agent is back. See [Limitations](/limitations).
 - **Local discovery.** By default the agent also listens on `127.0.0.1:4242` so that the [SDK](/sdk/overview), when it runs on the same machine, can find it. It answers only on your own machine, and has no authentication. If you don't use the SDK locally, pass `--no-local-discovery`. It is also the flag to reach for if port 4242 is already taken.
 
 ## Things to know
 
-- **Response caching.** The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server sends `Cache-Control` with a `max-age` above zero on a successful response. Entries are kept per caller: a cookie, an `Authorization` header, or a header whose name looks like a credential (`x-api-key`, `x-auth-token`, `x-csrf-token`, `x-session-id`, and similar) gives that caller their own entries, so two callers with different credentials never share one. Responses that set a cookie, or send `Vary: *`, are never cached, and a `Vary` header is honoured. A custom credential header with an unusual name is not recognised, so a server that authenticates that way should send `Vary` or `Cache-Control: no-store`. Cached responses carry `x-vhyxvoid-cache: HIT`. See [Limitations](/limitations#cached-responses).
+- **Response caching.** The agent keeps some `GET` responses in memory and can answer repeat requests without asking your server. It does this only when your server sends `Cache-Control` with a `max-age` above zero on a successful response. Entries are kept per caller: a cookie, an `Authorization` header, or a header whose name looks like a credential (`x-api-key`, `x-auth-token`, `x-csrf-token`, `x-session-id`, and similar) gives that caller their own entries, so two callers with different credentials never share one. Responses that set a cookie, send `Vary: *`, or are marked `private`, are never cached, and a `Vary` header is honoured. From agent 1.1.0, a request with `Cache-Control: no-cache` or `Pragma: no-cache` (a browser hard refresh) skips the cache and refreshes the entry, and the cache holds at most 500 responses and 50 MB (1.0.20: 500 responses, no size cap). A custom credential header with an unusual name is not recognised, so a server that authenticates that way should send `Vary` or `Cache-Control: no-store`. Cached responses carry `x-vhyxvoid-cache: HIT`. See [Limitations](/limitations#cached-responses).
 - **Host header.** Your server sees `Host: 127.0.0.1:<port>` and `x-forwarded-host` set to the same, plus `x-forwarded-by: vhyxvoid`, not the public hostname.
 - **Output.** The agent prints a version banner, a couple of `[agent]` status lines, and the tunnel details shown above. Use `--debug` for everything else.
 - **Version.** `vhyxvoid --version` and the banner show the installed package's version. Releases before 1.0.19 showed `1.0.16` for 1.0.18.
