@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-05"
-  commit: "320c1fd"
+  commit: "00aae30"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -104,4 +104,5 @@ Turn product features on or off.
 | Key | Type | Default | Public | What it does |
 | --- | --- | --- | --- | --- |
 | `features.requestInspector` | boolean | `true` | yes | Request inspector. The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests. |
+| `features.webhookInbox` | boolean | `true` | yes | Webhook inbox. Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests. |
 | `features.feedbackEnabled` | boolean | `true` | yes | Feedback form. Let signed-in users send feedback from the dashboard. |

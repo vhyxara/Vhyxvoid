@@ -14,3 +14,6 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] Tunnel passwords have no per-tunnel failed-attempt limit; only the per-account public-path limiter (FREE 100/min) caps guessing. Add a small in-process counter per (account, label, ip) that answers 429 after ~10 failures/minute. Found 2026-10-06, session upbeat-cannon.
 - [ ] Inspector: WebSocket frames are not captured (only the upgrade request's tunnel traffic around it); replay is HTTP only. Found 2026-10-06, session upbeat-cannon.
 - [ ] Multi-hub: TunnelPolicyCache invalidation reaches only the hub the API calls (HUB_INTERNAL_URL); other instances wait out the 30 s TTL. Publish invalidations over HubPubSub when multi-hub lands. Found 2026-10-06, session upbeat-cannon.
+- [ ] Webhook inbox: delivery is sequential per tunnel and one tunnel per sweep tick runs to completion before the next; a tunnel with thousands waiting delays others on the same hub for that tick. Bound per-tick work (e.g. 100 per tunnel) once there are real numbers. Found 2026-10-06, session upbeat-cannon.
+- [ ] Webhook inbox: stored bodies/headers sit in Postgres in clear text for up to 7 days (masked in responses). Consider encrypting `body` and `headers` at rest with a key from env. Found 2026-10-06, session upbeat-cannon.
+

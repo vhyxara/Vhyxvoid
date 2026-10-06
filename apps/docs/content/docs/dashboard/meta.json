@@ -5,6 +5,7 @@
     "api-keys",
     "tunnels",
     "request-inspector",
+    "webhook-inbox",
     "tunnel-access",
     "members-and-roles",
     "billing",

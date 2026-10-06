@@ -1,0 +1,42 @@
+---
+title: Webhook inbox
+description: Keep webhooks that arrive while your agent is offline and deliver them, in order, when it reconnects.
+verified:
+  date: "2026-10-06"
+  commit: "00aae30"
+  packages: {}
+sources:
+  - apps/web/src/views/org/inbox/InboxView.tsx
+  - packages/shared/src/inbox.ts
+  - apps/hub/src/services/Inbox.service.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/api/src/modules/platform/inbox/inbox.routes.ts
+---
+
+Webhook providers give up on endpoints that keep failing. Without an inbox, a webhook sent while your laptop is asleep or your agent is stopped gets `404` and may never come back. With the inbox on, VhyxVoid keeps it and hands it to your app as soon as the tunnel is online again.
+
+## Turn it on
+
+Open **Webhook inbox** under a workspace and turn it on for a tunnel (by its `--label`). Owners and admins can change it.
+
+## While the tunnel is offline
+
+- `POST`, `PUT`, `PATCH` and `DELETE` requests are stored and answered with `202 Accepted` and an `x-vhyxvoid-inbox` header carrying the stored request's id. Providers treat that as success and stop retrying.
+- `GET` and other reads still get `404`, as before.
+- Access rules still apply: a password-protected tunnel only stores requests that pass the password or IP check.
+- Bodies up to 1 MB are kept. Larger requests get `413`.
+- Your plan sets how many requests can wait per tunnel. When it is full, further requests get `503` with `Retry-After`, so the provider retries later.
+
+## When the agent reconnects
+
+Waiting requests are delivered oldest first, with their original method, path, headers and body, through the tunnel to your app. Each delivery also shows up in the [request inspector](/docs/dashboard/request-inspector), marked as coming from the inbox.
+
+- Any answer from your app below `500` counts as delivered (a `4xx` is shown so you can fix your handler and **Redeliver**).
+- A `5xx`, or your local server not answering, is retried after 30 s, 1 min, 2 min… up to 8 attempts, then marked **failed**. Requests behind it wait, so they never overtake it.
+- If the tunnel goes offline again mid-way, delivery stops and continues on the next reconnect; that does not count as an attempt.
+
+Signed webhooks: providers that put a timestamp in the signature (Stripe, for example) reject old deliveries by default. Increase your handler's tolerance while testing, or redeliver from the provider's dashboard.
+
+## Managing it
+
+Filter by **Waiting**, **Delivered** or **Failed**, open a request to see its headers (credentials hidden) and body, **Deliver now** or **Redeliver** one, or delete them. Everything is deleted automatically 7 days after it arrived.

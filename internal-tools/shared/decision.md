@@ -825,3 +825,14 @@ Commits 2112350..ed140a1 on `claude/upbeat-cannon-dwqaj0`.
 4. **Global API rate limit stays 100/min/IP**, now configurable (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`). Keying it by user instead was rejected: the limiter runs before auth, so a token-derived key would let an attacker mint fresh buckets.
 **Status:** active.
 
+### 2026-10-06 — Webhook inbox (session upbeat-cannon, part 3)
+
+Commit 00aae30.
+
+1. **Postgres, not Redis**, for held requests: they are the customer's business events (payments, signups) and must survive a Redis flush; volume is bounded by the plan limit and a 7-day retention.
+2. **Delivery reuses the live path** (hub -> itself over loopback with the internal secret), same as inspector replay, so access rules, limits, streaming and capture behave identically and there is one forwarding implementation.
+3. **Ordering beats throughput**: a retryable failure blocks later requests of the same tunnel until its next attempt. Webhooks often depend on order (created before updated).
+4. **"Delivered" = the app answered below 500.** A 4xx means the app received it and rejected it; retrying would not help, the user can redeliver after a fix. Hub-made answers are told apart by the new `x-vhyxvoid-error` header; offline/rate-limited pause without spending an attempt.
+5. **Credentials are stored** (unlike the inspector): delivery must be faithful (signatures, auth). They are masked in every API response; rows are deleted after 7 days.
+**Status:** active.
+
