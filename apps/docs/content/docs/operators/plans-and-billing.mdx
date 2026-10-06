@@ -3,7 +3,7 @@ title: Plans and billing
 description: How plan limits are decided, how to change them for everyone or for one account, and how checkout and trials work.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "f57a494"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -36,7 +36,7 @@ Each account's effective limits are worked out in three layers, last one wins:
 3. **Account overrides** (the *Limit overrides* tab on an account): change a limit for one account only.
 
 `inspectorRequests` is how many recent requests the [request inspector](/docs/dashboard/request-inspector) keeps per tunnel (0 turns it off for that plan or account). The inspector as a whole can be switched off with `features.requestInspector`. `inboxRequests` is how many requests a tunnel's [webhook inbox](/docs/dashboard/webhook-inbox) holds while its agent is offline (0 = no inbox; `features.webhookInbox` turns it off for everyone). `accessRules` decides who can create [tunnel access rules](/docs/dashboard/tunnel-access) (password, IP allowlist, share links); rules that exist keep working after a downgrade.
-`maxCustomDomains` is how many [custom domains](/docs/dashboard/custom-domains) an account can add (0 hides the form; domains that exist keep working after a downgrade), with `features.customDomains` as the platform-wide switch. `maxAlertRules` caps [alert rules](/docs/dashboard/alerts) per account (`features.alerts` stops all alert evaluation).
+`maxCustomDomains` is how many [custom domains](/docs/dashboard/custom-domains) an account can add (0 hides the form; domains that exist keep working after a downgrade), with `features.customDomains` as the platform-wide switch. `maxAlertRules` caps [alert rules](/docs/dashboard/alerts) per account (`features.alerts` stops all alert evaluation). `maxTrafficRules` caps [traffic rules](/docs/dashboard/traffic-rules) per tunnel (0 hides them; `features.trafficRules` off makes the hub ignore every rule at once, for example during an incident).
 
 In both override editors an empty field means "inherit", and *Unlimited* removes the cap. **System → Effective limits** shows the result of layers 1 and 2; the account page shows all three.
 

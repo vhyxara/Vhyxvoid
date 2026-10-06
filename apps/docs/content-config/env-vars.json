@@ -124,7 +124,7 @@
       "usedBy": [
         "agent"
       ],
-      "default": "api.<hub domain>",
+      "default": "`api.` + the hub's domain",
       "flag": null,
       "description": "API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging)."
     }

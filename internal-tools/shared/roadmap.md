@@ -39,6 +39,7 @@ an item ships (move it to *Shipped* with its commits) or the order changes
 | 9 | Team activity feed + CSV export | Platform mutations recorded by one route table; tunnel connects/disconnects merged in | 349ff83 |
 | 10 | GitHub Action for preview environments (`actions/tunnel`) | Must move to a public repo to be usable by customers (shared backlog) | d28cd42 |
 | 11 | CLI `vhyxvoid doctor` | Ships with the next agent publish | 4ef82d9 |
+| 12 | Traffic rules: mocks, injected errors and latency, redirects, path rewrites, header changes, offline answers; inspector "Mock this response" | Plan limit `maxTrafficRules`, switch `features.trafficRules` | 8b8435e, f57a494 |
 | — | Launch backlog: absolute session lifetime + pruning (M23), admin lockout, CMS optimistic lock, weighted usage mean, tunnel-password guessing limit, per-workspace inspector opt-out | | 349ff83, ce7ff76, 49499c7 |
 
 ## Next, in order (re-ranked 2026-10-06 after items 1-5 shipped)
@@ -47,10 +48,9 @@ an item ships (move it to *Shipped* with its commits) or the order changes
    features need): agent release with `doctor`, `actions/tunnel` in a public
    repo + Marketplace listing, changelog entry. Without it the Action is
    unusable by customers.
-2. **Traffic policies and mock responses** (rewrite headers, inject
-   latency/errors, offline mock answers per path). Strongest remaining
-   daily-use differentiator vs. ngrok's paid tier; reuses the hub's access-rule
-   cache and the inspector (capture -> "mock this response").
+2. ~~Traffic policies and mock responses~~ shipped 2026-10-06 (#12 above).
+   Follow-ups if customers ask: rules for WebSocket upgrades, response-body
+   rewriting, rule hit counters on the Rules page.
 3. **Agent fleet view** (user-frontend F7): agent version, uptime, outdated
    banner, disconnect/rotate from the dashboard. Data mostly exists (sessions,
    handshake metadata); teams with many agents need it.

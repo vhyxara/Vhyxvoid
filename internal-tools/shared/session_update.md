@@ -2036,3 +2036,22 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "production-stable (part 2)",
+  "date": "2026-10-06",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/vhyxvoid-production-stable-zfjdqv); libraries unchanged",
+  "brief_summary": "Continue with traffic policies and mock responses (roadmap next #2).",
+  "status": "completed",
+  "summary": "Traffic rules per tunnel: shared engine (match by method/path/header, always or offline; mock, fail %, redirect, delay, rewrite, request/response headers), TunnelRuleSet storage, hub evaluation after limiter and access rules with stats/inspector capture, offline answers even for unregistered URLs, API with version-checked save and dry-run test, dashboard Rules page with templates and test panel, inspector 'Mock this response'. Plan limit maxTrafficRules, switch features.trafficRules. Fixed: activity hook double-recorded access/domain/inbox changes; docs build broken by an env-var default from part 1; a flaky tamper test.",
+  "verification": "root vitest 725 passed (99 files) with the real-DB tests on local Postgres; web vitest 67; turbo typecheck 16/16; production builds web/admin/api/hub; docs build 48 pages and check:fresh clean for touched pages; live local stack: rules saved via API (409 on stale version), real agent + hub: mock, rewrite, CORS header, offline maintenance mock after stopping the agent; Playwright screenshots of the Rules page, dialog and test panel on desktop and phone with no page errors.",
+  "commits": "8b8435e f57a494 + docs/records commit",
+  "open_items_for_next_session": [
+    "Deploy (migration traffic_rules) with the earlier three; publish agent; public repo for actions/tunnel",
+    "Roadmap next: agent fleet view, per-key usage CSV + workspace switcher, account deletion, pricing"
+  ]
+}
+```
+

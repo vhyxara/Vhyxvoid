@@ -18,3 +18,6 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] Multi-hub: custom-domain cache invalidation (`/internal/domains/invalidate`) reaches only the hub the API calls; others wait out the 60 s TTL. Same fix as the policy cache (HubPubSub). Found 2026-10-06, session upbeat-cannon.
 - [ ] Custom domains: WebSocket upgrades on a custom host are routed, but the inspector/stats only see the upgrade request (same as subdomains). Found 2026-10-06, session upbeat-cannon.
 - [ ] Multi-hub: `PasswordGuessLimiter` (tunnel password guesses) is in-process per hub like the public-path limiter, so N hubs allow N x 10 guesses a minute per address. Move to Redis when multi-hub lands. Found 2026-10-06, session production-stable.
+- [ ] Traffic rules: WebSocket upgrades bypass rules entirely (documented); mocks are text only (no binary bodies); no per-rule hit counter. Add if customers ask. Found 2026-10-06, session production-stable.
+- [ ] Multi-hub: the traffic-rule cache is invalidated only on the hub the API calls (same as access rules); others wait out 30 s. Same HubPubSub fix. Found 2026-10-06, session production-stable.
+

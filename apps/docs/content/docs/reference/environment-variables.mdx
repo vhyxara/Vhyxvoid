@@ -35,7 +35,7 @@ The table is generated from a list that is cross-checked against the source of `
 | `VHYXVOID_DEBUG_LOGGING` | CLI agent | off | Only the exact value `true` turns on detailed diagnostics. The in-process integrations embed the agent, so the variable affects them too. |
 | `VHYXVOID_ACCOUNT_SLUG` | SDK, CLI agent | none; `createClient` needs this or `baseUrl` | Your account slug, the part of the tunnel URL before `--`. The SDK reads it; the CLI's `init` offers it as the default answer and writes it into `.env.vhyxvoid`, but the agent itself never uses it. |
 | `VHYXVOID_HUB_DOMAIN` | SDK | `vhyxvoid.com` | Domain that `createClient` builds the tunnel URL from. |
-| `VHYXVOID_API_URL` | CLI agent | api.<hub domain> | API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging). |
+| `VHYXVOID_API_URL` | CLI agent | `api.` + the hub's domain | API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging). |
 {/* generated:end env-vars */}
 
 ## Where the agent looks

@@ -1,0 +1,58 @@
+---
+title: Traffic rules
+description: Answer requests with mocks, inject errors and latency, redirect, rewrite paths and change headers, before a request reaches your machine.
+verified:
+  date: "2026-10-06"
+  commit: "f57a494"
+  packages: {}
+sources:
+  - packages/shared/src/trafficRules.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/services/TrafficRuleCache.service.ts
+  - apps/api/src/modules/platform/traffic-rules/trafficRules.routes.ts
+  - apps/web/src/views/org/rules/TrafficRulesView.tsx
+  - apps/web/src/views/org/rules/rulesForm.ts
+---
+
+Open **Traffic rules** under a workspace and pick a tunnel. Rules belong to a tunnel **label**, so they keep applying when you restart the agent. Owners and admins change them; everyone in the workspace can see them and test requests against them.
+
+VhyxVoid applies rules on its side, after [access rules](/docs/dashboard/tunnel-access) and the rate limit and before the request reaches your agent. A rule never opens a protected tunnel.
+
+## What a rule can do
+
+| Action | Effect |
+| --- | --- |
+| **Answer with a mock** | Replies with your status, headers and body (up to 64 KB of text). Your app never sees the request. |
+| **Inject an error** | Replies with a 4xx/5xx for a share of requests (1–100%), to test retries and error screens. |
+| **Redirect** | Replies 301/302/307/308. `{path}` in the location is replaced by the original path and query. |
+| **Add latency** | Waits before forwarding (up to 30 s in total). |
+| **Rewrite the path** | Forwards to another path. With `/old/*` → `/new`, `/old/a/b?x=1` reaches your app as `/new/a/b?x=1`. |
+| **Change request headers** | Sets or removes headers before forwarding (for example drop `Cookie`, add `X-Env: preview`). |
+| **Change response headers** | Sets or removes headers on the answer, mocks included (for example CORS headers). |
+
+`Host`, `Content-Length`, `Transfer-Encoding`, `Connection` and other framing headers cannot be changed.
+
+## Which requests a rule applies to
+
+- **Path**: `/exact/path`, `/prefix/*`, `/a/*/b`, or `*` for every path. `*` matches anything, including `/`. The query string is ignored.
+- **Methods**: none selected means any method.
+- **Header** (optional): only requests that carry it, or carry it with a given value (case-insensitive). Handy for `X-Mock: on` switches in tests.
+- **Only while the agent is offline**: for mocks and redirects. The rule answers when no agent is connected for this tunnel, even if none ever registered, for example a maintenance page or a "we will be back" JSON for webhooks. Without it, the webhook inbox (if on) keeps write requests instead.
+
+## Order
+
+Rules run top to bottom. Changing rules (latency, rewrite, headers) add up; the first rule that answers ends the list. A later rule sees the path as rewritten by earlier ones. Use the arrows to reorder.
+
+Changes are a draft until you choose **Save rules**; the whole list is saved at once and applies within seconds. If someone else saved the same tunnel's rules after you opened them, saving is refused so you do not overwrite their change; reload and repeat yours.
+
+## Test a request
+
+**Test a request** runs a method and path through the rules on screen, saved or not, and shows whether a rule answers, the path your app would get, added latency and header changes. Nothing is sent to your app. Error injection always takes the failing branch in a test.
+
+## In the inspector and charts
+
+Answers from a rule count as requests (plan usage, [traffic charts](/docs/dashboard/tunnels#traffic)) and appear in the [request inspector](/docs/dashboard/request-inspector) marked ⚑, with the header `x-vhyxvoid-rule` naming the rule. In the inspector, **Mock this response** turns any captured response into a mock rule for that method and path.
+
+## Limits
+
+The number of rules per tunnel depends on the plan. Rules saved before a downgrade keep working; saving more than the new limit is refused. WebSocket connections are not affected by rules. Every save is recorded on the [Activity](/docs/dashboard/activity) page.

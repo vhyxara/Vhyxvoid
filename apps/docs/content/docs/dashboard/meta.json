@@ -6,6 +6,7 @@
     "tunnels",
     "request-inspector",
     "webhook-inbox",
+    "traffic-rules",
     "tunnel-access",
     "custom-domains",
     "alerts",

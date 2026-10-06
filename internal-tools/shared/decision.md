@@ -865,3 +865,16 @@ Commits 349ff83, ce7ff76, 4ef82d9, d28cd42, 49499c7, d6df5ec.
 10. **Libraries (VhyxUI, VhyxSeal, VhyxChart) unchanged this session.** Nothing in them blocked the work: VhyxUI's Button/Select/Switch/Card covered the new screens; the only gap (data charts) is outside VhyxChart's purpose (see 1). Recorded so the next session does not assume a library change is pending.
 **Status:** active.
 
+### 2026-10-06 — Traffic rules (session production-stable, part 2)
+
+Commits 8b8435e, f57a494.
+
+1. **One ordered list per tunnel label, saved as a whole** (`tunnel_rule_sets.rules` JSON, version-checked). Per-rule rows were rejected: order is the semantics, and saving a list atomically means the hub never sees half of a reorder. A concurrent save is refused (409) by an `updateMany` on (id, version), not overwritten.
+2. **One engine, in packages/shared**, used by the API (validation, dry-run test) and the hub (evaluation). The dashboard's "Test a request" therefore shows exactly what live traffic gets. Error injection is deterministic in tests (always the failing branch).
+3. **Semantics: changes add up, the first answer wins.** Delay, rewrite and header rules accumulate; mock, fail (when its percentage fires) and redirect stop evaluation. Later rules match on the rewritten path. Delay is capped at 30 s total so a rule cannot hold hub sockets for long.
+4. **Placement: after the abuse limiter and access rules, before the agent.** A mock never bypasses a password or IP allowlist, and mocked answers count as usage, feed the traffic charts and are captured by the inspector (`answeredByRule`, `ruleIds`, `x-vhyxvoid-rule` header).
+5. **"Offline" rules answer without an agent**, including URLs with no registration at all (account looked up by slug, cached). They are evaluated before the webhook inbox: if a maintenance mock matches, the caller gets it; otherwise the inbox keeps write requests as before. Offline rules may only answer (mock/redirect).
+6. **The rule cache fails open** (unlike access rules, which fail closed): rules shape development traffic and are not a security boundary; a database blip should forward requests unchanged rather than error. Framing headers (Host, Content-Length, Transfer-Encoding, Connection, Upgrade, TE, Trailer, Keep-Alive) cannot be set or removed, and CR/LF is rejected, so rules cannot desync the hub's HTTP handling.
+7. **Activity rows: one per change.** Found that the tunnel-access, custom-domain and inbox routes already wrote their own audit rows (dotted names), so the activity hook added in 349ff83 double-recorded them. The hook no longer lists those routes; the feed reads the dotted names.
+**Status:** active.
+
