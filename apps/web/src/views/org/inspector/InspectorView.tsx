@@ -53,7 +53,7 @@ function RequestRow({ r, active, onClick }: { r: InspectedSummary; active: boole
     >
       <span style={{ ...mono, fontWeight: 600 }}>{r.method}</span>
       <span style={{ ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.path}>
-        {r.answeredByRule ? '⚑ ' : r.replayOf ? '↻ ' : r.inboxId ? '⤓ ' : ''}
+        {r.mock ? '◇ ' : r.answeredByRule ? '⚑ ' : r.replayOf ? '↻ ' : r.inboxId ? '⤓ ' : ''}
         {r.path}
       </span>
       <span className='flex items-center gap-2'>
@@ -154,6 +154,7 @@ function Detail({ accountId, label, id }: { accountId: string; label: string; id
             {new Date(r.at).toLocaleString()} · {r.durationMs ?? '—'} ms{r.clientIp ? ` · from ${r.clientIp}` : ''}
             {r.replayOf ? ' · replay' : ''}
             {r.inboxId ? ' · delivered from the webhook inbox' : ''}
+            {r.mock ? ` · answered by the mock API (${r.mock.endpointName ?? 'endpoint'}${r.mock.responseName ? ` → ${r.mock.responseName}` : ''})` : ''}
             {r.answeredByRule ? ' · answered by a traffic rule (your app did not see it)' : r.ruleIds?.length ? ` · changed by ${r.ruleIds.length} traffic rule${r.ruleIds.length === 1 ? '' : 's'}` : ''}
           </Typography>
         </div>

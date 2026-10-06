@@ -20,6 +20,8 @@ export type InspectedRequest = {
   ruleIds?: string[]
   /** A traffic rule answered (mock, injected error, redirect); the agent never saw it. */
   answeredByRule?: boolean
+  /** Set when a hosted mock API answered (the app did not see it). */
+  mock?: { endpointId: string; responseId: string; endpointName?: string; responseName?: string } | null
 }
 
 export type InspectedSummary = {
@@ -33,6 +35,8 @@ export type InspectedSummary = {
   replayOf: string | null
   inboxId?: string | null
   answeredByRule?: boolean
+  /** Set when a hosted mock API answered (the app did not see it). */
+  mock?: { endpointId: string; responseId: string; endpointName?: string; responseName?: string } | null
   requestSize: number
   responseSize: number
   contentType: string | null
