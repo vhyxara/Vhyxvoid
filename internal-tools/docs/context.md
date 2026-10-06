@@ -280,3 +280,7 @@ Original list (kept):
 2. **Should not-enforced plan allowances (members, requests/month, retention, custom domains) appear in public docs at all?** (Recommendation: no, until enforced.)
 3. **Canonical Next.js integration:** confirm `@vhyxvoid/next` (recommended) so the other can be de-emphasized/deprecated later.
 4. **Public docs origin:** `docs.vhyxvoid.com` (recommended) vs. `vhyxvoid.com/docs` via a rewrite in `apps/web`.
+
+## Additions 2026-10-06 (session production-stable)
+
+New pages: dashboard/activity, dashboard/traffic-rules, cli/doctor, integrations/github-actions; changelog written (was a stub). Updated: tunnels (Agents, Traffic), request-inspector, tunnel-access, alerts, operators (admin console, runbook incl. jobs and agent versions, deployment, settings reference regenerated, plans). `VHYXVOID_API_URL` registered in content-config/env-vars.json. Every touched page passes check:fresh; ~27 older pages still do not (backlog).

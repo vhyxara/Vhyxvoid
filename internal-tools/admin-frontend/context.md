@@ -1316,3 +1316,10 @@ follow this shape) — set up before any scaffolding, not retrofitted after.
   but `requireAbility`-gated routes will reject everything until a role
   with abilities is attached — worth a visible empty/unprivileged state on
   that admin's detail page, not just a silent redirect.
+
+## Additions 2026-10-06 (session production-stable; details in ../HANDOFF-2026-10-06.md)
+
+- Dashboard: Live traffic section (`views/dashboard/TrafficSection.tsx`).
+- System health: "Send due usage/trial notices" next to "Run alert checks now".
+- Tunnels → Live: agents per version, outdated count, version badges, in-flight column.
+- Content editor sends `expectedUpdatedAt`; new settings appear automatically (billing.usageNotices, billing.trialNoticeDays, features.trafficRules, tunnels.recommendedAgentVersion, tunnels.minimumAgentVersion); plan limit maxTrafficRules in the overrides editor.

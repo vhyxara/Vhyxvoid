@@ -79,3 +79,9 @@ Numbering is preserved from the original unified context.md so cross-references 
 - ~~Does the inbound-replay gap need a real fix before any production/team use?~~ **Decided 2026-09-12: accepted as-is for now, with an explicit trigger condition for revisiting (see Known Risks #3) — no longer an open "no consensus" question.**
 - ~~`Message.router.ts`'s `tunnel:ws:error` routing path — reachable or dead code?~~ **Resolved 2026-09-12: traced directly, confirmed reachable. One `HttpTunnelHandler` singleton is shared by `HubServer` and `MessageRouter` via constructor injection; no staleness.**
 - **Still open, newly surfaced**: is `PendingRegistry`'s Redis mirror (item #23) used for anything beyond `HubPubSub.findAgentHub`-style cross-hub visibility, or could it be repurposed as a starting point for real crash recovery later? Not investigated in depth — noted as a possible starting point for whenever items #9/#23's shared trigger condition fires.
+
+## Additions 2026-10-06 (session production-stable; details in HANDOFF-2026-10-06.md)
+
+- Public path order: abuse limiter → access rules (with PasswordGuessLimiter: 10 wrong passwords/min per account+label+IP → 429) → traffic rules (TrafficRuleCache, 30 s, fail open) → agent. Rule answers are counted, charted, inspected (`answeredByRule`) and carry `x-vhyxvoid-rule`; "offline" rules also answer for unregistered URLs. Replays/inbox deliveries skip rules.
+- RequestInspectorService honours Account.inspectorCapture; `/internal/policies/invalidate` also drops cached traffic rules and the inspector setting.
+- Registration refuses agents below `tunnels.minimumAgentVersion` (fatal VERSION_UNSUPPORTED, before auth). `/internal/agents` adds keyId (ApiKey row id) and inFlight; disconnect takes `?reason=`.

@@ -194,3 +194,11 @@ Numbering is preserved from the original unified context.md so cross-references 
 - ~~What are the `PRIVATE_KEY`/`PUBLIC_KEY` vars for?~~ **CORRECTED 2026-09-17 (the "Resolved" answer below was wrong): not an abandoned plan — `RS256JwtService` reads these and is the real, live JWT signer/verifier for both regular-user and admin auth. See item 29 and item 49.** ~~Resolved: abandoned RS256 JWT plan. Confirmed unused in code. Safe to delete.~~ (superseded, kept crossed out rather than deleted per this file's append-only-correction convention)
 - ~~Is `OAuthAccount` planned or dead?~~ **Resolved: planned, never started. No use-case anywhere.**
 - ~~Is rate limiting actually enforced?~~ **Resolved (2026-09-12 reconciliation pass): Yes**, contrary to the original audit. Real per-plan values, real enforcement in `ValidateApiKeyUseCase`. The remaining gap is narrower: plan-tier lookup is hardcoded to PRO for every account (see Known Risks #4, #36), not that limiting itself is a stub.
+
+## Additions 2026-10-06 (session production-stable; details in HANDOFF-2026-10-06.md)
+
+- Platform module gained `traffic/` (GET /traffic, /admin/traffic over tunnel_minute_stats), `traffic-rules/` (CRUD + dry-run test, version-checked saves), `agents/` (fleet + stop), `activity/` (feed + CSV), `alerts/notices.ts` (usage 80/100 % and trial notices, claimed once via `account_notices`), `shared/activity.ts` (route-table audit hook; routes that write their own rows are excluded), `shared/maintenance.ts` (hourly session/notice pruning).
+- Background jobs (Postgres leases): alerts 1 min, domains 5 min, notices 15 min, maintenance 1 h; run-now via POST /admin/system/jobs/:name/run.
+- Sessions: `absoluteExpiresAt` on Session/AdminSession (users 90 d, admins 30 d), inherited on rotation. AdminUser has `failedLoginAttempts`/`lockedUntil` (atomic lockout).
+- Account.inspectorCapture (workspace switch); tunnel_rule_sets (ordered JSON list per label).
+- CMS saves accept `expectedUpdatedAt` (409 on a stale save).

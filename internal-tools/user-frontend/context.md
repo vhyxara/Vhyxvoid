@@ -238,3 +238,9 @@ Numbering is preserved from the original unified context.md so cross-references 
 None currently open that are specific to apps/web — see `internal-tools/shared/context.md`'s Open Questions for cross-cutting items.
 
 **Auth refresh across tabs (2026-09-25, `cf0c3c4`, audit H10):** `authService.refresh()` runs under `navigator.locks` (`vhyxvoid:auth-refresh`, `crossTabLock.ts`), so the 401 handler (`api/wrapper/http.ts`) and the page-load bootstrap (`bootstrapSession.ts`) in different tabs refresh one after another instead of sending the same cookie at once; the per-tab `isRefreshing` queue is unchanged. The api also returns the same successor for a re-presented token within 30 s (`api/context.md` #64), which covers browsers without the Web Locks API.
+
+## Additions 2026-10-06 (session production-stable; details in HANDOFF-2026-10-06.md)
+
+- New pages: Activity (`views/org/activity`), Traffic rules (`views/org/rules`, inspector hand-off via sessionStorage `vv:traffic-rule-draft`).
+- Tunnels page: Agents card (`AgentFleetCard`, 15 s refresh) replaces Active tunnels; Traffic card (`TrafficCard` + `components/charts/TrafficChart`, plain SVG, palette validated for the dark surface). Overview shows the compact traffic card once the checklist is done.
+- Inspector: capture switch (owners/admins), "Mock this response", ⚑ marks rule answers.

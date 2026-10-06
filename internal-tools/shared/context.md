@@ -330,3 +330,7 @@ Numbering is preserved from the original unified context.md so cross-references 
 - ~~Exact SAN list / actual live-server nginx config?~~ **Resolved 2026-09-12 — see Known Risks #2. The SAN question is settled; the cert-expiry finding is new and still needs the user's direct action.**
 - ~~Was `vhyxconfig.md`'s real credential material ever actually rotated?~~ **Resolved 2026-09-12: yes, confirmed by the user (done manually outside any session). File deleted — see Known Risks #11.**
 - **Still open, newly surfaced**: does the SDK (`packages/sdk`) already assume/handle binary request bodies anywhere in its own signing/sending path? Needed before item #21's request-direction corruption (readBody()) can be fixed — unverified this session, flagged as a prerequisite investigation, not assumed either way.
+
+## Additions 2026-10-06 (session production-stable)
+
+See `internal-tools/HANDOFF-2026-10-06.md` for the full list. packages/shared gained `traffic.ts` (chart buckets), `trafficRules.ts` (rules engine used by API and hub), `agentFleet.ts` (versions, health); plan limit `maxTrafficRules`; settings billing.usageNotices, billing.trialNoticeDays, features.trafficRules, tunnels.recommendedAgentVersion, tunnels.minimumAgentVersion. Repo root gained `actions/tunnel` (composite GitHub Action).

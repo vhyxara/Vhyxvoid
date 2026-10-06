@@ -1,5 +1,7 @@
 # Product roadmap: value order
 
+Latest handoff: `internal-tools/HANDOFF-2026-10-06.md`.
+
 Owner asked (2026-10-06) to build features "in your order of value" and to
 launch free, charging later, with every limit and price controlled from the
 admin panel. This file is the order used and what comes next. Update it when
