@@ -3,6 +3,7 @@
 // All account-scoped routes require OWNER role (billing affects entire account).
 
 import { RoleLevel } from "@/core/constant/account.constant";
+import { currentStripePrices } from "@vhyxvoid/shared";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/core/errors/error.format";
 import { isOwnOrigin } from "@/core/constant/hub.constant";
 import { successResponse } from "@/core/utils/response.util";
@@ -37,15 +38,25 @@ const portalBodySchema = z.object({
 });
 
 /** Only the configured Stripe prices can be bought (audit M16). */
-function resolvePriceId(body: { plan?: "PRO" | "ENTERPRISE"; priceId?: string }): string {
-  const prices = { PRO: process.env.STRIPE_PRO_PRICE_ID, ENTERPRISE: process.env.STRIPE_ENTERPRISE_PRICE_ID };
+async function resolvePriceId(body: { plan?: "PRO" | "ENTERPRISE"; priceId?: string }): Promise<string> {
+  const prices = await currentStripePrices();
   if (body.plan) {
     const id = prices[body.plan];
     if (!id) throw new ValidationError(`The ${body.plan} plan is not available`);
     return id;
   }
-  if (!Object.values(prices).includes(body.priceId)) throw new ValidationError("Unknown price");
-  return body.priceId!;
+  if (!body.priceId || !Object.values(prices).includes(body.priceId)) throw new ValidationError("Unknown price");
+  return body.priceId;
+}
+
+/** Billing mode "paid" and upgrades switched on, both from the admin panel. */
+async function assertCheckoutOpen(fastify: FastifyInstance): Promise<void> {
+  const [mode, enabled] = await Promise.all([
+    fastify.platformSettings.get("billing.mode"),
+    fastify.platformSettings.get("billing.checkoutEnabled"),
+  ]);
+  if (mode !== "paid") throw new ForbiddenError("Paid plans are not available yet.");
+  if (!enabled) throw new ForbiddenError("Upgrades are temporarily unavailable. Please try again later.");
 }
 
 export async function billingRoutes(fastify: FastifyInstance) {
@@ -63,10 +74,8 @@ export async function billingRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { accountId } = accountParamSchema.parse(request.params);
       const body = checkoutBodySchema.parse(request.body);
-      const priceId = resolvePriceId(body);
-      if (!(await fastify.platformSettings.get("billing.checkoutEnabled"))) {
-        throw new ForbiddenError("Upgrades are temporarily unavailable. Please try again later.");
-      }
+      await assertCheckoutOpen(fastify);
+      const priceId = await resolvePriceId(body);
       const user = getUserContext(request);
       const uow = fastify.container.resolve(PrismaUnitOfWork);
 

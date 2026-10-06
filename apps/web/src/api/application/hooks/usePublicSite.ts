@@ -14,6 +14,10 @@ export type PublicBootstrap = {
 }
 
 export type PublicPlans = {
+  /** free: launch mode, nothing can be bought. paid: Stripe checkout is live. */
+  mode?: 'free' | 'paid'
+  defaultPlan?: 'FREE' | 'PRO' | 'ENTERPRISE'
+  freeModeMessage?: string
   checkoutEnabled: boolean
   trialDays: number
   plans: Array<{ plan: 'FREE' | 'PRO' | 'ENTERPRISE'; limits: Record<string, unknown> }>

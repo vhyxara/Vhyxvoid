@@ -1,5 +1,6 @@
 export type ErrorCode =
   | 'VALIDATION_ERROR'
+  | 'SERVICE_UNAVAILABLE'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'UNAUTHORIZED'

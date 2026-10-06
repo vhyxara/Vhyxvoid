@@ -19,6 +19,15 @@ const LIMIT_ROWS: Array<[string, string]> = [
   ['prioritySupport', 'Priority support']
 ]
 
+// "5 concurrent tunnels" reads better than "5 Concurrent tunnels (agents)".
+const COUNT_LABELS: Record<string, string> = {
+  maxAgents: 'concurrent tunnels',
+  maxRequestsPerMonth: 'requests per month',
+  maxMembers: 'team members',
+  maxApiKeys: 'API keys',
+  publicPathRateLimitPerMinute: 'public requests per minute'
+}
+
 function show(v: unknown) {
   if (v === null) return 'Unlimited'
   if (v === true) return '✓'
@@ -28,7 +37,58 @@ function show(v: unknown) {
   return String(v ?? '—')
 }
 
+/** Launch mode: one free plan, no prices, nothing to buy. */
+function FreeModePricing({ plans, signupsEnabled, faq }: { plans: PublicPlans; signupsEnabled: boolean; faq: PricingContent['faq'] }) {
+  const plan = plans.plans.find(p => p.plan === plans.defaultPlan) ?? plans.plans[0]
+  const features = LIMIT_ROWS.filter(([key]) => plan && plan.limits[key] !== false && plan.limits[key] !== undefined).map(
+    ([key, label]) => (typeof plan.limits[key] === 'boolean' ? label : `${show(plan.limits[key])} ${COUNT_LABELS[key] ?? label}`)
+  )
+
+  return (
+    <>
+      <section className={styles.hero}>
+        <div className={`${styles.inner} ${styles.center}`} style={{ position: 'relative' }}>
+          <span className={styles.eyebrow}>Pricing</span>
+          <h1 className={styles.heroTitle} style={{ fontSize: 'clamp(2rem, 4.5vw, 3.2rem)' }}>
+            Free while we launch
+          </h1>
+          <p className={styles.lead}>{plans.freeModeMessage}</p>
+        </div>
+        <div className={styles.inner} style={{ position: 'relative', marginBlockStart: '3rem', maxInlineSize: '28rem' }}>
+          <PricingTable
+            linkAs={Link as any}
+            plans={[
+              {
+                name: 'Early access',
+                price: '$0',
+                period: '',
+                description: 'Everything you need to share local servers, webhooks and demos.',
+                features,
+                highlighted: true,
+                badge: 'Free',
+                action: signupsEnabled ? { label: 'Get started free', href: '/register', variant: 'primary' } : { label: 'Sign in', href: '/login', variant: 'primary' }
+              }
+            ]}
+          />
+          <p className={styles.center} style={{ marginBlockStart: '1rem', opacity: 0.75, fontSize: 14 }}>
+            Paid plans with higher limits will come later. Accounts created now keep working.
+          </p>
+        </div>
+      </section>
+      {faq.length > 0 && (
+        <section className={styles.section}>
+          <div className={styles.inner} style={{ maxInlineSize: '48rem' }}>
+            <FAQ title='Questions' items={faq.map(f => ({ question: f.q, answer: f.a }))} />
+          </div>
+        </section>
+      )}
+    </>
+  )
+}
+
 export function PricingView({ content, plans, signupsEnabled }: { content: PricingContent; plans: PublicPlans | null; signupsEnabled: boolean }) {
+  if (plans?.mode === 'free') return <FreeModePricing plans={plans} signupsEnabled={signupsEnabled} faq={content.faq} />
+
   const trial = plans?.trialDays ?? 0
 
   return (

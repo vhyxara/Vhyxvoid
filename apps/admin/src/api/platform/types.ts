@@ -244,3 +244,23 @@ export type ContentDetail = ContentRow & {
   seoDescription: string | null
   revisions: Array<{ id: string; version: number; title: string; note: string | null; createdAt: string }>
 }
+
+export type StripePriceLookup = {
+  plan: 'PRO' | 'ENTERPRISE'
+  id: string | null
+  source: 'admin' | 'environment' | null
+  price: { id: string; active: boolean; unitAmount: number | null; currency: string; interval: string | null; productName: string | null } | null
+  error: string | null
+}
+
+export type BillingSetup = {
+  mode: 'free' | 'paid'
+  defaultPlan: 'FREE' | 'PRO' | 'ENTERPRISE'
+  checkoutEnabled: boolean
+  trialDays: number
+  stripe: { configured: boolean; testMode: boolean }
+  prices: StripePriceLookup[]
+  plans: Array<{ plan: string; limits: Record<string, unknown> }>
+  problems: string[]
+}
+

@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { successResponse } from "@/core/utils/response.util";
+import { currentDefaultPlan, currentStripePrices, effectivePlanLimits, Plan } from "@vhyxvoid/shared";
 import { orderBy, page, pageQuerySchema, prismaOf, rangeQuerySchema, since, skipTake } from "../shared/http";
 
 const stripeDashboard = (path: string) => {
@@ -13,6 +14,56 @@ const stripeDashboard = (path: string) => {
 
 export async function adminBillingRoutes(fastify: FastifyInstance) {
   const prisma = prismaOf(fastify);
+
+  /**
+   * Everything the "Plans & pricing" screen needs to tell an operator whether
+   * paid plans would work right now: mode, default plan, Stripe keys, and
+   * each configured price looked up live in Stripe.
+   */
+  fastify.get("/setup", { onRequest: [fastify.requireAbility("billing.read")] }, async (_request, reply) => {
+    const settings = fastify.platformSettings;
+    const [mode, defaultPlan, checkoutEnabled, trialDays, stored, prices, overrides] = await Promise.all([
+      settings.get("billing.mode"),
+      currentDefaultPlan(),
+      settings.get("billing.checkoutEnabled"),
+      settings.get("billing.trialDays"),
+      settings.get("billing.stripePrices"),
+      currentStripePrices(),
+      settings.get("plans.overrides"),
+    ]);
+    const stripe = fastify.stripeService;
+    const lookups = await Promise.all(
+      (["PRO", "ENTERPRISE"] as const).map(async (plan) => {
+        const id = prices[plan] ?? null;
+        const source = !id ? null : stored?.[plan] ? "admin" : "environment";
+        if (!id || !stripe.configured) return { plan, id, source, price: null, error: id ? "Stripe keys are not set" : null };
+        try {
+          return { plan, id, source, price: await stripe.retrievePrice(id), error: null };
+        } catch (err) {
+          return { plan, id, source, price: null, error: (err as Error).message };
+        }
+      }),
+    );
+    const problems: string[] = [];
+    if (mode === "paid") {
+      if (!stripe.configured) problems.push("Billing mode is paid but STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET are not set.");
+      for (const l of lookups) {
+        if (!l.id) problems.push(`No Stripe price for ${l.plan}: it cannot be bought.`);
+        else if (l.error) problems.push(`${l.plan}: ${l.error}`);
+        else if (l.price && !l.price.active) problems.push(`${l.plan}: the Stripe price is archived.`);
+      }
+    }
+    return successResponse(reply, "Success", 200, {
+      mode,
+      defaultPlan,
+      checkoutEnabled,
+      trialDays,
+      stripe: { configured: stripe.configured, testMode: (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test") },
+      prices: lookups,
+      plans: [Plan.FREE, Plan.PRO, Plan.ENTERPRISE].map((plan) => ({ plan, limits: effectivePlanLimits(plan, overrides) })),
+      problems,
+    });
+  });
 
   fastify.get("/summary", { onRequest: [fastify.requireAbility("billing.read")] }, async (request, reply) => {
     const { days } = rangeQuerySchema.parse(request.query);
@@ -34,7 +85,7 @@ export async function adminBillingRoutes(fastify: FastifyInstance) {
       outstanding: { cents: open._sum.amountDue ?? 0, invoices: open._count._all },
       pastDueAccounts: failedRecently,
       trialsEndingIn7Days: trialsEndingSoon,
-      stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+      stripeConfigured: fastify.stripeService.configured,
     });
   });
 

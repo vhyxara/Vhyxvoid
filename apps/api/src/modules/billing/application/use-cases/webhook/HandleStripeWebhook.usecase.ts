@@ -294,7 +294,7 @@ export class HandleStripeWebhookUseCase {
       }
 
       const stripePriceId = priceItem.price.id;
-      const plan = this.stripeService.resolvePlan(stripePriceId);
+      const plan = await this.stripeService.resolvePlan(stripePriceId);
       const status = this.mapStripeStatus(stripeSub.status);
 
       const toDate = (unixSeconds: number | null | undefined): Date | null => {

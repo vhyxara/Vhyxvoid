@@ -19,7 +19,8 @@ import type {
   SystemHealth,
   TunnelSessionRow,
   UserDetail,
-  UserRow
+  UserRow,
+  BillingSetup
 } from './types'
 
 const list = <T>(url: string) => (params: ListParams = {}) =>
@@ -57,6 +58,7 @@ export const platformService = {
   disconnectAgent: (agentId: string, reason: string) => post(`/admin/tunnels/live/${agentId}/disconnect`, { reason }),
   tunnelSessions: list<TunnelSessionRow>('/admin/tunnels/sessions'),
 
+  billingSetup: () => get<BillingSetup>('/admin/billing/setup'),
   billingSummary: (days = 30) => httpClient<BillingSummary>({ url: '/admin/billing/summary', method: 'GET', params: { days } }),
   subscriptions: list<SubscriptionRow>('/admin/billing/subscriptions'),
   invoices: list<InvoiceRow>('/admin/billing/invoices'),

@@ -38,9 +38,20 @@ export async function publicRoutes(fastify: FastifyInstance) {
   fastify.get("/plans", async (_request, reply) => {
     cache(reply, 60);
     const overrides = await fastify.platformSettings.get("plans.overrides");
-    const [checkoutEnabled, trialDays] = await Promise.all([fastify.platformSettings.get("billing.checkoutEnabled"), fastify.platformSettings.get("billing.trialDays")]);
+    const get = fastify.platformSettings.get.bind(fastify.platformSettings);
+    const [mode, defaultPlan, freeModeMessage, checkoutEnabled, trialDays] = await Promise.all([
+      get("billing.mode"),
+      get("billing.defaultPlan"),
+      get("billing.freeModeMessage"),
+      get("billing.checkoutEnabled"),
+      get("billing.trialDays"),
+    ]);
     return successResponse(reply, "Success", 200, {
-      checkoutEnabled,
+      mode,
+      defaultPlan,
+      freeModeMessage,
+      // Buying is possible only in paid mode with upgrades switched on.
+      checkoutEnabled: mode === "paid" && checkoutEnabled,
       trialDays,
       plans: [Plan.FREE, Plan.PRO, Plan.ENTERPRISE].map((plan) => ({ plan, limits: serializeLimits(effectivePlanLimits(plan, overrides)) })),
     });

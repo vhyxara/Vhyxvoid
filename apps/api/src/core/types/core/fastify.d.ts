@@ -122,6 +122,7 @@ declare module "fastify" {
 
     // --- Billing / Subscription
     createCheckoutSessionUseCase: CreateCheckoutSessionUseCase;
+    stripeService: import("@/modules/billing/domain/services/Stripe.service").IStripeService;
     createBillingPortalSessionUseCase: CreateBillingPortalSessionUseCase;
     getSubscriptionUseCase: GetSubscriptionUseCase;
     getInvoicesUseCase: GetInvoicesUseCase;

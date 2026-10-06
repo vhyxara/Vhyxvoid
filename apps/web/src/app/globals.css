@@ -118,7 +118,11 @@ html {
   min-block-size: 100%;
 }
 
-a {
+/* VhyxUI components rendered as links (Button asChild, PricingTable actions)
+   style themselves inside a cascade layer, which any unlayered rule beats,
+   and Tailwind flattens `@layer base` here. So leave them out by their
+   marker attribute. */
+a:not([data-vhyx-contract]) {
   color: inherit;
   text-decoration: none;
 }

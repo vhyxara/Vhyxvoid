@@ -226,8 +226,11 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const { data, isLoading } = useSubscription(accountId)
   const createPortal = useCreatePortal(accountId)
-  // Admins can pause upgrades (settings: billing.checkoutEnabled).
-  const checkoutEnabled = usePublicPlans().data?.checkoutEnabled !== false
+  // Set from the admin panel: billing.mode (free launch vs paid) and
+  // billing.checkoutEnabled (pause upgrades).
+  const publicPlans = usePublicPlans().data
+  const freeMode = publicPlans?.mode === 'free'
+  const checkoutEnabled = !freeMode && publicPlans?.checkoutEnabled !== false
 
   const handleManage = () => {
     createPortal.mutate(
@@ -244,7 +247,11 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
   if (!data) return null
 
   const sub = data.subscription
-  const isFree = !sub || sub.plan === 'FREE'
+  // A canceled or never-paid subscription no longer counts: the account is
+  // on the admin's default plan (same rule as the API's plan resolver).
+  const paying = !!sub && sub.plan !== 'FREE' && !['CANCELED', 'INCOMPLETE'].includes(sub.status)
+  const isFree = !paying
+  const shownPlan = paying ? sub!.plan : (publicPlans?.defaultPlan ?? 'FREE')
 
   return (
     <>
@@ -257,10 +264,10 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
                 Current plan
               </Typography>
               <div className='flex flex-wrap gap-2' style={{ marginTop: 8 }}>
-                <Badge variant={billingBadgeVariant(planColor(sub?.plan ?? 'FREE'))} size='sm'>
-                  {sub?.plan ?? 'FREE'}
+                <Badge variant={billingBadgeVariant(planColor(shownPlan))} size='sm'>
+                  {shownPlan}
                 </Badge>
-                {sub?.status && (
+                {paying && sub?.status && (
                   <Badge variant={billingBadgeVariant(subStatusColor(sub.status))} size='sm'>
                     {sub.status}
                   </Badge>
@@ -271,7 +278,7 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
             {/* Action button — upgrade or manage */}
             <div>
               {isFree ? (
-                checkoutEnabled ? (
+                freeMode ? null : checkoutEnabled ? (
                   <Button size='sm' icon={<i className='tabler-rocket' />} onClick={() => setUpgradeOpen(true)}>
                     Upgrade
                   </Button>
@@ -333,7 +340,9 @@ function SubscriptionCard({ accountId }: { accountId: string }) {
 
           {isFree && (
             <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
-              You&apos;re on the free plan. Upgrade to unlock more tunnels, API keys, and team members.
+              {freeMode
+                ? (publicPlans?.freeModeMessage ?? 'Free during early access.')
+                : 'Upgrade to unlock more tunnels, API keys, and team members.'}
             </Typography>
           )}
 

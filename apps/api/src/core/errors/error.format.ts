@@ -92,3 +92,13 @@ export class InternalServerError extends AppError {
     super(message, 500, "INTERNAL_ERROR", false);
   }
 }
+
+/**
+ * 503 - A dependency this feature needs is not configured or not available.
+ * Use when: billing is requested but Stripe keys are not set.
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(message = "This feature is not available right now") {
+    super(message, 503, "SERVICE_UNAVAILABLE");
+  }
+}

@@ -14,7 +14,8 @@
 //     that is still paying or in its grace period (ENTITLED_SUBSCRIPTION_
 //     STATUSES). A canceled subscription, or a checkout whose first payment
 //     never succeeded (INCOMPLETE), no longer counts: the account is on FREE.
-//   - no such subscription -> FREE
+//   - no such subscription -> the admin's default plan (billing.defaultPlan,
+//     FREE unless changed)
 //
 // NOT the same as apps/api's CheckPlanLimitsService.getLimits (FREE unless the
 // subscription is active/trialing). That one has no callers that matter and is
@@ -26,6 +27,7 @@
 import { Plan, PLAN_LIMITS, type PlanLimits } from "./planLimits";
 import {
   applyLimitOverrides,
+  currentDefaultPlan,
   validateLimitOverrides,
   type PlanLimitOverrides,
   type PlanOverridesSetting,
@@ -74,7 +76,9 @@ export async function resolvePlanForAccount(
     orderBy: { createdAt: "desc" },
     select: { plan: true },
   });
-  if (!subscription) return Plan.FREE;
+  // No paid subscription: the admin's default plan (billing.defaultPlan,
+  // FREE unless raised, e.g. for a launch).
+  if (!subscription) return currentDefaultPlan();
 
   // A plan name this code does not know (e.g. a value added to the database
   // enum before a deploy) must not become `undefined` limits.

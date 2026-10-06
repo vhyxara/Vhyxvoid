@@ -38,36 +38,32 @@ export interface StripeWebhookEvent {
   created: number;
 }
 
+export interface StripePriceInfo {
+  id: string;
+  active: boolean;
+  unitAmount: number | null;
+  currency: string;
+  interval: string | null;
+  productName: string | null;
+}
+
 export interface IStripeService {
-  /**
-   * Create or retrieve a Stripe customer for an account.
-   * Returns the stripeCustomerId.
-   */
+  /** False when STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET are not set. */
+  readonly configured: boolean;
+
   createCustomer(params: CreateStripeCustomerParams): Promise<string>;
 
-  /**
-   * Create a Stripe Checkout session URL.
-   * Redirect the user to this URL to complete payment.
-   */
   createCheckoutSession(params: CreateCheckoutSessionParams): Promise<string>;
 
-  /**
-   * Create a Stripe Billing Portal session URL.
-   * Redirect the user to manage their subscription, payment methods, etc.
-   */
   createBillingPortalSession(
     params: CreateBillingPortalParams,
   ): Promise<string>;
 
-  /**
-   * Verify and parse a Stripe webhook signature.
-   * Throws if the signature is invalid — never process unverified events.
-   */
   constructWebhookEvent(payload: Buffer, signature: string): StripeWebhookEvent;
 
-  /**
-   * Resolve which Plan corresponds to a Stripe Price ID.
-   * This mapping lives in env config (STRIPE_PRO_PRICE_ID etc.)
-   */
-  resolvePlan(stripePriceId: string): Plan;
+  /** Which plan a Stripe price buys (admin setting, then env). Unknown -> FREE. */
+  resolvePlan(stripePriceId: string): Promise<Plan>;
+
+  /** Look a price up in Stripe (admin panel's price check). */
+  retrievePrice(priceId: string): Promise<StripePriceInfo>;
 }

@@ -137,6 +137,10 @@ export const billingPlugin = fp(
 
     // ── Build infrastructure directly (same pattern as apiKeyPlugin) ──
     const stripeService = buildStripeService();
+    if (!stripeService.configured) {
+      fastify.log.warn("Stripe is not configured: billing endpoints answer 503 until STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are set");
+    }
+    fastify.decorate("stripeService", stripeService);
 
     const subscriptionRepo = new PrismaSubscriptionRepository(fastify.prisma);
     const invoiceRepo = new PrismaInvoiceRepository(fastify.prisma);

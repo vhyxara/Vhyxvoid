@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
-import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 
 import { PageHeader, SettingsSection } from '@vhyxui/blocks'
-import { Alert, Badge, Button, Input, SelectField, Skeleton, Switch, Table, Tabs, Text, TextareaField, toast } from '@vhyxui/react'
+import { Alert, Badge, Button, Input, SelectField, Skeleton, Switch, Text, TextareaField, toast } from '@vhyxui/react'
 
 import { platformKeys, useSettings } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { SettingView } from '@/api/platform/types'
-import { formatDate, formatLimit } from '@/components/ui/format'
-import { LimitOverridesEditor } from '@/views/accounts/LimitOverridesEditor'
+import { formatDate } from '@/components/ui/format'
 import { useQueryClient } from '@tanstack/react-query'
+
+// Edited on the Plans & pricing page instead.
+const PLANS_PAGE_GROUPS = new Set(['billing', 'plans'])
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
@@ -53,56 +55,33 @@ function SettingInput({ s, value, onChange }: { s: SettingView; value: unknown; 
   }
 }
 
-function PlanOverrides({ value, onSave }: { value: Record<string, any>; onSave: (v: Record<string, any> | null) => Promise<unknown> }) {
-  const limits = useQuery({ queryKey: platformKeys.area('plan-limits'), queryFn: platformService.planLimits })
-  const plans = ['FREE', 'PRO', 'ENTERPRISE']
-  const builtIn = limits.data?.builtIn ?? {}
-  const rows = Object.keys(builtIn.FREE ?? {}).map(k => ({ id: k, k, FREE: builtIn.FREE?.[k], PRO: builtIn.PRO?.[k], ENTERPRISE: builtIn.ENTERPRISE?.[k], how: limits.data?.enforcement?.[k] ?? '' }))
+/** Fallback editor for json settings that have no dedicated screen. */
+function JsonSetting({ s, onSave }: { s: SettingView; onSave: (v: unknown) => Promise<unknown> }) {
+  const [text, setText] = useState(() => JSON.stringify(s.value ?? null, null, 2))
+  const [err, setErr] = useState<string | null>(null)
 
   return (
-    <div className='flex flex-col gap-4'>
-      <Alert variant='info'>
-        Overrides change what every account on a plan gets, within a minute, without a deploy. Prices are set in Stripe and on the pricing page
-        (Website content). Per-account exceptions are on each account&apos;s page.
-      </Alert>
-      <Tabs defaultValue='FREE' variant='pills'>
-        <Tabs.List>
-          {plans.map(p => (
-            <Tabs.Trigger key={p} value={p}>
-              {p} {value?.[p] && Object.keys(value[p]).length ? <Badge size='sm' variant='info'>overridden</Badge> : null}
-            </Tabs.Trigger>
-          ))}
-          <Tabs.Trigger value='reference'>Built-in limits</Tabs.Trigger>
-        </Tabs.List>
-        {plans.map(p => (
-          <Tabs.Content key={p} value={p}>
-            <LimitOverridesEditor
-              value={value?.[p] ?? null}
-              onSave={next => {
-                const all = { ...(value ?? {}) }
-
-                if (next) all[p] = next
-                else delete all[p]
-
-                return onSave(Object.keys(all).length ? all : null)
-              }}
-            />
-          </Tabs.Content>
-        ))}
-        <Tabs.Content value='reference'>
-          <div style={{ overflowX: 'auto' }}>
-            <Table
-              density='compact'
-              data={rows as any}
-              columns={[
-                { key: 'k', header: 'Limit', cell: (r: any) => <code>{r.k}</code> },
-                ...plans.map(p => ({ key: p, header: p, cell: (r: any) => formatLimit(r[p]) })),
-                { key: 'how', header: 'Enforced', cell: (r: any) => <Text size='xs'>{r.how}</Text> }
-              ]}
-            />
-          </div>
-        </Tabs.Content>
-      </Tabs>
+    <div className='flex flex-col gap-2'>
+      <Text weight='medium'>{s.label}</Text>
+      <Text size='sm' tone='muted'>
+        {s.description}
+      </Text>
+      <TextareaField name={s.key} label='JSON' rows={6} value={text} onChange={e => setText(e.target.value)} error={err ?? undefined} />
+      <div>
+        <Button
+          size='sm'
+          onClick={() => {
+            try {
+              setErr(null)
+              onSave(JSON.parse(text)).catch(() => {})
+            } catch {
+              setErr('Not valid JSON')
+            }
+          }}
+        >
+          Save
+        </Button>
+      </div>
     </div>
   )
 }
@@ -139,8 +118,8 @@ export function SettingsView() {
       qc.setQueryData(platformKeys.area('settings'), fresh)
       await qc.invalidateQueries({ queryKey: platformKeys.area('plan-limits') })
       toast.success('Settings saved')
-    } catch (e: any) {
-      setSaveError(e?.message ?? 'Could not save')
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save')
       throw e
     } finally {
       setSaving(false)
@@ -161,12 +140,17 @@ export function SettingsView() {
         </Alert>
       )}
 
-      {Object.entries(byGroup).map(([group, settings]) => (
+      <Alert variant='info' title='Billing, pricing and plan limits'>
+        Free or paid mode, the default plan, plan limits and Stripe prices are on{' '}
+        <Link href='/plans'>Plans &amp; pricing</Link>.
+      </Alert>
+
+      {Object.entries(byGroup).filter(([group]) => !PLANS_PAGE_GROUPS.has(group)).map(([group, settings]) => (
         <SettingsSection key={group} title={data.groups[group]?.label ?? group} description={data.groups[group]?.description}>
           <div className='flex flex-col gap-5'>
             {settings.map(s =>
-              s.key === 'plans.overrides' ? (
-                <PlanOverrides key={s.key} value={(s.value as Record<string, any>) ?? {}} onSave={v => save({ [s.key]: v })} />
+              s.type === 'json' ? (
+                <JsonSetting key={s.key} s={s} onSave={v => save({ [s.key]: v })} />
               ) : (
                 <div key={s.key} className='grid gap-3' style={{ gridTemplateColumns: 'minmax(12rem, 1fr) minmax(14rem, 1.4fr)' }}>
                   <div>

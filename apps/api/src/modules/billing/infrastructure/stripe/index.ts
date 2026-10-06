@@ -1,31 +1,42 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/modules/billing/infrastructure/stripe/index.ts
-// Factory for the StripeService — reads from process.env.
-// Call this once in your Fastify plugin setup.
-// ─────────────────────────────────────────────────────────────────────────────
+// Factory for the StripeService. Stripe is optional: without
+// STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET the API still starts (billing
+// mode "free" needs neither) and every billing call answers 503.
+// Prices are not configured here: they come from the admin panel's
+// billing.stripePrices setting, falling back to STRIPE_*_PRICE_ID.
 
 import { StripeServiceImpl } from "@/modules/billing/infrastructure/stripe/StripeServiceImpl";
+import { ServiceUnavailableError } from "@/core/errors/error.format";
+import { Plan } from "@/modules/billing/domain/enums";
+import type { IStripeService } from "@/modules/billing/domain/services/Stripe.service";
 
-export function buildStripeService(): StripeServiceImpl {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const proPriceId = process.env.STRIPE_PRO_PRICE_ID;
-  const enterprisePriceId = process.env.STRIPE_ENTERPRISE_PRICE_ID;
+const NOT_CONFIGURED = "Payments are not set up yet (STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET).";
 
-  if (!secretKey || !webhookSecret || !proPriceId || !enterprisePriceId) {
-    throw new Error(
-      "Missing Stripe env vars. Required:\n" +
-        "  STRIPE_SECRET_KEY\n" +
-        "  STRIPE_WEBHOOK_SECRET\n" +
-        "  STRIPE_PRO_PRICE_ID\n" +
-        "  STRIPE_ENTERPRISE_PRICE_ID",
-    );
+/** Stand-in used when Stripe keys are missing. */
+export class UnconfiguredStripeService implements IStripeService {
+  readonly configured = false;
+  async createCustomer(): Promise<string> {
+    throw new ServiceUnavailableError(NOT_CONFIGURED);
   }
+  async createCheckoutSession(): Promise<string> {
+    throw new ServiceUnavailableError(NOT_CONFIGURED);
+  }
+  async createBillingPortalSession(): Promise<string> {
+    throw new ServiceUnavailableError(NOT_CONFIGURED);
+  }
+  constructWebhookEvent(): never {
+    throw new ServiceUnavailableError(NOT_CONFIGURED);
+  }
+  async resolvePlan(): Promise<Plan> {
+    return Plan.FREE;
+  }
+  async retrievePrice(): Promise<never> {
+    throw new ServiceUnavailableError(NOT_CONFIGURED);
+  }
+}
 
-  return new StripeServiceImpl({
-    secretKey,
-    webhookSecret,
-    proPriceId,
-    enterprisePriceId,
-  });
+export function buildStripeService(env: Record<string, string | undefined> = process.env): IStripeService {
+  const secretKey = env.STRIPE_SECRET_KEY;
+  const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
+  if (!secretKey || !webhookSecret) return new UnconfiguredStripeService();
+  return new StripeServiceImpl({ secretKey, webhookSecret });
 }

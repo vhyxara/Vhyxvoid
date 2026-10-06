@@ -10,35 +10,25 @@ import {
   CreateCheckoutSessionParams,
   CreateBillingPortalParams,
   StripeWebhookEvent,
+  StripePriceInfo,
 } from "../../domain/services/Stripe.service";
+import { currentStripePrices } from "@vhyxvoid/shared";
 
 export class StripeServiceImpl implements IStripeService {
   private readonly stripe: ReturnType<typeof Stripe>;
 
-  // Price ID → Plan mapping (from environment variables)
-  private readonly priceToPlan: Map<string, Plan>;
+  readonly configured = true;
 
   constructor(
     private readonly config: {
       secretKey: string;
       webhookSecret: string;
-      proPriceId: string;
-      enterprisePriceId: string;
     },
   ) {
     this.stripe = new Stripe(config.secretKey, {
       apiVersion: "2026-03-25.dahlia",
       typescript: true,
     });
-
-    // Map Stripe Price IDs to our Plan enum
-    // These are set in your .env:
-    //   STRIPE_PRO_PRICE_ID=price_xxx
-    //   STRIPE_ENTERPRISE_PRICE_ID=price_yyy
-    this.priceToPlan = new Map([
-      [config.proPriceId, Plan.PRO],
-      [config.enterprisePriceId, Plan.ENTERPRISE],
-    ]);
   }
 
   async createCustomer(params: CreateStripeCustomerParams): Promise<string> {
@@ -109,7 +99,23 @@ export class StripeServiceImpl implements IStripeService {
     return event as unknown as StripeWebhookEvent;
   }
 
-  resolvePlan(stripePriceId: string): Plan {
-    return this.priceToPlan.get(stripePriceId) ?? Plan.FREE;
+  async resolvePlan(stripePriceId: string): Promise<Plan> {
+    const prices = await currentStripePrices();
+    if (prices.PRO === stripePriceId) return Plan.PRO;
+    if (prices.ENTERPRISE === stripePriceId) return Plan.ENTERPRISE;
+    return Plan.FREE;
+  }
+
+  async retrievePrice(priceId: string): Promise<StripePriceInfo> {
+    const price = await this.stripe.prices.retrieve(priceId, { expand: ["product"] });
+    const product = price.product as { name?: string } | string | null;
+    return {
+      id: price.id,
+      active: price.active,
+      unitAmount: price.unit_amount,
+      currency: price.currency,
+      interval: price.recurring?.interval ?? null,
+      productName: typeof product === "object" && product ? product.name ?? null : null,
+    };
   }
 }
