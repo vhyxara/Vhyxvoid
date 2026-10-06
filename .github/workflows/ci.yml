@@ -50,6 +50,74 @@ jobs:
       - name: Test (api-kit, web, admin)
         run: pnpm test:apps
 
+  docs:
+    name: Docs (freshness, build, links)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # check:fresh runs `git log <verified.commit>..HEAD` per page: full history.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # check:fresh also runs `generate --check`, whose CLI tables execute the built agent.
+      - name: Build the agent
+        run: pnpm turbo run build --filter=@vhyxvoid/agent
+
+      - name: Check pages are verified against current code
+        run: pnpm --filter @vhyxvoid/docs check:fresh
+
+      - name: Build docs
+        run: pnpm turbo run build --filter=@vhyxvoid/docs
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Check internal links and anchors
+        run: pnpm --filter @vhyxvoid/docs check:links
+
+  packages:
+    name: Package tarballs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Nothing is published from CI: the agent, sdk, middleware and next are
+      # packed so every run has installable tarballs (npm install <file>.tgz,
+      # or actions/tunnel `agent-package`) until they are published together.
+      - name: Build and pack
+        run: node scripts/pack-packages.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vhyxvoid-packages
+          path: .packs/
+          retention-days: 30
+
   docker:
     name: Docker images
     runs-on: ubuntu-latest

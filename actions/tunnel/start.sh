@@ -34,8 +34,19 @@ if [ "$wait_app" != "0" ]; then
   fi
 fi
 
+# Which agent to run: `agent-package` (any npm spec: a .tgz path or URL, a
+# package directory, @vhyxvoid/agent@<version>) wins over `agent-version`.
+# A local path is made absolute, since npx runs it from another directory.
+pkg="${INPUT_AGENT_PACKAGE:-}"
+if [ -z "$pkg" ]; then
+  pkg="@vhyxvoid/agent@${INPUT_AGENT_VERSION:-latest}"
+elif [ -e "$pkg" ]; then
+  pkg="$(cd "$(dirname "$pkg")" && pwd)/$(basename "$pkg")"
+fi
+echo "Agent package: ${pkg}"
+
 export VHYXVOID_LABEL="$label"
-nohup npx -y "@vhyxvoid/agent@${INPUT_AGENT_VERSION:-latest}" start \
+nohup npx -y --package="$pkg" vhyxvoid start \
   --label "$label" --no-local-discovery \
   --write-env "$envfile" --env-key VHYXVOID_URL >"$log" 2>&1 &
 pid=$!

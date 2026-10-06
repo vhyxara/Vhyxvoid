@@ -43,3 +43,6 @@ vhyxconfig.md
 # Redis snapshots written by a local redis-server
 *.rdb
 node-compile-cache/
+
+# Package tarballs from scripts/pack-packages.mjs
+.packs/

@@ -25,9 +25,13 @@ inputs:
     required: false
     default: wss://hub.vhyxvoid.com/agent
   agent-version:
-    description: "@vhyxvoid/agent version to run."
+    description: "@vhyxvoid/agent version to run from npm. Ignored when agent-package is set."
     required: false
     default: latest
+  agent-package:
+    description: "Run this agent package instead of a version from npm: a .tgz path or URL (for example one made by `node scripts/pack-packages.mjs`), or a package directory."
+    required: false
+    default: ""
   wait-for-app:
     description: Seconds to wait for something to listen on `port` before starting the tunnel (0 = do not wait).
     required: false
@@ -70,6 +74,7 @@ runs:
         VHYXVOID_HUB_URL: ${{ inputs.hub }}
         INPUT_LABEL: ${{ inputs.label }}
         INPUT_AGENT_VERSION: ${{ inputs.agent-version }}
+        INPUT_AGENT_PACKAGE: ${{ inputs.agent-package }}
         INPUT_WAIT_FOR_APP: ${{ inputs.wait-for-app }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         PR_NUMBER: ${{ github.event.pull_request.number }}

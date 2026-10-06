@@ -17,6 +17,7 @@ function fakeNpx(mode: "ok" | "die") {
     path.join(bin, "npx"),
     mode === "ok"
       ? `#!/usr/bin/env bash
+echo "$@" > "$RUNNER_TEMP/npx-args"
 while [ $# -gt 0 ]; do case "$1" in --write-env) f="$2"; shift;; --label) l="$2"; shift;; esac; shift; done
 echo "VHYXVOID_URL=https://acme--$l.vhyxvoid.com" >> "$f"; sleep 30`
       : `#!/usr/bin/env bash
@@ -89,5 +90,23 @@ describe("actions/tunnel start.sh", () => {
     expect(dead.code).not.toBe(0);
     expect(dead.stdout).toContain("API key has been revoked");
     expect(run({ VHYXVOID_SECRET: "" }).code).not.toBe(0);
+  });
+
+  it("runs @vhyxvoid/agent from npm by default, at agent-version", () => {
+    expect(run({ INPUT_AGENT_VERSION: "1.1.0" }).code).toBe(0);
+    expect(fs.readFileSync(path.join(tmp, "npx-args"), "utf8")).toMatch(/^-y --package=@vhyxvoid\/agent@1\.1\.0 vhyxvoid start /);
+  });
+
+  it("agent-package runs a local tarball (made absolute) instead of npm", () => {
+    const tgz = path.join(tmp, "vhyxvoid-agent-1.1.0.tgz");
+    fs.writeFileSync(tgz, "");
+    const rel = path.relative(process.cwd(), tgz);
+    expect(run({ INPUT_AGENT_PACKAGE: rel, INPUT_AGENT_VERSION: "1.0.20" }).code).toBe(0);
+    expect(fs.readFileSync(path.join(tmp, "npx-args"), "utf8")).toMatch(new RegExp(`^-y --package=${tgz.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} vhyxvoid start `));
+  });
+
+  it("agent-package passes a URL through unchanged", () => {
+    expect(run({ INPUT_AGENT_PACKAGE: "https://example.com/vhyxvoid-agent-1.1.0.tgz" }).code).toBe(0);
+    expect(fs.readFileSync(path.join(tmp, "npx-args"), "utf8")).toMatch(/^-y --package=https:\/\/example\.com\/vhyxvoid-agent-1\.1\.0\.tgz vhyxvoid start /);
   });
 });
