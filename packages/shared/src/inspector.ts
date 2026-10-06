@@ -67,6 +67,8 @@ export interface InspectedRequest {
   ruleIds?: string[];
   /** True when a traffic rule answered (mock, injected error, redirect): the agent never saw it. */
   answeredByRule?: boolean;
+  /** Set when a hosted mock API answered: which endpoint and response. The agent never saw it. */
+  mock?: { endpointId: string; responseId: string; endpointName?: string; responseName?: string };
 }
 
 export const inspectorKeys = {

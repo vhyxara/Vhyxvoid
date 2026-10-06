@@ -37,8 +37,11 @@ import {
   evaluateTrafficRules,
   applyResponseHeaders,
   type TrafficPlan,
+  mockHandles,
+  resolveMock,
 } from '@vhyxvoid/shared';
 import type { TrafficRuleCache } from '@/services/TrafficRuleCache.service';
+import type { CachedMock, MockApiCache } from '@/services/MockApiCache.service';
 import { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AgentRegistry, PendingRegistry, TunnelWsRegistry, closeBrowserSocket } from '@/registry';
@@ -102,6 +105,11 @@ export function publicAgentErrorMessage(code: string): string {
   }
 }
 
+/** The parts of a request a mock matches on before its body is read. */
+function mockRequestHead(req: IncomingMessage) {
+  return { method: req.method ?? 'GET', url: req.url ?? '/', headers: req.headers };
+}
+
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -130,6 +138,8 @@ export class HttpTunnelHandler {
     private readonly rules?: TrafficRuleCache,
     // Wrong tunnel passwords per (account, tunnel, IP); 429 past the limit.
     private readonly passwordGuesses: PasswordGuessLimiter = new PasswordGuessLimiter(),
+    // Hosted mock APIs per label; absent means none.
+    private readonly mocks?: MockApiCache,
   ) {}
 
   /**
@@ -206,9 +216,26 @@ export class HttpTunnelHandler {
     const entry = await this.subdomainRegistry.resolve(label, accountSlug);
 
     if (!entry) {
-      // Nothing registered for this URL: an "offline" rule may still answer, then the inbox.
+      // Nothing registered for this URL: an "offline" rule may still answer,
+      // then the label's mock API, then the inbox.
       if (await this.tryOfflineRules(req, res, label, accountSlug, hostname)) return;
+      const offlineMock = await this.offlineMock(label, accountSlug);
+      if (offlineMock && mockHandles(offlineMock.mock.def, mockRequestHead(req))) {
+        await this.answerOfflineMock(req, res, offlineMock, { label, accountSlug, hostname });
+        return;
+      }
       if (await this.tryInbox(req, res, null, label, accountSlug)) return;
+      if (offlineMock) {
+        // The label is a mock API, but nothing in it matches: say which route is missing.
+        const access = await this.checkAccess(offlineMock.accountId, label, req);
+        if (!access.allow) return this.sendAccessDenied(res, access, label);
+        return this.sendError(
+          res,
+          404,
+          `No mock endpoint matches ${req.method ?? 'GET'} ${(req.url ?? '/').split('?')[0]}. Add it to the mock API "${label}", or start the agent with label "${label}".`,
+          { code: 'MOCK_NO_ROUTE' },
+        );
+      }
       return this.sendError(
         res,
         404,
@@ -254,6 +281,16 @@ export class HttpTunnelHandler {
     if (plan.respond) {
       this.usageLimiter?.recordForwarded(entry.accountId);
       await this.answerFromRule(req, res, plan, { accountId: entry.accountId, label, accountSlug, hostname });
+      return;
+    }
+
+    // Hosted mock API on this label: "ALWAYS" answers the routes it has even
+    // with an agent connected (the rest go to the agent); "OFFLINE" only
+    // while the agent is away. Traffic rules' delay and header changes apply.
+    const mock = this.mocks ? await this.mocks.get(entry.accountId, label) : null;
+    if (mock && (mock.def.mode === 'ALWAYS' || !agent) && mockHandles(mock.def, mockRequestHead(req))) {
+      this.usageLimiter?.recordForwarded(entry.accountId);
+      await this.answerFromMock(req, res, mock, { accountId: entry.accountId, label, accountSlug, hostname }, plan);
       return;
     }
 
@@ -762,6 +799,123 @@ export class HttpTunnelHandler {
   }
 
   /** Writes a rule's answer (mock, injected error, redirect) and records it like any other request. */
+  /** Account and mock of a URL with no agent registered (the account comes from the slug). */
+  private async offlineMock(label: string, accountSlug: string): Promise<{ accountId: string; mock: CachedMock } | null> {
+    if (!this.mocks || !this.rules) return null;
+    const accountId = await this.rules.accountIdForSlug(accountSlug);
+    if (!accountId) return null;
+    const mock = await this.mocks.get(accountId, label);
+    return mock ? { accountId, mock } : null;
+  }
+
+  /** Same gates as live traffic (abuse limit, access rules), then the mock's answer. */
+  private async answerOfflineMock(
+    req: IncomingMessage,
+    res: ServerResponse,
+    found: { accountId: string; mock: CachedMock },
+    ctx: { label: string; accountSlug: string; hostname: string },
+  ): Promise<void> {
+    const { accountId } = found;
+    if (this.usageLimiter) {
+      const rate = await this.usageLimiter.checkRequest(accountId);
+      if (!rate.allowed) {
+        this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {
+          headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+          body: { retryAfterSeconds: rate.retryAfterSeconds },
+        });
+        return;
+      }
+    }
+    const access = await this.checkAccess(accountId, ctx.label, req);
+    if (!access.allow) {
+      this.sendAccessDenied(res, access, ctx.label);
+      return;
+    }
+    this.usageLimiter?.recordForwarded(accountId);
+    await this.answerFromMock(req, res, found.mock, { accountId, ...ctx });
+  }
+
+  /**
+   * Writes a hosted mock's answer and records it like any other request
+   * (charts, inspector). The caller checked mockHandles(), so an answer exists.
+   */
+  private async answerFromMock(
+    req: IncomingMessage,
+    res: ServerResponse,
+    mock: CachedMock,
+    ctx: { accountId: string; label: string; accountSlug: string; hostname: string },
+    plan?: TrafficPlan,
+  ): Promise<void> {
+    const startedAt = Date.now();
+    let requestBody: Buffer | null = null;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      try {
+        requestBody = await this.readBody(req, MAX_BODY_BYTES);
+      } catch {
+        if (!res.headersSent && !res.destroyed) this.sendError(res, 413, `Request body too large. Maximum is ${MAX_BODY_BYTES / 1024 / 1024}MB`);
+        return;
+      }
+    }
+    const answer = resolveMock(
+      mock.def,
+      { method: req.method ?? 'GET', url: req.url ?? '/', headers: req.headers, body: requestBody?.length ? requestBody.toString('utf8') : undefined },
+      { sequence: mock.sequence },
+    );
+    if (!answer) {
+      // mockHandles() said yes; only a definition swapped mid-request gets here.
+      this.sendError(res, 404, 'No mock endpoint matches this request.', { code: 'MOCK_NO_ROUTE' });
+      return;
+    }
+    const wait = Math.min(60_000, answer.latencyMs + (plan?.delayMs ?? 0));
+    if (wait > 0) await new Promise((done) => setTimeout(done, wait));
+    if (res.destroyed) return;
+
+    const headers: Record<string, string | string[]> = { ...answer.headers };
+    if (plan) applyResponseHeaders(headers, plan);
+    const noBody = req.method === 'HEAD' || answer.status === 204 || answer.status === 304 || (answer.status >= 100 && answer.status < 200);
+    const payload = noBody ? Buffer.alloc(0) : Buffer.from(answer.body, 'utf8');
+    headers['x-vhyxvoid-mock'] = answer.endpointId;
+    headers['content-length'] = String(payload.length);
+    try {
+      res.writeHead(answer.status, headers);
+    } catch {
+      res.writeHead(answer.status, { 'content-length': String(payload.length), 'x-vhyxvoid-mock': answer.endpointId });
+    }
+    res.end(payload.length ? payload : undefined);
+
+    const durationMs = Date.now() - startedAt;
+    this.stats?.record(ctx.accountId, ctx.label, answer.status, durationMs);
+    if (!this.inspector) return;
+    const endpoint = mock.def.endpoints.find((e) => e.id === answer.endpointId);
+    const response = endpoint?.responses.find((r) => r.id === answer.responseId);
+    const flat = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]));
+    this.inspector.record(ctx.accountId, {
+      id: `req_${randomUUID().replace(/-/g, '')}`,
+      at: new Date(startedAt).toISOString(),
+      label: ctx.label,
+      accountSlug: ctx.accountSlug,
+      host: ctx.hostname,
+      method: req.method ?? 'GET',
+      path: req.url ?? '/',
+      clientIp: clientIp(req),
+      request: {
+        headers: maskHeaders(this.withoutTunnelCredentials(this.sanitizeHeaders(req.headers as Record<string, string>), true)),
+        body: captureBody(requestBody, isBinaryForInspector(req.headers['content-type'])),
+      },
+      response: { status: answer.status, headers: maskHeaders(flat), body: captureBody(payload, false), streamed: false },
+      durationMs,
+      error: null,
+      replayOf: null,
+      ruleIds: plan?.matched.length ? plan.matched : undefined,
+      mock: {
+        endpointId: answer.endpointId,
+        responseId: answer.responseId,
+        ...(endpoint ? { endpointName: endpoint.name || `${endpoint.method} ${endpoint.path}` } : {}),
+        ...(response?.name ? { responseName: response.name } : {}),
+      },
+    });
+  }
+
   private async answerFromRule(
     req: IncomingMessage,
     res: ServerResponse,

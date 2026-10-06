@@ -70,6 +70,16 @@
       "label": "Traffic rules per tunnel",
       "evidence": "apps/api/src/modules/platform/traffic-rules/trafficRules.routes.ts",
       "note": "Rules already saved keep working after a downgrade; saving more than the limit is refused."
+    },
+    "maxMockApis": {
+      "label": "Mock APIs",
+      "evidence": "apps/api/src/modules/platform/mocks/mocks.routes.ts",
+      "note": "Hosted mock APIs per account. Mocks that exist keep answering after a downgrade; creating more is refused."
+    },
+    "maxMockEndpoints": {
+      "label": "Endpoints per mock API",
+      "evidence": "apps/api/src/modules/platform/mocks/mocks.routes.ts",
+      "note": "Saving a mock with more endpoints is refused."
     }
   },
   "notEnforced": {

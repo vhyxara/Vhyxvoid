@@ -244,12 +244,12 @@ model Account {
   // Admin controls. limitOverrides: per-account overrides of the plan's
   // limits (same shape as one plan in the plans.overrides setting; null =
   // unlimited). statusReason: why an admin suspended/restricted it.
-  limitOverrides Json?
+  limitOverrides   Json?
   // Workspace setting: false stops the request inspector from storing any
   // request of this workspace's tunnels (customers who must not keep payloads).
   inspectorCapture Boolean @default(true)
-  statusReason   String?
-  adminNotes     String?
+  statusReason     String?
+  adminNotes       String?
 
   accountInvitations AccountInvitation[]
   // securityEvents SecurityEvent[]
@@ -263,6 +263,7 @@ model Account {
   alertRules         AlertRule[]
   notices            AccountNotice[]
   ruleSets           TunnelRuleSet[]
+  mockApis           MockApi[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1224,12 +1225,12 @@ model AlertRule {
 
 // What is firing now for a state rule, per subject (tunnel label, usage period).
 model AlertState {
-  id       String   @id @default(uuid())
-  ruleId   String
-  subject  String
-  firing   Boolean
-  since    DateTime @default(now())
-  detail   Json?
+  id      String   @id @default(uuid())
+  ruleId  String
+  subject String
+  firing  Boolean
+  since   DateTime @default(now())
+  detail  Json?
 
   rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
@@ -1281,7 +1282,6 @@ model JobLease {
   @@map("job_leases")
 }
 
-
 // One row per account notice that must go out once (usage 80/100 % per month,
 // trial ending per trial). Inserting the row claims the notice, so two API
 // instances or the Stripe webhook and the job never send it twice.
@@ -1296,4 +1296,35 @@ model AccountNotice {
 
   @@unique([accountId, kind, period])
   @@map("account_notices")
+}
+
+enum MockApiMode {
+  ALWAYS
+  OFFLINE
+}
+
+/// A hosted mock API bound to a tunnel label (internal-tools/shared/api-platform-plan.md, phase 1).
+/// The hub serves it at <slug>--<label>; the definition is validated by packages/shared/src/mockApi.ts.
+model MockApi {
+  id          String      @id @default(uuid())
+  accountId   String
+  label       String
+  name        String
+  description String      @default("")
+  enabled     Boolean     @default(true)
+  mode        MockApiMode @default(ALWAYS)
+  cors        Boolean     @default(true)
+  latencyMs   Int         @default(0)
+  endpoints   Json        @default("[]")
+  /// Bumped on every save; a stale save is refused (409).
+  version     Int         @default(1)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, label])
+  @@map("mock_apis")
 }

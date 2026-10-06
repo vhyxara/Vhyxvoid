@@ -732,6 +732,91 @@ await step("inspector: a workspace can switch capture off (stored requests delet
   assert(seen, "capture did not resume");
 });
 
+await step("mock APIs: template served with no agent, rules and templating, OpenAPI import/export, try, 409, mock-first next to a live agent", async () => {
+  const M = (method, p, body) => api(method, `/mocks/${s.personal}${p}`, { token: s.token, body });
+  const created = await M("POST", "", { label: "users-mock", name: "Users", template: "rest-crud" });
+  assert(created.status === 201, `create ${created.status}: ${JSON.stringify(created.json).slice(0, 300)}`);
+  const mock = created.json.data;
+  assert(mock.url?.endsWith(`--users-mock.${HUB_DOMAIN}`) && mock.endpointCount === 5, `mock ${JSON.stringify(mock).slice(0, 300)}`);
+  const host = new URL(mock.url).host;
+  const dup = await M("POST", "", { label: "users-mock", name: "Again" });
+  assert(dup.status === 409, `duplicate label ${dup.status}`);
+  const badLabel = await M("POST", "", { label: "Not OK!", name: "x" });
+  assert(badLabel.status === 400, `bad label ${badLabel.status}`);
+
+  const one = await tunnel(host, "GET", "/users/7");
+  assert(one.status === 200 && JSON.parse(one.body).id === "7" && one.headers["x-vhyxvoid-mock"], `GET /users/7 ${one.status} ${one.body}`);
+  assert((await tunnel(host, "GET", "/users/0")).status === 404, "rule for id 0");
+  const list = JSON.parse((await tunnel(host, "GET", "/users")).body);
+  assert(list.data.length === 5 && list.data[0].email.endsWith("@example.com"), `list ${JSON.stringify(list).slice(0, 200)}`);
+  const noEmail = await tunnel(host, "POST", "/users", { headers: { "content-type": "application/json" }, body: "{}" });
+  assert(noEmail.status === 422, `POST without email ${noEmail.status}`);
+  const made = await tunnel(host, "POST", "/users", { headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Ada", email: "ada@x.test" }) });
+  assert(made.status === 201 && JSON.parse(made.body).email === "ada@x.test", `POST ${made.status} ${made.body}`);
+  const pre = await tunnel(host, "OPTIONS", "/users", { headers: { origin: "https://app.example", "access-control-request-method": "POST" } });
+  assert(pre.status === 204 && pre.headers["access-control-allow-origin"] === "https://app.example", `preflight ${pre.status}`);
+  const missing = await tunnel(host, "GET", "/orders");
+  assert(missing.status === 404 && missing.headers["x-vhyxvoid-error"] === "MOCK_NO_ROUTE", `missing route ${missing.status} ${missing.headers["x-vhyxvoid-error"]}`);
+
+  const yaml = [
+    "openapi: 3.0.3",
+    "info: { title: Pets, version: '1' }",
+    "paths:",
+    "  /pets/{petId}:",
+    "    get:",
+    "      responses:",
+    "        '200':",
+    "          description: a pet",
+    "          content:",
+    "            application/json:",
+    "              example: { id: 1, name: Rex }",
+  ].join("\n");
+  const imp = await M("POST", `/${mock.id}/import`, { openapi: yaml });
+  assert(imp.status === 200 && imp.json.data.added === 1, `import ${imp.status}: ${JSON.stringify(imp.json).slice(0, 300)}`);
+  const again = await M("POST", `/${mock.id}/import`, { openapi: yaml });
+  assert(again.json.data.added === 0 && again.json.data.skipped === 1, "re-import should skip existing routes");
+  const pet = await tunnel(host, "GET", "/pets/1");
+  assert(pet.status === 200 && JSON.parse(pet.body).name === "Rex", `imported route ${pet.status} ${pet.body}`);
+  const exp = await fetch(`${API}/mocks/${s.personal}/${mock.id}/openapi?format=yaml`, { headers: { authorization: `Bearer ${s.token}` } });
+  const expText = await exp.text();
+  assert(exp.status === 200 && expText.includes("openapi: 3.0.3") && expText.includes("/users/{id}:"), `export ${exp.status} ${expText.slice(0, 200)}`);
+  const tried = await M("POST", `/${mock.id}/try`, { method: "GET", path: "/users/0" });
+  assert(tried.json.data.matched && tried.json.data.status === 404, `try ${JSON.stringify(tried.json).slice(0, 200)}`);
+
+  const full = (await M("GET", `/${mock.id}`)).json.data;
+  const stale = await M("PUT", `/${mock.id}`, { latencyMs: 0, expectedVersion: full.version - 1 });
+  assert(stale.status === 409, `stale save ${stale.status}`);
+  const off = await M("PUT", `/${mock.id}`, { enabled: false, expectedVersion: full.version });
+  assert(off.status === 200, `switch off ${off.status}`);
+  const gone = await tunnel(host, "GET", "/users/7");
+  assert(gone.status === 404 && gone.headers["x-vhyxvoid-error"] === "TUNNEL_OFFLINE", `disabled mock still answers: ${gone.status} ${gone.headers["x-vhyxvoid-error"]}`);
+
+  // Mock-first on the live tunnel: the mock answers its routes, the app the rest.
+  const live = await M("POST", "", { label: "app", name: "App mocks", template: "blank" });
+  assert(live.status === 201, `mock on the live label ${live.status}: ${JSON.stringify(live.json).slice(0, 200)}`);
+  const health = await tunnel(s.host, "GET", "/health");
+  assert(health.status === 200 && JSON.parse(health.body).ok === true && health.headers["x-vhyxvoid-mock"], `mocked /health ${health.status} ${health.body}`);
+  const echo = await tunnel(s.host, "GET", "/echo?through=app");
+  assert(echo.status === 200 && echo.body.includes("/echo") && !echo.headers["x-vhyxvoid-mock"], "unmocked path should reach the app");
+  const third = await M("POST", "", { label: "third", name: "Over the limit" });
+  assert(third.status === 402 || third.status === 403, `FREE allows 2 mock APIs, got ${third.status}`);
+
+  let entry;
+  for (let i = 0; i < 20 && !entry; i++) {
+    await sleep(150);
+    const l = await api("GET", `/inspector/${s.personal}/users-mock`, { token: s.token });
+    entry = (l.json?.data?.requests ?? []).find((x) => x.path === "/users/7" && x.mock);
+  }
+  assert(entry?.mock?.endpointName === "Get a user", `inspector entry ${JSON.stringify(entry).slice(0, 300)}`);
+  const act = await api("GET", `/activity/${s.personal}?limit=100`, { token: s.token });
+  assert(act.json.data.items.some((x) => x.action === "MOCK_API_CREATED"), "activity lacks MOCK_API_CREATED");
+
+  for (const m of (await M("GET", "")).json.data.mocks) assert((await M("DELETE", `/${m.id}`)).status === 200, "delete mock");
+  const after = await tunnel(s.host, "GET", "/health");
+  assert(!after.headers["x-vhyxvoid-mock"], "deleted mock still answers on the live label");
+  return `${mock.endpointCount} template endpoints, imported 1, mock-first on the live tunnel`;
+});
+
 await step("traffic chart, activity feed and agent fleet reflect the tunnel", async () => {
   const flush = await fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "" } });
   assert(flush.ok, `stats flush ${flush.status} (is HUB_INTERNAL_SECRET set for the journey?)`);

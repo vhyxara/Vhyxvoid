@@ -18,7 +18,9 @@ export const NUMERIC_LIMITS = [
   ['inboxRequests', 'Webhook inbox: requests held per tunnel (0 = off)'],
   ['maxCustomDomains', 'Custom domains (needs the Custom domains switch below)'],
   ['maxAlertRules', 'Alert rules (0 = no alerts)'],
-  ['maxTrafficRules', 'Traffic rules per tunnel (0 = none)']
+  ['maxTrafficRules', 'Traffic rules per tunnel (0 = none)'],
+  ['maxMockApis', 'Mock APIs (0 = none)'],
+  ['maxMockEndpoints', 'Endpoints per mock API']
 ] as const
 
 export const BOOLEAN_LIMITS = [

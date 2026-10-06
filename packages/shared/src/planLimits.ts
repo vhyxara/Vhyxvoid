@@ -42,6 +42,8 @@ export interface PlanLimits {
   maxCustomDomains: number; // custom hostnames (needs customDomains: true)
   maxAlertRules: number; // alert rules per account (0 = no alerts)
   maxTrafficRules: number; // traffic rules (mocks, rewrites, fault injection) per tunnel (0 = none)
+  maxMockApis: number; // hosted mock APIs per account (0 = none)
+  maxMockEndpoints: number; // endpoints per mock API
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -69,6 +71,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxCustomDomains: 0,
     maxAlertRules: 3,
     maxTrafficRules: 5,
+    maxMockApis: 2,
+    maxMockEndpoints: 25,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -95,6 +99,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxCustomDomains: 5,
     maxAlertRules: 25,
     maxTrafficRules: 50,
+    maxMockApis: 25,
+    maxMockEndpoints: 250,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -119,6 +125,8 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxCustomDomains: 100,
     maxAlertRules: 200,
     maxTrafficRules: 200,
+    maxMockApis: 250,
+    maxMockEndpoints: 1000,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

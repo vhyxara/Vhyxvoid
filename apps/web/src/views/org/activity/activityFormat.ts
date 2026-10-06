@@ -131,6 +131,14 @@ export function describeActivity(item: ActivityItem): string {
       return `stopped the agent for${t}${s(m.version) ? ` (v${m.version})` : ''}`
     case 'TRAFFIC_RULES_UPDATED':
       return `changed the traffic rules of${t}${typeof m.count === 'number' ? ` (${m.count} rule${m.count === 1 ? '' : 's'})` : ''}`
+    case 'MOCK_API_CREATED':
+      return `created the mock API ${s(m.name) ?? ''}${s(m.label) ? ` (${m.label})` : ''}${m.fromOpenApi ? ' from an OpenAPI document' : ''}`.replace('  ', ' ')
+    case 'MOCK_API_UPDATED':
+      return `${m.enabled === false ? 'switched off' : m.enabled === true ? 'switched on' : 'changed'} the mock API ${s(m.name) ?? s(m.label) ?? ''}${typeof m.endpoints === 'number' ? ` (${m.endpoints} endpoint${m.endpoints === 1 ? '' : 's'})` : ''}`.trim()
+    case 'MOCK_API_IMPORTED':
+      return `${m.replace ? 'replaced the endpoints of' : 'imported OpenAPI endpoints into'} a mock API`
+    case 'MOCK_API_DELETED':
+      return 'deleted a mock API'
     case 'INSPECTOR_CAPTURE_CHANGED':
       return m.capture === false ? 'turned off request capture for the workspace' : 'turned on request capture for the workspace'
     case 'INSPECTOR_CLEARED':

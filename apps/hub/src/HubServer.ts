@@ -27,6 +27,7 @@ import WebSocket from 'ws';
 import { isInternalRequestAuthorized } from './utils/internalAuth';
 import { RequestInspectorService } from '@/services/RequestInspector.service';
 import { TrafficRuleCache } from '@/services/TrafficRuleCache.service';
+import { MockApiCache } from '@/services/MockApiCache.service';
 import { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
 import { InboxService } from '@/services/Inbox.service';
 import { CustomDomainResolver } from '@/services/CustomDomainResolver.service';
@@ -85,6 +86,7 @@ export class HubServer {
   private readonly policyCache: TunnelPolicyCache;
   private readonly inspector: RequestInspectorService;
   private readonly trafficRules: TrafficRuleCache;
+  private readonly mockApis: MockApiCache;
   private readonly inbox: InboxService | undefined;
   private readonly customDomains: CustomDomainResolver | undefined;
   private readonly trafficStats: TrafficStatsService | undefined;
@@ -158,6 +160,7 @@ export class HubServer {
       : undefined;
 
     this.trafficRules = new TrafficRuleCache(config.tunnelSessionRepo);
+    this.mockApis = new MockApiCache(config.tunnelSessionRepo);
     this.inspector = new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo);
     this.httpTunnelHandler = new HttpTunnelHandler(
       this.subdomainRegistry,
@@ -172,6 +175,8 @@ export class HubServer {
       this.inbox,
       this.trafficStats,
       this.trafficRules,
+      undefined, // password-guess limiter: the handler's default
+      this.mockApis,
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on
@@ -548,6 +553,7 @@ export class HubServer {
       this.policyCache.invalidate(accountId, url.searchParams.get('label') ?? undefined);
       // Traffic rules and workspace-level settings (inspector capture) ride on the same call.
       this.trafficRules.invalidate(accountId, url.searchParams.get('label') ?? undefined);
+      this.mockApis.invalidate(accountId, url.searchParams.get('label') ?? undefined);
       this.inspector.invalidate(accountId);
       return send(200, { invalidated: true });
     }

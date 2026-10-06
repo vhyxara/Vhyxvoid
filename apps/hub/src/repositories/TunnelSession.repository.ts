@@ -4,7 +4,7 @@
 // The MessageRouter already resolves the internal apiKey UUID before calling upsert().
 // This repo receives the internal UUID directly — no secondary lookup needed.
 
-import type { TrafficRule, TunnelPolicyRecord } from '@vhyxvoid/shared';
+import type { MockApiDefinition, TrafficRule, TunnelPolicyRecord } from '@vhyxvoid/shared';
 import { PrismaClient } from '@/generated/prisma';
 import { randomUUID } from 'crypto';
 import {
@@ -155,6 +155,16 @@ export class TunnelSessionRepository {
   async findTrafficRules(accountId: string, label: string): Promise<TrafficRule[] | null> {
     const row = await (this.prisma as any).tunnelRuleSet.findUnique({ where: { accountId_label: { accountId, label } }, select: { rules: true } });
     return Array.isArray(row?.rules) ? (row.rules as TrafficRule[]) : null;
+  }
+
+  /** A label's hosted mock API (enabled ones only), or null. */
+  async findMockApi(accountId: string, label: string): Promise<MockApiDefinition | null> {
+    const row = await (this.prisma as any).mockApi.findUnique({
+      where: { accountId_label: { accountId, label } },
+      select: { enabled: true, mode: true, cors: true, latencyMs: true, endpoints: true },
+    });
+    if (!row || !row.enabled) return null;
+    return { mode: row.mode, cors: row.cors, latencyMs: row.latencyMs, endpoints: Array.isArray(row.endpoints) ? row.endpoints : [] };
   }
 
   /** Account of a slug, for tunnel URLs with no agent registered; deleted accounts have none. */
