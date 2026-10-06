@@ -23,3 +23,4 @@ export * from "./tunnelAccess";
 export * from "./inbox";
 export * from "./customDomains";
 export * from "./alerts";
+export * from "./traffic";

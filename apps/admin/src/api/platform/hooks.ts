@@ -36,5 +36,7 @@ export function usePlatformMutation<TVars, TResult>(areas: string[], fn: (vars: 
 }
 
 export const useOverview = (days: number) => useQuery({ queryKey: [...platformKeys.area('overview'), days], queryFn: () => platformService.overview(days) })
+export const useTraffic = (range: '1h' | '24h' | '7d') =>
+  useQuery({ queryKey: [...platformKeys.area('traffic'), range], queryFn: () => platformService.traffic(range), refetchInterval: 60_000 })
 export const useSystemHealth = () => useQuery({ queryKey: platformKeys.area('health'), queryFn: platformService.health, refetchOnWindowFocus: false, staleTime: 15_000 })
 export const useSettings = () => useQuery({ queryKey: platformKeys.area('settings'), queryFn: platformService.settings })

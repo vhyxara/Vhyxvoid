@@ -18,12 +18,20 @@ import { runDomainChecks } from "./domains/domains.worker";
 import { alertRoutes } from "./alerts/alerts.routes";
 import { AlertService } from "./alerts/alerts.service";
 import { runAlertEvaluation } from "./alerts/alerts.worker";
+import { runAccountNotices } from "./alerts/notices";
 import { adminDomainRoutes } from "./admin/admin.domains.routes";
+import { adminTrafficRoutes, trafficRoutes } from "./traffic/traffic.routes";
 import { leasedInterval, releaseLeases, runLeasedJob } from "./shared/lease";
 import { prismaOf } from "./shared/http";
+import { recordActivity } from "./shared/activity";
+import { runMaintenance } from "./shared/maintenance";
+import { activityRoutes } from "./activity/activity.routes";
+import type { NotificationService } from "@/modules/notification/application/use-cases";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
   const hub = new HubClient();
+  // Team activity rows for the feature routes below (shared/activity.ts).
+  recordActivity(server, prismaOf(server));
   await server.register(adminSystemRoutes, { prefix: "/api/v1/admin", hub });
   await server.register(adminAccountRoutes, { prefix: "/api/v1/admin/accounts", hub });
   await server.register(adminUserRoutes, { prefix: "/api/v1/admin/users" });
@@ -37,10 +45,14 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(inspectorRoutes, { prefix: "/api/v1/inspector", hub });
   await server.register(tunnelAccessRoutes, { prefix: "/api/v1/tunnel-access", hub });
   await server.register(inboxRoutes, { prefix: "/api/v1/inbox", hub });
+  await server.register(trafficRoutes, { prefix: "/api/v1/traffic" });
+  await server.register(activityRoutes, { prefix: "/api/v1/activity" });
+  await server.register(adminTrafficRoutes, { prefix: "/api/v1/admin/traffic" });
 
   // Custom domains and alerts share one AlertService (domain events notify through it).
   const prisma = prismaOf(server);
-  const alerts = new AlertService(prisma, () => (server as unknown as { notificationService?: never }).notificationService);
+  const notifications = () => (server as unknown as { notificationService?: NotificationService }).notificationService;
+  const alerts = new AlertService(prisma, notifications);
   const domains = new DomainService(prisma, buildDnsResolver(), hub, alerts);
   server.decorate("platformAlerts", alerts);
   await server.register(domainRoutes, { prefix: "/api/v1/domains", hub, domains });
@@ -55,8 +67,10 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
       const started = Date.now();
       let result: unknown;
       if (name === "alerts") result = await runLeasedJob(prisma, "alerts", 120_000, () => runAlertEvaluation(prisma, alerts), true);
+      else if (name === "notices") result = await runLeasedJob(prisma, "notices", 600_000, () => runAccountNotices(prisma, notifications()), true);
+      else if (name === "maintenance") result = await runLeasedJob(prisma, "maintenance", 600_000, () => runMaintenance(prisma), true);
       else if (name === "domains") result = await runLeasedJob(prisma, "domains", 600_000, async () => ({ checked: await runDomainChecks(prisma, domains) }), true);
-      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains)", data: null });
+      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains, notices, maintenance)", data: null });
       // Another API instance holds the job right now.
       if (result === undefined) return reply.code(409).send({ success: false, code: "CONFLICT", message: "The job is running on another instance; try again in a minute", data: null });
       return reply.send({ success: true, message: "Done", data: { job: name, result, ms: Date.now() - started } });
@@ -69,6 +83,8 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
     server.addHook("onReady", async () => {
       jobs.push(leasedInterval(prisma, "alerts", 60_000, async () => void (await runAlertEvaluation(prisma, alerts))));
       jobs.push(leasedInterval(prisma, "domains", 5 * 60_000, async () => void (await runDomainChecks(prisma, domains))));
+      jobs.push(leasedInterval(prisma, "maintenance", 60 * 60_000, async () => void (await runMaintenance(prisma))));
+      jobs.push(leasedInterval(prisma, "notices", 15 * 60_000, async () => void (await runAccountNotices(prisma, notifications()))));
     });
     server.addHook("onClose", async () => {
       jobs.forEach((j) => j.stop());

@@ -12,6 +12,10 @@ import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHashe
 import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/PrismaUnitOfWork";
 import { UnauthorizedError } from "@/core/errors/error.format";
 
+// Same cost as a real bcrypt check, so response time doesn't reveal which
+// admin emails exist (mirrors Login.usecase.ts, audit M15).
+const DUMMY_BCRYPT_HASH = "$2a$12$CwTycUXWue0Thq9StjUM0uJ8.LQKfNMbOdRv1C2b0eb3U2cG8Nn2G";
+
 export class AdminLoginUseCase {
   constructor(
     private readonly uow: PrismaUnitOfWork,
@@ -39,11 +43,19 @@ export class AdminLoginUseCase {
     // 1️⃣ Find admin
     const admin = await this.uow.adminUserRepository.findByEmail(email);
     if (!admin) {
+      await this.passwordHasher.compare(password, DUMMY_BCRYPT_HASH).catch(() => false);
       throw new UnauthorizedError("Invalid credentials");
     }
 
     const now = new Date();
     admin.ensureCanLogin(now);
+
+    // Lockout after repeated failures (same scheme as users).
+    const lock = await this.uow.prisma.adminUser.findUnique({ where: { id: admin.id }, select: { lockedUntil: true } });
+    if (lock?.lockedUntil && lock.lockedUntil > now) {
+      const minutes = Math.ceil((lock.lockedUntil.getTime() - now.getTime()) / 60_000);
+      throw new UnauthorizedError(`Account is temporarily locked. Try again in ${minutes} minute(s).`);
+    }
 
     // 2️⃣ Verify password
     const isValid = await this.passwordHasher.compare(
@@ -52,8 +64,20 @@ export class AdminLoginUseCase {
     );
 
     if (!isValid) {
+      // One atomic UPDATE, so parallel guesses all count.
+      await this.uow.prisma.$executeRaw`
+        UPDATE "AdminUser"
+        SET "failedLoginAttempts" = "failedLoginAttempts" + 1,
+            "lockedUntil" = CASE WHEN "failedLoginAttempts" + 1 >= ${AdminTTL.ADMIN_MAX_FAILED_LOGINS}
+                                 THEN ${new Date(now.getTime() + AdminTTL.ADMIN_LOCKOUT_MS)}
+                                 ELSE "lockedUntil" END
+        WHERE id = ${admin.id}`;
       throw new UnauthorizedError("Invalid credentials");
     }
+
+    // Correct password: clear the failure count (outside the transaction
+    // below, which locks this row through adminUserRepository.save).
+    await this.uow.prisma.adminUser.update({ where: { id: admin.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
 
     // 3️⃣ Wrap success path in transaction
     return this.uow.execute(
@@ -74,13 +98,15 @@ export class AdminLoginUseCase {
           id: crypto.randomUUID(),
           adminId: admin.id,
           tokenHash,
+          // A sign-in lasts at most ADMIN_SESSION_ABSOLUTE_MS, however often it refreshes.
           expiresAt: new Date(
-            now.getTime() + AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS,
+            now.getTime() + Math.min(AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS, AdminTTL.ADMIN_SESSION_ABSOLUTE_MS),
           ),
           revokedAt: null,
           createdAt: now,
           ipAddress,
           userAgent,
+          absoluteExpiresAt: new Date(now.getTime() + AdminTTL.ADMIN_SESSION_ABSOLUTE_MS),
         };
 
         await adminSessionRepository.save(sessionData);

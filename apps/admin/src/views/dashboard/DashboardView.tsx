@@ -12,6 +12,7 @@ import { fillDays, formatMoney, formatNumber } from '@/components/ui/format'
 import { MiniBars } from '@/components/ui/MiniBars'
 import { Section } from '@/components/ui/Section'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { TrafficSection } from './TrafficSection'
 
 export function DashboardView() {
   const [days, setDays] = useState(30)
@@ -56,6 +57,8 @@ export function DashboardView() {
         <StatCard label='Open feedback' value={formatNumber(data?.feedback.open)} loading={isLoading} />
         <StatCard label='Connected sessions (DB)' value={formatNumber(data?.tunnels.connectedSessions)} loading={isLoading} />
       </Grid>
+
+      <TrafficSection />
 
       <Grid minChildWidth='22rem' gap={4}>
         <Section title='Sign-ups' description={`New users per day, last ${days} days`}>

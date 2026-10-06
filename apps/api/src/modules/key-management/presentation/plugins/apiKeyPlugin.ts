@@ -111,7 +111,7 @@ export default fp(async (fastify: FastifyInstance) => {
   };
 
   // ── 4. Decorate use cases onto fastify instance ───────────────────────────
-  fastify.decorate("createApiKeyUseCase", new CreateApiKeyUseCase(deps));
+  fastify.decorate("createApiKeyUseCase", new CreateApiKeyUseCase(deps, uow.auditLogRepository));
 
   fastify.decorate(
     "listApiKeysUseCase",

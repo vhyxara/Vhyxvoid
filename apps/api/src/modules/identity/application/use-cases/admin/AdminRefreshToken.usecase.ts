@@ -59,6 +59,9 @@ export class AdminRefreshTokenUseCase {
         return { kind: "reuse", adminId: session.adminId };
       }
       if (session.expiresAt <= now) return { kind: "expired" };
+      if (session.absoluteExpiresAt && session.absoluteExpiresAt <= now) return { kind: "expired" };
+      // Legacy rows get their absolute limit from this rotation (M23).
+      const absoluteExpiresAt = session.absoluteExpiresAt ?? new Date(now.getTime() + AdminTTL.ADMIN_SESSION_ABSOLUTE_MS);
 
       const newRaw = this.tokenGenerator.generate(64);
       const successor = await tx.adminSession.create({
@@ -66,7 +69,8 @@ export class AdminRefreshTokenUseCase {
           id: crypto.randomUUID(),
           adminId: session.adminId,
           tokenHash: TokenHasher.hash(newRaw),
-          expiresAt: new Date(now.getTime() + AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS),
+          expiresAt: new Date(Math.min(now.getTime() + AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS, absoluteExpiresAt.getTime())),
+          absoluteExpiresAt,
           createdAt: now,
           ipAddress: session.ipAddress,
           userAgent: session.userAgent,

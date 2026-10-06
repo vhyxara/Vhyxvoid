@@ -183,6 +183,9 @@ model Session {
   replacedById           String?
   replacementTokenCipher String?
 
+  // Rotation never extends the session past this (audit M23).
+  absoluteExpiresAt DateTime?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId]) // FIX [7]: missing index — queries by userId were full table scans
@@ -255,6 +258,7 @@ model Account {
   inboxRequests      InboxRequest[]
   customDomains      CustomDomain[]
   alertRules         AlertRule[]
+  notices            AccountNotice[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -654,6 +658,7 @@ model AuditLog {
   user    User?    @relation(fields: [userId], references: [id])
 
   @@index([accountId])
+  @@index([accountId, createdAt]) // team activity feed
   @@index([userId])
   @@index([targetUserId])
   @@index([action])
@@ -736,6 +741,10 @@ model AdminUser {
   // outstanding token at once, like User.tokenVersion.
   tokenVersion Int @default(0)
 
+  // Sign-in lockout, same scheme as User (5 failures -> 15 minutes).
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -769,6 +778,9 @@ model AdminSession {
   // triggering reuse detection.
   replacedById           String?
   replacementTokenCipher String?
+
+  // Rotation never extends the session past this (audit M23).
+  absoluteExpiresAt DateTime?
 
   admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -1245,3 +1257,19 @@ model JobLease {
   @@map("job_leases")
 }
 
+
+// One row per account notice that must go out once (usage 80/100 % per month,
+// trial ending per trial). Inserting the row claims the notice, so two API
+// instances or the Stripe webhook and the job never send it twice.
+model AccountNotice {
+  id        String   @id @default(uuid())
+  accountId String
+  kind      String
+  period    String
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, kind, period])
+  @@map("account_notices")
+}

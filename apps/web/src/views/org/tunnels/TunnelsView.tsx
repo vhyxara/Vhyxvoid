@@ -9,6 +9,7 @@ import { GenericServerTable } from '@/libs/table/GenericServerTable'
 import { useServerTable } from '@/libs/table/useServerTable'
 import { useActiveTunnels, useTunnelHistoryTableList } from '@/api/application/hooks/useTunnels'
 import type { TunnelStatus, ActiveTunnel, TunnelSession } from '@/api/domain/key-management/types/tunnel.types'
+import { TrafficCard } from './TrafficCard'
 
 // ── Status helpers ────────────────────────────────────────────────────────
 
@@ -177,6 +178,7 @@ export default function TunnelsView({ accountId }: Props) {
   return (
     <div className='flex flex-col gap-6'>
       <ActiveTunnelsCard accountId={accountId} />
+      <TrafficCard accountId={accountId} />
 
       {/* Original MUI version wrapped this in a Card containing a single-item
           Tabs ("Session history") around GenericServerTable's own Card —

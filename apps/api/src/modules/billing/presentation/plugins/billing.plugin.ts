@@ -3,6 +3,7 @@
 // Fastify plugin that wires everything together.
 // Register this in your main app.ts.
 // ─────────────────────────────────────────────────────────────────────────────
+import { sendTrialEndingNotice } from "@/modules/platform/alerts/notices";
 import fp from "fastify-plugin";
 import { FastifyInstance } from "fastify";
 
@@ -189,6 +190,8 @@ export const billingPlugin = fp(
         notificationService,
         accountKeyCacheInvalidator,
         redisStripeEventLog(fastify.redis),
+        // One trial reminder per trial, shared with the notices job (AccountNotice claim).
+        (accountId, trialEndsAt) => sendTrialEndingNotice(fastify.prisma, notificationService, accountId, trialEndsAt),
       ),
     );
 

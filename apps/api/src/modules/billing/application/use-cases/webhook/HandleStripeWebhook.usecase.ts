@@ -62,6 +62,10 @@ export class HandleStripeWebhookUseCase {
       "invalidate"
     > = NOOP_CACHE_INVALIDATOR,
     private readonly eventLog: StripeEventLog = NOOP_EVENT_LOG,
+    // When set, trial reminders go to every owner/admin (in-app + email),
+    // once per trial, shared with the notices job. Without it (tests, old
+    // wiring) the owner alone gets the email, as before.
+    private readonly trialNotice?: (accountId: string, trialEndsAt: Date) => Promise<boolean>,
   ) {}
 
   async execute(
@@ -492,11 +496,18 @@ export class HandleStripeWebhookUseCase {
       (await this.resolveAccountIdFromCustomer(stripeSub.customer));
     if (!accountId) return;
 
+    const trialEndsAt = new Date(stripeSub.trial_end * 1000);
+    if (this.trialNotice) {
+      await this.trialNotice(accountId, trialEndsAt).catch((err) =>
+        console.error("[notifications] trial ending notice failed", err),
+      );
+      return;
+    }
+
     const ownerEmail =
       await this.accountBillingRepo.getAccountOwnerEmail?.(accountId);
     if (!ownerEmail) return;
 
-    const trialEndsAt = new Date(stripeSub.trial_end * 1000);
     const daysLeft = Math.max(
       0,
       Math.ceil((trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),

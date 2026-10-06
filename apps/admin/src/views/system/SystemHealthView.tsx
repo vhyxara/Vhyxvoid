@@ -82,6 +82,7 @@ export function SystemHealthView() {
   const { data, isLoading, isFetching, error, refetch } = useSystemHealth()
   const api = data?.api.details
   const [runningAlerts, setRunningAlerts] = useState(false)
+  const [runningNotices, setRunningNotices] = useState(false)
 
   return (
     <div className='flex flex-col gap-6'>
@@ -104,6 +105,26 @@ export function SystemHealthView() {
             }}
           >
             Run alert checks now
+          </Button>,
+          <Button
+            key='notices'
+            variant='ghost'
+            size='sm'
+            loading={runningNotices}
+            onClick={() => {
+              setRunningNotices(true)
+              platformService
+                .runJob('notices')
+                .then(r => {
+                  const res = r.result as { usage?: number; trial?: number } | undefined
+
+                  toast.success(`Usage and trial notices: ${res?.usage ?? 0} usage, ${res?.trial ?? 0} trial sent`)
+                })
+                .catch(e => toast.danger(e.message))
+                .finally(() => setRunningNotices(false))
+            }}
+          >
+            Send due usage/trial notices
           </Button>,
           <Button key='r' variant='outline' size='sm' loading={isFetching} onClick={() => refetch()}>
             Check again

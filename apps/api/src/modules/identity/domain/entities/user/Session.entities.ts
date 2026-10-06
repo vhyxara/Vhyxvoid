@@ -1,6 +1,7 @@
 // identity/domain/entities/Session.ts
 
 import { UnauthorizedError } from "@/core/errors/error.format";
+import { TTL } from "@/core/constant/ttl.constant";
 
 export interface SessionProps {
   id: string;
@@ -14,6 +15,8 @@ export interface SessionProps {
   /** Set by rotate(): the successor session, and its raw token encrypted. Audit H10. */
   replacedById?: string | null;
   replacementTokenCipher?: string | null;
+  /** No rotation extends the session past this (audit M23). Null on rows from before it existed. */
+  absoluteExpiresAt?: Date | null;
 }
 
 export class Session {
@@ -27,6 +30,8 @@ export class Session {
     ttlMs: number;
     ipAddress: string;
     userAgent: string;
+    /** Inherited on rotation; a new sign-in starts a fresh one. */
+    absoluteExpiresAt?: Date;
   }): Session {
     // Guard: ttlMs should be at least 1 minute and at most 1 year
     if (params.ttlMs < 60_000 || params.ttlMs > 365 * 24 * 60 * 60 * 1000) {
@@ -35,11 +40,14 @@ export class Session {
       );
     }
     const now = new Date();
+    const absoluteExpiresAt = params.absoluteExpiresAt ?? new Date(now.getTime() + TTL.SESSION_ABSOLUTE_MS);
+    const sliding = now.getTime() + params.ttlMs;
     return new Session({
       id: crypto.randomUUID(),
       userId: params.userId,
       tokenHash: params.tokenHash,
-      expiresAt: new Date(now.getTime() + params.ttlMs),
+      expiresAt: new Date(Math.min(sliding, absoluteExpiresAt.getTime())),
+      absoluteExpiresAt,
       revokedAt: null,
       createdAt: now,
       ipAddress: params.ipAddress,
@@ -98,7 +106,10 @@ export class Session {
   // ── Business Logic ─────────────────────────────────────────
 
   isExpired(now: Date): boolean {
-    return this.props.expiresAt <= now;
+    return this.props.expiresAt <= now || (!!this.props.absoluteExpiresAt && this.props.absoluteExpiresAt <= now);
+  }
+  get absoluteExpiresAt(): Date | null {
+    return this.props.absoluteExpiresAt ?? null;
   }
   isRevoked(): boolean {
     return this.props.revokedAt !== null;
@@ -141,6 +152,8 @@ export class Session {
       ttlMs,
       ipAddress: this.props.ipAddress,
       userAgent: this.props.userAgent,
+      // Legacy rows (no absolute expiry) get one from their first rotation.
+      absoluteExpiresAt: this.props.absoluteExpiresAt ?? undefined,
     });
     this.props.replacedById = successor.id;
     this.props.replacementTokenCipher = successorTokenCipher ?? null;

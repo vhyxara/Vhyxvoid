@@ -12,7 +12,11 @@ import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities
 import { buildCachePayload } from "@/modules/key-management/application/helpers/keymanagement.utils";
 
 export class CreateApiKeyUseCase {
-  constructor(private deps: ApiKeyDeps) {}
+  constructor(
+    private deps: ApiKeyDeps,
+    // Optional so existing harnesses compile; the plugin passes the real one.
+    private auditLogRepository?: { create(data: any): Promise<void> },
+  ) {}
 
   async execute(params: {
     accountId: string;
@@ -100,16 +104,21 @@ export class CreateApiKeyUseCase {
     // console.log('6. API key entity created:', key);
     // 5. Persist
     await apiKeyRepository.save(key);
-    // console.log('7. API key saved to repository');
-    // 6. Warm cache immediately — next gateway request hits cache, not DB
-    // console.log('Warming cache for new API key:', key.keyId);
-    // console.log('Cache payload:', buildCachePayload(key, limits.rateLimitPerMinute, 'ACTIVE'));
-    // console.log('Cache Service:', cacheService);
-    const cache = await cacheService.set(
+    // Warm the cache so the first gateway request hits it, not the database.
+    await cacheService.set(
       key.keyId,
       buildCachePayload(key, limits.rateLimitPerMinute, "ACTIVE"),
     );
-    // console.log('Cache set result:', cache);
+    await this.auditLogRepository
+      ?.create({
+        accountId: params.accountId,
+        userId: params.actorUserId,
+        action: "API_KEY_CREATED",
+        resourceType: "ApiKey",
+        resourceId: key.id,
+        metadata: { keyId: key.keyId, name: params.name, environment: params.environment, scopes: params.scopes },
+      })
+      .catch((err) => console.error("[audit] API_KEY_CREATED not recorded", (err as Error).message));
     return {
       key: key.toPublicDTO(),
       secret: rawSecret, // ← shown once, never stored again

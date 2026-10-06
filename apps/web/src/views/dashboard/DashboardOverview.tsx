@@ -10,6 +10,7 @@ import { useMe } from '@/api/application/hooks/useMe'
 import { useUsageSummary } from '@/api/application/hooks/useTunnels'
 import { setting, usePublicBootstrap } from '@/api/application/hooks/usePublicSite'
 import type { MyAccount } from '@/api/domain/identity/types/org.types'
+import { TrafficCard } from '@/views/org/tunnels/TrafficCard'
 
 const formatNumber = (n: number | undefined) => (n === undefined ? '—' : n.toLocaleString())
 
@@ -110,6 +111,8 @@ export function DashboardOverview() {
         <StatCard label='Active API keys' value={formatNumber(stats?.activeApiKeys)} loading={loading} />
         <StatCard label='Workspaces' value={formatNumber(me.data?.accounts.length)} loading={me.isLoading} />
       </Grid>
+
+      {primary && remaining === 0 && <TrafficCard accountId={primary.accountId} compact title='Traffic' />}
 
       {!me.isLoading && remaining > 0 && (
         <Card className='p-6'>

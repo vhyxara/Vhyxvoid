@@ -158,6 +158,8 @@ export const SETTING_DEFINITIONS = {
   "billing.stripePrices": { group: "billing", label: "Stripe price IDs", description: "The recurring Stripe price for each paid plan, e.g. {\"PRO\": \"price_123\", \"ENTERPRISE\": \"price_456\"}. Overrides the STRIPE_*_PRICE_ID environment variables. Create prices in the Stripe dashboard.", type: "json", default: {}, public: false, validate: validateStripePrices },
   "billing.checkoutEnabled": { group: "billing", label: "Allow upgrades", description: "When off, the upgrade buttons are hidden and checkout is refused.", type: "boolean", default: true, public: true },
   "billing.trialDays": { group: "billing", label: "Trial length (days)", description: "Free trial on an account's first paid subscription only. 0 disables trials.", type: "number", default: 14, public: true, min: 0, max: 90 },
+  "billing.usageNotices": { group: "billing", label: "Usage emails", description: "Tell an account's owners and admins (in-app and email) when it reaches 80% and 100% of its plan's monthly requests, once per month each. The monthly limit is soft: nothing is blocked.", type: "boolean", default: true, public: false },
+  "billing.trialNoticeDays": { group: "billing", label: "Trial reminder (days before end)", description: "Remind owners and admins this many days before a trial ends (in-app and email, once per trial). Stripe's own 3-day notice is merged with it. 0 turns the reminder off.", type: "number", default: 3, public: false, min: 0, max: 14 },
 
   "plans.overrides": { group: "plans", label: "Plan limit overrides", description: "Per-plan overrides of the built-in limits. Use null for unlimited. Changes apply within a minute.", type: "json", default: {}, public: false, validate: validatePlanOverrides },
 

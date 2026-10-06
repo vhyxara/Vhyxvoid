@@ -31,6 +31,7 @@ export class PrismaSessionRepository implements SessionRepository {
         createdAt: p.createdAt,
         ipAddress: p.ipAddress,
         userAgent: p.userAgent,
+        absoluteExpiresAt: p.absoluteExpiresAt ?? null,
       },
     });
   }

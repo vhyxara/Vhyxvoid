@@ -36,6 +36,7 @@ const del = <T>(url: string, data?: unknown) => httpClient<T>({ url, method: 'DE
 export const platformService = {
   overview: (days = 30) => httpClient<Overview>({ url: '/admin/overview', method: 'GET', params: { days } }),
   health: () => get<SystemHealth>('/admin/system/health'),
+  traffic: (range: '1h' | '24h' | '7d') => httpClient<PlatformTraffic>({ url: '/admin/traffic', method: 'GET', params: { range } }),
   planLimits: () => get<{ builtIn: Record<string, any>; overrides: Record<string, any>; enforcement: Record<string, string> }>('/admin/system/plan-limits'),
 
   accounts: list<AccountRow>('/admin/accounts'),
@@ -54,7 +55,7 @@ export const platformService = {
   apiKeys: list<ApiKeyRow>('/admin/api-keys'),
   customDomains: list<CustomDomainRow>('/admin/domains'),
   removeCustomDomain: (id: string, reason: string) => del(`/admin/domains/${id}`, { reason }),
-  runJob: (name: 'alerts' | 'domains') => post<{ job: string; result: unknown; ms: number }>(`/admin/system/jobs/${name}/run`),
+  runJob: (name: 'alerts' | 'domains' | 'notices' | 'maintenance') => post<{ job: string; result: unknown; ms: number }>(`/admin/system/jobs/${name}/run`),
   revokeApiKey: (id: string, reason: string) => post(`/admin/api-keys/${id}/revoke`, { reason }),
 
   liveTunnels: (accountId?: string) =>
@@ -105,4 +106,16 @@ export async function downloadAdminAuditCsv(params: Record<string, string> = {})
   a.download = `admin-audit-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+export type TrafficTotals = { requests: number; errors4xx: number; errors5xx: number; avgMs: number | null; errorRate: number | null }
+
+export type PlatformTraffic = {
+  range: '1h' | '24h' | '7d'
+  from: string
+  to: string
+  bucketMinutes: number
+  series: Array<{ t: string; requests: number; errors4xx: number; errors5xx: number; avgMs: number | null }>
+  totals: TrafficTotals
+  top: Array<TrafficTotals & { accountId: string; name: string | null; slug: string | null }>
 }
