@@ -5,6 +5,7 @@
     "express",
     "fastify",
     "standalone-cli",
-    "webhooks"
+    "webhooks",
+    "github-actions"
   ]
 }

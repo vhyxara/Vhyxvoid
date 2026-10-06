@@ -3,9 +3,10 @@ title: Runbook
 description: What to do when something goes wrong, and the routine jobs.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
+  - apps/api/src/modules/platform/routes.ts
   - apps/api/src/modules/platform/platform.plugin.ts
   - apps/hub/src/HubServer.ts
   - packages/shared/src/settings.ts
@@ -55,6 +56,21 @@ Turn off `auth.signupsEnabled`, or limit sign-ups to certain email domains with 
 - Each rule sends at most 12 notifications an hour; the rule's history shows suppressed ones.
 - Email needs `RESEND_API_KEY`; webhooks must answer 2xx within 5 seconds and cannot point at private addresses. Each history entry shows what happened on each channel.
 - `features.alerts` off stops evaluation. **System → Run alert checks now** runs it immediately; a 409 means another API instance holds the job.
+
+## An admin is locked out
+
+Five wrong passwords lock an admin account for 15 minutes; waiting is the fix. To unlock sooner, a super admin can set a new password for them under **Admin users**, or run `UPDATE "AdminUser" SET "failedLoginAttempts" = 0, "lockedUntil" = NULL WHERE email = '…';` against the database.
+
+## Background jobs
+
+| Job | Runs | Does | Run now |
+| --- | --- | --- | --- |
+| `alerts` | every minute | evaluates alert rules | **System → Run alert checks now** |
+| `domains` | every 5 minutes | checks custom domain DNS | **Custom domains → Check DNS now** |
+| `notices` | every 15 minutes | 80% / 100% usage and trial-ending notices (each once) | **System → Send due usage/trial notices** |
+| `maintenance` | hourly | deletes sign-in sessions dead for over 7 days, old notice records | `POST /api/v1/admin/system/jobs/maintenance/run` |
+
+Each runs on one API instance at a time (a lease in the `job_leases` table). A run-now answer of 409 means another instance is running it.
 
 ## Backups
 

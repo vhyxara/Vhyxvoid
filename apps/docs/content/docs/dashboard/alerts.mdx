@@ -3,9 +3,10 @@ title: Alerts
 description: Get an email, a dashboard notification or a Slack message when a tunnel goes down, errors climb, usage runs high, a webhook cannot be delivered or a domain changes.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
+  - apps/api/src/modules/platform/alerts/notices.ts
   - apps/web/src/views/org/alerts/AlertsView.tsx
   - packages/shared/src/alerts.ts
   - apps/api/src/modules/platform/alerts/alerts.worker.ts
@@ -52,6 +53,15 @@ Alerts are checked every minute. **Server errors** counts what callers received,
 ```
 
 `kind` is `FIRING` when a problem starts, `RESOLVED` when it ends, and `EVENT` for one-off events (and tests). Webhook URLs must be `https://` and reachable on the internet.
+
+## Usage and trial notices
+
+Two notices need no alert rule. Every owner and admin of a workspace gets them in the bell and by email:
+
+- **Usage**: once when the month's requests reach 80% of the plan, and once at 100%. Tunnels keep working past 100%; the notice links to billing.
+- **Trial**: a few days before a paid plan's trial ends (3 by default), once per trial.
+
+Workspaces on a plan without a monthly limit get no usage notice. Create a **Monthly usage** alert if you want a different percentage or a webhook.
 
 ## No floods
 

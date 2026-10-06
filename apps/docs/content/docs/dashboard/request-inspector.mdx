@@ -3,9 +3,10 @@ title: Request inspector
 description: See every request that reaches your tunnels, with headers, bodies and your server's response, and replay one after you fix your code.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
+  - apps/hub/src/services/RequestInspector.service.ts
   - apps/web/src/views/org/inspector/InspectorView.tsx
   - packages/shared/src/inspector.ts
   - apps/hub/src/handlers/HttpTunnel.handler.ts
@@ -42,3 +43,7 @@ Select a request to see:
 | Never stored | Values of `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, CSRF tokens |
 
 Anyone who is a member of the workspace can view and replay; **Clear** (admins and owners) deletes a tunnel's captured requests immediately.
+
+## Turning capture off
+
+If your workspace must not have request data stored (health data, payments, customer data under contract), an owner or admin can switch **Capture** off at the top of the page. From then on no request of any tunnel in the workspace is kept, and the requests kept so far are deleted at once. Tunnels keep working as before. The switch is recorded on the [Activity](/docs/dashboard/activity) page; turn it back on the same way.

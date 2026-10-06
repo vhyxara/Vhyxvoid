@@ -1,12 +1,16 @@
 ---
 title: Tunnels
-description: See which agents are connected right now, and the history of past connections.
+description: See which agents are connected right now, traffic over time per tunnel, and the history of past connections.
 verified:
-  date: "2026-09-21"
-  commit: dc922f8
+  date: "2026-10-06"
+  commit: "d28cd42"
   packages:
-    "@vhyxvoid/agent": "1.0.20"
+    "@vhyxvoid/agent": "1.1.0"
 sources:
+  - packages/shared/src/traffic.ts
+  - apps/api/src/modules/platform/traffic/traffic.routes.ts
+  - apps/web/src/components/charts/TrafficChart.tsx
+  - apps/web/src/views/org/tunnels/TrafficCard.tsx
   - apps/web/src/libs/layout/vhyxui/DashboardSidebarNav.tsx
   - apps/web/src/views/org/tunnels/TunnelsView.tsx
 ---
@@ -18,6 +22,12 @@ Open **Tunnels** under your personal workspace or under an organization in the s
 A card at the top lists the agents connected right now. It refreshes every 30 seconds, so a tunnel can take up to that long to appear or disappear.
 
 For each connected agent it shows the **label** you started it with, the agent's ID, the **name of the API key** it connected with, and the time it connected. The badge at the top of the card says how many are connected (`0 connected` when there are none, with **No active tunnels** in the card).
+
+## Traffic
+
+The **Traffic** card charts the requests that reached your tunnels' public URLs, stacked as successful, `4xx` and `5xx` answers, for the **last hour** (one bar per minute), **24 hours** (per 15 minutes) or **7 days** (per 2 hours). Above the chart: total requests, the share of server errors, the number of client errors and the average time to answer. Pick a **Tunnel** to see one tunnel only, or click a name in **Busiest tunnels**.
+
+Hover a bar (or focus the chart and use the arrow keys) for its numbers; **Show as table** lists every bar. Figures arrive within about a minute and are kept for 7 days. They count what callers received, including `502`/`504` answers when your local server was down. The dashboard overview shows the same chart for your personal workspace once you have a tunnel.
 
 ## Session history
 
@@ -35,7 +45,7 @@ You can search, filter by status, and sort by agent, status or connection time. 
 
 ## What the page doesn't show
 
-There is no list of individual requests, no request inspector, and no usage charts here. The page tells you whether an agent is connected and for how long, not what passed through the tunnel. To see requests, run the agent with `--debug`; see the [CLI reference](/cli/reference).
+Individual requests are in the [request inspector](/docs/dashboard/request-inspector); who connected and disconnected when, together with every other change in the workspace, is on the [Activity](/docs/dashboard/activity) page.
 
 ## When a tunnel isn't listed
 

@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -71,6 +71,8 @@ Checkout and trial policy. Prices themselves live in Stripe.
 | `billing.stripePrices` | json | `{}` | no | Stripe price IDs. The recurring Stripe price for each paid plan, e.g. \{"PRO": "price_123", "ENTERPRISE": "price_456"\}. Overrides the STRIPE_*_PRICE_ID environment variables. Create prices in the Stripe dashboard. |
 | `billing.checkoutEnabled` | boolean | `true` | yes | Allow upgrades. When off, the upgrade buttons are hidden and checkout is refused. |
 | `billing.trialDays` | number 0–90 | `14` | yes | Trial length (days). Free trial on an account's first paid subscription only. 0 disables trials. |
+| `billing.usageNotices` | boolean | `true` | no | Usage emails. Tell an account's owners and admins (in-app and email) when it reaches 80% and 100% of its plan's monthly requests, once per month each. The monthly limit is soft: nothing is blocked. |
+| `billing.trialNoticeDays` | number 0–14 | `3` | no | Trial reminder (days before end). Remind owners and admins this many days before a trial ends (in-app and email, once per trial). Stripe's own 3-day notice is merged with it. 0 turns the reminder off. |
 
 ## Plan limits
 

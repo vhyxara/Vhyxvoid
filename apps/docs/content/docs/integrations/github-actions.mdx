@@ -1,0 +1,87 @@
+---
+title: GitHub Actions
+description: A public URL for the app in a CI job, for preview links on pull requests and real webhook round trips in tests.
+verified:
+  date: "2026-10-06"
+  commit: "d28cd42"
+  packages: {}
+sources:
+  - actions/tunnel/action.yml
+  - actions/tunnel/start.sh
+---
+
+The `actions/tunnel` action starts the agent in the background for the rest of the job and gives you the URL. On pull requests it also comments the link, and updates that same comment on every push.
+
+## Preview links on pull requests
+
+```yaml
+name: Preview
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci && npm run build
+      - run: npm start &
+
+      - uses: vhyxara/vhyxvoid/actions/tunnel@main
+        with:
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+          port: 3000
+          keep-alive-minutes: 30
+```
+
+Each pull request gets the label `pr-<number>`, so its URL stays the same across pushes. The link works while the job runs; `keep-alive-minutes` keeps the job open for reviewers, and cancelling the job ends it.
+
+## Webhooks and end-to-end tests
+
+```yaml
+      - uses: vhyxara/vhyxvoid/actions/tunnel@main
+        id: tunnel
+        with:
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+          comment: false
+      - run: npm test
+        env:
+          PUBLIC_URL: ${{ steps.tunnel.outputs.url }}
+```
+
+The URL is also in `$VHYXVOID_URL` for every later step, and in the job summary.
+
+## Inputs
+
+| Input | Default | |
+| --- | --- | --- |
+| `api-key`, `secret` | required | a key with the `tunnel:connect` scope; store both as repository secrets |
+| `port` | `3000` | the app's port in the job |
+| `label` | `pr-<number>` or `ci-<run id>` | cleaned to a valid hostname label |
+| `hub` | `wss://hub.vhyxvoid.com/agent` | |
+| `agent-version` | `latest` | |
+| `wait-for-app` | `60` | seconds to wait for `port` to open |
+| `timeout` | `60` | seconds to wait for the tunnel |
+| `comment` | `true` | comment the URL on the pull request |
+| `github-token` | `github.token` | |
+| `keep-alive-minutes` | `0` | |
+
+Outputs: `url`, `label`.
+
+## A key for CI
+
+Create a key used only by CI, with an expiry date. Revoking it disconnects running jobs within about a minute, and every connection shows on the workspace's [Activity](/docs/dashboard/activity) page. Each running job uses one agent slot of your plan.
+
+If the key is refused, the step fails and prints the agent's message. Run [`vhyxvoid doctor --connect`](/docs/cli/doctor) with the same key to see why.

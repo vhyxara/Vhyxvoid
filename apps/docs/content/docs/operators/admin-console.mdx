@@ -3,9 +3,11 @@ title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
+  - apps/api/src/modules/identity/application/use-cases/admin/AdminLogin.usecase.ts
+  - apps/admin/src/views/dashboard/TrafficSection.tsx
   - apps/admin/src/components/AdminShell.tsx
   - apps/api/src/modules/identity/domain/entities/admin/AdminAbility.entities.ts
   - apps/api/src/modules/platform/admin/admin.users.routes.ts
@@ -17,7 +19,7 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 
 ## Overview
 
-**Dashboard** shows users, accounts, paying subscriptions, revenue, active API keys and live tunnels over 7, 30 or 90 days, with daily sign-ups and requests. **System** shows the health of Postgres, Redis and the hub, the build that is running, and the effective plan limits. *Run alert checks now* evaluates every alert rule immediately instead of waiting for the next minute.
+**Dashboard** shows users, accounts, paying subscriptions, revenue, active API keys and live tunnels over 7, 30 or 90 days, with daily sign-ups and requests. **Live traffic** charts requests through every tunnel for the last hour, 24 hours or 7 days (with the 5xx share and average answer time) and lists the busiest accounts; click one to open it. **System** shows the health of Postgres, Redis and the hub, the build that is running, and the effective plan limits. *Run alert checks now* evaluates every alert rule immediately instead of waiting for the next minute; *Send due usage/trial notices* does the same for the [usage and trial notices](/docs/dashboard/alerts#usage-and-trial-notices).
 
 ## People and workspaces
 
@@ -53,6 +55,8 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 **Settings** and **Content** are covered in the [settings reference](/docs/operators/settings-reference) and [site content](/docs/operators/content).
 
 ## Admins, roles and abilities
+
+Admin sign-in locks an admin account for 15 minutes after 5 wrong passwords in a row. A console session lasts at most 30 days, however often it refreshes; customer sessions at most 90 days. Then the person signs in again.
 
 Every console action checks an *ability*. Roles are named bundles of abilities; an admin can hold several roles. Super admins bypass the checks and are the only ones who can change another admin's password.
 

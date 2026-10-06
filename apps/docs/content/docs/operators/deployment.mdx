@@ -3,7 +3,7 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "d28cd42"
   packages: {}
 sources:
   - docker-compose.yml
@@ -139,4 +139,4 @@ You can launch without Stripe: billing mode starts as **free**. When you are rea
 
 Pull or build the new images and `docker compose up -d`. The API applies new migrations before it starts listening; the hub reconnects agents automatically (agents retry with backoff).
 
-On `SIGTERM` the API and hub stop accepting work, flush what they hold (request counts, job leases) and exit within 15 seconds, so a rolling restart does not leave background jobs blocked. Background jobs (alerts every minute, domain checks every 5 minutes) run on one API instance at a time through leases in Postgres; set `DISABLE_BACKGROUND_JOBS=1` on instances that should never run them.
+On `SIGTERM` the API and hub stop accepting work, flush what they hold (request counts, job leases) and exit within 15 seconds, so a rolling restart does not leave background jobs blocked. Background jobs (alerts every minute, domain checks every 5 minutes, usage and trial notices every 15 minutes, housekeeping hourly) run on one API instance at a time through leases in Postgres; set `DISABLE_BACKGROUND_JOBS=1` on instances that should never run them.

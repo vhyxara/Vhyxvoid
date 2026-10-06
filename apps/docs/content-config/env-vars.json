@@ -118,6 +118,15 @@
       "default": "`vhyxvoid.com`",
       "flag": null,
       "description": "Domain that `createClient` builds the tunnel URL from."
+    },
+    {
+      "name": "VHYXVOID_API_URL",
+      "usedBy": [
+        "agent"
+      ],
+      "default": "api.<hub domain>",
+      "flag": null,
+      "description": "API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging)."
     }
   ],
   "hub": [

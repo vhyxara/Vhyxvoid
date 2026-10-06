@@ -1,0 +1,32 @@
+---
+title: Activity
+description: See who changed what in a workspace, and when its tunnels connected and disconnected. Export it as CSV.
+verified:
+  date: "2026-10-06"
+  commit: "d28cd42"
+  packages: {}
+sources:
+  - apps/web/src/views/org/activity/ActivityView.tsx
+  - apps/web/src/views/org/activity/activityFormat.ts
+  - apps/api/src/modules/platform/activity/activity.routes.ts
+  - apps/api/src/modules/platform/shared/activity.ts
+---
+
+Open **Activity** under a workspace. Everyone in the workspace can see it; the newest entries are at the top, grouped by day, and it refreshes every minute.
+
+## What is recorded
+
+| Area | Entries |
+| --- | --- |
+| Members and workspace | invitations sent, cancelled and accepted; members removed or leaving; role changes; ownership transfers; workspace created or renamed |
+| API keys | created, revoked (including keys revoked because their owner left), rotated |
+| Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/docs/dashboard/tunnel-access) and share links, [custom domains](/docs/dashboard/custom-domains), the [webhook inbox](/docs/dashboard/webhook-inbox), replays and clearing in the [request inspector](/docs/dashboard/request-inspector), and switching request capture on or off |
+| Alerts | [alerts](/docs/dashboard/alerts) created, changed, paused, resumed and deleted |
+
+Each entry names the person who made the change. Owners and admins also see the IP address it came from. Passwords, secrets and tokens are never recorded, only that they were set or removed.
+
+Use **Show** to see one area only, and switch off **Tunnel connects and disconnects** when a busy workspace's connection entries hide the changes you are looking for. **Show older activity** at the bottom loads the next 50.
+
+## Export
+
+Owners and admins can choose **Export 30 days (CSV)**. The file has one row per entry: time (UTC), action, the person's name and email, the member an action was about, the resource, details as JSON, IP address and browser. Cells that a spreadsheet would treat as a formula are prefixed with `'`.

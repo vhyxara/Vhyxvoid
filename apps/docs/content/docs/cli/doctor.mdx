@@ -1,0 +1,59 @@
+---
+title: vhyxvoid doctor
+description: Check a tunnel setup end to end (key, local server, hub, sign-in, custom domain DNS) and get the fix for each problem.
+verified:
+  date: "2026-10-06"
+  commit: "d28cd42"
+  packages: {}
+sources:
+  - packages/agent/src/doctor.ts
+  - packages/agent/src/cli.ts
+---
+
+Run it where you run the agent, with the same `.env.vhyxvoid` or flags:
+
+```bash
+npx @vhyxvoid/agent doctor
+```
+
+```text
+vhyxvoid doctor (agent v1.1.0)
+
+  ✓ Node.js          v22.11.0
+  ✓ API key          vhyxvoid_dev_3154858af243fefdeb28f79b58158125
+  ✓ Secret           set (64 characters)
+  ✓ Tunnel label     web
+  ✗ Local server     nothing is listening on port 3000
+      → Start your app first, or pass the port it uses: vhyxvoid --port <port>.
+  ✓ Hub DNS          hub.vhyxvoid.com → 203.0.113.10
+  ✓ Hub              https://hub.vhyxvoid.com is reachable (200)
+  - Sign-in          run with --connect to sign in with a temporary tunnel
+
+  1 problem to fix.
+```
+
+It exits with code `1` when any check fails (warnings alone exit `0`), so it can run as a CI step.
+
+## Checks
+
+| Check | Fails when |
+| --- | --- |
+| Node.js | older than 18 |
+| API key, Secret | missing, or the key ID is not a `vhyxvoid_dev_…` / `vhyxvoid_live_…` ID |
+| Tunnel label | not a valid hostname label |
+| Local server | nothing listens on `--port` (a port that is open but does not answer HTTP is a warning) |
+| Hub DNS, Hub | the hub's name does not resolve or `/health` cannot be reached |
+| Sign-in (`--connect`) | the hub refuses the key: wrong secret, revoked or expired key, missing `tunnel:connect` scope, agent too old |
+| Domain (`--domain`) | the domain has no records, or points somewhere other than the platform's target |
+
+A proxy in `HTTPS_PROXY`/`HTTP_PROXY` is reported as a warning: the agent connects to the hub directly.
+
+## Options
+
+| Option | |
+| --- | --- |
+| `-k, --key`, `-s, --secret`, `-p, --port`, `-l, --label`, `--hub` | as for [`start`](/docs/cli/reference); read from the same environment variables |
+| `--connect` | also sign in with a temporary tunnel named `doctor-xxxxxx` and close it again. It uses one agent slot for a few seconds; on a plan with one agent and another agent running, the result is "the key works, but your plan's agent limit is reached" |
+| `--domain <hostname>` | check a [custom domain](/docs/dashboard/custom-domains)'s CNAME or A records |
+| `--domain-target <hostname>` | what the domain should point at; read from the platform when omitted (set `VHYXVOID_API_URL` for a self-hosted API) |
+| `--json` | print `{ version, results: [{ name, status, detail, fix }] }` |
