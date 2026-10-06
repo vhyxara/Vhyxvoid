@@ -815,3 +815,13 @@ Commits f967f8a..(this session's last) on branch `claude/upbeat-cannon-dwqaj0`.
 8. **Images**: Node 24, `pnpm fetch` layer keyed on the lockfile, frozen install, non-root; one `Dockerfile.next` for web and admin (standalone). Verified by simulating the build context locally (no Docker daemon in the session); CI builds all four images.
 **Status:** active.
 
+### 2026-10-06 — Launch-free billing control, request inspector, tunnel access rules (session upbeat-cannon, part 2)
+
+Commits 2112350..ed140a1 on `claude/upbeat-cannon-dwqaj0`.
+
+1. **Billing mode is a setting, default `free`.** The owner wants to launch free and charge later without a developer. `billing.mode` gates checkout (API), upgrade UI (dashboard) and the pricing page; `billing.defaultPlan` is the plan of every account without a paying subscription and is read inside the plan resolver, so API, hub and pricing table cannot disagree. Stripe prices moved to `billing.stripePrices` (env vars kept as fallback); Stripe keys stay in env (secrets never go in settings). Stripe is optional at boot: an unconfigured service answers 503 instead of the API refusing to start.
+2. **Inspector capture lives in Redis at the hub, not Postgres.** Public traffic was never recorded per request; a row per request in Postgres would put webhook bursts on the primary. A capped list per tunnel (plan limit `inspectorRequests`, 16 KB body slices, 24 h TTL, credentials masked) costs one pipelined Upstash call per request, written after the response. Replay = the hub sending the stored request to itself over loopback, so it takes the real path (limits, streaming, capture); the internal secret marks it.
+3. **Access rules are per (account, label), enforced at the hub, fail closed.** Password via HTTP Basic (works for browsers, curl and webhook URLs) rather than a custom login page; share links are stateless HMAC tokens with expiry + policy version (revocation = version bump), exchanged for a host-only HttpOnly cookie. Rules are cached 30 s with explicit invalidation from the API. Creating rules is plan-gated (`accessRules`); existing rules are not removed on downgrade (removing protection silently would be worse than giving a feature away).
+4. **Global API rate limit stays 100/min/IP**, now configurable (`RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS`). Keying it by user instead was rejected: the limiter runs before auth, so a token-derived key would let an attacker mint fresh buckets.
+**Status:** active.
+
