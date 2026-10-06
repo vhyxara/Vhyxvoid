@@ -890,3 +890,16 @@ Commit 51d08e7.
 6. **IP addresses of agents are shown to owners and admins only**, like IPs in the activity feed.
 **Status:** active.
 
+### 2026-10-06 — Hosted mock APIs (API platform plan, phase 1; session upbeat-cannon)
+
+Commits b534990 (engine, storage, hub, API), 96d4bac (dashboard), docs commit after it.
+
+1. **A mock lives on a tunnel label**, not on a separate host or path. One URL serves the mock, the agent, or both ("mock first": the mock's routes, the agent the rest), so clients never change URLs between mock and real backend. Access rules, traffic rules, custom domains, the inspector, charts, usage and alerts apply unchanged because the hub serves mocks in the same handler.
+2. **One JSON row per mock** (`mock_apis.endpoints`), version-checked like traffic rules, rather than tables for endpoints/responses/rules: the hub loads a mock in one indexed read, saves are atomic (no half-applied reorder), and the editor saves a draft as a whole. Limits keep the JSON bounded (endpoints by plan, 20 responses, 10 rules, 256 KB bodies, 4 MB total).
+3. **Engine in packages/shared, pure**: the hub, the API's try/validate/import/export and the dashboard's fallback marker use the same rules, so "Try" shows exactly what the URL serves.
+4. **Templating is a small fixed language**, not Handlebars/JS: request echo, generators, repeat; no expressions, no user code on our servers, output capped (2 MB), parse cache bounded. Conditions belong in response rules, which are data and show in the UI.
+5. **Body is read only after a route matches** (`mockHandles` first), so an unmatched request reaches the agent with its stream untouched and mocks never buffer traffic they don't answer.
+6. **Order at the hub**: abuse limit → access rules → traffic rules → mock → agent; offline: offline rules → mock → inbox → 404 `MOCK_NO_ROUTE`. Traffic rules stay first because they are the "change live traffic" tool (fault injection on top of a mock works).
+7. **Sequential counters live in the hub's cache entry**: per hub instance, reset on save. Acceptable for a development tool; noted in the backlog for multi-hub.
+**Status:** active.
+

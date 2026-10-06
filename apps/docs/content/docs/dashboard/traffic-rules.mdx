@@ -3,7 +3,7 @@ title: Traffic rules
 description: Answer requests with mocks, inject errors and latency, redirect, rewrite paths and change headers, before a request reaches your machine.
 verified:
   date: "2026-10-06"
-  commit: "f57a494"
+  commit: "96d4bac"
   packages: {}
 sources:
   - packages/shared/src/trafficRules.ts
@@ -42,6 +42,8 @@ VhyxVoid applies rules on its side, after [access rules](/dashboard/tunnel-acces
 ## Order
 
 Rules run top to bottom. Changing rules (latency, rewrite, headers) add up; the first rule that answers ends the list. A later rule sees the path as rewritten by earlier ones. Use the arrows to reorder.
+
+Traffic rules run before a [mock API](/dashboard/mock-apis) on the same label: a rule that answers wins, and a rule's latency and header changes also apply to the mock's answers. For more than a few mocked paths, or rules on the request body, a mock API is the better tool.
 
 Changes are a draft until you choose **Save rules**; the whole list is saved at once and applies within seconds. If someone else saved the same tunnel's rules after you opened them, saving is refused so you do not overwrite their change; reload and repeat yours.
 

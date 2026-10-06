@@ -3,7 +3,7 @@ title: HTTP status codes
 description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
 verified:
   date: "2026-10-06"
-  commit: "77c2542"
+  commit: "96d4bac"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -35,6 +35,7 @@ When VhyxVoid answers, the body is JSON of this shape, and the response carries 
 | `403` | `Access rules for this tunnel could not be checked. Try again shortly.` | VhyxVoid could not read the tunnel's access rules, so it refused rather than risk letting the request through. Retry. |
 | `404` | `No active tunnel found for "<host>". If this is your tunnel, start the agent with label "<label>".` | Nothing is connected under this slug and label (code `TUNNEL_OFFLINE`). Start the agent, and check the label. A `404` **without** `"tunnel": true` came from your own server. |
 | `404` | `No tunnel is connected to <host>.` | A custom domain that isn't verified, or isn't set up on VhyxVoid at all (code `UNKNOWN_DOMAIN`). See [Custom domains](/dashboard/custom-domains). |
+| `404` | `No mock endpoint matches <METHOD> <path>. …` | The label is a [mock API](/dashboard/mock-apis), no agent is running, and none of its endpoints matches (code `MOCK_NO_ROUTE`). Add the endpoint, or start the agent. |
 | `413` | `Request body too large. Maximum is 10MB` | The request body is over 10 MB. |
 | `429` | `Rate limit exceeded: <n> requests/min for this account's plan` | Your account's tunnel URLs got more requests than your plan allows in one minute (FREE 100, PRO 3,000, ENTERPRISE unlimited; see [Plans and limits](/reference/plans-and-limits)), combined across every agent/label the account has. This is separate from the SDK's own per-key `RATE_LIMITED` error: a tunnel URL has no API key to check. The response includes a `Retry-After` header (seconds) and the same number as `retryAfterSeconds` in the JSON body. |
 | `429` | `Too many wrong passwords. Try again shortly.` | More than 10 wrong tunnel passwords from one IP address in a minute. Wait for the `Retry-After` seconds. |
@@ -48,6 +49,7 @@ When VhyxVoid answers, the body is JSON of this shape, and the response carries 
 Two answers that are not errors:
 
 - **`202 Accepted`** with an `x-vhyxvoid-inbox` header: the tunnel was offline, its [webhook inbox](/dashboard/webhook-inbox) is on, and the request (`POST`, `PUT`, `PATCH` or `DELETE`) was stored to be delivered when the agent reconnects. Bodies over 1 MB get `413` instead.
+- **Any status with an `x-vhyxvoid-mock` header**: the label's [mock API](/dashboard/mock-apis) answered; the header names the endpoint.
 - **Any status with an `x-vhyxvoid-rule` header**: one of the tunnel's [traffic rules](/dashboard/traffic-rules) answered (a mock, an injected error or a redirect). The header names the rule.
 
 `OPTIONS` requests (CORS preflights) are forwarded to your server like any other request, and your server's CORS headers, `Vary` and `Set-Cookie` reach the caller unchanged. VhyxVoid adds no CORS headers of its own and doesn't rewrite cookies, so cross-origin browser calls to a tunnel work only if your server allows them. Changed 2026-09-24 and not deployed yet: until then the hub answers `OPTIONS` itself with `204` and CORS headers allowing the request's own `Origin` with credentials, replaces your server's CORS headers the same way, and rewrites every cookie to `Domain=.vhyxvoid.com; SameSite=None; Secure`.

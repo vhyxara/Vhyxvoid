@@ -3,7 +3,7 @@ title: Activity
 description: See who changed what in a workspace, and when its tunnels connected and disconnected. Export it as CSV.
 verified:
   date: "2026-10-06"
-  commit: "eaa069e"
+  commit: "96d4bac"
   packages: {}
 sources:
   - apps/web/src/views/org/activity/ActivityView.tsx
@@ -21,7 +21,7 @@ Open **Activity** under a workspace. Everyone in the workspace can see it; the n
 | --- | --- |
 | Members and workspace | invitations sent, cancelled and accepted; members removed or leaving; role changes; ownership transfers; workspace created or renamed |
 | API keys | created, revoked (including keys revoked because their owner left), rotated |
-| Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/dashboard/tunnel-access) and share links, [custom domains](/dashboard/custom-domains), the [webhook inbox](/dashboard/webhook-inbox), replays and clearing in the [request inspector](/dashboard/request-inspector), switching request capture on or off, saving or removing [traffic rules](/dashboard/traffic-rules), and agents stopped from the dashboard |
+| Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/dashboard/tunnel-access) and share links, [custom domains](/dashboard/custom-domains), the [webhook inbox](/dashboard/webhook-inbox), replays and clearing in the [request inspector](/dashboard/request-inspector), switching request capture on or off, saving or removing [traffic rules](/dashboard/traffic-rules), creating, changing, importing into and deleting [mock APIs](/dashboard/mock-apis), and agents stopped from the dashboard |
 | Alerts | [alerts](/dashboard/alerts) created, changed, paused, resumed and deleted |
 
 Each entry names the person who made the change. Owners and admins also see the IP address it came from. Passwords, secrets and tokens are never recorded, only that they were set or removed.

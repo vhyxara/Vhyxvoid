@@ -1,0 +1,113 @@
+---
+title: Mock APIs
+description: A working API at a public URL before the backend exists, with realistic data, rules, errors and delays. Created from a template or an OpenAPI file.
+verified:
+  date: "2026-10-06"
+  commit: "96d4bac"
+  packages: {}
+sources:
+  - packages/shared/src/mockApi.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/hub/src/services/MockApiCache.service.ts
+  - apps/api/src/modules/platform/mocks/mocks.routes.ts
+  - apps/web/src/views/org/mocks/MocksView.tsx
+  - apps/web/src/views/org/mocks/MockEditorView.tsx
+  - apps/web/src/views/org/mocks/mockForm.ts
+---
+
+A mock API answers at `https://<slug>--<label>.vhyxvoid.com`, the same kind of URL as a tunnel, with no agent and no server of your own. Frontend developers, tests and webhook senders can use it before the backend exists. When the real backend is ready, start the agent on the **same label**: the URL stays the same and moves to your server, route by route.
+
+## Create one
+
+Open **Mock APIs** under a workspace and pick a starting point:
+
+| Template | What you get |
+| --- | --- |
+| **Blank** | `GET /health` answering `{ "ok": true }`. |
+| **REST resource** | List, read, create, update and delete users, with realistic fake data, a `404` for id `0` and a `422` when `email` is missing. |
+| **Auth** | `POST /auth/login` that accepts the password `secret`, and `GET /me` that needs a bearer token. |
+| **Errors and slowness** | A 3-second endpoint, one that fails every other call, and one that is always rate limited. |
+| **From OpenAPI** | Paste or upload an OpenAPI 3 or Swagger 2 document (JSON or YAML). Every operation becomes an endpoint, answering with its `example`, the first of its `examples`, or a sample built from its schema. |
+
+Give it a name and a label (lowercase letters, digits and single hyphens). The mock answers as soon as it is created; the editor opens on it.
+
+```bash
+curl https://acme--users-api.vhyxvoid.com/users/7
+# {"id":"7","name":"Grace Hopper","email":"ada.lovelace@example.com","city":"Lisbon"}
+```
+
+## Endpoints
+
+Each endpoint has a method (or **ANY**) and a path:
+
+- `/users/:id` or `/users/{id}` captures one segment as a parameter;
+- `*` at the end matches the rest of the path (`/files/*`);
+- a trailing slash doesn't matter, and the query string is not part of the path.
+
+Endpoints are checked **from the top**; the first one that matches answers. Reorder them with the arrows, switch one off without deleting it, or duplicate it. A `GET` endpoint also answers `HEAD` (without a body).
+
+## Responses
+
+An endpoint can have several responses. **Which response answers** is one of:
+
+- **First whose rules match, else the default.** Each response can have rules on a query parameter, header, path parameter, cookie, JSON body field (`user.email`, `items.0.sku`; empty means the whole body), the method or the path, tested with *equals*, *is not*, *contains*, *is present*, *is missing* or *matches regex*, all or any of them. When no response's rules match, the response marked **default** answers (or the first one without rules). The editor shows which one that is.
+- **Each in turn**: the first call gets the first response, the next call the second, and so on. Handy for "fails every other time". The count starts over when you save.
+- **One at random.**
+
+Each response has a status, headers, a body and an optional extra delay. Hosted answers are capped at 256 KB per body before templating.
+
+## Templating
+
+Switch on **Templating** for a response to fill its body and header values from the request and from generators. Click a tag in the cheat sheet to insert it.
+
+| Tag | Gives |
+| --- | --- |
+| `{{request.params.id}}`, `{{request.query.page}}`, `{{request.headers.authorization}}`, `{{request.cookies.sid}}` | Parts of the request |
+| `{{request.body.user.email}}`, `{{json request.body}}` | A JSON body field, or the whole body as JSON |
+| `{{request.method}}`, `{{request.path}}` | Method and path |
+| `{{uuid}}`, `{{now}}`, `{{timestamp}}` | Random UUID, current time (ISO, or seconds) |
+| `{{int 1 100}}`, `{{float 0 1 2}}`, `{{bool}}`, `{{pick 'a' 'b'}}` | Numbers, booleans, one of a list |
+| `{{fullName}}`, `{{firstName}}`, `{{lastName}}`, `{{email}}`, `{{company}}`, `{{city}}`, `{{country}}`, `{{lorem 8}}` | Realistic fake data |
+| `{{#repeat 5}}…{{/repeat}}`, `{{#repeat 2 10}}…{{/repeat}}`, `{{@index}}` | A block repeated (a fixed or random number of times), with its index |
+
+A trailing comma inside `repeat` is dropped, so a list is easy to write:
+
+```json
+{ "data": [{{#repeat 3}}{ "id": "{{uuid}}", "name": "{{fullName}}" },{{/repeat}}] }
+```
+
+Templating runs no code: there are no expressions or conditions (use response rules for those), and a rendered answer is capped at 2 MB. A tag that doesn't exist is refused when you save; if a template still fails at request time, the mock answers `500` with the reason.
+
+## Mock first, or only while offline
+
+**Answers** decides how the mock shares its label with an agent:
+
+- **Mock first (agent gets the rest).** The mock answers the routes it has, even while an agent is connected; everything else goes to the agent (with its body untouched), or gets `404` when no agent is running. Build a frontend against the mock, then replace endpoints one at a time as the backend implements them: delete the mocked route and the agent answers it.
+- **Only while the agent is offline.** Your server answers while the agent runs; the mock takes over when it stops. A maintenance page or a stand-in for a laptop that is asleep.
+
+A request to a mock's URL that matches no endpoint, with no agent running, gets `404` with `x-vhyxvoid-error: MOCK_NO_ROUTE` and a message naming the method and path.
+
+## CORS and latency
+
+**CORS for browsers** (on by default) answers preflight `OPTIONS` requests for any path and adds `Access-Control-Allow-*` headers to every answer, allowing the caller's origin with credentials. Switch it off to set CORS headers yourself.
+
+**Latency for every answer** adds a delay to every response, on top of each response's own extra delay (up to 30 seconds in total per answer).
+
+## Try, see requests, import and export
+
+- **Try** sends a request through the same engine the URL uses, including your unsaved changes, and shows which endpoint and response answered.
+- **Requests** opens the [request inspector](/dashboard/request-inspector) for the mock's label: every call is captured there, marked ◇ with the endpoint and response that answered.
+- **Import** adds the operations of an OpenAPI document. By default routes the mock already has (same method and path) are kept, so importing twice is harmless; **Replace all endpoints** starts over. The import is saved at once.
+- **OpenAPI** downloads the mock as an OpenAPI 3 document (YAML), with each response's body as its example and the mock's URL as the server.
+
+## Saving
+
+Changes are a draft until **Save** (or Ctrl+S / ⌘S); the page warns before you leave with unsaved changes. If someone else saved the same mock after you opened it, your save is refused with a message to reload, so nobody's work is overwritten. The new version answers at once.
+
+## Things to know
+
+- Mock answers count like any other request to your tunnel URLs: the per-minute limit, monthly usage, [traffic charts](/dashboard/tunnels#traffic) and [alerts](/dashboard/alerts) all include them.
+- [Tunnel access rules](/dashboard/tunnel-access) on the same label protect the mock too, and [traffic rules](/dashboard/traffic-rules) run before it (a traffic rule can still inject an error or add headers to mocked answers). The [webhook inbox](/dashboard/webhook-inbox) only stores requests the mock doesn't answer.
+- A [custom domain](/dashboard/custom-domains) pointed at the label serves the mock as well.
+- How many mock APIs a workspace can have, and how many endpoints each, depends on the plan (see [Plans and limits](/reference/plans-and-limits)). Mocks that exist keep answering after a downgrade.
+- Owners and admins create and change mocks; every member can open them and use **Try**. Changes appear on the workspace's [Activity](/dashboard/activity) page.

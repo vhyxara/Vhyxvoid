@@ -3,7 +3,7 @@ title: Webhook inbox
 description: Keep webhooks that arrive while your agent is offline and deliver them, in order, when it reconnects.
 verified:
   date: "2026-10-06"
-  commit: "eaa069e"
+  commit: "96d4bac"
   packages: {}
 sources:
   - apps/web/src/views/org/inbox/InboxView.tsx
@@ -24,6 +24,7 @@ Open **Webhook inbox** under a workspace and turn it on for a tunnel (by its `--
 - `POST`, `PUT`, `PATCH` and `DELETE` requests are stored and answered with `202 Accepted` and an `x-vhyxvoid-inbox` header carrying the stored request's id. Providers treat that as success and stop retrying.
 - `GET` and other reads still get `404`, as before.
 - Access rules still apply: a password-protected tunnel only stores requests that pass the password or IP check.
+- A [mock API](/dashboard/mock-apis) on the same label answers first; only requests it has no endpoint for are stored.
 - Bodies up to 1 MB are kept. Larger requests get `413`.
 - Your plan sets how many requests can wait per tunnel. When it is full, further requests get `503` with `Retry-After`, so the provider retries later.
 

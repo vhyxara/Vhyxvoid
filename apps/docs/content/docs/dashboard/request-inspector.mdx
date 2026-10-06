@@ -3,7 +3,7 @@ title: Request inspector
 description: See every request that reaches your tunnels, with headers, bodies and your server's response, and replay one after you fix your code.
 verified:
   date: "2026-10-06"
-  commit: "f57a494"
+  commit: "96d4bac"
   packages: {}
 sources:
   - apps/web/src/views/org/rules/rulesForm.ts
@@ -47,7 +47,7 @@ Anyone who is a member of the workspace can view and replay; **Clear** (admins a
 
 ## Mock this response
 
-**Mock this response** on a captured request creates a [traffic rule](/dashboard/traffic-rules) that answers the same method and path with the same status, content type and body, without your app. Review it, then **Save rules**. Requests answered by a rule are marked ⚑ in the list.
+**Mock this response** on a captured request creates a [traffic rule](/dashboard/traffic-rules) that answers the same method and path with the same status, content type and body, without your app. Review it, then **Save rules**. Requests answered by a rule are marked ⚑ in the list, and requests answered by a [mock API](/dashboard/mock-apis) ◇, with the endpoint and response that answered.
 
 ## Turning capture off
 

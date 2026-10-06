@@ -3,7 +3,7 @@ title: Tunnel access
 description: Protect a tunnel with a password or an IP allowlist, and share time-limited links that skip the password.
 verified:
   date: "2026-10-06"
-  commit: "eaa069e"
+  commit: "96d4bac"
   packages: {}
 sources:
   - apps/web/src/views/org/access/TunnelAccessView.tsx
@@ -14,7 +14,7 @@ sources:
 
 By default anyone who knows a tunnel's URL can reach it. Under **Access** in a workspace, owners and admins can put rules in front of a tunnel. They are checked by VhyxVoid before a request reaches your machine, for normal requests and WebSockets alike.
 
-Rules belong to a tunnel **label** (the `--label` the agent was started with), so they keep applying when you restart the agent.
+Rules belong to a tunnel **label** (the `--label` the agent was started with), so they keep applying when you restart the agent. They protect a [mock API](/dashboard/mock-apis) on the same label too.
 
 ## Password
 

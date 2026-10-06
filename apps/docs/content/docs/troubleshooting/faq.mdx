@@ -3,7 +3,7 @@ title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
   date: "2026-10-06"
-  commit: "77c2542"
+  commit: "96d4bac"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -41,7 +41,7 @@ The hub's default wait is 120 seconds, and agent 1.0.20 and later wait for your 
 
 ## Can I fake a response or simulate an outage?
 
-Yes, with [traffic rules](/dashboard/traffic-rules): per tunnel, answer a path with a mock, inject errors or delays, redirect, rewrite paths or change headers, without touching your app.
+Yes. A [mock API](/dashboard/mock-apis) is a whole fake API at a public URL, with no backend running: endpoints, rules, realistic data and delays, created from a template or an OpenAPI file. [Traffic rules](/dashboard/traffic-rules) change a running tunnel's traffic instead: answer one path with a mock, inject errors or delays, redirect, rewrite paths or change headers, without touching your app.
 
 ## Do WebSockets work through the tunnel?
 

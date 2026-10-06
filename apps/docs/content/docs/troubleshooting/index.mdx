@@ -3,7 +3,7 @@ title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
   date: "2026-10-06"
-  commit: "77c2542"
+  commit: "96d4bac"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -68,7 +68,7 @@ Look at the body. If it is JSON with `"tunnel": true` (and the response has an `
 | `413` | The request body is over 10 MB. | Send less, or upload another way. |
 | `400` | The hostname isn't in the `slug--label.vhyxvoid.com` form. | Use the URL the agent printed. |
 
-A response with an `x-vhyxvoid-rule` header was answered by one of your [traffic rules](/dashboard/traffic-rules) (a mock, an injected error or a redirect), not by your server.
+A response with an `x-vhyxvoid-rule` header was answered by one of your [traffic rules](/dashboard/traffic-rules) (a mock, an injected error or a redirect), and one with `x-vhyxvoid-mock` by the label's [mock API](/dashboard/mock-apis), not by your server. If a route your server should answer comes back from a mock, delete that endpoint from the mock, or switch the mock to **Only while the agent is offline**.
 
 The full list is on [HTTP status codes](/reference/http-status-codes).
 

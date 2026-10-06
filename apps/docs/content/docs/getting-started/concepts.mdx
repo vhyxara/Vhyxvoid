@@ -3,7 +3,7 @@ title: Concepts
 description: The few ideas behind VhyxVoid, in one page.
 verified:
   date: "2026-10-06"
-  commit: "77c2542"
+  commit: "96d4bac"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -23,5 +23,7 @@ sources:
 **Stable URL.** For a given slug and label, the URL doesn't change between runs. Only one agent at a time serves a given URL.
 
 **The tunnel URL is public by default.** Unless you add [access rules](/dashboard/tunnel-access) (a password, an IP allowlist or share links, on Pro and Enterprise), nothing on the request path checks who is calling, and authentication is your application's job.
+
+**Mock APIs.** A label can also be served by a [mock API](/dashboard/mock-apis) instead of (or next to) an agent: a hosted fake API at the same kind of URL, so clients can start before the backend exists.
 
 **On the way through.** The hub can keep a copy of recent requests for the [request inspector](/dashboard/request-inspector), answer for you with [traffic rules](/dashboard/traffic-rules) (mocks, injected errors, rewrites), and hold webhooks in the [webhook inbox](/dashboard/webhook-inbox) while your agent is offline.

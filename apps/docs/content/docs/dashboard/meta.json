@@ -4,6 +4,7 @@
     "account-and-organizations",
     "api-keys",
     "tunnels",
+    "mock-apis",
     "request-inspector",
     "webhook-inbox",
     "traffic-rules",

@@ -189,7 +189,7 @@ from captured traffic), public API for everything above.
 
 | Phase | Status | Commits |
 | --- | --- | --- |
-| 1. Hosted mock APIs | in progress | |
+| 1. Hosted mock APIs | **shipped** 2026-10-06 (engine, hub, API, dashboard, docs; 32 engine + 6 hub + 10 UI tests, e2e journey step) | b534990, 96d4bac, docs commit |
 | 2. Stateful mocks, record, export | planned | |
 | 3. API client and tests | planned | |
 | 4. Performance and monitoring | planned | |
