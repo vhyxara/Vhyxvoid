@@ -20,6 +20,8 @@
 //   STRIPE_WEBHOOK_SECRET / STRIPE_PRO_PRICE_ID   optional: drive billing
 //                  with signed webhook events (upgrade, invites, past due,
 //                  cancel). Must match the api's own values.
+//   HUB_INTERNAL_SECRET  the hub's internal secret: flushes its request counts
+//                  for the traffic-chart step (and the alerts step)
 //   ADMIN_EMAIL / ADMIN_PASSWORD   optional: also run the admin API journey
 //                                  (a super admin, e.g. from seed:admin)
 //
@@ -683,6 +685,74 @@ await step("inspector: a request whose body was cut cannot be replayed; stranger
   assert(anon.status === 401, `anonymous ${anon.status}`);
   const other = await api("GET", `/inspector/00000000-0000-4000-8000-000000000000`, { token: s.token });
   assert(other.status === 403, `other account ${other.status}`);
+});
+
+await step("traffic rules: a mock answers at the hub, a rewrite reaches the backend, a stale save is 409", async () => {
+  const R = (method, p, body) => api(method, `/traffic-rules/${s.personal}${p}`, { token: s.token, body });
+  const rules = [
+    { name: "mock health", enabled: true, when: "always", match: { path: "/mocked" }, action: { type: "mock", status: 201, headers: { "content-type": "application/json" }, body: '{"mocked":true}' } },
+    { name: "old path", enabled: true, when: "always", match: { methods: ["GET"], path: "/old-echo" }, action: { type: "rewrite", to: "/echo" } },
+  ];
+  const put = await R("PUT", "/app", { rules, expectedVersion: 0 });
+  assert(put.status === 200 && put.json.data.rules.length === 2, `save ${put.status}: ${JSON.stringify(put.json).slice(0, 300)}`);
+  const stale = await R("PUT", "/app", { rules, expectedVersion: 0 });
+  assert(stale.status === 409, `stale save ${stale.status}`);
+  const mocked = await tunnel(s.host, "GET", "/mocked");
+  assert(mocked.status === 201 && JSON.parse(mocked.body).mocked === true, `mock ${mocked.status} ${mocked.body}`);
+  assert(mocked.headers["x-vhyxvoid-rule"], "mock answer has no x-vhyxvoid-rule header");
+  const rewritten = await tunnel(s.host, "GET", "/old-echo");
+  assert(rewritten.status === 200 && rewritten.body.includes("/echo"), `rewrite ${rewritten.status} ${rewritten.body.slice(0, 200)}`);
+  const dry = await R("POST", "/app/test", { method: "GET", path: "/mocked" });
+  assert(dry.status === 200, `dry run ${dry.status}: ${JSON.stringify(dry.json).slice(0, 300)}`);
+  const other = await api("GET", `/traffic-rules/00000000-0000-4000-8000-000000000000`, { token: s.token });
+  assert(other.status === 403, `other account ${other.status}`);
+  const del = await R("DELETE", "/app");
+  assert(del.status === 200, `delete ${del.status}`);
+  const after = await tunnel(s.host, "GET", "/mocked");
+  assert(after.status !== 201 && !after.headers["x-vhyxvoid-rule"], `rule still applied after delete: ${after.status}`);
+});
+
+await step("inspector: a workspace can switch capture off (stored requests deleted) and back on", async () => {
+  const set = (capture) => api("PUT", `/inspector/${s.personal}/settings`, { token: s.token, body: { capture } });
+  const list = async () => (await api("GET", `/inspector/${s.personal}/app`, { token: s.token })).json?.data?.requests ?? [];
+  const off = await set(false);
+  assert(off.status === 200 && off.json.data.capture === false, `off ${off.status}: ${JSON.stringify(off.json)}`);
+  assert((await list()).length === 0, "stored requests were not deleted");
+  await tunnel(s.host, "GET", "/echo?while-off=1");
+  await sleep(1000);
+  assert(!(await list()).some((x) => x.path === "/echo?while-off=1"), "captured while capture was off");
+  const on = await set(true);
+  assert(on.status === 200 && on.json.data.capture === true, `on ${on.status}`);
+  await tunnel(s.host, "GET", "/echo?while-on=1");
+  let seen = false;
+  for (let i = 0; i < 30 && !seen; i++) {
+    await sleep(200);
+    seen = (await list()).some((x) => x.path === "/echo?while-on=1");
+  }
+  assert(seen, "capture did not resume");
+});
+
+await step("traffic chart, activity feed and agent fleet reflect the tunnel", async () => {
+  const flush = await fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "" } });
+  assert(flush.ok, `stats flush ${flush.status} (is HUB_INTERNAL_SECRET set for the journey?)`);
+  const t = await api("GET", `/traffic/${s.personal}?range=1h`, { token: s.token });
+  assert(t.status === 200 && t.json.data.totals.requests > 0, `traffic ${t.status}: ${JSON.stringify(t.json.data?.totals)}`);
+  assert(t.json.data.top.some((x) => x.label === "app"), `busiest tunnels ${JSON.stringify(t.json.data.top)}`);
+
+  const a = await api("GET", `/activity/${s.personal}?limit=100`, { token: s.token });
+  assert(a.status === 200, `activity ${a.status}: ${JSON.stringify(a.json).slice(0, 300)}`);
+  const actions = new Set(a.json.data.items.map((x) => x.action));
+  for (const want of ["API_KEY_CREATED", "TRAFFIC_RULES_UPDATED", "TUNNEL_CONNECTED"]) assert(actions.has(want), `activity lacks ${want}: ${[...actions].join(", ")}`);
+  const csv = await fetch(`${API}/activity/${s.personal}/export`, { headers: { authorization: `Bearer ${s.token}` } });
+  assert(csv.status === 200 && /text\/csv/.test(csv.headers.get("content-type") ?? ""), `csv ${csv.status} ${csv.headers.get("content-type")}`);
+
+  const f = await api("GET", `/agents/${s.personal}`, { token: s.token });
+  assert(f.status === 200 && f.json.data.hubReachable, `fleet ${f.status}: ${JSON.stringify(f.json).slice(0, 300)}`);
+  const mine = f.json.data.agents.find((x) => x.label === "app");
+  assert(mine && mine.key?.keyId === s.keyId && mine.versionStatus, `fleet agent ${JSON.stringify(f.json.data.agents).slice(0, 400)}`);
+  const missing = await api("POST", `/agents/${s.personal}/not-an-agent/disconnect`, { token: s.token });
+  assert(missing.status === 404, `stopping an unknown agent ${missing.status}`);
+  return `${t.json.data.totals.requests} requests, ${actions.size} kinds of activity, agent ${mine.agentVersion ?? mine.version ?? "?"} ${mine.versionStatus}`;
 });
 
 await step("SDK createClient reaches the tunnel", async () => {

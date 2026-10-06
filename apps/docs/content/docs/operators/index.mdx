@@ -3,7 +3,7 @@ title: Running VhyxVoid
 description: What runs where, and what an operator can change without a developer.
 verified:
   date: "2026-10-06"
-  commit: "9d3beac"
+  commit: "eaa069e"
   packages: {}
 sources:
   - apps/api/src/modules/platform/platform.plugin.ts
@@ -29,7 +29,8 @@ This section is for the people who run VhyxVoid: deploying it, configuring it, a
 ## What you control from the admin console
 
 - **Users and accounts**: search, suspend, reactivate, change plan limits per account, add notes, force sign-out.
-- **API keys, tunnels and domains**: see every key, revoke one, see live agents, disconnect a tunnel, remove a customer's custom domain.
+- **API keys, tunnels and domains**: see every key, revoke one, see live agents and their versions, disconnect a tunnel, remove a customer's custom domain, and set the recommended and minimum agent version.
+- **Traffic**: live platform traffic and the busiest accounts on the dashboard.
 - **Billing**: subscriptions, invoices and payment status from Stripe, per account.
 - **Logs**: user audit log, admin audit log (CSV export), and system health.
 - **Settings**: maintenance mode, announcement banner, sign-up policy, trial length, checkout switch, plan limits, tunnel switches, support links, feature switches. See the [settings reference](/docs/operators/settings-reference).

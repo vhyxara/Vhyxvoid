@@ -3,13 +3,14 @@ title: Activity
 description: See who changed what in a workspace, and when its tunnels connected and disconnected. Export it as CSV.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "eaa069e"
   packages: {}
 sources:
   - apps/web/src/views/org/activity/ActivityView.tsx
   - apps/web/src/views/org/activity/activityFormat.ts
   - apps/api/src/modules/platform/activity/activity.routes.ts
   - apps/api/src/modules/platform/shared/activity.ts
+  - apps/api/src/modules/platform/agents/agents.routes.ts
 ---
 
 Open **Activity** under a workspace. Everyone in the workspace can see it; the newest entries are at the top, grouped by day, and it refreshes every minute.
@@ -20,7 +21,7 @@ Open **Activity** under a workspace. Everyone in the workspace can see it; the n
 | --- | --- |
 | Members and workspace | invitations sent, cancelled and accepted; members removed or leaving; role changes; ownership transfers; workspace created or renamed |
 | API keys | created, revoked (including keys revoked because their owner left), rotated |
-| Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/docs/dashboard/tunnel-access) and share links, [custom domains](/docs/dashboard/custom-domains), the [webhook inbox](/docs/dashboard/webhook-inbox), replays and clearing in the [request inspector](/docs/dashboard/request-inspector), and switching request capture on or off |
+| Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/docs/dashboard/tunnel-access) and share links, [custom domains](/docs/dashboard/custom-domains), the [webhook inbox](/docs/dashboard/webhook-inbox), replays and clearing in the [request inspector](/docs/dashboard/request-inspector), switching request capture on or off, saving or removing [traffic rules](/docs/dashboard/traffic-rules), and agents stopped from the dashboard |
 | Alerts | [alerts](/docs/dashboard/alerts) created, changed, paused, resumed and deleted |
 
 Each entry names the person who made the change. Owners and admins also see the IP address it came from. Passwords, secrets and tokens are never recorded, only that they were set or removed.

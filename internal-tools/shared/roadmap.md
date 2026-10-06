@@ -1,6 +1,6 @@
 # Product roadmap: value order
 
-Latest handoff: `internal-tools/HANDOFF-2026-10-06.md`.
+Latest handoff: `internal-tools/HANDOFF-2026-10-06.md` (with the review pass in its §9). Both `claude/upbeat-cannon-dwqaj0` and `claude/vhyxvoid-production-stable-zfjdqv` contain everything below; continue on `claude/upbeat-cannon-dwqaj0`.
 
 Owner asked (2026-10-06) to build features "in your order of value" and to
 launch free, charging later, with every limit and price controlled from the

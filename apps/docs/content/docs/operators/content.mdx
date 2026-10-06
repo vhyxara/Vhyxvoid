@@ -2,8 +2,8 @@
 title: Site content
 description: Edit the landing page, pricing page and markdown pages, publish them, and roll back.
 verified:
-  date: "2026-10-05"
-  commit: "00aae30"
+  date: "2026-10-06"
+  commit: "eaa069e"
   packages: {}
 sources:
   - apps/api/src/modules/platform/content/content.schemas.ts
@@ -30,7 +30,7 @@ The landing and pricing editors are forms; pages are a markdown editor with a pr
 - **Publish** makes the working copy live. The website picks it up within a minute.
 - **Unpublish** takes your version offline. Entries that ship with a built-in default (home, pricing, terms and privacy) fall back to it; any other page answers 404.
 - Every publish keeps a **revision** (with an optional note). *Restore* copies an old revision into the working copy; publish to make it live.
-- Saves are last-write-wins. If two admins edit the same entry at once, agree who publishes.
+- If another admin saved the same entry after you opened it, your save is refused with a message to reload; their changes are never overwritten silently. Reload, then make your change again.
 
 If the API is unreachable, the website renders the built-in defaults rather than an error.
 
