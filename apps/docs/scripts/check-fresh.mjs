@@ -89,8 +89,12 @@ for (const file of walk(contentDir)) {
   }
 
   try {
-    const existing = sources.filter(s => existsSync(join(repoRoot, s)))
-    const changed = git('log', '--format=%h %s', `${verified.commit}..HEAD`, '--', ...existing)
+    // A page's own file is not a source of truth for it: editing the page is
+    // the verification, and a page listing itself (the changelog) could
+    // otherwise never be pinned to a commit that already contains its edit.
+    const own = relative(repoRoot, file)
+    const existing = sources.filter(s => s !== own && existsSync(join(repoRoot, s)))
+    const changed = existing.length ? git('log', '--format=%h %s', `${verified.commit}..HEAD`, '--', ...existing) : ''
 
     if (changed) findings.push(`${page}: sources changed since ${verified.commit}:\n    ${changed.split('\n').join('\n    ')}`)
   } catch (err) {

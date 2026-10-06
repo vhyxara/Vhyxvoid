@@ -67,7 +67,8 @@ URL in later steps:
 | `port` | `3000` | Local port of the app in the job |
 | `label` | `pr-<number>` / `ci-<run id>` | Tunnel label, part of the URL; each PR keeps a stable URL |
 | `hub` | `wss://hub.vhyxvoid.com/agent` | Hub URL (self-hosted or staging) |
-| `agent-version` | `latest` | `@vhyxvoid/agent` version |
+| `agent-version` | `latest` | `@vhyxvoid/agent` version from npm |
+| `agent-package` | | Run this package instead: a `.tgz` path or URL (e.g. from `node scripts/pack-packages.mjs` or the CI `vhyxvoid-packages` artifact), or a package directory. Wins over `agent-version`. |
 | `wait-for-app` | `60` | Seconds to wait for the app's port before starting |
 | `timeout` | `60` | Seconds to wait for the tunnel |
 | `comment` | `true` | Comment the URL on the pull request (updated, never duplicated) |

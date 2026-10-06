@@ -3,7 +3,7 @@ title: GitHub Actions
 description: A public URL for the app in a CI job, for preview links on pull requests and real webhook round trips in tests.
 verified:
   date: "2026-10-06"
-  commit: "d28cd42"
+  commit: "e7c1387"
   packages: {}
 sources:
   - actions/tunnel/action.yml
@@ -71,7 +71,8 @@ The URL is also in `$VHYXVOID_URL` for every later step, and in the job summary.
 | `port` | `3000` | the app's port in the job |
 | `label` | `pr-<number>` or `ci-<run id>` | cleaned to a valid hostname label |
 | `hub` | `wss://hub.vhyxvoid.com/agent` | |
-| `agent-version` | `latest` | |
+| `agent-version` | `latest` | `@vhyxvoid/agent` version from npm |
+| `agent-package` | none | run this package instead of a version from npm: a `.tgz` path or URL, or a package directory (see below) |
 | `wait-for-app` | `60` | seconds to wait for `port` to open |
 | `timeout` | `60` | seconds to wait for the tunnel |
 | `comment` | `true` | comment the URL on the pull request |
@@ -79,6 +80,24 @@ The URL is also in `$VHYXVOID_URL` for every later step, and in the job summary.
 | `keep-alive-minutes` | `0` | |
 
 Outputs: `url`, `label`.
+
+## Running an agent that isn't on npm yet
+
+`doctor`, streamed responses and the other [agent 1.1.0](/changelog) changes are not on npm yet (`latest` is 1.0.20). To run 1.1.0 now, point `agent-package` at a tarball. `node scripts/pack-packages.mjs` in the VhyxVoid repository makes one in `.packs/`, and its CI uploads the same files as the `vhyxvoid-packages` artifact on every run. A job in the same workflow run (`needs: packages`) can download and use it:
+
+```yaml
+      - uses: actions/download-artifact@v4
+        with:
+          name: vhyxvoid-packages
+          path: .packs
+      - uses: vhyxara/vhyxvoid/actions/tunnel@main
+        with:
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+          agent-package: .packs/vhyxvoid-agent-1.1.0.tgz
+```
+
+A relative path is resolved from the job's working directory. A URL to a `.tgz` works too.
 
 ## A key for CI
 
