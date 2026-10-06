@@ -30,27 +30,46 @@ an item ships (move it to *Shipped* with its commits) or the order changes
 | 5 | Custom domains with automatic HTTPS | Needed for staging/demo/production use; the main reason to pay | 0ad047c, 9d3beac, 8b4f728 |
 | 6 | Alerts (offline, error rate, usage, inbox failures, domain changes) | Teams rely on tunnels once they have domains; they must know when one breaks | 0ad047c, 9d3beac, 8b4f728 |
 
-## Next, in order
+## Shipped (branch `claude/vhyxvoid-production-stable-zfjdqv`, 2026-10-06)
 
-1. **Usage and traffic charts** on the Tunnels page and the account overview,
-   from `tunnel_minute_stats` (already collected) with `@vhyxchart/react`.
-   Small, data exists, makes the value visible; supports upgrade decisions.
-2. **Trial-ending and quota-reached alerts/emails** (USAGE at 100 %, trial
-   ends in 3 days). Needed the moment paid mode is switched on; reuses the alert engine.
-3. **Team activity feed** (who created keys, rules, domains; agent
-   connects/disconnects) from the existing audit log. Low cost, needed by teams.
-4. **GitHub Action for preview environments** (start an agent in CI, post the
-   URL on the pull request, tear down on close). Growth channel: every PR shows the product.
-5. **CLI `vhyxvoid doctor`** (checks token, connectivity, local port, DNS of
-   custom domains). Cuts support load before user numbers grow.
+| # | Item | Notes | Commits |
+| --- | --- | --- | --- |
+| 7 | Usage and traffic charts (Tunnels page, overview, console dashboard) | Plain SVG chart in apps/web: @vhyxchart is a diagram library with no data charts. Palette validated for the dark surface | 349ff83 |
+| 8 | Usage 80/100 % and trial-ending notices (in-app + email, exactly once) | No rule needed; console switches `billing.usageNotices`, `billing.trialNoticeDays` | 349ff83 |
+| 9 | Team activity feed + CSV export | Platform mutations recorded by one route table; tunnel connects/disconnects merged in | 349ff83 |
+| 10 | GitHub Action for preview environments (`actions/tunnel`) | Must move to a public repo to be usable by customers (shared backlog) | d28cd42 |
+| 11 | CLI `vhyxvoid doctor` | Ships with the next agent publish | 4ef82d9 |
+| — | Launch backlog: absolute session lifetime + pruning (M23), admin lockout, CMS optimistic lock, weighted usage mean, tunnel-password guessing limit, per-workspace inspector opt-out | | 349ff83, ce7ff76, 49499c7 |
+
+## Next, in order (re-ranked 2026-10-06 after items 1-5 shipped)
+
+1. **Publish and distribute** (not code, but the growth step the last two
+   features need): agent release with `doctor`, `actions/tunnel` in a public
+   repo + Marketplace listing, changelog entry. Without it the Action is
+   unusable by customers.
+2. **Traffic policies and mock responses** (rewrite headers, inject
+   latency/errors, offline mock answers per path). Strongest remaining
+   daily-use differentiator vs. ngrok's paid tier; reuses the hub's access-rule
+   cache and the inspector (capture -> "mock this response").
+3. **Agent fleet view** (user-frontend F7): agent version, uptime, outdated
+   banner, disconnect/rotate from the dashboard. Data mostly exists (sessions,
+   handshake metadata); teams with many agents need it.
+4. **Per-key usage and traffic CSV** (F13 remainder) and a workspace switcher
+   on the overview. Small; supports upgrade decisions.
+5. **Account and user deletion (GDPR/DPDP, api backlog G10/F15).** Not a
+   feature users choose us for, but a legal requirement before EU marketing.
 6. **Pricing shape for when paid mode starts**: annual prices, usage-based
-   overage (requests over the plan) through Stripe metered billing. Only once
-   there are enough users to price against; the console already holds plans and prices.
+   overage through Stripe metered billing. Still only once there are enough
+   users to price against.
 
-Later / on demand: traffic policies and mock responses (rewrite headers,
-inject latency/errors, offline mocks), Slack-formatted alert channel,
-per-account opt-out of inspector capture, multi-hub (pub/sub invalidation of
-policy and domain caches), WebSocket frame capture.
+Reason for the new order: items 2-3 compound on data and caches built this
+month; deletion (5) moves up from "later" because launch marketing will
+reach the EU; pricing (6) stays last per the owner's free-first launch.
+
+Later / on demand: Slack-formatted alert channel, multi-hub (pub/sub
+invalidation of policy, domain and inspector caches; shared password-guess and
+abuse counters), WebSocket frame capture, Terraform provider / API tokens
+(api backlog F17).
 
 ## Before launch (not features, but block going live)
 
@@ -58,4 +77,5 @@ policy and domain caches), WebSocket frame capture.
   `seed`, Cloudflare Access for the admin host, `ACME_EMAIL`, the
   `edge.vhyxvoid.com` record (DNS only) and the **Custom domain target** setting.
 - Re-verify the stale user docs pages (`internal-tools/docs/backlog.md`).
-- api backlog: absolute session lifetime + pruning (M23), CMS optimistic lock.
+- Apply this branch's three migrations with the deploy (shared backlog deploy note).
+- ~~api backlog: absolute session lifetime + pruning (M23), CMS optimistic lock~~ done 2026-10-06.

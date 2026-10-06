@@ -2003,3 +2003,36 @@ files by `"date"` — every entry carries its own date and session_id.
   ]
 }
 ```
+
+```json
+{
+  "session_id": "production-stable",
+  "date": "2026-10-06",
+  "agent": "claude-code",
+  "repo": "Vhyxvoid (branch claude/vhyxvoid-production-stable-zfjdqv, from upbeat-cannon's 00ee9e2); vhyxUI, vhyxseal, vhyxchart unchanged",
+  "brief_summary": "Read internal-tools, history and backlogs; build the next roadmap items in value order; fix launch backlog items; keep everything operator-controlled; docs.",
+  "status": "completed",
+  "summary": "Shipped roadmap items 1-5: traffic charts (API aggregation over tunnel_minute_stats, SVG chart on Tunnels/overview, live traffic on the console dashboard), usage 80/100 % and trial notices (AccountNotice exactly-once claim, console switches, Stripe webhook shares the claim), team activity feed (route-table audit hook, API key creation audited, tunnel connects merged, CSV export), `vhyxvoid doctor`, and the actions/tunnel GitHub Action. Launch backlog: absolute session lifetime + hourly pruning (M23), admin lockout, CMS optimistic lock, weighted usage mean (M21), tunnel password guessing limit, per-workspace inspector opt-out. Docs for all of it, a real changelog, re-ranked roadmap.",
+  "verification": "root vitest 699 + new files, all passing with VHYXVOID_TEST_DATABASE_URL against local Postgres 16 (traffic SQL, notices, lockout, pruning run for real); apps/web vitest 62+; turbo typecheck 16/16; local stack (api 9100, hub 9101, web 4000, Upstash stand-in): traffic and activity APIs over HTTP, CSV export, Playwright screenshots of overview/Tunnels/Activity on desktop and phone with no page errors; doctor run against the local hub (valid key passes, wrong secret and dead port reported with fixes); action start.sh against the local hub (pr-42 tunnel, request through it answered 200); docs build + check:fresh clean for every touched page.",
+  "commits": "349ff83 ce7ff76 4ef82d9 d28cd42 49499c7 d6df5ec + this record",
+  "decisions_made": ["see shared/decision.md, 2026-10-06, 'Charts, notices, activity feed, doctor, GitHub Action'"],
+  "bugs_found_fixed": [
+    "API key creation wrote no audit row (only revoke/rotate did)",
+    "Setting an admin's password did not clear a lockout (new with the lockout, fixed before commit)",
+    "totals.avgDurationMs was an unweighted mean of hourly means (M21)"
+  ],
+  "open_items_for_next_session": [
+    "Publish the agent (doctor), republish next/middleware; move actions/tunnel to a public repo + Marketplace (shared backlog)",
+    "Deploy: three additive migrations, hub and API together (shared backlog deploy note)",
+    "Roadmap next: traffic policies and mock responses, agent fleet view, per-key usage CSV, account deletion, pricing",
+    "Docs: the 27 pre-existing stale pages (docs backlog)"
+  ],
+  "context_md_updates_needed": [
+    "api: platform module now also has traffic/, activity/, alerts/notices.ts, shared/activity.ts (route-table audit hook), shared/maintenance.ts; jobs alerts/domains/notices/maintenance",
+    "api: Session/AdminSession.absoluteExpiresAt; AdminUser lockout fields; Account.inspectorCapture; account_notices table",
+    "hub: PasswordGuessLimiter in HttpTunnelHandler; RequestInspectorService.invalidate via /internal/policies/invalidate",
+    "agent: doctor command, AgentClient quiet option",
+    "repo: actions/tunnel composite action"
+  ]
+}
+```
