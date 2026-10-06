@@ -1,0 +1,39 @@
+---
+title: Tunnel access
+description: Protect a tunnel with a password or an IP allowlist, and share time-limited links that skip the password.
+verified:
+  date: "2026-10-06"
+  commit: "320c1fd"
+  packages: {}
+sources:
+  - apps/web/src/views/org/access/TunnelAccessView.tsx
+  - packages/shared/src/tunnelAccess.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/api/src/modules/platform/tunnel-access/tunnelAccess.routes.ts
+---
+
+By default anyone who knows a tunnel's URL can reach it. Under **Access** in a workspace, owners and admins can put rules in front of a tunnel. They are checked by VhyxVoid before a request reaches your machine, for normal requests and WebSockets alike.
+
+Rules belong to a tunnel **label** (the `--label` the agent was started with), so they keep applying when you restart the agent.
+
+## Password
+
+Choose **Protect a tunnel**, pick the tunnel and set a password (at least 8 characters).
+
+- Browsers show their usual sign-in prompt; any user name works.
+- Tools and webhook providers can put it in the URL: `https://x:PASSWORD@your-tunnel-host/...`, or `curl -u x:PASSWORD`.
+- The password is checked and then removed from the request, so your app never sees it. Because it uses the `Authorization` header, an app that needs its own `Authorization` header should use share links or an IP allowlist instead.
+
+## Share links
+
+With a password set, **Share link** creates a link valid for 1 hour, 1 day, 7 days or 30 days. Whoever opens it is let in without the password until it expires (the browser keeps a cookie for that tunnel only). **Revoke links** invalidates every link at once; changing the password does too.
+
+## IP allowlist
+
+Add addresses (`203.0.113.7`) or ranges (`10.0.0.0/8`, IPv6 too), one per line. Requests from anywhere else get `403`, even with the password or a share link. Useful for webhook providers that publish their sending addresses.
+
+## Plans
+
+Creating or changing rules is part of the plans that include **access rules** (see your plan on **Billing**). Rules you already have keep protecting your tunnels if your plan changes. **Make public** removes a tunnel's rules and is always allowed.
+
+Every change is recorded in the workspace activity log.

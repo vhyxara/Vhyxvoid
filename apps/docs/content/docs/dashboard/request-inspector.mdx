@@ -3,7 +3,7 @@ title: Request inspector
 description: See every request that reaches your tunnels, with headers, bodies and your server's response, and replay one after you fix your code.
 verified:
   date: "2026-10-06"
-  commit: "63eeae4"
+  commit: "320c1fd"
   packages: {}
 sources:
   - apps/web/src/views/org/inspector/InspectorView.tsx
@@ -28,6 +28,7 @@ Select a request to see:
 - Headers that carry credentials (`Authorization`, `Cookie`, `X-Api-Key` and similar) are never stored, so a replay is sent without them.
 - Signed webhooks may reject a replay: providers like Stripe put a timestamp in the signature and refuse old ones.
 - A request whose body was larger than the inspector keeps cannot be replayed exactly, so Replay is disabled for it.
+- Replays reach a [password-protected](/docs/dashboard/tunnel-access) tunnel without the password: only members of the workspace can replay.
 
 **Copy as curl** gives you the same request as a command line, to send from your terminal.
 

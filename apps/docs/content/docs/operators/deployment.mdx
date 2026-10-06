@@ -3,7 +3,7 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-05"
-  commit: "63eeae4"
+  commit: "320c1fd"
   packages: {}
 sources:
   - docker-compose.yml
@@ -48,6 +48,8 @@ All images run as the unprivileged `node` user on Node 24.
 | `APP_URL` | yes | Public website origin, e.g. `https://vhyxvoid.com`. Used in emails and as an allowed CORS origin. |
 | `ADMIN_URL` | yes | Admin console origin, e.g. `https://admin.vhyxvoid.com`. |
 | `CORS_ORIGINS` | no | Extra allowed origins, comma separated. |
+| `HUB_DOMAIN` | recommended | Tunnel domain (same value as the hub's), used to show tunnel URLs and full share links in the dashboard. |
+| `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MS` | no | Global per-IP request limit (default 100 per 60000 ms). |
 | `RESEND_API_KEY`, `EMAIL_FROM` | yes in production | Transactional email. The API refuses to start in production without them. |
 | `APP_NAME`, `SUPPORT_EMAIL`, `ADMIN_FEEDBACK_EMAIL` | no | Email copy and recipients. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for paid mode | Stripe API and webhook signature. Without them the API still runs (free mode); billing endpoints answer 503. |
