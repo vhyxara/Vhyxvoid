@@ -39,3 +39,6 @@ vhyxconfig.md
 # Private keys and certificates — never commit
 /certbot/
 /apps/api/keys/
+
+# Redis snapshots written by a local redis-server
+*.rdb
