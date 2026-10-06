@@ -34,7 +34,11 @@ import {
   stripAccessCookie,
   type AccessDecision,
   type InspectedRequest,
+  evaluateTrafficRules,
+  applyResponseHeaders,
+  type TrafficPlan,
 } from '@vhyxvoid/shared';
+import type { TrafficRuleCache } from '@/services/TrafficRuleCache.service';
 import { IncomingMessage, ServerResponse } from 'http';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AgentRegistry, PendingRegistry, TunnelWsRegistry, closeBrowserSocket } from '@/registry';
@@ -122,6 +126,8 @@ export class HttpTunnelHandler {
     private readonly inbox?: InboxService,
     // Per-minute traffic stats (alerts, charts); absent means none.
     private readonly stats?: TrafficStatsService,
+    // Traffic rules (mocks, injected errors and delays, rewrites, headers); absent means none.
+    private readonly rules?: TrafficRuleCache,
     // Wrong tunnel passwords per (account, tunnel, IP); 429 past the limit.
     private readonly passwordGuesses: PasswordGuessLimiter = new PasswordGuessLimiter(),
   ) {}
@@ -200,6 +206,8 @@ export class HttpTunnelHandler {
     const entry = await this.subdomainRegistry.resolve(label, accountSlug);
 
     if (!entry) {
+      // Nothing registered for this URL: an "offline" rule may still answer, then the inbox.
+      if (await this.tryOfflineRules(req, res, label, accountSlug, hostname)) return;
       if (await this.tryInbox(req, res, null, label, accountSlug)) return;
       return this.sendError(
         res,
@@ -238,6 +246,16 @@ export class HttpTunnelHandler {
 
     // Get the agent's live WebSocket connection
     const agent = this.agentRegistry.findByAgentId(entry.agentId);
+
+    // Traffic rules: after the limiter and access rules (a mock never opens a
+    // protected tunnel), before anything reaches the agent. "Offline" rules
+    // take part only when no agent is connected.
+    const plan = await this.trafficPlan(entry.accountId, label, req, !!agent);
+    if (plan.respond) {
+      this.usageLimiter?.recordForwarded(entry.accountId);
+      await this.answerFromRule(req, res, plan, { accountId: entry.accountId, label, accountSlug, hostname });
+      return;
+    }
 
     if (!agent) {
       // Entry in Redis but agent not in registry — stale, clean it up.
@@ -298,6 +316,12 @@ export class HttpTunnelHandler {
       }
     }
 
+    // Injected latency from a "delay" rule, before the agent sees the request.
+    if (plan.delayMs > 0) {
+      await new Promise((r) => setTimeout(r, plan.delayMs));
+      if (res.destroyed) return;
+    }
+
     // How long to wait for the agent to respond before returning 504
     const requestTimeoutMs = getTunnelRequestTimeoutMs();
 
@@ -316,6 +340,15 @@ export class HttpTunnelHandler {
     delete forwardHeaders[INBOX_DELIVERY_HEADER];
     // The tunnel's own credentials are not the app's: don't forward them.
     this.withoutTunnelCredentials(forwardHeaders, access.stripAuthorization);
+    // Request header changes from traffic rules (validated: never framing or Host).
+    for (const name of plan.removeRequestHeaders) {
+      for (const k of Object.keys(forwardHeaders)) if (k.toLowerCase() === name) delete forwardHeaders[k];
+    }
+    for (const [name, value] of Object.entries(plan.setRequestHeaders)) {
+      for (const k of Object.keys(forwardHeaders)) if (k.toLowerCase() === name) delete forwardHeaders[k];
+      forwardHeaders[name] = value;
+    }
+    const hasResponseRules = plan.removeResponseHeaders.length > 0 || Object.keys(plan.setResponseHeaders).length > 0;
 
     // Request inspector: one entry per request that reached an agent,
     // written after the response (never on the request's critical path).
@@ -363,6 +396,7 @@ export class HttpTunnelHandler {
         error,
         replayOf,
         inboxId: this.inboxMarker(req),
+        ...(plan.matched.length ? { ruleIds: plan.matched } : {}),
       };
       this.inspector.record(entryAccountId, entry);
     };
@@ -373,7 +407,8 @@ export class HttpTunnelHandler {
       type: 'tunnel:forward',
       requestId,
       method: req.method ?? 'GET',
-      path: req.url ?? '/',
+      // A "rewrite" rule's path; otherwise the caller's.
+      path: plan.path,
       query: '',
       headers: forwardHeaders,
       body: body,
@@ -421,7 +456,11 @@ export class HttpTunnelHandler {
         resolve: (response: TunnelResponseMsg) => {
           clearTimeout(timer);
           settled = true;
-          this.writeResponse(res, response);
+          if (hasResponseRules) {
+            const headers: Record<string, string | string[]> = { ...(response.headers ?? {}) };
+            applyResponseHeaders(headers, plan);
+            this.writeResponse(res, { ...response, headers: headers as Record<string, string> });
+          } else this.writeResponse(res, response);
           capture(response, null);
           outerResolve();
         },
@@ -451,7 +490,11 @@ export class HttpTunnelHandler {
               start: (status, headers) => {
                 clearTimeout(timer);
                 streamHead = { status: status || 200, headers };
-                this.writeStreamHead(res, status, headers);
+                if (hasResponseRules) {
+                  const h: Record<string, string | string[]> = { ...headers };
+                  applyResponseHeaders(h, plan);
+                  this.writeStreamHead(res, status, h as Record<string, string>);
+                } else this.writeStreamHead(res, status, headers);
               },
               chunk: (data) => {
                 res.write(data);
@@ -677,6 +720,108 @@ export class HttpTunnelHandler {
   }
 
   // ── Private helpers ───────────────────────────────────────
+
+  /** What the tunnel's traffic rules do with this request (no rules: an empty plan). */
+  private async trafficPlan(accountId: string, label: string, req: IncomingMessage, online: boolean): Promise<TrafficPlan> {
+    // Replays and inbox deliveries are the hub's own: they already went through the rules.
+    const rules = this.rules && !this.isInternal(req) ? await this.rules.get(accountId, label) : [];
+    return evaluateTrafficRules(rules, { method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers }, { online });
+  }
+
+  /**
+   * A tunnel URL with no agent registered: answer from an "offline" rule
+   * (mock or redirect) if one matches, after the same abuse limit and access
+   * rules as live traffic. False when no rule answers.
+   */
+  private async tryOfflineRules(req: IncomingMessage, res: ServerResponse, label: string, accountSlug: string, hostname: string): Promise<boolean> {
+    if (!this.rules || this.isInternal(req)) return false;
+    const accountId = await this.rules.accountIdForSlug(accountSlug);
+    if (!accountId) return false;
+    const rules = await this.rules.get(accountId, label);
+    if (!rules.some((r) => r.enabled && r.when === 'offline')) return false;
+    const plan = evaluateTrafficRules(rules, { method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers }, { online: false });
+    if (!plan.respond) return false;
+
+    if (this.usageLimiter) {
+      const rate = await this.usageLimiter.checkRequest(accountId);
+      if (!rate.allowed) {
+        this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {
+          headers: { 'Retry-After': String(rate.retryAfterSeconds) },
+        });
+        return true;
+      }
+    }
+    const access = await this.checkAccess(accountId, label, req);
+    if (!access.allow) {
+      this.sendAccessDenied(res, access, label);
+      return true;
+    }
+    this.usageLimiter?.recordForwarded(accountId);
+    await this.answerFromRule(req, res, plan, { accountId, label, accountSlug, hostname });
+    return true;
+  }
+
+  /** Writes a rule's answer (mock, injected error, redirect) and records it like any other request. */
+  private async answerFromRule(
+    req: IncomingMessage,
+    res: ServerResponse,
+    plan: TrafficPlan,
+    ctx: { accountId: string; label: string; accountSlug: string; hostname: string },
+  ): Promise<void> {
+    const r = plan.respond!;
+    const startedAt = Date.now();
+    // Drain the body (keeps the connection reusable; the inspector shows it).
+    let requestBody: Buffer | null = null;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      try {
+        requestBody = await this.readBody(req, MAX_BODY_BYTES);
+      } catch {
+        if (!res.headersSent && !res.destroyed) this.sendError(res, 413, `Request body too large. Maximum is ${MAX_BODY_BYTES / 1024 / 1024}MB`);
+        return;
+      }
+    }
+    if (plan.delayMs > 0) await new Promise((done) => setTimeout(done, plan.delayMs));
+    if (res.destroyed) return;
+
+    const headers: Record<string, string | string[]> = { ...r.headers };
+    applyResponseHeaders(headers, plan);
+    const payload = Buffer.from(r.body, 'utf8');
+    if (payload.length && !Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')) headers['content-type'] = 'text/plain; charset=utf-8';
+    headers['x-vhyxvoid-rule'] = r.ruleId;
+    headers['content-length'] = String(payload.length);
+    try {
+      res.writeHead(r.status, headers);
+    } catch {
+      // A header value the client library refuses: answer without the rule's headers.
+      res.writeHead(r.status, { 'content-length': String(payload.length), 'x-vhyxvoid-rule': r.ruleId });
+    }
+    res.end(req.method === 'HEAD' ? undefined : payload);
+
+    const durationMs = Date.now() - startedAt;
+    this.stats?.record(ctx.accountId, ctx.label, r.status, durationMs);
+    if (!this.inspector) return;
+    const flat = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]));
+    this.inspector.record(ctx.accountId, {
+      id: `req_${randomUUID().replace(/-/g, '')}`,
+      at: new Date(startedAt).toISOString(),
+      label: ctx.label,
+      accountSlug: ctx.accountSlug,
+      host: ctx.hostname,
+      method: req.method ?? 'GET',
+      path: req.url ?? '/',
+      clientIp: clientIp(req),
+      request: {
+        headers: maskHeaders(this.withoutTunnelCredentials(this.sanitizeHeaders(req.headers as Record<string, string>), true)),
+        body: captureBody(requestBody, isBinaryForInspector(req.headers['content-type'])),
+      },
+      response: { status: r.status, headers: maskHeaders(flat), body: captureBody(payload, false), streamed: false },
+      durationMs,
+      error: null,
+      replayOf: null,
+      ruleIds: plan.matched,
+      answeredByRule: true,
+    });
+  }
 
   /** Access rules for this tunnel; fails closed if they cannot be read. */
   private async checkAccess(accountId: string, label: string, req: IncomingMessage): Promise<AccessDecision> {

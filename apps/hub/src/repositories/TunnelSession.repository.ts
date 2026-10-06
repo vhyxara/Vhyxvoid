@@ -4,7 +4,7 @@
 // The MessageRouter already resolves the internal apiKey UUID before calling upsert().
 // This repo receives the internal UUID directly — no secondary lookup needed.
 
-import type { TunnelPolicyRecord } from '@vhyxvoid/shared';
+import type { TrafficRule, TunnelPolicyRecord } from '@vhyxvoid/shared';
 import { PrismaClient } from '@/generated/prisma';
 import { randomUUID } from 'crypto';
 import {
@@ -149,6 +149,18 @@ export class TunnelSessionRepository {
     // Built-in plan limits with the admin's plan-wide and per-account
     // overrides applied (settings `plans.overrides`, Account.limitOverrides).
     return getEffectivePlanLimitsForAccount(this.prisma as any, accountId, await currentPlanOverrides());
+  }
+
+  /** A tunnel's traffic rules, in order; null when it has none. */
+  async findTrafficRules(accountId: string, label: string): Promise<TrafficRule[] | null> {
+    const row = await (this.prisma as any).tunnelRuleSet.findUnique({ where: { accountId_label: { accountId, label } }, select: { rules: true } });
+    return Array.isArray(row?.rules) ? (row.rules as TrafficRule[]) : null;
+  }
+
+  /** Account of a slug, for tunnel URLs with no agent registered; deleted accounts have none. */
+  async findAccountIdBySlug(slug: string): Promise<string | null> {
+    const row = await this.prisma.account.findUnique({ where: { slug }, select: { id: true, status: true } });
+    return row && row.status !== 'DELETED' ? row.id : null;
   }
 
   /** Whether the workspace lets the request inspector store its requests. */

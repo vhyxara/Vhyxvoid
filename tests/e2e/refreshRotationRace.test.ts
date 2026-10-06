@@ -181,7 +181,10 @@ describe("successor cipher and real transactions", () => {
     expect(c).not.toContain("successor-raw-token");
     expect(RefreshSuccessorCipher.decrypt(c)).toBe("successor-raw-token");
     const [iv, tag, ct] = c.split(".");
-    expect(RefreshSuccessorCipher.decrypt([iv, tag, ct.slice(0, -2) + "AA"].join("."))).toBeNull();
+    // Flip the first ciphertext character to a different one (overwriting with a
+    // fixed "AA" was a no-op whenever the text already had it, a rare flake).
+    const flipped = (ct[0] === "A" ? "B" : "A") + ct.slice(1);
+    expect(RefreshSuccessorCipher.decrypt([iv, tag, flipped].join("."))).toBeNull();
   });
 
   it("PrismaUnitOfWork.transaction opens a real transaction on a Prisma-style proxy client", async () => {

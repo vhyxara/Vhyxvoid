@@ -63,6 +63,10 @@ export interface InspectedRequest {
   replayOf: string | null;
   /** Set when the webhook inbox delivered this request: the inbox row id. */
   inboxId?: string | null;
+  /** Traffic rules that changed or answered this request, in order. */
+  ruleIds?: string[];
+  /** True when a traffic rule answered (mock, injected error, redirect): the agent never saw it. */
+  answeredByRule?: boolean;
 }
 
 export const inspectorKeys = {

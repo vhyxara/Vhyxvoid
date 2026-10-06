@@ -200,6 +200,7 @@ export async function adminSystemRoutes(fastify: FastifyInstance, opts: { hub: H
         accessRules: "enforced (creating or changing tunnel access rules; existing rules keep protecting after a downgrade)",
         maxCustomDomains: "enforced (adding a custom domain; also needs customDomains)",
         maxAlertRules: "enforced (creating alert rules)",
+        maxTrafficRules: "enforced (saving a tunnel's traffic rules; existing rules keep working after a downgrade)",
         customDomains: "enforced (adding a custom domain)",
         inboxRequests: "enforced (hub stops holding requests for a tunnel once this many are waiting; 0 = no inbox)",
         inspectorRequests: "enforced (hub keeps this many recent requests per tunnel for 24 h; 0 turns capture off)",

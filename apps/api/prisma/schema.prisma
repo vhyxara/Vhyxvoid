@@ -262,6 +262,7 @@ model Account {
   customDomains      CustomDomain[]
   alertRules         AlertRule[]
   notices            AccountNotice[]
+  ruleSets           TunnelRuleSet[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1083,6 +1084,26 @@ model TunnelPolicy {
 
   @@unique([accountId, label])
   @@map("tunnel_policies")
+}
+
+// Traffic rules for one tunnel (account + label): an ordered list (JSON,
+// shape and checks in packages/shared/src/trafficRules.ts) that the hub
+// applies before forwarding: mocks, injected errors and delays, redirects,
+// path rewrites, header changes. Saved as a whole so order is atomic.
+model TunnelRuleSet {
+  id          String   @id @default(uuid())
+  accountId   String
+  label       String
+  rules       Json     @default("[]")
+  version     Int      @default(1)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, label])
+  @@map("tunnel_rule_sets")
 }
 
 // Webhook inbox for one tunnel (account + label): while its agent is

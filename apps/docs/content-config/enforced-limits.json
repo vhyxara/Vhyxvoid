@@ -65,6 +65,11 @@
       "label": "Custom domains allowed",
       "evidence": "apps/api/src/modules/platform/domains/domains.routes.ts",
       "note": "Gate for adding custom domains; how many is maxCustomDomains."
+    },
+    "maxTrafficRules": {
+      "label": "Traffic rules per tunnel",
+      "evidence": "apps/api/src/modules/platform/traffic-rules/trafficRules.routes.ts",
+      "note": "Rules already saved keep working after a downgrade; saving more than the limit is refused."
     }
   },
   "notEnforced": {

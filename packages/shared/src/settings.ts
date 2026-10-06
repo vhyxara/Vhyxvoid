@@ -63,6 +63,7 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "inboxRequests",
   "maxCustomDomains",
   "maxAlertRules",
+  "maxTrafficRules",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
@@ -172,6 +173,7 @@ export const SETTING_DEFINITIONS = {
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
+  "features.trafficRules": { group: "features", label: "Traffic rules", description: "Customers can add rules to a tunnel that answer with a mock, inject delays or errors, redirect, rewrite paths and set headers, applied by the hub before a request reaches the agent. How many per tunnel is the plan limit maxTrafficRules. Off: every rule is ignored at once.", type: "boolean", default: true, public: true },
   "features.alerts": { group: "features", label: "Alerts", description: "Customers can create alert rules (tunnel offline, error rate, usage, inbox, domains) delivered by email, in-app and webhook.", type: "boolean", default: true, public: true },
   "features.feedbackEnabled": { group: "features", label: "Feedback form", description: "Let signed-in users send feedback from the dashboard.", type: "boolean", default: true, public: true },
 } as const satisfies Record<string, SettingDefinition>;

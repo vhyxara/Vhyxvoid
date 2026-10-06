@@ -40,7 +40,8 @@ export interface PlanLimits {
   inspectorRequests: number; // requests kept per tunnel in the request inspector (0 = inspector off); kept 24 h
   inboxRequests: number;
   maxCustomDomains: number; // custom hostnames (needs customDomains: true)
-  maxAlertRules: number; // alert rules per account (0 = no alerts) // requests a tunnel's webhook inbox holds while its agent is offline (0 = no inbox)
+  maxAlertRules: number; // alert rules per account (0 = no alerts)
+  maxTrafficRules: number; // traffic rules (mocks, rewrites, fault injection) per tunnel (0 = none)
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -67,6 +68,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     inboxRequests: 25,
     maxCustomDomains: 0,
     maxAlertRules: 3,
+    maxTrafficRules: 5,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -92,6 +94,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     inboxRequests: 1_000,
     maxCustomDomains: 5,
     maxAlertRules: 25,
+    maxTrafficRules: 50,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -115,6 +118,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     inboxRequests: 10_000,
     maxCustomDomains: 100,
     maxAlertRules: 200,
+    maxTrafficRules: 200,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,
