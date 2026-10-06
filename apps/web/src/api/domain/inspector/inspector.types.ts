@@ -17,6 +17,9 @@ export type InspectedRequest = {
   error: string | null
   replayOf: string | null
   inboxId?: string | null
+  ruleIds?: string[]
+  /** A traffic rule answered (mock, injected error, redirect); the agent never saw it. */
+  answeredByRule?: boolean
 }
 
 export type InspectedSummary = {
@@ -29,6 +32,7 @@ export type InspectedSummary = {
   error: string | null
   replayOf: string | null
   inboxId?: string | null
+  answeredByRule?: boolean
   requestSize: number
   responseSize: number
   contentType: string | null

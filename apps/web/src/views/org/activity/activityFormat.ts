@@ -108,6 +108,27 @@ export function describeActivity(item: ActivityItem): string {
       return `cleared the webhook inbox of${t}`
     case 'REQUEST_REPLAYED':
       return `replayed a request on${t}`
+    // Rows the tunnel-access, domain and inbox routes write themselves.
+    case 'tunnel.access.updated':
+      return `changed access rules for ${item.resourceId ?? 'a tunnel'}${m.password === 'set' ? ' (password on)' : m.password === 'removed' ? ' (password off)' : ''}`
+    case 'tunnel.access.removed':
+      return `made ${item.resourceId ?? 'a tunnel'} public again`
+    case 'tunnel.access.share_link':
+      return `created a share link for ${item.resourceId ?? 'a tunnel'}${typeof m.hours === 'number' ? ` (${m.hours} h)` : ''}`
+    case 'tunnel.access.links_revoked':
+      return `revoked the share links of ${item.resourceId ?? 'a tunnel'}`
+    case 'custom_domain.added':
+      return `added custom domain ${item.resourceId ?? ''}${s(m.label) ? ` for ${m.label}` : ''}`.trim()
+    case 'custom_domain.moved':
+      return `pointed ${item.resourceId ?? 'a custom domain'} at ${s(m.to) ?? 'another tunnel'}`
+    case 'custom_domain.removed':
+      return `removed custom domain ${item.resourceId ?? ''}`.trim()
+    case 'tunnel.inbox.redeliver':
+      return `redelivered a held webhook on ${item.resourceId ?? 'a tunnel'}`
+    case 'tunnel.inbox.purged':
+      return `cleared ${typeof m.count === 'number' ? `${m.count} ` : ''}held webhooks of ${item.resourceId ?? 'a tunnel'}`
+    case 'TRAFFIC_RULES_UPDATED':
+      return `changed the traffic rules of${t}${typeof m.count === 'number' ? ` (${m.count} rule${m.count === 1 ? '' : 's'})` : ''}`
     case 'INSPECTOR_CAPTURE_CHANGED':
       return m.capture === false ? 'turned off request capture for the workspace' : 'turned on request capture for the workspace'
     case 'INSPECTOR_CLEARED':

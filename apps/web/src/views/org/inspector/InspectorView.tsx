@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -19,6 +20,7 @@ import {
 import type { InspectedRequest, InspectedSummary } from '@/api/domain/inspector/inspector.types'
 import { inspectorService } from '@/api/infrastructure/services/inspector.service'
 import { formatBytes, prettyBody, statusVariant, toCurl } from './inspectorFormat'
+import { DRAFT_KEY, ruleFromCapture } from '../rules/rulesForm'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
@@ -51,7 +53,7 @@ function RequestRow({ r, active, onClick }: { r: InspectedSummary; active: boole
     >
       <span style={{ ...mono, fontWeight: 600 }}>{r.method}</span>
       <span style={{ ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.path}>
-        {r.replayOf ? '↻ ' : r.inboxId ? '⤓ ' : ''}
+        {r.answeredByRule ? '⚑ ' : r.replayOf ? '↻ ' : r.inboxId ? '⤓ ' : ''}
         {r.path}
       </span>
       <span className='flex items-center gap-2'>
@@ -120,6 +122,7 @@ function Body({ body, contentType }: { body: InspectedRequest['request']['body']
 function Detail({ accountId, label, id }: { accountId: string; label: string; id: string }) {
   const { data: r, isLoading, error } = useInspectedRequest(accountId, label, id)
   const replay = useReplayRequest(accountId, label)
+  const router = useRouter()
 
   if (isLoading) return <Skeleton height='20rem' />
   if (error || !r) return <Alert variant='warning'>{(error as Error)?.message ?? 'Request not found'}</Alert>
@@ -151,9 +154,36 @@ function Detail({ accountId, label, id }: { accountId: string; label: string; id
             {new Date(r.at).toLocaleString()} · {r.durationMs ?? '—'} ms{r.clientIp ? ` · from ${r.clientIp}` : ''}
             {r.replayOf ? ' · replay' : ''}
             {r.inboxId ? ' · delivered from the webhook inbox' : ''}
+            {r.answeredByRule ? ' · answered by a traffic rule (your app did not see it)' : r.ruleIds?.length ? ` · changed by ${r.ruleIds.length} traffic rule${r.ruleIds.length === 1 ? '' : 's'}` : ''}
           </Typography>
         </div>
-        <div className='flex gap-2'>
+        <div className='flex gap-2 flex-wrap'>
+          {r.response && !r.response.streamed && (
+            <Button
+              size='sm'
+              variant='outline'
+              icon={<i className='tabler-route' />}
+              title='Create a traffic rule that answers this request with this response, without your app'
+              onClick={() => {
+                const rule = ruleFromCapture({
+                  method: r.method,
+                  path: r.path,
+                  status: r.response!.status,
+                  contentType: r.response!.headers['content-type'] ?? null,
+                  body: r.response!.body.encoding === 'utf8' ? r.response!.body.data : null
+                })
+
+                try {
+                  sessionStorage.setItem(DRAFT_KEY, JSON.stringify(rule))
+                } catch {
+                  // storage blocked: open the page anyway
+                }
+                router.push(`/organizations/${accountId}/rules?label=${encodeURIComponent(label)}&draft=1`)
+              }}
+            >
+              Mock this response
+            </Button>
+          )}
           <Button size='sm' variant='outline' icon={<i className='tabler-terminal-2' />} onClick={copyCurl}>
             Copy as curl
           </Button>

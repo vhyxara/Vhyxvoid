@@ -1,7 +1,10 @@
-// Team activity for the platform features (tunnel access, domains, alerts,
-// inbox, inspector). One table maps each successful mutating route to an
+// Team activity for the platform features (alerts, inbox settings, inspector,
+// traffic rules). One table maps each successful mutating route to an
 // AuditLog row, written by an onResponse hook, so handlers stay unchanged and
-// a new route is one line here. Identity/key use cases write their own rows.
+// a new route is one line here. Routes that write their own rows are NOT
+// listed (tunnel access "tunnel.access.*", custom domains "custom_domain.*",
+// inbox redeliver/purge "tunnel.inbox.*"), and neither are the identity/key
+// use cases: one change, one row.
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PrismaClient } from "@/generated/prisma";
 
@@ -19,23 +22,16 @@ const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) 
 
 /** "METHOD /full/route/url" -> what to record. */
 export const ACTIVITY_ROUTES: Record<string, ActivityRoute> = {
-  "PUT /api/v1/tunnel-access/:accountId/:label": {
-    action: "TUNNEL_ACCESS_UPDATED",
-    resourceType: "Tunnel",
-    meta: (p, b) => ({ label: p.label, password: b && "password" in b ? (b.password ? "set" : "removed") : undefined, ipAllowlist: Array.isArray(b?.ipAllowlist) ? b!.ipAllowlist.length : undefined }),
-  },
-  "DELETE /api/v1/tunnel-access/:accountId/:label": { action: "TUNNEL_ACCESS_REMOVED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
-  "POST /api/v1/tunnel-access/:accountId/:label/share-links": { action: "TUNNEL_SHARE_LINK_CREATED", resourceType: "Tunnel", meta: (p, b) => ({ label: p.label, name: str(b?.name, 80) }) },
-  "POST /api/v1/tunnel-access/:accountId/:label/revoke-links": { action: "TUNNEL_SHARE_LINKS_REVOKED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
-  "POST /api/v1/domains/:accountId": { action: "DOMAIN_ADDED", resourceType: "CustomDomain", meta: (_p, b) => ({ hostname: str(b?.hostname), label: str(b?.label, 100) }) },
-  "PATCH /api/v1/domains/:accountId/:id": { action: "DOMAIN_MOVED", resourceType: "CustomDomain", meta: (p, b) => ({ id: p.id, label: str(b?.label, 100) }) },
-  "DELETE /api/v1/domains/:accountId/:id": { action: "DOMAIN_REMOVED", resourceType: "CustomDomain", meta: (p) => ({ id: p.id }) },
   "POST /api/v1/alerts/:accountId": { action: "ALERT_RULE_CREATED", resourceType: "AlertRule", meta: (_p, b) => ({ name: str(b?.name, 80), type: str(b?.type, 40) }) },
   "PATCH /api/v1/alerts/:accountId/:id": { action: "ALERT_RULE_UPDATED", resourceType: "AlertRule", meta: (p, b) => ({ id: p.id, name: str(b?.name, 80), enabled: typeof b?.enabled === "boolean" ? b.enabled : undefined }) },
   "DELETE /api/v1/alerts/:accountId/:id": { action: "ALERT_RULE_DELETED", resourceType: "AlertRule", meta: (p) => ({ id: p.id }) },
+  "PUT /api/v1/traffic-rules/:accountId/:label": {
+    action: "TRAFFIC_RULES_UPDATED",
+    resourceType: "Tunnel",
+    meta: (p, b) => ({ label: p.label, count: Array.isArray(b?.rules) ? b!.rules.length : undefined }),
+  },
+  "DELETE /api/v1/traffic-rules/:accountId/:label": { action: "TRAFFIC_RULES_UPDATED", resourceType: "Tunnel", meta: (p) => ({ label: p.label, count: 0 }) },
   "PUT /api/v1/inbox/:accountId/:label": { action: "INBOX_SETTINGS_UPDATED", resourceType: "Tunnel", meta: (p, b) => ({ label: p.label, enabled: typeof b?.enabled === "boolean" ? b.enabled : undefined }) },
-  "POST /api/v1/inbox/:accountId/:label/:id/redeliver": { action: "INBOX_REDELIVERED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
-  "DELETE /api/v1/inbox/:accountId/:label": { action: "INBOX_CLEARED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
   "POST /api/v1/inspector/:accountId/:label/:id/replay": { action: "REQUEST_REPLAYED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },
   "PUT /api/v1/inspector/:accountId/settings": { action: "INSPECTOR_CAPTURE_CHANGED", resourceType: "Account", meta: (_p, b) => ({ capture: typeof b?.capture === "boolean" ? b.capture : undefined }) },
   "DELETE /api/v1/inspector/:accountId/:label": { action: "INSPECTOR_CLEARED", resourceType: "Tunnel", meta: (p) => ({ label: p.label }) },

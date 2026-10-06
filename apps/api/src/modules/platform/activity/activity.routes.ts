@@ -18,7 +18,8 @@ import { prismaOf } from "../shared/http";
 export const ACTIVITY_CATEGORIES = {
   members: ["ACCOUNT_", "ORGANIZATION_"],
   keys: ["API_KEY_"],
-  tunnels: ["TUNNEL_", "INBOX_", "INSPECTOR_", "REQUEST_", "DOMAIN_"],
+  // Upper case: rows from shared/activity.ts; dotted: rows the routes write themselves.
+  tunnels: ["TUNNEL_", "INBOX_", "INSPECTOR_", "REQUEST_", "DOMAIN_", "TRAFFIC_RULES_", "tunnel.", "custom_domain."],
   alerts: ["ALERT_"],
 } as const;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;

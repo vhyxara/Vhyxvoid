@@ -79,16 +79,19 @@ describe("team activity feed", () => {
       (req as any).user = { userId: "user-1" };
     });
     recordActivity(app, prisma);
+    app.patch("/api/v1/alerts/:accountId/:id", async () => ({ ok: true }));
+    app.post("/api/v1/alerts/:accountId", async (_req: any, reply: any) => reply.code(422).send({ ok: false }));
     app.put("/api/v1/tunnel-access/:accountId/:label", async () => ({ ok: true }));
-    app.post("/api/v1/domains/:accountId", async (_req: any, reply: any) => reply.code(422).send({ ok: false }));
     await app.ready();
-    await app.inject({ method: "PUT", url: "/api/v1/tunnel-access/acc-1/web", payload: { password: "hunter2", ipAllowlist: ["1.2.3.4"] } });
-    await app.inject({ method: "POST", url: "/api/v1/domains/acc-1", payload: { hostname: "x.dev", label: "web" } });
+    await app.inject({ method: "PATCH", url: "/api/v1/alerts/acc-1/rule-9", payload: { name: "Web down", enabled: false, webhookUrl: "https://hooks.example/secret-token" } });
+    await app.inject({ method: "POST", url: "/api/v1/alerts/acc-1", payload: { name: "x", type: "USAGE" } });
+    // Writes its own row ("tunnel.access.*"): the hook must not add a second.
+    await app.inject({ method: "PUT", url: "/api/v1/tunnel-access/acc-1/web", payload: { password: "hunter2" } });
     await app.close();
 
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ accountId: "acc-1", userId: "user-1", action: "TUNNEL_ACCESS_UPDATED", resourceId: "web", metadata: { label: "web", password: "set", ipAllowlist: 1 } });
-    expect(JSON.stringify(rows[0])).not.toContain("hunter2");
+    expect(rows[0]).toMatchObject({ accountId: "acc-1", userId: "user-1", action: "ALERT_RULE_UPDATED", resourceId: "rule-9", metadata: { id: "rule-9", name: "Web down", enabled: false } });
+    expect(JSON.stringify(rows)).not.toContain("secret-token");
     expect(Object.keys(ACTIVITY_ROUTES).every((k) => /^(GET|POST|PUT|PATCH|DELETE) \/api\/v1\//.test(k))).toBe(true);
   });
 });
