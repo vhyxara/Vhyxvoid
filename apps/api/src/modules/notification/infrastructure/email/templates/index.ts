@@ -8,6 +8,23 @@ export interface EmailContent {
   text: string;
 }
 
+
+// ── Escaping ──────────────────────────────────────────────────────────────────
+// Every value interpolated into HTML goes through here: names, organization
+// names, feedback text and URLs are user-controlled ("<a href=…>" as an
+// organization name used to render as a live link in invitation emails).
+// Subjects and plain-text bodies use the raw values.
+
+export function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function escapeFields<T extends object>(params: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(params)) out[k] = typeof v === "string" ? escapeHtml(v) : v;
+  return out as T;
+}
+
 // ── Shared layout ─────────────────────────────────────────────────────────────
 
 const APP_NAME = process.env.APP_NAME ?? "VhyxVoid";
@@ -104,16 +121,17 @@ export function emailVerification(params: {
   verifyUrl: string; // full URL with token e.g. https://app/verify?token=xxx
   expiresInHours?: number;
 }): EmailContent {
+  const h = escapeFields(params);
   const subject = `Verify your email — ${APP_NAME}`;
   const html = layout(
     heading("Verify your email address") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
         `You're almost set! Click the button below to verify your email address and activate your ${APP_NAME} account.`,
       ) +
-      button("Verify Email Address", params.verifyUrl) +
+      button("Verify Email Address", h.verifyUrl) +
       smallNote(
-        `This link expires in ${params.expiresInHours ?? 24} hours. ` +
+        `This link expires in ${h.expiresInHours ?? 24} hours. ` +
           `If you didn't create an account, you can safely ignore this email.`,
       ),
     "Verify your email to get started",
@@ -137,18 +155,19 @@ export function accountInvitation(params: {
   roleLabel: string; // 'Admin' | 'Member'
   expiresInDays?: number;
 }): EmailContent {
+  const h = escapeFields(params);
   const subject = `${params.inviterName} invited you to ${params.accountName}`;
   const html = layout(
-    heading(`You're invited to join ${params.accountName}`) +
+    heading(`You're invited to join ${h.accountName}`) +
       para(
-        `<strong>${params.inviterName}</strong> has invited you to join <strong>${params.accountName}</strong> as a <strong>${params.roleLabel}</strong>.`,
+        `<strong>${h.inviterName}</strong> has invited you to join <strong>${h.accountName}</strong> as a <strong>${h.roleLabel}</strong>.`,
       ) +
-      button("Accept Invitation", params.inviteUrl) +
+      button("Accept Invitation", h.inviteUrl) +
       smallNote(
-        `This invitation expires in ${params.expiresInDays ?? 3} days. ` +
+        `This invitation expires in ${h.expiresInDays ?? 3} days. ` +
           `If you weren't expecting this, you can ignore this email.`,
       ),
-    `${params.inviterName} invited you to ${params.accountName}`,
+    `${h.inviterName} invited you to ${h.accountName}`,
   );
   const text =
     `${params.inviterName} has invited you to join ${params.accountName} as a ${params.roleLabel}.\n\n` +
@@ -169,6 +188,7 @@ export function paymentFailed(params: {
   billingPortalUrl: string;
   graceEndsAt: Date;
 }): EmailContent {
+  const h = escapeFields(params);
   const graceDateStr = params.graceEndsAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -177,13 +197,13 @@ export function paymentFailed(params: {
   const subject = `Action required: payment failed for ${params.accountName}`;
   const html = layout(
     heading("Your payment failed") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
-        `We were unable to process your payment of <strong>${params.amountFormatted}</strong> for ` +
-          `<strong>${params.accountName}</strong>. Your account will remain active until <strong>${graceDateStr}</strong>, ` +
+        `We were unable to process your payment of <strong>${h.amountFormatted}</strong> for ` +
+          `<strong>${h.accountName}</strong>. Your account will remain active until <strong>${graceDateStr}</strong>, ` +
           `after which it will be suspended.`,
       ) +
-      button("Update Payment Method", params.billingPortalUrl) +
+      button("Update Payment Method", h.billingPortalUrl) +
       smallNote(
         "If you have already updated your payment method, please allow a few minutes for the payment to process.",
       ),
@@ -209,6 +229,7 @@ export function paymentSucceeded(params: {
   invoiceUrl: string;
   periodEnd: Date;
 }): EmailContent {
+  const h = escapeFields(params);
   const nextBillingStr = params.periodEnd.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -217,14 +238,14 @@ export function paymentSucceeded(params: {
   const subject = `Payment confirmed — ${params.accountName}`;
   const html = layout(
     heading("Payment confirmed") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
-        `Your payment of <strong>${params.amountFormatted}</strong> for <strong>${params.accountName}</strong> ` +
+        `Your payment of <strong>${h.amountFormatted}</strong> for <strong>${h.accountName}</strong> ` +
           `was processed successfully. Your next billing date is <strong>${nextBillingStr}</strong>.`,
       ) +
-      button("View Invoice", params.invoiceUrl) +
+      button("View Invoice", h.invoiceUrl) +
       smallNote("Thank you for using " + APP_NAME + "."),
-    `Your payment of ${params.amountFormatted} was successful`,
+    `Your payment of ${h.amountFormatted} was successful`,
   );
   const text =
     `Hi ${params.firstName || "there"},\n\n` +
@@ -245,6 +266,7 @@ export function subscriptionCanceled(params: {
   accessEndsAt: Date;
   resubscribeUrl: string;
 }): EmailContent {
+  const h = escapeFields(params);
   const accessEndStr = params.accessEndsAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -253,15 +275,15 @@ export function subscriptionCanceled(params: {
   const subject = `Your ${APP_NAME} subscription has been canceled`;
   const html = layout(
     heading("Subscription canceled") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
-        `Your subscription for <strong>${params.accountName}</strong> has been canceled. ` +
+        `Your subscription for <strong>${h.accountName}</strong> has been canceled. ` +
           `You'll continue to have access until <strong>${accessEndStr}</strong>.`,
       ) +
       para(
         "We'd love to have you back. You can resubscribe anytime before your access ends to keep your data and settings.",
       ) +
-      button("Resubscribe", params.resubscribeUrl) +
+      button("Resubscribe", h.resubscribeUrl) +
       smallNote(`Questions? Reply to this email or contact ${SUPPORT_EMAIL}.`),
     `Your access continues until ${accessEndStr}`,
   );
@@ -285,6 +307,7 @@ export function trialEnding(params: {
   upgradeUrl: string;
   daysLeft: number;
 }): EmailContent {
+  const h = escapeFields(params);
   const trialEndStr = params.trialEndsAt.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -293,14 +316,14 @@ export function trialEnding(params: {
   const subject = `Your ${APP_NAME} trial ends in ${params.daysLeft} day${params.daysLeft === 1 ? "" : "s"}`;
   const html = layout(
     heading(
-      `Your trial ends ${params.daysLeft === 1 ? "tomorrow" : `in ${params.daysLeft} days`}`,
+      `Your trial ends ${h.daysLeft === 1 ? "tomorrow" : `in ${h.daysLeft} days`}`,
     ) +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
-        `Your free trial for <strong>${params.accountName}</strong> ends on <strong>${trialEndStr}</strong>. ` +
+        `Your free trial for <strong>${h.accountName}</strong> ends on <strong>${trialEndStr}</strong>. ` +
           `Add a payment method now to keep full access without interruption.`,
       ) +
-      button("Add Payment Method", params.upgradeUrl) +
+      button("Add Payment Method", h.upgradeUrl) +
       smallNote(
         "No action needed if you choose not to continue — your account will be automatically downgraded to the free plan.",
       ),
@@ -326,16 +349,17 @@ export function memberJoined(params: {
   roleLabel: string;
   membersUrl: string;
 }): EmailContent {
+  const h = escapeFields(params);
   const subject = `${params.newMemberName} joined ${params.accountName}`;
   const html = layout(
-    heading(`New member joined ${params.accountName}`) +
-      para(`Hi ${params.ownerFirstName || "there"},`) +
+    heading(`New member joined ${h.accountName}`) +
+      para(`Hi ${h.ownerFirstName || "there"},`) +
       para(
-        `<strong>${params.newMemberName}</strong> (${params.newMemberEmail}) has accepted their invitation ` +
-          `and joined <strong>${params.accountName}</strong> as a <strong>${params.roleLabel}</strong>.`,
+        `<strong>${h.newMemberName}</strong> (${h.newMemberEmail}) has accepted their invitation ` +
+          `and joined <strong>${h.accountName}</strong> as a <strong>${h.roleLabel}</strong>.`,
       ) +
-      button("View Team", params.membersUrl),
-    `${params.newMemberName} joined your team`,
+      button("View Team", h.membersUrl),
+    `${h.newMemberName} joined your team`,
   );
   const text =
     `Hi ${params.ownerFirstName || "there"},\n\n` +
@@ -354,16 +378,17 @@ export function passwordResetRequest(params: {
   resetUrl: string;
   expiresInHours?: number;
 }): EmailContent {
+  const h = escapeFields(params);
   const subject = `Reset your ${APP_NAME} password`;
   const html = layout(
     heading("Reset your password") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
         `We received a request to reset your password. Click the button below to choose a new one.`,
       ) +
-      button("Reset Password", params.resetUrl) +
+      button("Reset Password", h.resetUrl) +
       smallNote(
-        `This link expires in ${params.expiresInHours ?? 1} hour. ` +
+        `This link expires in ${h.expiresInHours ?? 1} hour. ` +
           `If you didn't request a password reset, you can safely ignore this email — your password won't change.`,
       ),
     "Reset your password",
@@ -388,15 +413,16 @@ export function finishSignup(params: {
   url: string;
   expiresInHours?: number;
 }): EmailContent {
+  const h = escapeFields(params);
   const hours = params.expiresInHours ?? 24;
   const subject = `Finish creating your ${APP_NAME} account`;
   const html = layout(
     heading("Finish creating your account") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
         `Someone (probably you) started creating a ${APP_NAME} account with this email address. Choose your password to finish, which also confirms this address is yours.`,
       ) +
-      button("Choose password", params.url) +
+      button("Choose password", h.url) +
       smallNote(
         `This link expires in ${hours} hours. If you didn't try to sign up, ignore this email: nobody can use the account without this link.`,
       ),
@@ -417,10 +443,11 @@ export function finishSignup(params: {
 export function passwordResetSuccess(params: {
   firstName: string;
 }): EmailContent {
+  const h = escapeFields(params);
   const subject = `Your ${APP_NAME} password has been changed`;
   const html = layout(
     heading("Password changed successfully") +
-      para(`Hi ${params.firstName || "there"},`) +
+      para(`Hi ${h.firstName || "there"},`) +
       para(
         `Your password has been changed successfully. You've been logged out of all devices for security.`,
       ) +
@@ -453,6 +480,7 @@ export function feedbackReceived(params: {
   feedbackId: string;
   adminPanelUrl: string;
 }): EmailContent {
+  const h = escapeFields(params);
   const typeLabel: Record<string, string> = {
     BUG_REPORT: "🐛 Bug Report",
     FEATURE_REQUEST: "💡 Feature Request",
@@ -466,9 +494,9 @@ export function feedbackReceived(params: {
 
   const html = layout(
     heading(`New ${label} received`) +
-      para(`Hi ${params.adminName || "there"},`) +
+      para(`Hi ${h.adminName || "there"},`) +
       para(
-        `<strong>${params.userName}</strong> (${params.userEmail}) submitted a new ${label.toLowerCase()}.`,
+        `<strong>${h.userName}</strong> (${h.userEmail}) submitted a new ${label.toLowerCase()}.`,
       ) +
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
         style="margin:20px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
@@ -478,22 +506,22 @@ export function feedbackReceived(params: {
               Title
             </p>
             <p style="margin:0 0 16px;font-size:15px;color:#111827;font-weight:600;">
-              ${params.title}
+              ${h.title}
             </p>
             <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">
               Description
             </p>
             <p style="margin:0;font-size:14px;color:#374151;line-height:1.6;white-space:pre-wrap;">
-              ${params.description.slice(0, 500)}${params.description.length > 500 ? "..." : ""}
+              ${h.description.slice(0, 500)}${h.description.length > 500 ? "..." : ""}
             </p>
           </td>
         </tr>
       </table>` +
-      button("Review in Admin Panel", params.adminPanelUrl) +
+      button("Review in Admin Panel", h.adminPanelUrl) +
       smallNote(
-        `Feedback ID: ${params.feedbackId} · Submitted by ${params.userEmail}`,
+        `Feedback ID: ${h.feedbackId} · Submitted by ${h.userEmail}`,
       ),
-    `New ${label} from ${params.userName}`,
+    `New ${label} from ${h.userName}`,
   );
 
   const text =
@@ -505,5 +533,32 @@ export function feedbackReceived(params: {
     `Feedback ID: ${params.feedbackId}\n\n` +
     `— ${APP_NAME}`;
 
+  return { subject, html, text };
+}
+
+/**
+ * Alert notification (an alert rule fired, recovered or saw an event).
+ */
+export function alertNotification(params: {
+  kind: "FIRING" | "RESOLVED" | "EVENT";
+  title: string;
+  message: string;
+  accountName: string;
+  ruleName: string;
+  url: string;
+}): EmailContent {
+  const h = escapeFields(params);
+  const tag = params.kind === "FIRING" ? "Alert" : params.kind === "RESOLVED" ? "Resolved" : "Notice";
+  const subject = `[${tag}] ${params.title} — ${params.accountName}`;
+  const color = params.kind === "FIRING" ? "#dc2626" : params.kind === "RESOLVED" ? "#16a34a" : "#2563eb";
+  const html = layout(
+    `<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${color};">${tag}</p>` +
+      heading(h.title) +
+      para(h.message.replace(/\n/g, "<br>")) +
+      button("Open the dashboard", params.url) +
+      smallNote(`Sent by the alert rule “${h.ruleName}” of ${h.accountName}. Change or turn off alerts in the dashboard under Alerts.`),
+    params.title,
+  );
+  const text = `${tag}: ${params.title}\n\n${params.message}\n\n${params.url}\n\nAlert rule: ${params.ruleName} (${params.accountName})\n— ${APP_NAME}`;
   return { subject, html, text };
 }

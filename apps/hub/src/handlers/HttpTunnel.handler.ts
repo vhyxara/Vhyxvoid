@@ -16,6 +16,7 @@
 import type { RequestInspectorService } from '@/services/RequestInspector.service';
 import type { TunnelPolicyCache } from '@/services/TunnelPolicyCache.service';
 import type { InboxService } from '@/services/Inbox.service';
+import type { TrafficStatsService } from '@/services/TrafficStats.service';
 import {
   ACCESS_COOKIE,
   HUB_ERROR_HEADER,
@@ -69,6 +70,12 @@ export function requestHostname(req: IncomingMessage): string {
   return withoutPort.endsWith('.') ? withoutPort.slice(0, -1) : withoutPort;
 }
 
+/** Which tunnel a request is for when the hostname does not say (custom domains). */
+export interface TunnelRoute {
+  label: string;
+  accountSlug: string;
+}
+
 /** The caller's address as nginx saw it (X-Real-IP), else the TCP peer. */
 function clientIp(req: IncomingMessage): string | null {
   const real = req.headers['x-real-ip'];
@@ -112,6 +119,8 @@ export class HttpTunnelHandler {
     private readonly pepper: string = process.env.SERVER_HMAC_PEPPER ?? '',
     // Webhook inbox for offline tunnels; absent means none.
     private readonly inbox?: InboxService,
+    // Per-minute traffic stats (alerts, charts); absent means none.
+    private readonly stats?: TrafficStatsService,
   ) {}
 
   /**
@@ -137,7 +146,11 @@ export class HttpTunnelHandler {
    * Handle a tunnel HTTP request end-to-end.
    * Writes the response directly to res.
    */
-  async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  /**
+   * @param route set for a verified custom domain (resolved by the caller);
+   *   absent means the tunnel is named by the `<slug>--<label>` hostname.
+   */
+  async handle(req: IncomingMessage, res: ServerResponse, route?: TunnelRoute): Promise<void> {
     const hostname = requestHostname(req);
     // CORS preflights (OPTIONS) are forwarded to the backend like any other
     // request, so the backend's own CORS policy decides. The hub used to
@@ -161,8 +174,7 @@ export class HttpTunnelHandler {
     // This allows labels with dots: "my.app.tanveer.vhyxvoid.com" → label=my.app, slug=tanveer
     // const accountSlug = parts[parts.length - 1];
     // const label = parts.slice(0, -1).join('.');
-    const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
-    const parsed = this.parseSubdomain(subdomain);
+    const parsed = route ?? this.parseSubdomain(hostname.slice(0, -(this.hubDomain.length + 1)));
 
     if (!parsed) {
       return this.sendError(
@@ -311,8 +323,12 @@ export class HttpTunnelHandler {
     let streamKept = 0;
     let streamSize = 0;
     const capture = (response: TunnelResponseMsg | null, error: string | null) => {
-      if (captured || !this.inspector) return;
+      if (captured) return;
       captured = true;
+      // What the caller received: the app's status, or the hub's 502/504.
+      const finalStatus = response?.status ?? streamHead?.status ?? (error === 'AGENT_TIMEOUT' ? 504 : 502);
+      this.stats?.record(entryAccountId, label, finalStatus, Date.now() - startedAt);
+      if (!this.inspector) return;
       const resHeaders = response?.headers ?? streamHead?.headers ?? {};
       const resBinary = response?.bodyEncoding ? response.bodyEncoding === 'base64' : isBinaryContentType(resHeaders['content-type']);
       const entry: InspectedRequest = {
@@ -476,10 +492,9 @@ export class HttpTunnelHandler {
     });
   }
 
-  async handleWebSocket(req: IncomingMessage, socket: Socket, head: Buffer): Promise<void> {
+  async handleWebSocket(req: IncomingMessage, socket: Socket, head: Buffer, route?: TunnelRoute): Promise<void> {
     const hostname = requestHostname(req);
-    const subdomain = hostname.slice(0, -(this.hubDomain.length + 1));
-    const parsed = this.parseSubdomain(subdomain);
+    const parsed = route ?? this.parseSubdomain(hostname.slice(0, -(this.hubDomain.length + 1)));
 
     if (!parsed || !isOriginFormPath(req.url)) {
       socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');

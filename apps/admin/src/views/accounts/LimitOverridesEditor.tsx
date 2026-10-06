@@ -15,7 +15,9 @@ export const NUMERIC_LIMITS = [
   ['publicPathRateLimitPerMinute', 'Public URL requests / minute'],
   ['analyticsRetentionDays', 'Analytics retention (days)'],
   ['inspectorRequests', 'Inspector: requests kept per tunnel (0 = off)'],
-  ['inboxRequests', 'Webhook inbox: requests held per tunnel (0 = off)']
+  ['inboxRequests', 'Webhook inbox: requests held per tunnel (0 = off)'],
+  ['maxCustomDomains', 'Custom domains (needs the Custom domains switch below)'],
+  ['maxAlertRules', 'Alert rules (0 = no alerts)']
 ] as const
 
 export const BOOLEAN_LIMITS = [

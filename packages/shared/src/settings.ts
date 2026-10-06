@@ -61,6 +61,8 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "analyticsRetentionDays",
   "inspectorRequests",
   "inboxRequests",
+  "maxCustomDomains",
+  "maxAlertRules",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
@@ -159,6 +161,7 @@ export const SETTING_DEFINITIONS = {
 
   "plans.overrides": { group: "plans", label: "Plan limit overrides", description: "Per-plan overrides of the built-in limits. Use null for unlimited. Changes apply within a minute.", type: "json", default: {}, public: false, validate: validatePlanOverrides },
 
+  "tunnels.customDomainTarget": { group: "tunnels", label: "Custom domain target", description: "The hostname customers point their domains at with a CNAME (e.g. edge.vhyxvoid.com, an A record on your edge server). Empty disables adding custom domains.", type: "string", default: "", public: true, maxLength: 253 },
   "tunnels.newAgentsEnabled": { group: "tunnels", label: "Accept new agent connections", description: "When off, the hub refuses new agent registrations (running tunnels stay up). For incidents.", type: "boolean", default: true, public: false },
 
   "support.email": { group: "support", label: "Support email", description: "Shown on the website and in emails.", type: "email", default: "support@vhyxvoid.com", public: true },
@@ -166,6 +169,8 @@ export const SETTING_DEFINITIONS = {
 
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
+  "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
+  "features.alerts": { group: "features", label: "Alerts", description: "Customers can create alert rules (tunnel offline, error rate, usage, inbox, domains) delivered by email, in-app and webhook.", type: "boolean", default: true, public: true },
   "features.feedbackEnabled": { group: "features", label: "Feedback form", description: "Let signed-in users send feedback from the dashboard.", type: "boolean", default: true, public: true },
 } as const satisfies Record<string, SettingDefinition>;
 

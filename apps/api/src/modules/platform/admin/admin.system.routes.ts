@@ -198,6 +198,9 @@ export async function adminSystemRoutes(fastify: FastifyInstance, opts: { hub: H
       enforcement: {
         maxAgents: "enforced (hub, at agent connect)",
         accessRules: "enforced (creating or changing tunnel access rules; existing rules keep protecting after a downgrade)",
+        maxCustomDomains: "enforced (adding a custom domain; also needs customDomains)",
+        maxAlertRules: "enforced (creating alert rules)",
+        customDomains: "enforced (adding a custom domain)",
         inboxRequests: "enforced (hub stops holding requests for a tunnel once this many are waiting; 0 = no inbox)",
         inspectorRequests: "enforced (hub keeps this many recent requests per tunnel for 24 h; 0 turns capture off)",
         maxMembers: "enforced (invite and accept)",
@@ -209,7 +212,6 @@ export async function adminSystemRoutes(fastify: FastifyInstance, opts: { hub: H
         prodKeysAllowed: "enforced (key creation)",
         rotationAllowed: "enforced (key rotation)",
         expiryAllowed: "enforced (key creation)",
-        customDomains: "not available yet",
         analyticsRetentionDays: "not enforced (data kept)",
         prioritySupport: "informational",
       },

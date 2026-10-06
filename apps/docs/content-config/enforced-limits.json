@@ -50,11 +50,25 @@
       "label": "Requests held by a tunnel's webhook inbox while the agent is offline",
       "evidence": "apps/hub/src/services/Inbox.service.ts",
       "note": "Once this many are waiting, further requests to the offline tunnel get 503. 0 means no inbox."
+    },
+    "maxCustomDomains": {
+      "label": "Custom domains",
+      "evidence": "apps/api/src/modules/platform/domains/domains.routes.ts",
+      "note": "Needs the customDomains feature as well. Domains already added keep working after a downgrade."
+    },
+    "maxAlertRules": {
+      "label": "Alert rules",
+      "evidence": "apps/api/src/modules/platform/alerts/alerts.routes.ts",
+      "note": "Rules already created keep running after a downgrade."
+    },
+    "customDomains": {
+      "label": "Custom domains allowed",
+      "evidence": "apps/api/src/modules/platform/domains/domains.routes.ts",
+      "note": "Gate for adding custom domains; how many is maxCustomDomains."
     }
   },
   "notEnforced": {
     "maxRequestsPerMonth": "Counted (both the SDK/API-key path and, as of 2026-09-22 session S5, the public tunnel-URL path) but not blocking — decided 2026-09-22 (shared/decision.md) to count and warn, not hard-enforce. The counting mechanism now exists; nothing reads it back to warn a user yet.",
-    "customDomains": "No enforcement site; no custom-domain feature exists.",
     "prioritySupport": "Not a technical limit.",
     "rateLimitPerMinute": "Only checked for TunnelClient (WebSocket SDK) requests; agents and the public tunnel URL are never rate limited by this per-key field, by design — a tunnel URL has no key to check (public webhook callers hold none). CORRECTED 2026-09-22: for TunnelClient requests the plan's real limit now survives a cache reload too (previously it reset to unlimited after ~5 minutes or any rotation/update/revoke). See shared/decision.md, \"S3\". The public tunnel-URL path now has its own, separate, per-account limit instead — see publicPathRateLimitPerMinute below (session S5).",
     "allowedEnvironments": "Unused; prodKeysAllowed is what is checked.",

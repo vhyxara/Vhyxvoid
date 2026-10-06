@@ -107,6 +107,12 @@ export class HubClient {
     return this.call<{ connected: boolean }>(`/internal/inbox/${action}?${q}`, "POST").catch(() => null);
   }
 
+  /** Drop the hub's cached route for a custom domain. Best effort. */
+  async invalidateDomain(hostname: string): Promise<void> {
+    if (!this.configured) return;
+    await this.call(`/internal/domains/invalidate?${new URLSearchParams({ hostname })}`, "POST").catch(() => {});
+  }
+
   /** Disconnect every live agent of an account (suspension, deletion). Best effort. */
   async disconnectAccount(accountId: string): Promise<number> {
     if (!this.configured) return 0;

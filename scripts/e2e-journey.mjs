@@ -222,6 +222,10 @@ const backend = createServer((q, r) => {
       });
       return;
     }
+    if (url.pathname === "/status/500") {
+      r.writeHead(500);
+      return r.end("boom");
+    }
     if (url.pathname === "/status/418") {
       r.writeHead(418);
       return r.end("teapot");
@@ -1095,6 +1099,149 @@ if (process.env.ADMIN_EMAIL) {
     assert(after.status === 404 || after.status === 503, `inbox off but held: ${after.status}`);
     const purge = await I("DELETE", "/hooks?status=DELIVERED");
     assert(purge.status === 200 && purge.json.data.deleted === 3, `purge ${JSON.stringify(purge.json)}`);
+  });
+
+  await step("custom domains: claim, verify by DNS, serve the tunnel, move, remove", async () => {
+    const D = (m, p, o = {}) => api(m, `/domains/${s.personal}${p}`, { token: s.token, ...o });
+    const dnsFile = process.env.DNS_TEST_RECORDS_FILE;
+    assert(dnsFile, "DNS_TEST_RECORDS_FILE must be set for this step (API and journey)");
+    fs.writeFileSync(dnsFile, "{}");
+    const target = await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": "edge.vv.test" } } });
+    assert(target.status === 200, `target ${target.status}: ${JSON.stringify(target.json).slice(0, 200)}`);
+    const host = `app-${RUN}.journey.test`;
+    const free = await D("POST", "", { body: { hostname: host, label: "site" } });
+    assert(free.status === 402, `FREE should be refused: ${free.status}`);
+    const grant = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxAgents: 2, customDomains: true, maxCustomDomains: 2 } } });
+    assert(grant.status === 200, `override ${grant.status}`);
+    const ours = await D("POST", "", { body: { hostname: `x.${HUB_DOMAIN}`, label: "site" } });
+    assert(ours.status === 400, `platform subdomain accepted: ${ours.status}`);
+    const add = await D("POST", "", { body: { hostname: `HTTPS://${host.toUpperCase()}./`, label: "site" } });
+    assert(add.status === 201 && add.json.data.hostname === host && add.json.data.status === "PENDING_VERIFICATION", `add ${add.status}: ${JSON.stringify(add.json).slice(0, 300)}`);
+    const dom = add.json.data;
+    assert(dom.records.routing?.value === "edge.vv.test", "routing record missing");
+    const again = await D("POST", "", { body: { hostname: host, label: "site" } });
+    assert(again.status === 409, `duplicate ${again.status}`);
+
+    const allow = async (h) => (await fetch(`${API}/public/domains/allow?domain=${encodeURIComponent(h)}`)).status;
+    assert((await allow(host)) === 404, "certificate allowed before verification");
+    const before = await tunnel(host, "GET", "/echo");
+    assert(before.status === 404 && before.headers["x-vhyxvoid-error"] === "UNKNOWN_DOMAIN", `unverified domain routed: ${before.status}`);
+
+    fs.writeFileSync(dnsFile, JSON.stringify({ [dom.records.verification.name]: { TXT: ["unrelated", dom.records.verification.value] }, [host]: { CNAME: ["edge.vv.test."] } }));
+    const check = await D("POST", `/${dom.id}/check`);
+    assert(check.status === 200 && check.json.data.status === "ACTIVE", `check ${check.status}: ${JSON.stringify(check.json).slice(0, 300)}`);
+    assert((await allow(host)) === 200, "certificate not allowed after verification");
+
+    const agent = startAgent({ key: s.adminKey.keyId, secret: s.adminKey.secret, port: s.backendPort, label: "site" });
+    try {
+      await agent.waitFor(/Public:\s+(\S+)/, 20_000);
+      const r = await tunnel(host, "GET", "/echo?via=custom");
+      assert(r.status === 200 && JSON.parse(r.body).query === "?via=custom", `custom domain request ${r.status}: ${r.body}`);
+      const moved = await D("PATCH", `/${dom.id}`, { body: { label: "elsewhere" } });
+      assert(moved.status === 200, `move ${moved.status}`);
+      const gone = await tunnel(host, "GET", "/echo");
+      assert(gone.status === 404 && gone.headers["x-vhyxvoid-error"] === "TUNNEL_OFFLINE", `moved domain still served the old tunnel: ${gone.status}`);
+      await D("PATCH", `/${dom.id}`, { body: { label: "site" } });
+      const back = await tunnel(host, "GET", "/echo");
+      assert(back.status === 200, `moved back ${back.status}`);
+      const list = await D("GET", "");
+      assert(list.json.data.available && list.json.data.domains.some((d) => d.hostname === host && d.status === "ACTIVE"), "list");
+      const adminList = await P("GET", `/domains?search=${encodeURIComponent(host)}`);
+      assert(adminList.status === 200 && adminList.json.items.length === 1 && !("verificationToken" in adminList.json.items[0]), `admin list ${adminList.status}`);
+    } finally {
+      agent.child.kill("SIGINT");
+      await Promise.race([agent.exited, sleep(5_000)]);
+    }
+    const del = await D("DELETE", `/${dom.id}`);
+    assert(del.status === 200, `delete ${del.status}`);
+    assert((await allow(host)) === 404, "certificate still allowed after removal");
+    const after = await tunnel(host, "GET", "/echo");
+    assert(after.status === 404 && after.headers["x-vhyxvoid-error"] === "UNKNOWN_DOMAIN", `removed domain still routed: ${after.status}`);
+    await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": null } } });
+  });
+
+  await step("alerts: test notification, error rate fires and resolves over a webhook, history", async () => {
+    const AL = (m, p, o = {}) => api(m, `/alerts/${s.personal}${p}`, { token: s.token, ...o });
+    const received = [];
+    const { createServer } = await import("node:http");
+    const receiver = createServer((req, res) => {
+      let b = "";
+      req.on("data", (c) => (b += c));
+      req.on("end", () => {
+        try {
+          received.push(JSON.parse(b));
+        } catch {}
+        res.writeHead(204).end();
+      });
+    });
+    await new Promise((r) => receiver.listen(0, "127.0.0.1", r));
+    cleanups.push(() => receiver.close());
+    const hookUrl = `http://127.0.0.1:${receiver.address().port}/hook`;
+    const flushHub = () => fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET } });
+    const runAlerts = () => P("POST", "/system/jobs/alerts/run");
+    const waitFor = async (pred, ms = 5_000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        if (pred()) return true;
+        await sleep(100);
+      }
+      return false;
+    };
+
+    const bad = await AL("POST", "", { body: { type: "ERROR_RATE", name: "bad", webhookUrl: "ftp://example.com/x" } });
+    assert(bad.status === 400, `bad webhook accepted: ${bad.status}`);
+    const grant = await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxAgents: 2 } } });
+    assert(grant.status === 200, `override ${grant.status}`);
+    const created = await AL("POST", "", {
+      body: { type: "ERROR_RATE", name: "Errors on alerty", label: "alerty", threshold: 50, windowMinutes: 5, minRequests: 5, webhookUrl: hookUrl, emails: ["oncall@example.com"] },
+    });
+    assert(created.status === 201, `create ${created.status}: ${JSON.stringify(created.json).slice(0, 300)}`);
+    const rule = created.json.data;
+
+    const test = await AL("POST", `/${rule.id}/test`);
+    assert(test.status === 200 && test.json.data.deliveries?.webhook === "ok", `test ${test.status}: ${JSON.stringify(test.json)}`);
+    assert(test.json.data.deliveries.email >= 2 && test.json.data.deliveries.inApp >= 1, `channels ${JSON.stringify(test.json.data.deliveries)}`);
+    assert(await waitFor(() => received.some((p) => p.alert?.kind === "EVENT" && /^Test:/.test(p.alert.title))), "test webhook not received");
+    const notes = await api("GET", "/notification/notifications", { token: s.token });
+    assert(JSON.stringify(notes.json).includes("Test: Errors on alerty"), "in-app notification missing");
+
+    const agent = startAgent({ key: s.adminKey.keyId, secret: s.adminKey.secret, port: s.backendPort, label: "alerty" });
+    try {
+      const host = new URL((await agent.waitFor(/Public:\s+(\S+)/, 20_000))[1]).host;
+      for (let i = 0; i < 10; i++) assert((await tunnel(host, "GET", "/status/500")).status === 500, "backend 500 not passed through");
+      assert((await flushHub()).status === 200, "hub stats flush");
+      const fire = await runAlerts();
+      assert(fire.status === 200, `run ${fire.status}: ${JSON.stringify(fire.json).slice(0, 200)}`);
+      assert(await waitFor(() => received.some((p) => p.alert?.kind === "FIRING" && p.alert.subject === "alerty")), `no FIRING webhook: ${JSON.stringify(fire.json)}`);
+      const firing = await AL("GET", "");
+      assert(firing.json.data.rules.find((r) => r.id === rule.id).firing.some((f) => f.subject === "alerty"), "rule not shown as firing");
+      const quiet = await runAlerts();
+      assert(received.filter((p) => p.alert?.kind === "FIRING").length === 1, `repeated FIRING ${JSON.stringify(quiet.json)}`);
+
+      for (let i = 0; i < 40; i++) await tunnel(host, "GET", "/echo");
+      await flushHub();
+      await runAlerts();
+      assert(await waitFor(() => received.some((p) => p.alert?.kind === "RESOLVED" && p.alert.subject === "alerty")), "no RESOLVED webhook");
+      const history = await AL("GET", `/events?ruleId=${rule.id}`);
+      const kinds = history.json.data.events.map((e) => e.kind);
+      assert(kinds.includes("FIRING") && kinds.includes("RESOLVED") && kinds.includes("EVENT"), `history ${kinds}`);
+    } finally {
+      agent.child.kill("SIGINT");
+      await Promise.race([agent.exited, sleep(5_000)]);
+    }
+
+    if (process.env.E2E_SLOW_ALERTS === "1") {
+      const off = await AL("POST", "", { body: { type: "TUNNEL_OFFLINE", name: "alerty down", label: "alerty", windowMinutes: 1, webhookUrl: hookUrl, notifyMembers: false } });
+      assert(off.status === 201, `offline rule ${off.status}`);
+      await sleep(65_000);
+      await runAlerts();
+      assert(await waitFor(() => received.some((p) => p.alert?.kind === "FIRING" && p.alert.rule.type === "TUNNEL_OFFLINE")), "offline alert did not fire");
+    }
+    await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    const rules = (await AL("GET", "")).json.data.rules;
+    for (const r of rules) await AL("DELETE", `/${r.id}`);
+    return `${received.length} webhook deliveries`;
   });
 
   await step("admin v2: suspending an account needs a reason, refuses its keys, and reactivates", async () => {

@@ -253,6 +253,8 @@ model Account {
   tunnelPolicies     TunnelPolicy[]
   tunnelInboxes      TunnelInbox[]
   inboxRequests      InboxRequest[]
+  customDomains      CustomDomain[]
+  alertRules         AlertRule[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1119,5 +1121,127 @@ model InboxRequest {
   @@index([status, nextAttemptAt])
   @@index([receivedAt])
   @@map("inbox_requests")
+}
+
+// A customer's own hostname serving one of their tunnels. Several accounts
+// may claim the same hostname while unverified; at most one verified claim
+// exists per hostname (partial unique index in the migration). The hub
+// routes only verified domains; the edge only issues certificates for them.
+model CustomDomain {
+  id                String    @id @default(uuid())
+  accountId         String
+  hostname          String
+  label             String
+  verificationToken String
+  verifiedAt        DateTime?
+  routingOk         Boolean   @default(false)
+  lastCheckedAt     DateTime?
+  lastError         String?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, hostname])
+  @@index([hostname])
+  @@index([verifiedAt, lastCheckedAt])
+  @@map("custom_domains")
+}
+
+enum AlertType {
+  TUNNEL_OFFLINE
+  ERROR_RATE
+  USAGE
+  INBOX_FAILED
+  DOMAIN
+}
+
+// One alert rule of an account (rules in packages/shared/src/alerts.ts).
+model AlertRule {
+  id            String    @id @default(uuid())
+  accountId     String
+  name          String
+  type          AlertType
+  enabled       Boolean   @default(true)
+  label         String? // tunnel scope; null = every tunnel
+  threshold     Int? // ERROR_RATE / USAGE percent
+  windowMinutes Int? // TUNNEL_OFFLINE / ERROR_RATE
+  minRequests   Int? // ERROR_RATE
+  notifyMembers Boolean   @default(true) // in-app + email to owners and admins
+  emails        String[]  @default([])
+  webhookUrl    String?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  /// Event rules: where the last evaluation stopped.
+  cursorAt      DateTime?
+
+  account Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  states  AlertState[]
+  events  AlertEvent[]
+
+  @@index([accountId])
+  @@index([enabled, type])
+  @@map("alert_rules")
+}
+
+// What is firing now for a state rule, per subject (tunnel label, usage period).
+model AlertState {
+  id       String   @id @default(uuid())
+  ruleId   String
+  subject  String
+  firing   Boolean
+  since    DateTime @default(now())
+  detail   Json?
+
+  rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, subject])
+  @@map("alert_states")
+}
+
+// History shown in the dashboard; one row per notification sent (or suppressed).
+model AlertEvent {
+  id         String   @id @default(uuid())
+  ruleId     String
+  accountId  String
+  subject    String
+  kind       String // FIRING | RESOLVED | EVENT
+  title      String
+  message    String
+  deliveries Json? // { email: n, inApp: n, webhook: "ok" | "error: …", suppressed?: true }
+  createdAt  DateTime @default(now())
+
+  rule AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([ruleId, createdAt])
+  @@map("alert_events")
+}
+
+// Public traffic per tunnel per minute, written by the hub (batched). Feeds
+// error-rate alerts and traffic charts. Kept TUNNEL_STATS_RETENTION_DAYS.
+model TunnelMinuteStat {
+  accountId String
+  label     String
+  minute    DateTime
+  requests  Int      @default(0)
+  errors4xx Int      @default(0)
+  errors5xx Int      @default(0)
+  totalMs   BigInt   @default(0)
+
+  @@id([accountId, label, minute])
+  @@index([minute])
+  @@map("tunnel_minute_stats")
+}
+
+// Lets exactly one API instance run a periodic job at a time.
+model JobLease {
+  name      String   @id
+  holder    String
+  expiresAt DateTime
+
+  @@map("job_leases")
 }
 

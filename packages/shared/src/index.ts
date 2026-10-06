@@ -21,3 +21,5 @@ export * from "./settings";
 export * from "./inspector";
 export * from "./tunnelAccess";
 export * from "./inbox";
+export * from "./customDomains";
+export * from "./alerts";

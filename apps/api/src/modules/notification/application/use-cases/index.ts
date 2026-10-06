@@ -8,6 +8,7 @@ import { Notification } from "@/modules/notification/domain/entities/Notificatio
 import { INotificationRepository } from "@/modules/notification/domain/repositories/INotificationRepository";
 import { IEmailService } from "@/modules/notification/domain/services/IEmailService.notification";
 import {
+  alertNotification,
   accountInvitation,
   emailVerification,
   feedbackReceived,
@@ -374,6 +375,27 @@ export class SendFeedbackReceivedEmailUseCase {
 // knowing which use case to call. Keeps other modules thin.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SendAlertEmailUseCase — an alert rule fired, recovered or saw an event.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class SendAlertEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: {
+    to: string;
+    kind: "FIRING" | "RESOLVED" | "EVENT";
+    title: string;
+    message: string;
+    accountName: string;
+    ruleName: string;
+    url: string;
+  }): Promise<void> {
+    const { subject, html, text } = alertNotification(params);
+    await this.emailService.send({ to: params.to, subject, html, text });
+  }
+}
+
 export class NotificationService {
   readonly sendEmailVerification: SendEmailVerificationUseCase;
   readonly sendInvitation: SendInvitationEmailUseCase;
@@ -389,6 +411,7 @@ export class NotificationService {
   readonly markAllRead: MarkAllNotificationsReadUseCase;
   readonly getNotifications: GetNotificationsUseCase;
   readonly sendFeedbackReceived: SendFeedbackReceivedEmailUseCase;
+  readonly sendAlert: SendAlertEmailUseCase;
   constructor(
     emailService: IEmailService,
     notificationRepo: INotificationRepository,
@@ -415,5 +438,6 @@ export class NotificationService {
     this.sendFeedbackReceived = new SendFeedbackReceivedEmailUseCase(
       emailService,
     );
+    this.sendAlert = new SendAlertEmailUseCase(emailService);
   }
 }

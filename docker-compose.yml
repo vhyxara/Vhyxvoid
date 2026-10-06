@@ -71,6 +71,24 @@ services:
     networks:
       - platform
 
+  # TLS for customers' custom domains (certificates on demand). Reached only
+  # through nginx (SNI router on 443, port 80 for ACME); no published ports.
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: platform-caddy
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:-ops@vhyxvoid.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - platform
+    depends_on:
+      api:
+        condition: service_healthy
+
   nginx:
     image: nginx:alpine
     container_name: platform-nginx
@@ -91,6 +109,8 @@ services:
         condition: service_healthy
       admin:
         condition: service_healthy
+      caddy:
+        condition: service_started
     networks:
       - platform
 
@@ -104,6 +124,12 @@ services:
       - /root/.secrets/cloudflare.ini:/etc/cloudflare.ini:ro
     networks:
       - platform
+
+volumes:
+  # Caddy's certificates and ACME account: keep across restarts (Let's
+  # Encrypt rate limits).
+  caddy_data:
+  caddy_config:
 
 networks:
   platform:

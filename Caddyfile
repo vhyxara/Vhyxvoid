@@ -1,0 +1,48 @@
+# Edge for customers' custom domains (api.acme.dev -> one of their tunnels).
+#
+# nginx's SNI router (nginx.conf, stream block) sends every TLS connection
+# whose hostname is not ours here, with the PROXY protocol so the client
+# address survives; nginx's port 80 sends those hostnames here too (ACME
+# HTTP-01 challenges, redirect to HTTPS). Caddy is not published on any
+# host port: only nginx reaches it.
+#
+# Certificates are requested on demand, the first time a hostname is
+# visited, and only after the API confirms it is a verified custom domain
+# (ask endpoint). Unknown hostnames get no certificate and no connection.
+{
+	email {$ACME_EMAIL:ops@vhyxvoid.com}
+
+	on_demand_tls {
+		ask http://api:9000/api/v1/public/domains/allow
+	}
+
+	servers :443 {
+		listener_wrappers {
+			proxy_protocol {
+				timeout 5s
+				# Only the nginx container connects (Docker networks).
+				allow 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32
+			}
+			tls
+		}
+	}
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+
+	reverse_proxy hub:9001 {
+		# The hub reads the caller's address from X-Real-IP (access rules, inspector).
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+		# Stream responses (server-sent events) as they come.
+		flush_interval -1
+	}
+}
+
+http:// {
+	redir https://{host}{uri} permanent
+}

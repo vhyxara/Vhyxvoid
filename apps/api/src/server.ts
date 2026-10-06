@@ -79,7 +79,28 @@ export const startServer = async () => {
   // await initRedis();
 
   await server.listen({ port: PORT, host: "0.0.0.0" });
-  console.log(`[hub] HTTP listening on ${PORT}`);
+  console.log(`[api] HTTP listening on ${PORT}`);
+
+  // Graceful shutdown (docker stop sends SIGTERM): stop accepting, let
+  // in-flight requests finish, run onClose hooks (background jobs stop and
+  // release their leases), then exit. A stuck close is cut off after 15 s.
+  let closing = false;
+  const shutdown = (signal: string) => {
+    if (closing) return;
+    closing = true;
+    console.log(`[api] ${signal} received, shutting down`);
+    const force = setTimeout(() => process.exit(1), 15_000);
+    force.unref();
+    server
+      .close()
+      .then(() => process.exit(0))
+      .catch((err) => {
+        console.error("[api] shutdown failed", err);
+        process.exit(1);
+      });
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 
   // createWebSocketServer(server.server as any, { path: "/ws" });
 };
