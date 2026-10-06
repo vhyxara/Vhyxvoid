@@ -3,6 +3,8 @@
 //   node scripts/docs-settings-reference.mjs
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const s = require('../packages/shared/dist/settings.js')
@@ -19,7 +21,7 @@ for (const [key, d] of Object.entries(s.SETTING_DEFINITIONS).sort((a, b) => grou
   const type = d.type + (d.options ? ` (${d.options.join(', ')})` : '') + (d.min !== undefined ? ` ${d.min}–${d.max ?? '∞'}` : '')
   out += `| \`${key}\` | ${type} | ${def.length > 40 ? 'see admin panel' : '`' + def.replace(/\|/g, '\\|') + '`'} | ${d.public ? 'yes' : 'no'} | ${esc(d.label)}. ${esc(d.description)} |\n`
 }
-const file = 'apps/docs/content/docs/operators/settings-reference.mdx'
+const file = join(dirname(fileURLToPath(import.meta.url)), '..', 'apps/docs/content/docs/operators/settings-reference.mdx')
 const marker = '{/* Generated from packages/shared/src/settings.ts (SETTING_DEFINITIONS). */}\n'
 const src = readFileSync(file, 'utf8')
 writeFileSync(file, src.slice(0, src.indexOf(marker) + marker.length) + out)

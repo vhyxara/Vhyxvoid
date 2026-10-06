@@ -74,6 +74,25 @@ export class HubClient {
     return (await this.call<{ disconnected: boolean }>(`/internal/agents/${encodeURIComponent(agentId)}/disconnect`, "POST")).disconnected === true;
   }
 
+  /**
+   * Replay an inspected request through its tunnel. Returns the hub's answer
+   * as-is (404 gone, 422 not replayable, 200 with the new response status).
+   */
+  async replay(accountId: string, label: string, id: string): Promise<{ status: number; body: Record<string, unknown> }> {
+    if (!this.configured) throw new HubUnavailableError("HUB_INTERNAL_URL and HUB_INTERNAL_SECRET are not set");
+    try {
+      const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/internal/replay`, {
+        method: "POST",
+        headers: { "x-hub-internal-secret": this.secret, "content-type": "application/json" },
+        body: JSON.stringify({ accountId, label, id }),
+        signal: AbortSignal.timeout(65_000),
+      });
+      return { status: res.status, body: (await res.json().catch(() => ({}))) as Record<string, unknown> };
+    } catch (err) {
+      throw new HubUnavailableError(`hub unreachable: ${(err as Error).message}`);
+    }
+  }
+
   /** Disconnect every live agent of an account (suspension, deletion). Best effort. */
   async disconnectAccount(accountId: string): Promise<number> {
     if (!this.configured) return 0;

@@ -8,6 +8,7 @@ import { adminBillingRoutes } from "./admin/admin.billing.routes";
 import { adminLogRoutes } from "./admin/admin.logs.routes";
 import { adminContentRoutes, adminSettingsRoutes } from "./admin/admin.settings-content.routes";
 import { publicRoutes } from "./public/public.routes";
+import { inspectorRoutes } from "./inspector/inspector.routes";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
   const hub = new HubClient();
@@ -21,4 +22,5 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(adminSettingsRoutes, { prefix: "/api/v1/admin/settings" });
   await server.register(adminContentRoutes, { prefix: "/api/v1/admin/content" });
   await server.register(publicRoutes, { prefix: "/api/v1/public" });
+  await server.register(inspectorRoutes, { prefix: "/api/v1/inspector", hub });
 }

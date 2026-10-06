@@ -13,8 +13,10 @@
 // This runs inside the existing http.createServer callback in HubServer.
 // It does NOT use Fastify — the hub is a raw Node.js HTTP server.
 
+import type { RequestInspectorService } from '@/services/RequestInspector.service';
+import { captureBody, INSPECT_BODY_MAX_BYTES, isBinaryForInspector, maskHeaders, type InspectedRequest } from '@vhyxvoid/shared';
 import { IncomingMessage, ServerResponse } from 'http';
-import { randomUUID } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
 import { AgentRegistry, PendingRegistry, TunnelWsRegistry, closeBrowserSocket } from '@/registry';
 import { SubdomainRegistry } from '@/services/SubdomainRegistry.service';
 import {
@@ -49,6 +51,13 @@ export function requestHostname(req: IncomingMessage): string {
   return withoutPort.endsWith('.') ? withoutPort.slice(0, -1) : withoutPort;
 }
 
+/** The caller's address as nginx saw it (X-Real-IP), else the TCP peer. */
+function clientIp(req: IncomingMessage): string | null {
+  const real = req.headers['x-real-ip'];
+  if (typeof real === 'string' && real) return real;
+  return req.socket?.remoteAddress ?? null;
+}
+
 /** What a public caller is told when the agent could not produce a response. */
 export function publicAgentErrorMessage(code: string): string {
   switch (code) {
@@ -78,6 +87,8 @@ export class HttpTunnelHandler {
     // counting happens on this path (only ever true in a test). See
     // shared/decision.md, 2026-09-22, "S5 investigation and proposal".
     private readonly usageLimiter?: PublicPathUsageLimiter,
+    // Request inspector capture; absent (tests, older wiring) means none.
+    private readonly inspector?: RequestInspectorService,
   ) {}
 
   /**
@@ -205,6 +216,8 @@ export class HttpTunnelHandler {
     this.usageLimiter?.recordForwarded(entry.accountId);
 
     // Read request body
+    const startedAt = Date.now();
+    let requestBody: Buffer | null = null;
     let body: string | null = null;
     let bodyEncoding: 'utf8' | 'base64' | undefined;
     const contentLength = parseInt(req.headers['content-length'] ?? '0', 10);
@@ -231,6 +244,7 @@ export class HttpTunnelHandler {
           `Request body too large. Maximum is ${MAX_BODY_BYTES / 1024 / 1024}MB`,
         );
       }
+      requestBody = rawBuffer;
       if (rawBuffer.length > 0) {
         bodyEncoding = isBinaryContentType(req.headers['content-type']) ? 'base64' : 'utf8';
         body = rawBuffer.toString(bodyEncoding);
@@ -243,8 +257,61 @@ export class HttpTunnelHandler {
     // Build forward message
     const requestId = `req_${randomUUID().replace(/-/g, '')}`;
 
+    // A replay from the dashboard comes back through this same path from the
+    // hub itself, marked with the internal secret; anyone else's markers are
+    // ignored. Both headers are stripped before forwarding.
+    const replayOf = this.replayMarker(req);
+
     // Strip hop-by-hop headers before forwarding
     const forwardHeaders = this.sanitizeHeaders(req.headers as Record<string, string>);
+    delete forwardHeaders['x-vhyxvoid-internal'];
+    delete forwardHeaders['x-vhyxvoid-replay-of'];
+
+    // Request inspector: one entry per request that reached an agent,
+    // written after the response (never on the request's critical path).
+    let captured = false;
+    let streamHead: { status: number; headers: Record<string, string> } | null = null;
+    // First INSPECT_BODY_MAX_BYTES of a streamed body, plus its full size.
+    const streamChunks: Buffer[] = [];
+    let streamKept = 0;
+    let streamSize = 0;
+    const capture = (response: TunnelResponseMsg | null, error: string | null) => {
+      if (captured || !this.inspector) return;
+      captured = true;
+      const resHeaders = response?.headers ?? streamHead?.headers ?? {};
+      const resBinary = response?.bodyEncoding ? response.bodyEncoding === 'base64' : isBinaryContentType(resHeaders['content-type']);
+      const entry: InspectedRequest = {
+        id: requestId,
+        at: new Date(startedAt).toISOString(),
+        label,
+        accountSlug,
+        host: hostname,
+        method: req.method ?? 'GET',
+        path: req.url ?? '/',
+        clientIp: replayOf ? null : clientIp(req),
+        request: { headers: maskHeaders(forwardHeaders), body: captureBody(requestBody, isBinaryForInspector(req.headers['content-type'])) },
+        response: response
+          ? {
+              status: response.status ?? 200,
+              headers: maskHeaders(resHeaders),
+              body: captureBody(response.body ? Buffer.from(response.body, resBinary ? 'base64' : 'utf8') : null, resBinary),
+              streamed: false,
+            }
+          : streamHead
+            ? {
+                status: streamHead.status,
+                headers: maskHeaders(streamHead.headers),
+                body: { ...captureBody(Buffer.concat(streamChunks), resBinary), size: streamSize, truncated: streamSize > streamKept },
+                streamed: true,
+              }
+            : null,
+        durationMs: response?.durationMs ?? Date.now() - startedAt,
+        error,
+        replayOf,
+      };
+      this.inspector.record(entryAccountId, entry);
+    };
+    const entryAccountId = entry.accountId;
 
     const forward: TunnelForwardMsg = {
       v: '1',
@@ -300,12 +367,14 @@ export class HttpTunnelHandler {
           clearTimeout(timer);
           settled = true;
           this.writeResponse(res, response);
+          capture(response, null);
           outerResolve();
         },
 
         reject: (code: string, message: string) => {
           clearTimeout(timer);
           settled = true;
+          capture(null, code);
           if (res.headersSent) {
             // Mid-stream: the status line is gone; cut the response so the
             // caller sees it end abnormally rather than hang.
@@ -326,16 +395,24 @@ export class HttpTunnelHandler {
           ? {
               start: (status, headers) => {
                 clearTimeout(timer);
+                streamHead = { status: status || 200, headers };
                 this.writeStreamHead(res, status, headers);
               },
               chunk: (data) => {
                 res.write(data);
+                streamSize += data.length;
+                if (this.inspector && streamKept < INSPECT_BODY_MAX_BYTES) {
+                  const part = data.subarray(0, INSPECT_BODY_MAX_BYTES - streamKept);
+                  streamChunks.push(part);
+                  streamKept += part.length;
+                }
                 // A caller that reads far slower than the backend writes
                 // would otherwise pile the stream up in hub memory.
                 if (res.writableLength > MAX_STREAM_BUFFER_BYTES) onCallerGone(), res.destroy();
               },
               end: (error) => {
                 settled = true;
+                capture(null, error ? 'STREAM_ERROR' : null);
                 if (error) res.destroy();
                 else res.end();
                 outerResolve();
@@ -536,6 +613,18 @@ export class HttpTunnelHandler {
   }
 
   // ── Private helpers ───────────────────────────────────────
+
+  /** The replayed request id, only when the hub itself sent this request. */
+  private replayMarker(req: IncomingMessage): string | null {
+    const secret = process.env.HUB_INTERNAL_SECRET;
+    const given = req.headers['x-vhyxvoid-internal'];
+    const of = req.headers['x-vhyxvoid-replay-of'];
+    if (!secret || typeof given !== 'string' || typeof of !== 'string') return null;
+    const a = Buffer.from(given);
+    const b = Buffer.from(secret);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    return /^req_[a-f0-9]{32}$/.test(of) ? of : null;
+  }
 
   private parseSubdomain(subdomain: string): { label: string; accountSlug: string } | null {
     const separatorIndex = subdomain.indexOf('--');

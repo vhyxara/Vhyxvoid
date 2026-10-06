@@ -59,6 +59,7 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "maxScopesPerKey",
   "rateLimitPerMinute",
   "analyticsRetentionDays",
+  "inspectorRequests",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
@@ -161,6 +162,7 @@ export const SETTING_DEFINITIONS = {
   "support.email": { group: "support", label: "Support email", description: "Shown on the website and in emails.", type: "email", default: "support@vhyxvoid.com", public: true },
   "support.docsUrl": { group: "support", label: "Documentation URL", description: "Where 'Docs' links go.", type: "url", default: "/docs", public: true },
 
+  "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.feedbackEnabled": { group: "features", label: "Feedback form", description: "Let signed-in users send feedback from the dashboard.", type: "boolean", default: true, public: true },
 } as const satisfies Record<string, SettingDefinition>;
 

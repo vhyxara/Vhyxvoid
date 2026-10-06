@@ -18,3 +18,4 @@ export * from "./planResolver";
 export * from "./accountStatus";
 export * from "./publicUsage";
 export * from "./settings";
+export * from "./inspector";

@@ -25,6 +25,9 @@ import { SubdomainRegistry } from './services/SubdomainRegistry.service';
 import { HttpTunnelHandler } from './handlers/HttpTunnel.handler';
 import WebSocket from 'ws';
 import { isInternalRequestAuthorized } from './utils/internalAuth';
+import { RequestInspectorService } from '@/services/RequestInspector.service';
+import { replayInspectedRequest } from '@/services/Replay.service';
+import type { InspectorRedisWriter } from '@vhyxvoid/shared';
 
 /** Largest WS frame accepted once a socket is registered (10 MB body as base64 + JSON). */
 const MAX_FRAME_BYTES = 32 * 1024 * 1024;
@@ -133,6 +136,7 @@ export class HubServer {
       config.hubDomain,
       new TunnelWsRegistry(),
       this.publicPathUsageLimiter,
+      new RequestInspectorService(config.redis as unknown as InspectorRedisWriter, config.tunnelSessionRepo),
     );
 
     // context.md Known Risk #57 (E6): closes the "no status check exists on
@@ -427,6 +431,7 @@ export class HubServer {
    * GET  /internal/stats                       live counters
    * GET  /internal/agents                      connected agents
    * POST /internal/agents/:agentId/disconnect  force-disconnect one agent
+   * POST /internal/replay                      replay an inspected request {accountId, label, id}
    * Authorized by `x-hub-internal-secret` = HUB_INTERNAL_SECRET; fails closed.
    * nginx must not expose /internal/ publicly (see nginx.conf).
    */
@@ -445,6 +450,23 @@ export class HubServer {
       const accountId = url.searchParams.get('accountId');
       const agents = this.listAgents().filter((a) => !accountId || a.accountId === accountId);
       return send(200, { agents });
+    }
+    if (req.method === 'POST' && url.pathname === '/internal/replay') {
+      readJsonBody(req)
+        .then((body) =>
+          replayInspectedRequest({
+            redis: this.config.redis,
+            hubPort: this.config.port,
+            hubDomain: this.config.hubDomain,
+            secret: process.env.HUB_INTERNAL_SECRET!,
+            accountId: String(body.accountId ?? ''),
+            label: String(body.label ?? ''),
+            id: String(body.id ?? ''),
+          }),
+        )
+        .then((r) => send(r.httpStatus, r.body))
+        .catch((err) => send(500, { error: (err as Error).message }));
+      return;
     }
     const m = url.pathname.match(/^\/internal\/agents\/([A-Za-z0-9_]+)\/disconnect$/);
     if (req.method === 'POST' && m) {
@@ -470,4 +492,27 @@ export class HubServer {
       '',
     ].join('\n');
   }
+}
+
+/** A small JSON body (internal endpoints only). */
+function readJsonBody(req: import('http').IncomingMessage, max = 16 * 1024): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > max) {
+        reject(new Error('Body too large'));
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on('end', () => {
+      try {
+        resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {});
+      } catch {
+        reject(new Error('Invalid JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
 }

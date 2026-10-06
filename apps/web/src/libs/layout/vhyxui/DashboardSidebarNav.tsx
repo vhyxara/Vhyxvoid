@@ -115,6 +115,9 @@ function OrgSubNav({
           <NavLink href={`/organizations/${id}/tunnels`} icon='tabler-plug' onNavigate={onNavigate}>
             Tunnels
           </NavLink>
+          <NavLink href={`/organizations/${id}/inspector`} icon='tabler-radar-2' onNavigate={onNavigate}>
+            Inspector
+          </NavLink>
           {isOwner && (
             <NavLink href={`/organizations/${id}/billing`} icon='tabler-credit-card' onNavigate={onNavigate}>
               Billing

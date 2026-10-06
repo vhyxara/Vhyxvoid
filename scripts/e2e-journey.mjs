@@ -629,6 +629,58 @@ await step("dashboard: tunnels list shows the connected agent", async () => {
   return `${d.activeCount} active`;
 });
 
+await step("inspector: requests are captured with credentials hidden", async () => {
+  const r = await tunnel(s.host, "POST", "/echo?inspect=1", {
+    headers: { "content-type": "application/json", authorization: "Bearer very-secret", "x-trace": "abc" },
+    body: JSON.stringify({ hello: "inspector" }),
+  });
+  assert(r.status === 200, `tunnel status ${r.status}`);
+  let entry;
+  for (let i = 0; i < 30 && !entry; i++) {
+    await sleep(200);
+    const l = await api("GET", `/inspector/${s.personal}/app`, { token: s.token });
+    entry = (l.json?.data?.requests ?? []).find((x) => x.path === "/echo?inspect=1");
+  }
+  assert(entry, "captured request not listed");
+  const o = await api("GET", `/inspector/${s.personal}`, { token: s.token });
+  assert(o.json.data.enabled && o.json.data.tunnels.some((t) => t.label === "app"), `overview ${JSON.stringify(o.json.data)}`);
+  const d = await api("GET", `/inspector/${s.personal}/app/${entry.id}`, { token: s.token });
+  const e = d.json.data;
+  assert(e.request.headers.authorization === "[hidden]", "authorization stored");
+  assert(e.request.headers["x-trace"] === "abc", "plain header lost");
+  assert(JSON.parse(e.request.body.data).hello === "inspector", "request body not kept");
+  assert(e.response?.status === 200 && e.response.body.data.includes("/echo"), "response not kept");
+  s.inspected = entry.id;
+  return `${entry.method} ${entry.path} -> ${entry.status}`;
+});
+
+await step("inspector: replay goes through the tunnel and is captured as a replay", async () => {
+  const r = await api("POST", `/inspector/${s.personal}/app/${s.inspected}/replay`, { token: s.token });
+  assert(r.status === 200 && r.json.data.status === 200, `replay ${r.status}: ${JSON.stringify(r.json)}`);
+  let again;
+  for (let i = 0; i < 30 && !again; i++) {
+    await sleep(200);
+    const l = await api("GET", `/inspector/${s.personal}/app`, { token: s.token });
+    again = (l.json?.data?.requests ?? []).find((x) => x.replayOf === s.inspected);
+  }
+  assert(again, "replay not captured");
+  const d = await api("GET", `/inspector/${s.personal}/app/${again.id}`, { token: s.token });
+  assert(!("authorization" in d.json.data.request.headers), "replay sent a hidden header");
+});
+
+await step("inspector: a request whose body was cut cannot be replayed; strangers are refused", async () => {
+  const l = await api("GET", `/inspector/${s.personal}/app?limit=500`, { token: s.token });
+  const big = (l.json.data.requests ?? []).find((x) => x.requestSize > 16 * 1024);
+  if (big) {
+    const r = await api("POST", `/inspector/${s.personal}/app/${big.id}/replay`, { token: s.token });
+    assert(r.status === 400, `truncated replay ${r.status}`);
+  }
+  const anon = await api("GET", `/inspector/${s.personal}`);
+  assert(anon.status === 401, `anonymous ${anon.status}`);
+  const other = await api("GET", `/inspector/00000000-0000-4000-8000-000000000000`, { token: s.token });
+  assert(other.status === 403, `other account ${other.status}`);
+});
+
 await step("SDK createClient reaches the tunnel", async () => {
   const sdk = await import(path.join(root, "packages/sdk/dist/index.js"));
   const createClient = sdk.createClient ?? sdk.default?.createClient;

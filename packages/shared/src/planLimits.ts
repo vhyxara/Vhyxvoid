@@ -36,6 +36,7 @@ export interface PlanLimits {
   maxMembers: number; // account members
   customDomains: boolean; // can use custom domains
   prioritySupport: boolean; // priority support tier
+  inspectorRequests: number; // requests kept per tunnel in the request inspector (0 = inspector off); kept 24 h
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -57,6 +58,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxMembers: 1,
     customDomains: false,
     prioritySupport: false,
+    inspectorRequests: 20,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -77,6 +79,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxMembers: 10,
     customDomains: true,
     prioritySupport: true,
+    inspectorRequests: 200,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -95,6 +98,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxMembers: Infinity,
     customDomains: true,
     prioritySupport: true,
+    inspectorRequests: 1_000,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

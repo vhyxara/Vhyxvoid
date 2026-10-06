@@ -13,7 +13,8 @@ export const NUMERIC_LIMITS = [
   ['maxRequestsPerMonth', 'Requests / month (shown, not blocked)'],
   ['rateLimitPerMinute', 'SDK requests / minute / key'],
   ['publicPathRateLimitPerMinute', 'Public URL requests / minute'],
-  ['analyticsRetentionDays', 'Analytics retention (days)']
+  ['analyticsRetentionDays', 'Analytics retention (days)'],
+  ['inspectorRequests', 'Inspector: requests kept per tunnel (0 = off)']
 ] as const
 
 export const BOOLEAN_LIMITS = [
