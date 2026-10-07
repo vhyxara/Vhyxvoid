@@ -24,7 +24,7 @@ const CATEGORIES = [
   { value: 'keys', label: 'API keys' },
   { value: 'tunnels', label: 'Tunnels, domains, inbox' },
   { value: 'alerts', label: 'Alerts' },
-  { value: 'apis', label: 'API client' }
+  { value: 'apis', label: 'API client and performance' }
 ]
 
 const ICONS: Record<string, string> = {

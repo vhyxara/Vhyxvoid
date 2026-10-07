@@ -31,7 +31,8 @@ export const ALERT_TYPE_INFO: Record<
   },
   USAGE: { title: 'Monthly usage', help: 'When this month’s requests reach a share of your plan.', label: false, threshold: { label: 'Percent of the plan', default: 80 } },
   INBOX_FAILED: { title: 'Webhook delivery failed', help: 'When a webhook held by the inbox gives up after its retries.', label: true },
-  DOMAIN: { title: 'Custom domain changes', help: 'When a custom domain is verified, or stops pointing at us.', label: false }
+  DOMAIN: { title: 'Custom domain changes', help: 'When a custom domain is verified, or stops pointing at us.', label: false },
+  MONITOR: { title: 'Monitor failing', help: 'When a monitor fails several checks in a row (and again when it passes).', label: true, threshold: { label: 'Failed checks in a row', default: 2 } }
 }
 
 /** Form state -> API body: empty strings become null, numbers parsed, irrelevant fields dropped. */
@@ -84,7 +85,7 @@ function initialForm(rule: AlertRule | null): FormState {
   }
 }
 
-function RuleDialog({ accountId, rule, labels, onClose }: { accountId: string; rule: AlertRule | null; labels: string[]; onClose: () => void }) {
+function RuleDialog({ accountId, rule, labels, monitors = [], onClose }: { accountId: string; rule: AlertRule | null; labels: string[]; monitors?: Array<{ id: string; name: string }>; onClose: () => void }) {
   const qc = useQueryClient()
   const [f, setF] = useState<FormState>(() => initialForm(rule))
   const set = (patch: Partial<FormState>) => setF(prev => ({ ...prev, ...patch }))
@@ -133,7 +134,16 @@ function RuleDialog({ accountId, rule, labels, onClose }: { accountId: string; r
               />
             )}
             <TextField name='name' label='Name' value={f.name} maxLength={80} onChange={e => set({ name: e.target.value })} />
-            {info.label && (
+            {info.label && f.type === 'MONITOR' && (
+              <SelectField
+                name='label'
+                label='Monitor'
+                value={f.label || '__all'}
+                onValueChange={v => set({ label: v === '__all' ? '' : v })}
+                options={[{ value: '__all', label: 'Any monitor' }, ...monitors.map(m => ({ value: m.id, label: m.name }))]}
+              />
+            )}
+            {info.label && f.type !== 'MONITOR' && (
               <SelectField
                 name='label'
                 label='Tunnel'
@@ -290,7 +300,7 @@ export default function AlertsView({ accountId }: { accountId: string }) {
                         )}
                         {r.firing?.map(f => (
                           <Badge key={f.subject} size='sm' variant='danger'>
-                            firing{f.subject.startsWith('usage:') ? '' : `: ${f.subject}`}
+                            firing{f.subject.startsWith('usage:') ? '' : `: ${r.type === 'MONITOR' ? (o?.monitors?.find(m => m.id === f.subject)?.name ?? 'monitor') : f.subject}`}
                           </Badge>
                         ))}
                       </div>
@@ -349,7 +359,7 @@ export default function AlertsView({ accountId }: { accountId: string }) {
         </>
       )}
 
-      {editing && o && <RuleDialog key={editing === 'new' ? 'new' : editing.id} accountId={accountId} rule={editing === 'new' ? null : editing} labels={o.tunnelLabels} onClose={() => setEditing(null)} />}
+      {editing && o && <RuleDialog key={editing === 'new' ? 'new' : editing.id} accountId={accountId} rule={editing === 'new' ? null : editing} labels={o.tunnelLabels} monitors={o.monitors} onClose={() => setEditing(null)} />}
     </div>
   )
 }

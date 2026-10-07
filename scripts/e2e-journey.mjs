@@ -928,6 +928,51 @@ await step("API client: environment secret, send through the tunnel, captures, r
   return `send ${Math.round(d.response.timings.total)} ms, run 2/3 with a capture, snippet and export masked`;
 });
 
+await step("performance: load test through the hub (past the per-minute limit), endpoint analytics, a monitor", async () => {
+  const L = (method, p, body) => api(method, `/load-tests/${s.personal}${p}`, { token: s.token, body });
+  const o = await L("GET", "");
+  assert(o.status === 200 && o.json.data.limits.maxVus >= 1, `load tests overview ${o.status}`);
+  assert((await L("POST", "", { target: "https://example.com/", vus: 1, durationSec: 5 })).status === 400, "a foreign target is refused");
+  // 20 requests/s for 10 s = 200 requests, twice the FREE plan's public-path limit per minute:
+  // passes only because the hub lets marked load-test traffic past the abuse limiter.
+  const started = await L("POST", "", { name: "Journey", target: `https://${s.host}/echo?lt=1`, vus: 4, durationSec: 10, maxRps: 20, thresholds: { errorRatePct: 1 } });
+  assert(started.status === 201, `start ${started.status} ${JSON.stringify(started.json).slice(0, 300)}`);
+  let run;
+  for (let i = 0; i < 60; i++) {
+    await sleep(500);
+    run = (await L("GET", `/${started.json.data.id}`)).json.data;
+    if (run.status !== "RUNNING") break;
+  }
+  assert(run.status === "PASSED" && run.summary.requests >= 150 && run.summary.statuses["200"] === run.summary.requests, `load test ${run.status} ${JSON.stringify(run.summary ?? run.error).slice(0, 300)}`);
+  assert(run.timeline.length === 10, `timeline ${run.timeline.length}`);
+
+  // The hub writes endpoint stats every 30 s.
+  let ep;
+  for (let i = 0; i < 40 && !ep; i++) {
+    await sleep(1000);
+    const a = await api("GET", `/analytics/${s.personal}?window=1h&label=app`, { token: s.token });
+    ep = a.json?.data?.endpoints?.find((e) => e.route === "/echo" && e.method === "GET" && e.requests >= run.summary.requests);
+  }
+  assert(ep && ep.p95 !== null, "endpoint analytics include the load test");
+
+  // A monitor over a collection that calls the tunnel.
+  const col = await api("POST", `/api-client/${s.personal}/collections`, { token: s.token, body: { name: `Monitor ${RUN}` } });
+  await api("PUT", `/api-client/${s.personal}/collections/${col.json.data.id}`, {
+    token: s.token,
+    body: { expectedVersion: 1, requests: [{ id: "q1", name: "Echo", method: "GET", url: `${HUB}/echo`, params: [], headers: [{ key: "Host", value: s.host, enabled: true }], auth: { type: "none" }, body: { type: "none" }, assertions: [{ id: "a", enabled: true, source: "status", op: "eq", value: "200" }], captures: [] }] },
+  });
+  const M = (method, p, body) => api(method, `/monitors/${s.personal}${p}`, { token: s.token, body });
+  const ov = (await M("GET", "")).json.data;
+  const mon = await M("POST", "", { name: "Journey", collectionId: col.json.data.id, intervalMinutes: ov.limits.intervals[ov.limits.intervals.length - 1] });
+  assert(mon.status === 201, `monitor ${mon.status} ${JSON.stringify(mon.json).slice(0, 200)}`);
+  const checked = await M("POST", `/${mon.json.data.id}/run`, {});
+  const viaGuard = checked.json?.data?.report?.results?.[0]?.error?.includes("EPRIVATE");
+  assert(checked.status === 200 && (checked.json.data.ok || viaGuard), `monitor run ${JSON.stringify(checked.json).slice(0, 300)}`);
+  assert((await M("DELETE", `/${mon.json.data.id}`)).status === 200, "delete monitor");
+  await api("DELETE", `/api-client/${s.personal}/collections/${col.json.data.id}`, { token: s.token });
+  return `${run.summary.requests} requests at ${run.summary.rps}/s, p95 ${run.summary.latency.p95} ms; analytics p95 ${ep.p95} ms; monitor ${viaGuard ? "guarded" : "up"}`;
+});
+
 await step("traffic chart, activity feed and agent fleet reflect the tunnel", async () => {
   const flush = await fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "" } });
   assert(flush.ok, `stats flush ${flush.status} (is HUB_INTERNAL_SECRET set for the journey?)`);

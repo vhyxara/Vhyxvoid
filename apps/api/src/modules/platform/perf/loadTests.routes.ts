@@ -36,7 +36,8 @@ const startBody = z.object({
   rampUpSec: z.number().int().min(0).max(600).default(0),
   thinkTimeMs: z.number().int().min(0).max(60_000).default(0),
   maxRps: z.number().int().min(0).max(10_000).default(0),
-  count4xxAsErrors: z.boolean().default(false),
+  /** Like k6: any 4xx/5xx is a failed request unless told otherwise. */
+  count4xxAsErrors: z.boolean().default(true),
   thresholds: z
     .object({
       p95Ms: z.number().positive().max(600_000).optional(),

@@ -135,7 +135,8 @@ describe("hosted mock APIs at the hub", () => {
     expect(missing.headers["x-vhyxvoid-error"]).toBe("MOCK_NO_ROUTE");
     expect(JSON.parse(missing.body).error).toContain("GET /orders");
 
-    expect(h.stats.map((s) => s[2])).toEqual([201, 422]);
+    // The missing route's 404 is counted too (analytics and spec drift report it).
+    expect(h.stats.map((s) => s[2])).toEqual([201, 422, 404]);
     expect(h.recorded[0]).toMatchObject({ method: "POST", path: "/users", response: { status: 201 }, mock: { endpointName: "POST /users" } });
     expect(h.recorded[0].request.body.data).toBe('{"email":"ada@example.com"}');
     expect(h.recorded[0].answeredByRule).toBeUndefined();

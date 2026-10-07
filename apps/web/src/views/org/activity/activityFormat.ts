@@ -147,6 +147,16 @@ export function describeActivity(item: ActivityItem): string {
       return `${m.imported ? 'imported' : 'created'} ${s(m.name) ? `the collection ${m.name}` : 'a collection'}${m.fromMock ? ' to test a mock API' : ''}`
     case 'API_COLLECTION_UPDATED':
       return `changed the collection ${s(m.name) ?? ''}${typeof m.requests === 'number' ? ` (${m.requests} request${m.requests === 1 ? '' : 's'})` : ''}`.replace('  ', ' ').trim()
+    case 'LOAD_TEST_STARTED':
+      return `started a load test${s(m.name) ? ` "${m.name}"` : ''}${typeof m.vus === 'number' ? ` (${m.vus} users${typeof m.durationSec === 'number' ? `, ${m.durationSec} s` : ''})` : ''}`
+    case 'LOAD_TEST_CANCELLED':
+      return 'stopped a load test'
+    case 'MONITOR_CREATED':
+      return `created the monitor ${s(m.name) ?? ''}${typeof m.intervalMinutes === 'number' ? ` (every ${m.intervalMinutes} min)` : ''}`.replace('  ', ' ')
+    case 'MONITOR_UPDATED':
+      return `${m.enabled === false ? 'paused' : m.enabled === true ? 'resumed' : 'changed'} a monitor${s(m.name) ? ` (${m.name})` : ''}`
+    case 'MONITOR_DELETED':
+      return 'deleted a monitor'
     case 'API_COLLECTION_DELETED':
       return 'deleted a collection'
     case 'API_COLLECTION_RUN':

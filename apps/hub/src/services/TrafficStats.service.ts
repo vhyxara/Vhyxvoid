@@ -161,7 +161,7 @@ export class TrafficStatsService {
         throw err;
       }
     }
-    return written;
+    return written + endpoints;
   }
 
   private async flushEndpoints(): Promise<number> {

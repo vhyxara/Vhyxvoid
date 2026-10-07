@@ -244,6 +244,8 @@ export class HttpTunnelHandler {
         // The label is a mock API, but nothing in it matches: say which route is missing.
         const access = await this.checkAccess(offlineMock.accountId, label, req);
         if (!access.allow) return this.sendAccessDenied(res, access, label);
+        // Counted: traffic to routes the mock lacks is what analytics' spec drift reports.
+        this.stats?.record(offlineMock.accountId, label, 404, 0, req.method ?? 'GET', req.url ?? '/');
         return this.sendError(
           res,
           404,

@@ -43,7 +43,7 @@ export const domainsService = {
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
 
-export type AlertType = 'TUNNEL_OFFLINE' | 'ERROR_RATE' | 'USAGE' | 'INBOX_FAILED' | 'DOMAIN'
+export type AlertType = 'TUNNEL_OFFLINE' | 'ERROR_RATE' | 'USAGE' | 'INBOX_FAILED' | 'DOMAIN' | 'MONITOR'
 
 export type AlertRule = {
   id: string
@@ -79,6 +79,8 @@ export type AlertsOverview = {
   maxRules: number
   canManage: boolean
   tunnelLabels: string[]
+  /** MONITOR rules pick one (stored as the rule's label). */
+  monitors?: Array<{ id: string; name: string }>
   rules: AlertRule[]
   events: AlertEvent[]
 }
