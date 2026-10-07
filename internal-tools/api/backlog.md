@@ -32,6 +32,10 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] API client: runs are synchronous HTTP requests (≤ 2 min). Scheduled runs (monitors, phase 4) need a job queue and streaming progress. Found 2026-10-07, session upbeat-cannon.
 - [ ] API client: no pre-request/test scripts, OAuth 2 flows, cookies jar, WebSocket/gRPC requests, or per-folder auth. Add on demand; OAuth 2 client-credentials is the likely first ask. Found 2026-10-07, session upbeat-cannon.
 - [ ] API client: collection variables are stored in clear (only environment secrets are encrypted); the dashboard says so. Found 2026-10-07, session upbeat-cannon.
+- [ ] Load tests run in the API process (capped). For bigger plans move them to a separate worker pool (queue + workers near the hub), and allow multi-step scenarios (a collection as the script, with captures per VU). Found 2026-10-07, session upbeat-cannon.
+- [ ] Monitors run from one region (the API's). Multi-region checks and per-region latency need runners elsewhere. Found 2026-10-07, session upbeat-cannon.
+- [ ] Endpoint analytics are per 5 minutes with bucket-level percentiles and 7-day retention for every plan. If customers want 30/90 days, add an hourly rollup table (and tie retention to analyticsRetentionDays). Found 2026-10-07, session upbeat-cannon.
+- [ ] Spec drift compares status classes, not exact codes (the hub stores classes). Store a small per-code map if exact codes are asked for. Found 2026-10-07, session upbeat-cannon.
 - [ ] Mock APIs: no console (admin) screen lists mocks; operators see them only through usage and the account's limits. Add an admin list (with disable) if abuse needs it. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock resources: concurrent PUT/PATCH of the same item are last-write-wins (read-modify-write over HGET/HSET). Use a Lua script or WATCH if users need strict updates. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock resources: no relations (`/users/1/posts`) or `_embed`/`_expand` like json-server. Add when asked. Found 2026-10-06, session upbeat-cannon.

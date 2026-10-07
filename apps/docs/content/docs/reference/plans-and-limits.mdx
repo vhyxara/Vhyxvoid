@@ -3,7 +3,7 @@ title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
   date: "2026-10-07"
-  commit: "1a8548c"
+  commit: "85fa393"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -41,7 +41,7 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | Production (PROD) keys. Free accounts can only create DEV keys. | No | Yes | Yes |
 | Key rotation | No | Yes | Yes |
 | Account members. Counts current members plus pending invitations when one is sent, so an account can't send more invitations than it has room for; checked again when an invitation is accepted, since the limit or the membership can change while an invitation is pending. An account already over its limit from before this was enforced keeps its existing members — only the next new member is blocked. | 1 | 10 | Unlimited |
-| Public tunnel-URL requests per minute. Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Added 2026-09-22 (session S5). | 100 | 3,000 | Unlimited |
+| Public tunnel-URL requests per minute. Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Load tests started from the dashboard skip it (their own limits apply). Added 2026-09-22 (session S5). | 100 | 3,000 | Unlimited |
 | Requests kept in the request inspector (per tunnel, 24 h). The hub keeps the most recent N requests of each tunnel for 24 hours; 0 turns capture off for the account. | 20 | 200 | 1,000 |
 | Tunnel access rules (password, IP allowlist, share links). Needed to create or change rules. Rules that exist keep protecting the tunnel after a downgrade. | No | Yes | Yes |
 | Requests held by a tunnel's webhook inbox while the agent is offline. Once this many are waiting, further requests to the offline tunnel get 503. 0 means no inbox. | 25 | 1,000 | 10,000 |
@@ -54,6 +54,12 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | API client collections. Creating or importing more collections is refused; 0 turns the API client off for the account (sending is refused too). | 3 | 50 | 500 |
 | Requests per collection. Saving or importing a collection with more requests is refused. | 50 | 500 | 2,000 |
 | API client sends per minute. Every request the server-side runner sends counts, including each request of a collection run; over the limit the send answers 429 and a run skips the rest. | 30 | 300 | 1,200 |
+| Load test virtual users. Starting a load test with more virtual users is refused; 0 turns load tests off for the account. | 10 | 100 | 500 |
+| Longest load test. Starting a longer load test is refused. | 60 | 300 | 900 |
+| Load test requests per second. The runner paces every load test to this rate (a lower cap can be set per test). | 50 | 500 | 2,000 |
+| Load tests per day. Load tests started per account per UTC day; the next one is refused. | 5 | 100 | 1,000 |
+| Monitors. Creating more monitors is refused; existing monitors keep running after a downgrade. | 1 | 20 | 200 |
+| Shortest monitor interval. Creating or changing a monitor to run more often is refused. | 15 | 1 | 1 |
 {/* generated:end plans-enforced */}
 
 When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` The member limit answers with a plainer `Plan limit reached` rather than a number-specific message. A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying (agent 1.1.0 waits longer after each refusal, up to five minutes); see [Troubleshooting](/troubleshooting#the-agent-wont-connect).

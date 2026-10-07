@@ -6,6 +6,7 @@
     "tunnels",
     "mock-apis",
     "api-client",
+    "performance",
     "request-inspector",
     "webhook-inbox",
     "traffic-rules",

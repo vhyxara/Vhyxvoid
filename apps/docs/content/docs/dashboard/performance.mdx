@@ -1,0 +1,140 @@
+---
+title: Performance
+description: Per-endpoint speed and errors from real traffic, load tests against your own tunnels and mocks, and monitors that run your API collections on a schedule.
+verified:
+  date: "2026-10-07"
+  commit: "85fa393"
+  packages: {}
+sources:
+  - packages/shared/src/perf.ts
+  - apps/hub/src/services/TrafficStats.service.ts
+  - apps/hub/src/handlers/HttpTunnel.handler.ts
+  - apps/api/src/modules/platform/perf/analytics.routes.ts
+  - apps/api/src/modules/platform/perf/loadTests.routes.ts
+  - apps/api/src/modules/platform/perf/loadRunner.ts
+  - apps/api/src/modules/platform/perf/monitors.routes.ts
+  - apps/api/src/modules/platform/perf/monitors.worker.ts
+  - apps/web/src/views/org/perf/AnalyticsTab.tsx
+  - apps/web/src/views/org/perf/LoadTestsTab.tsx
+  - apps/web/src/views/org/perf/MonitorsTab.tsx
+  - apps/web/src/views/org/perf/perfForm.ts
+---
+
+Open **Performance** under a workspace. It has three tabs:
+
+- **API analytics** shows how each endpoint behaves under the traffic it really gets.
+- **Load tests** show how it behaves under traffic you generate.
+- **Monitors** check it on a schedule.
+
+Everyone in the workspace can see all three and run load tests. Owners and admins manage monitors.
+
+## API analytics
+
+Every request that reaches one of your tunnels, [mock APIs](/dashboard/mock-apis) or [custom domains](/dashboard/custom-domains) is counted per **endpoint**, meaning its method plus its path. Ids in paths are grouped, so `/users/42` and `/users/7` both count as `/users/:id`. A path segment counts as an id when it is:
+
+- a number;
+- a UUID;
+- a long hex string;
+- an id with a prefix, such as `cus_…`.
+
+For each endpoint you see:
+
+- **requests**, and requests per minute;
+- **server errors**: the share of `5xx` answers (`4xx` answers are counted separately);
+- **p50, p95 and p99**: the time within which half, 95 % and 99 % of requests were answered;
+- a **trend** of the volume over the period;
+- whether it is **new**, meaning it was first seen during this period.
+
+Above the table:
+
+- **Totals** for the whole period.
+- **Slowest (p95)**: only endpoints with at least 10 requests.
+- **Most server errors**.
+- **New endpoints**: useful to spot a route nobody announced, or a client calling something by mistake.
+
+Pick the period (last hour, 6 hours, 24 hours or 7 days) and one tunnel or mock, or all of them, and filter by path. Click an endpoint for its latency percentiles and its requests over time.
+
+Some details:
+
+- **Freshness.** Numbers are up to about a minute old. The hub writes them every 30 seconds in 5-minute buckets, and keeps them 7 days.
+- **Accuracy.** Percentiles are estimated from latency buckets. They are accurate to within the bucket a value falls in (10, 25, 50, 100, 250, 500 ms, 1, 2.5, 5, 10 s and above). The slowest request is exact.
+- **Many paths.** A tunnel with more than 300 distinct paths within 30 seconds counts the rest as `(other)`.
+- **Load tests.** Load-test traffic is included.
+
+### Compare with a spec
+
+**Compare with a spec** checks the traffic against one of your mock APIs or an OpenAPI 3 / Swagger 2 document (paste it or pick a file, JSON or YAML). It lists:
+
+- **traffic the spec doesn't describe**: endpoints that were called but aren't in the spec;
+- **status codes the spec doesn't list**: for example `5xx` answers on an operation that only documents `200` and `404`. `4XX` and `default` in the spec count as documenting the class;
+- **operations nobody called** in the period;
+- the spec's **coverage**: the share of its operations that got traffic.
+
+Paths match by shape: `/users/{userId}` in the spec matches `/users/42` in the traffic. The server URL's path in an OpenAPI document (`https://api.example.com/v1`) is put in front of every operation. Requests a mock API has no endpoint for (answered `404`) count too, which is how calls to routes you haven't built show up.
+
+## Load tests
+
+A load test sends many requests at once to one URL and records how fast it answers and how often it fails.
+
+1. **Pick a target**: one of your tunnels, mock APIs or verified custom domains, with the path (and query) to call. Anything else is refused. The requests go from VhyxVoid straight to our hub with your tunnel's address, never to the internet, so a load test can't be pointed at someone else's server.
+2. **Pick a preset or set it yourself:**
+
+   | Preset | Users | Duration | Ramp-up | Think time |
+   | --- | --- | --- | --- | --- |
+   | Smoke | 1 | 10 s | — | 500 ms |
+   | Average load | 10 | 1 min | 10 s | 1 s |
+   | Stress | your plan's maximum | 1 min | 20 s | — |
+   | Spike | your plan's maximum | 30 s | — | — |
+
+   - **Virtual users** each send a request, wait for the answer, pause for the **think time**, and send the next.
+   - **Ramp-up** starts the users gradually, from 1 to all of them over that many seconds.
+   - **Headers, body, rate cap…** adds request headers (for example an `Authorization` your API needs), a body for `POST`/`PUT`/`PATCH`, and a cap on requests per second below your plan's.
+3. **Pass/fail thresholds** (optional): p95 below a number of milliseconds, and errors at most a percentage. A run **passes** when every threshold holds.
+
+Like k6, any `4xx` or `5xx` answer counts as an error, as does a request that got no answer (refused, reset, timed out after 30 s). Untick **Count 4xx answers as errors** when `4xx` is expected, for example when testing rate limits.
+
+While it runs, the page updates every second:
+
+- requests and errors per second;
+- p50, p95 and p99 latency per second;
+- progress.
+
+**Stop** ends it early. The result keeps the totals, the latency summary (min, average, p50, p90, p95, p99, max), each threshold with its actual value, and a count per status code and per kind of network failure.
+
+Tick two finished runs and choose **Compare**. You get each metric side by side with the change and whether it got better or worse, and both runs' p95 over time on one chart. This is handy before and after a change.
+
+Some rules:
+
+- One load test runs per workspace at a time.
+- The last 100 runs are kept.
+- Load-test requests count toward your monthly usage and appear in API analytics.
+- They skip the per-minute public URL limit (your plan's load-test limits apply instead) and are not kept in the [request inspector](/dashboard/request-inspector), so they don't push real requests out of it.
+
+## Monitors
+
+A monitor runs one of your [API client](/dashboard/api-client) collections (or one folder of it) every 1, 5, 10, 15, 30 or 60 minutes. You can pick an environment, whose secrets are used. A check **passes** when every request answers and every check in the collection passes.
+
+For each monitor you see:
+
+- its status: **up**, **down** or not run yet;
+- uptime over 24 hours, 7 days or 30 days, with a bar per period (green: every check passed; amber: at least 95 %; red: below; grey: no checks);
+- how long each check took, with failed checks marked;
+- recent checks. **What failed** opens the report of a failed check: which request, which check, and the start of the response.
+
+**Run now** checks immediately. The switch pauses a monitor.
+
+To be told when a monitor fails, create a **Monitor failing** [alert](/dashboard/alerts). It fires after a number of failed checks in a row (2 by default), for one monitor or any. It sends again when the monitor passes.
+
+Monitors send from VhyxVoid, so like the API client they reach public addresses only. To monitor something on your machine, call it through a tunnel. Results are kept 30 days.
+
+## Limits
+
+| Plan | Load test users | Longest test | Requests per second | Load tests per day | Monitors | Shortest interval |
+| --- | --- | --- | --- | --- | --- | --- |
+| Free | 10 | 1 min | 50 | 5 | 1 | 15 min |
+| Pro | 100 | 5 min | 500 | 100 | 20 | 1 min |
+| Enterprise | 500 | 15 min | 2,000 | 1,000 | 200 | 1 min |
+
+Days are UTC days. Operators can change these per plan or per account. They can also switch load tests and monitors off with `features.performance`: new load tests are refused, running ones stop within a second, and monitors pause. Analytics stay readable.
+
+Starting and stopping load tests, and creating, changing and deleting monitors, appear in [Activity](/dashboard/activity).

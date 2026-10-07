@@ -2,8 +2,8 @@
 title: HTTP status codes
 description: The statuses a tunnel URL returns on its own, and the ones that come from your server.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "85fa393"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -37,7 +37,7 @@ When VhyxVoid answers, the body is JSON of this shape, and the response carries 
 | `404` | `No tunnel is connected to <host>.` | A custom domain that isn't verified, or isn't set up on VhyxVoid at all (code `UNKNOWN_DOMAIN`). See [Custom domains](/dashboard/custom-domains). |
 | `404` | `No mock endpoint matches <METHOD> <path>. …` | The label is a [mock API](/dashboard/mock-apis), no agent is running, and none of its endpoints matches (code `MOCK_NO_ROUTE`). Add the endpoint, or start the agent. |
 | `413` | `Request body too large. Maximum is 10MB` | The request body is over 10 MB. |
-| `429` | `Rate limit exceeded: <n> requests/min for this account's plan` | Your account's tunnel URLs got more requests than your plan allows in one minute (FREE 100, PRO 3,000, ENTERPRISE unlimited; see [Plans and limits](/reference/plans-and-limits)), combined across every agent/label the account has. This is separate from the SDK's own per-key `RATE_LIMITED` error: a tunnel URL has no API key to check. The response includes a `Retry-After` header (seconds) and the same number as `retryAfterSeconds` in the JSON body. |
+| `429` | `Rate limit exceeded: <n> requests/min for this account's plan` | Your account's tunnel URLs got more requests than your plan allows in one minute (FREE 100, PRO 3,000, ENTERPRISE unlimited; see [Plans and limits](/reference/plans-and-limits)), combined across every agent/label the account has. [Load tests](/dashboard/performance#load-tests) don't count toward it (they have their own limits). This is separate from the SDK's own per-key `RATE_LIMITED` error: a tunnel URL has no API key to check. The response includes a `Retry-After` header (seconds) and the same number as `retryAfterSeconds` in the JSON body. |
 | `429` | `Too many wrong passwords. Try again shortly.` | More than 10 wrong tunnel passwords from one IP address in a minute. Wait for the `Retry-After` seconds. |
 | `502` | `The service behind this tunnel is not reachable right now.` | The agent is connected, but your server didn't answer it: it isn't running on that port, refused the connection, or was too slow (code `BACKEND_UNAVAILABLE`). The agent's own output, or `--debug`, has the detail (the port and the error); it is not sent to the caller. |
 | `502` | `The tunnel agent disconnected while handling this request. Try again.` | The agent lost its connection to VhyxVoid while your request was in flight (code `AGENT_DISCONNECTED`). Retry it, after checking the agent is running. |

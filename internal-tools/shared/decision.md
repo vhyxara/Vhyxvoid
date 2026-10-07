@@ -929,3 +929,17 @@ Commits 899645b (engine, API, CLI), 1a8548c (dashboard), docs commit after it.
 7. **Checks are declarative** (status/header/JSON path/body/time/size × equals…schema), no user scripts: nothing to sandbox, and they export to Postman `pm.test` where an equivalent exists. A small JSON-schema subset is implemented in-house instead of pulling Ajv into shared.
 8. **`vhyxvoid test` exit codes** 0/1/2 (1 also when nothing ran, so a wrong folder can't pass CI silently); secrets come from `--var` or `VHYXVOID_VAR_*`.
 **Status:** active.
+
+### 2026-10-07 — Performance and monitoring, phase 4 (session upbeat-cannon)
+
+Commits 4831dc3 (engine, hub, API), 85fa393 (dashboard), docs commit after it.
+
+1. **Endpoint analytics come from the hub, not the inspector.** The inspector keeps a capped sample per tunnel; analytics need every request. The hub's TrafficStats now also buckets per method + route pattern (ids generalised like "record from traffic") per 5 minutes, with status classes and an 11-bucket latency histogram stored as `int[]` and added element-wise on upsert (`unnest`), so percentiles survive merging across instances and flushes. Cardinality cap: 300 routes per tunnel per flush, rest as `(other)`. Kept 7 days for every plan. Aggregation is SQL (SUM per histogram index), never row-by-row in the API.
+2. **Percentiles are estimates within a bucket** (documented). Exact percentiles would need per-request storage; not worth it for 7-day trend analytics. Load tests use a fine log histogram (3 %) in memory.
+3. **Load tests can only hit what the workspace owns, and only through our hub.** Targets: `<slug>--<label>.<HUB_DOMAIN>` of this account, or a verified custom domain. Requests go to HUB_INTERNAL_URL with the target's Host header, never to DNS, so the platform can't be aimed at third parties and there is no SSRF surface. The hub exempts them from the per-minute public-path abuse limit only with the internal secret + `x-vhyxvoid-load-test` marker; the plan's maxLoadTestRps paces them instead (token bucket starting with one token and a 100 ms burst, so the cap holds in every second). They still count as usage and in stats, and skip the inspector.
+4. **Load tests run inside the API process** with hard caps (plan VUs/seconds/RPS, one per workspace, LOAD_TEST_MAX_CONCURRENT per instance, default 3). A dedicated worker pool is the scale-out step (backlog). Progress is written every second; cancel and the feature switch are read every 2 s; shutdown marks running tests ERROR; a reaper marks orphans ERROR.
+5. **4xx counts as an error by default** (like k6's http_req_failed): a run where every request was 404 must not "pass". Found while trying it: the first manual run hit a mock with no such route and passed.
+6. **A mock's no-route 404 is counted in stats**: it is exactly the traffic spec drift should report as undocumented.
+7. **Monitors reuse the API client engine and guard** (public addresses only), run by a leased "monitors" job every minute (5 at a time, 60 s cap each); they don't consume the interactive send budget (bounded by maxMonitors/minMonitorIntervalMinutes instead). Results kept 30 days; reports only for failures. **MONITOR** is a state alert rule (label = monitor id or any, threshold = failures in a row).
+8. **Members can run load tests** (like the API client); monitors are admin-managed (they run unattended and alert people).
+**Status:** active.

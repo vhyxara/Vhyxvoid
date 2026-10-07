@@ -3,7 +3,7 @@ title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
   date: "2026-10-07"
-  commit: "1a8548c"
+  commit: "85fa393"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -46,6 +46,10 @@ Yes. A [mock API](/dashboard/mock-apis) is a whole fake API at a public URL, wit
 ## Can I test my API from here, like with Postman?
 
 Yes. The [API client](/dashboard/api-client) sends requests from the platform (so CORS never gets in the way), keeps them in collections your team shares, and checks responses without code. It imports Postman collections, OpenAPI documents, HAR files and curl commands. [`vhyxvoid test`](/cli/test) runs the same collection in CI and fails the build when a check fails.
+
+## Can I load-test my API or monitor it?
+
+Yes, on [Performance](/dashboard/performance): load tests against your own tunnels, mock APIs and verified domains (virtual users, ramp-up, pass/fail thresholds, a live chart), monitors that run an API client collection every few minutes and alert you when it fails, and per-endpoint latency and error analytics from real traffic.
 
 ## Do WebSockets work through the tunnel?
 

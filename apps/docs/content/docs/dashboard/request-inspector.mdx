@@ -2,8 +2,8 @@
 title: Request inspector
 description: See every request that reaches your tunnels, with headers, bodies and your server's response, and replay one after you fix your code.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "85fa393"
   packages: {}
 sources:
   - apps/web/src/views/org/rules/rulesForm.ts
@@ -41,6 +41,7 @@ Select a request to see:
 | Requests per tunnel | Depends on your plan (shown above the list) |
 | Body size | The first 16 KB of each request and response body |
 | How long | 24 hours after the tunnel's last request |
+| Not captured | Requests sent by a [load test](/dashboard/performance#load-tests) (they would push real requests out of the list); they still appear in [API analytics](/dashboard/performance#api-analytics) |
 | Never stored | Values of `Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`, `X-Access-Token`, CSRF tokens |
 
 Anyone who is a member of the workspace can view and replay; **Clear** (admins and owners) deletes a tunnel's captured requests immediately.

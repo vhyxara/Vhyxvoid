@@ -34,7 +34,7 @@
     "publicPathRateLimitPerMinute": {
       "label": "Public tunnel-URL requests per minute",
       "evidence": "apps/hub/src/services/PublicPathUsageLimiter.service.ts, apps/hub/src/handlers/HttpTunnel.handler.ts",
-      "note": "Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Added 2026-09-22 (session S5)."
+      "note": "Per account, across every agent/label the account has connected — the public tunnel URL has no API key, so this can't be per-key like rateLimitPerMinute. Checked in-process before a request is forwarded; a refused request gets 429 with a Retry-After header. Load tests started from the dashboard skip it (their own limits apply). Added 2026-09-22 (session S5)."
     },
     "inspectorRequests": {
       "label": "Requests kept in the request inspector (per tunnel, 24 h)",

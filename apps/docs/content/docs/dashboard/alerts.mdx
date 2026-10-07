@@ -1,9 +1,9 @@
 ---
 title: Alerts
-description: Get an email, a dashboard notification or a Slack message when a tunnel goes down, errors climb, usage runs high, a webhook cannot be delivered or a domain changes.
+description: Get an email, a dashboard notification or a Slack message when a tunnel goes down, errors climb, usage runs high, a webhook cannot be delivered, a domain changes or a monitor fails.
 verified:
-  date: "2026-10-06"
-  commit: "d28cd42"
+  date: "2026-10-07"
+  commit: "85fa393"
   packages: {}
 sources:
   - apps/api/src/modules/platform/alerts/notices.ts
@@ -26,6 +26,7 @@ Open **Alerts** under a workspace and choose **New alert**. Owners and admins ca
 | Monthly usage | This month's requests reach a share of your plan | percentage (default 80%) |
 | Webhook delivery failed | A webhook held by the [inbox](/dashboard/webhook-inbox) gives up after its retries | the tunnel (or any) |
 | Custom domain changes | A [custom domain](/dashboard/custom-domains) is verified, or stops pointing at us | — |
+| Monitor failing | A [monitor](/dashboard/performance#monitors) fails several checks in a row; another message when it passes again | the monitor (or any), failed checks in a row (default 2) |
 
 Alerts are checked every minute. **Server errors** counts what callers received, including `502`/`504` when your local server did not answer. "Any tunnel" offline alerts only consider tunnels seen in the last day, so long-retired tunnels do not alert.
 
