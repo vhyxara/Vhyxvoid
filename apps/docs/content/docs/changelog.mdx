@@ -3,7 +3,7 @@ title: Changelog
 description: What changed in VhyxVoid, newest first.
 verified:
   date: "2026-10-07"
-  commit: "1989423"
+  commit: "2e92d55"
   packages: {}
 sources:
   - apps/docs/content/docs/changelog.mdx
@@ -13,6 +13,7 @@ sources:
 
 **Dashboard**
 
+- **Team space**: chat (channels, direct messages, threads, mentions, reactions, live updates, search), markdown docs (folders, live preview, version history with diffs, comments on headings) and issues (list and board, filters like `assignee:me label:bug`, linked endpoints, requests and runs, activity). Dashboard links become rich cards everywhere; mentions, replies and assignments notify you in the app and in a daily email digest. See [Team space](/dashboard/team-space).
 - **API docs**: write an OpenAPI spec in a form or as YAML, with problems shown as you type; publish versions with a breaking-change report and compare any two; share clean docs (light and dark, code samples in four languages, try-it against a mock) publicly, behind a password or on your own domain; make a mock API and a test collection from the same spec. See [API docs](/dashboard/api-docs).
 - **Performance**: per-endpoint analytics from real traffic (volume, server errors, p50/p95/p99, new endpoints, slowest and most failing) with spec drift against a mock API or OpenAPI; load tests against your own tunnels, mocks and domains with virtual users, ramp-up, think time, thresholds, a live chart and run comparison; monitors that run API client collections every 1 to 60 minutes with uptime, latency history and a new **Monitor failing** alert. See [Performance](/dashboard/performance).
 - **API client**: send requests from the browser through the platform (no CORS), with collections and folders the team shares, environments with encrypted secrets, bearer, basic, API key and HMAC auth, JSON, GraphQL, form, multipart and file bodies, checks without code (status, headers, JSON path, JSON schema, time, size), captures that chain requests, timings, code in five languages, history, collection runs with reports, imports from curl, Postman, OpenAPI and HAR, and [`vhyxvoid test`](/cli/test) to run a collection in CI. See [API client](/dashboard/api-client).

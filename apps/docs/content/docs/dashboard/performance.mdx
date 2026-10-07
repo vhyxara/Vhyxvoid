@@ -3,7 +3,7 @@ title: Performance
 description: Per-endpoint speed and errors from real traffic, load tests against your own tunnels and mocks, and monitors that run your API collections on a schedule.
 verified:
   date: "2026-10-07"
-  commit: "1989423"
+  commit: "2e92d55"
   packages: {}
 sources:
   - packages/shared/src/perf.ts
@@ -100,6 +100,8 @@ While it runs, the page updates every second:
 - progress.
 
 **Stop** ends it early. The result keeps the totals, the latency summary (min, average, p50, p90, p95, p99, max), each threshold with its actual value, and a count per status code and per kind of network failure.
+
+**Share** on a finished run posts it to a [chat](/dashboard/team-space#chat) channel as a card with its requests, rate, p95 and errors; the link opens that run.
 
 Tick two finished runs and choose **Compare**. You get each metric side by side with the change and whether it got better or worse, and both runs' p95 over time on one chart. This is handy before and after a change.
 

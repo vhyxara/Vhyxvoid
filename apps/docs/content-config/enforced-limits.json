@@ -140,6 +140,26 @@
       "label": "Docs on a custom domain",
       "evidence": "apps/api/src/modules/platform/specs/specs.routes.ts",
       "note": "Adding a docs domain is refused; a verified domain keeps serving after a downgrade."
+    },
+    "maxTeamChannels": {
+      "label": "Chat channels",
+      "evidence": "apps/api/src/modules/platform/team/chat.routes.ts",
+      "note": "Creating more channels is refused (direct messages don't count); 0 turns the team space off for the account."
+    },
+    "maxTeamDocs": {
+      "label": "Team documents",
+      "evidence": "apps/api/src/modules/platform/team/docs.routes.ts",
+      "note": "Creating more documents is refused; existing ones stay editable."
+    },
+    "maxTeamIssues": {
+      "label": "Tracker issues",
+      "evidence": "apps/api/src/modules/platform/team/issues.routes.ts",
+      "note": "Creating more issues is refused; closing issues doesn't free a slot (delete them to)."
+    },
+    "teamHistoryDays": {
+      "label": "Chat history",
+      "evidence": "apps/api/src/modules/platform/team/chat.routes.ts",
+      "note": "Messages older than this are hidden from channels, threads and search; they are kept, and upgrading shows them again."
     }
   },
   "notEnforced": {

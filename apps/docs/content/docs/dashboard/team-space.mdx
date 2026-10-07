@@ -1,0 +1,148 @@
+---
+title: Team space
+description: Chat with channels, threads and live updates, markdown documents with history and comments, and an issue tracker with a board, all linked to your APIs.
+verified:
+  date: "2026-10-07"
+  commit: "2e92d55"
+  packages: {}
+sources:
+  - packages/shared/src/teamSpace.ts
+  - apps/api/src/modules/platform/team/chat.routes.ts
+  - apps/api/src/modules/platform/team/docs.routes.ts
+  - apps/api/src/modules/platform/team/issues.routes.ts
+  - apps/api/src/modules/platform/team/comments.routes.ts
+  - apps/api/src/modules/platform/team/realtime.ts
+  - apps/api/src/modules/platform/team/digest.ts
+  - apps/web/src/views/org/team/ChatView.tsx
+  - apps/web/src/views/org/team/DocView.tsx
+  - apps/web/src/views/org/team/IssuesView.tsx
+  - apps/web/src/views/org/team/IssueView.tsx
+---
+
+Every workspace has a team space with three parts, each in the sidebar:
+
+- **Chat**: talk about your APIs.
+- **Docs**: write runbooks, RFCs and notes.
+- **Issues**: track bugs and tasks.
+
+Paste a dashboard link anywhere in them and it shows as a **card**. Links to these become cards:
+
+- a mock endpoint;
+- an API client request;
+- a captured request in the inspector;
+- a load-test run;
+- a monitor;
+- an API docs operation;
+- a document section;
+- an issue.
+
+A card shows the object's name and state, and opens it in one click.
+
+## Chat
+
+**Channels** are for topics.
+
+- **Public channels** are open to everyone in the workspace. **Join** one to get unread counts for it; writing in a channel joins it too.
+- **Private channels** are visible only to the people in them.
+- **#general** exists from the start, and everyone is in it.
+
+**Direct messages** are for 2 to 8 people. Starting a conversation with the same people again reopens it.
+
+In a message you can:
+
+- **Mention** someone: type `@` and pick a person. They get a notification, unless the channel is private and they aren't in it.
+- **Format** with Markdown: bold, lists, `code`, code blocks, tables and links.
+- **Share an object** by pasting its dashboard link. Up to five links per message become cards.
+- **React** with an emoji, **reply in a thread**, **edit** your own messages and **delete** them. Owners and admins can delete any message. A deleted message leaves a placeholder, so its thread stays readable.
+
+Updates arrive live, with no refresh: new messages, edits, reactions and "… is typing". The **Live** dot shows the connection, and the page reconnects by itself.
+
+- Channels with unread messages are in bold, with a count. A red **@** count means unread mentions.
+- A **New** line marks where you stopped reading.
+- **Search** looks through messages, documents and issues you can see.
+
+Many pages have a **Share** or **Share to chat** button that posts the page to a channel with a note: API docs, load-test runs, documents and issues.
+
+## Docs
+
+**Docs** holds markdown documents in folders. Start blank or from a template: a runbook, an API change RFC or meeting notes.
+
+- **Write**, **Split** and **Read** switch between the editor, the editor next to a live preview, and the preview alone.
+- Changes save by themselves 1.5 seconds after you stop typing, or with **Ctrl/⌘ + S**. If someone else saved first, your save is refused and your text is kept. You can then copy your changes and load theirs. When someone saves while you're only reading, the page updates.
+- `@` mentions notify people. Dashboard links become cards under **Linked in this document**.
+- **On this page** lists the headings. Each heading has an anchor (`…/team/docs/<id>#steps`), so a link can point at one section. In chat, such a link shows the document and the section name.
+- **History** lists versions. A version is a session of edits by one person: their saves within 10 minutes are merged. Compare any version with the current text, line by line, or **Restore** it. Restoring adds a new version, so it can be undone too.
+- **Comments** can be about the whole document or one heading. Resolve them when done. The outline shows how many open comments each heading has.
+- Removing a folder moves its documents and folders up one level.
+
+## Issues
+
+An issue has:
+
+- a number (`#12`);
+- a title and a Markdown description;
+- a status: Backlog, To do, In progress, In review, Done or Cancelled;
+- a priority: none, low, medium, high or urgent;
+- an assignee;
+- up to 10 labels;
+- a due date;
+- links to the objects it is about. Paste a dashboard link under **Linked**, or write it in the description.
+
+**List** shows matching issues. **Board** shows a column per status: drag cards between and within columns, or use a card's status menu.
+
+Filter with the search box:
+
+| Filter | Matches |
+| --- | --- |
+| `status:todo,doing` | those statuses (`backlog`, `todo`, `doing` or `in-progress`, `review`, `done`, `cancelled`) |
+| `is:open` / `is:closed` / `is:all` | open (the default), Done and Cancelled, or both |
+| `assignee:me` / `assignee:none` | yours / unassigned |
+| `label:bug,api` | issues with all of these labels |
+| `priority:high,urgent` | those priorities |
+| `due:overdue` / `due:today` / `due:week` / `due:none` | by due date |
+| any other words, or `#12` | text in the title or description, or that number |
+
+Every change appears in the issue's **Activity**, with comments in the same feed:
+
+- the status, assignee, priority, labels or due date changing;
+- the title or description being edited;
+- links being added or removed.
+
+## Notifications
+
+The bell shows team notifications at once:
+
+- **mentions** in messages, comments, documents and issue descriptions;
+- **replies** in a thread you wrote in;
+- **comments** on your document, or on an issue you created or are assigned;
+- **assignments**, and status changes on issues assigned to you.
+
+Opening a channel marks its notifications read.
+
+If something is still unread after 30 minutes, you get a **daily email digest**: at most one email a day per workspace. Turn it off under the settings icon in **Chat**.
+
+## Who can do what
+
+- **Everyone in the workspace** can read and write in public channels, create channels, documents and issues, and edit any document or issue.
+- **Authors** edit their own messages and comments.
+- **Deleting:**
+  - a message or a comment: its author, or an owner or admin;
+  - a document or an issue: its creator, or an owner or admin;
+  - a channel: owners and admins.
+- **Renaming or archiving a channel:** its creator, or an owner or admin. #general can't be renamed, archived or deleted.
+
+## Limits
+
+| Plan | Channels | Documents | Issues | Chat history shown |
+| --- | --- | --- | --- | --- |
+| Free | 10 | 50 | 200 | 90 days |
+| Pro | 200 | 2,000 | 10,000 | all |
+| Enterprise | 2,000 | 20,000 | 100,000 | all |
+
+- **Direct messages** don't count as channels.
+- **Older messages** beyond your plan's history are hidden from channels, threads and search, but they are kept: upgrading shows them again.
+- **A message** is up to 8,000 characters, **a document** up to 1 MB.
+
+Operators can change these limits per plan or per account. They can also switch the team space off with `features.teamSpace`. While it is off, the team pages are read-only and live updates stop; nothing is deleted.
+
+Creating, changing and deleting channels, documents and issues appear in [Activity](/dashboard/activity) under **Team space**.

@@ -960,3 +960,20 @@ Commit 1989423 (engine, API, hub, dashboard, public page), docs commit after it.
 
 **Status:** active.
 
+### 2026-10-07 — Team space, phase 6 (session upbeat-cannon)
+
+Code commit and docs commit after it (see the plan's status table).
+
+1. **Realtime without a pub/sub service.** The only Redis here is Upstash REST (no SUBSCRIBE), and adding a broker for chat is not worth it yet. Routes write a `team_events` row (kind, payload, audience); every API instance polls rows newer than the last it saw, once a second, only while it has sockets, and pushes them to its sockets of that workspace filtered by audience (empty = everyone; private channels and DMs list their members). Rows are kept a day. Cost: one indexed query per instance per second while anyone has a team page open. Swap the poller for LISTEN/NOTIFY or a broker when that matters (backlog).
+2. **The socket authenticates in its first frame** (`{type:"auth", token, accountId}`), not in the URL (tokens in URLs end up in logs). Same checks as userAuthGuard (signature, user token type, tokenVersion and active state) plus workspace membership; re-checked every minute (membership) with ping/pong; at most 10 sockets per user per instance.
+3. **Mentions are stored as `<@userId>`**, shown as `@Name`. The composer keeps the names picked in this message and converts on send, so renaming a person updates old messages and "@Ada" typed by hand never notifies the wrong Ada. Notifications only reach people who can see the place (private channel members).
+4. **Rich cards come from dashboard links**, not a separate attachment model: any `/organizations/<id>/<area>/…` link in a message, document or issue is a TeamRef (refFromUrl), resolved per request in one query per kind, only inside the same workspace (a pasted link to another workspace never reveals anything). The same paths deep-link: `?endpoint=`, `?request=`, `?run=`, `#heading`.
+5. **Public channels are joinable, not auto-joined** (except #general, created on first use with everyone in it): unread counts only for channels you're in, like Slack. Writing in a channel joins it.
+6. **Plan history limit hides, never deletes** (`teamHistoryDays`, Free 90): the honest version of a chat history paywall; upgrading shows everything again.
+7. **Document versions are editing sessions** (same author within 10 minutes updates the latest version) — readable history, not a version per autosave. Autosave every 1.5 s idle with an optimistic lock; a conflicting save keeps the local text and offers it on the clipboard instead of merging.
+8. **Board order uses string ranks** (rankBetween): a drag writes one row, no renumbering; ranks never end in "0" so there is always room between two neighbours.
+9. **Reactions toggle in one SQL statement** (jsonb update) so concurrent reactions all land (tested with three at once).
+10. **Email digest**: hourly leased job; one email per user and workspace per 20 h, only for team notifications still unread after 30 minutes, opt-out per workspace. Opening a channel marks its mention notifications read, so people who are active never get emails.
+
+**Status:** active.
+

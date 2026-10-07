@@ -3,7 +3,7 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-07"
-  commit: "1989423"
+  commit: "2e92d55"
   packages: {}
 sources:
   - docker-compose.yml
@@ -111,6 +111,15 @@ nginx serves the console at `admin.vhyxvoid.com` and proxies `/api/v1/admin/` on
 Protect the host with [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) (an application for `admin.vhyxvoid.com` with a policy listing your team's emails). The admin login is then the second gate rather than the only one. Like `api.` and `hub.`, the host only accepts connections from Cloudflare's edge.
 
 Admin sign-in is rate limited per IP, and every admin action is written to the admin audit log.
+
+## Team space live updates
+
+The [team space](/dashboard/team-space) pushes changes to browsers over a WebSocket at `wss://api.vhyxvoid.com/api/v1/team/ws`.
+
+- **nginx.** `nginx.conf` has a location for that path with the upgrade headers and a 5-minute idle timeout. The API pings each socket every minute.
+- **Cloudflare.** It passes WebSockets through on the proxied API host. No setting is needed.
+- **Several API instances.** These need no pub/sub service. Each change is written to the `team_events` table, and every instance reads new rows once a second while it has open sockets. Rows are kept a day.
+- **Email digest.** The "teamDigest" job sends it hourly, and can be run from the admin system page.
 
 ## Custom domains
 

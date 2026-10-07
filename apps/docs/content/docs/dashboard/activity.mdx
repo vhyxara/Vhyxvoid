@@ -3,7 +3,7 @@ title: Activity
 description: See who changed what in a workspace, and when its tunnels connected and disconnected. Export it as CSV.
 verified:
   date: "2026-10-07"
-  commit: "1989423"
+  commit: "2e92d55"
   packages: {}
 sources:
   - apps/web/src/views/org/activity/ActivityView.tsx
@@ -24,6 +24,7 @@ Open **Activity** under a workspace. Everyone in the workspace can see it; the n
 | Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/dashboard/tunnel-access) and share links, [custom domains](/dashboard/custom-domains), the [webhook inbox](/dashboard/webhook-inbox), replays and clearing in the [request inspector](/dashboard/request-inspector), switching request capture on or off, saving or removing [traffic rules](/dashboard/traffic-rules), creating, changing, importing into and deleting [mock APIs](/dashboard/mock-apis), and agents stopped from the dashboard |
 | Alerts | [alerts](/dashboard/alerts) created, changed, paused, resumed and deleted |
 | API client and performance | [collections](/dashboard/api-client) created, imported, changed and deleted, collection runs, environments created, changed and deleted (sending a single request is not recorded), [load tests](/dashboard/performance#load-tests) started and stopped, [monitors](/dashboard/performance#monitors) created, changed, paused and deleted, and [API docs](/dashboard/api-docs) created, published, restored, shared, put on a domain and deleted (saving a draft is not recorded) |
+| Team space | [channels](/dashboard/team-space#chat) created, changed, archived and deleted, [documents](/dashboard/team-space#docs) created, restored and deleted, and [issues](/dashboard/team-space#issues) created and deleted (messages, edits and comments are not recorded here; issues keep their own activity) |
 
 Each entry names the person who made the change. Owners and admins also see the IP address it came from. Passwords, secrets and tokens are never recorded, only that they were set or removed.
 

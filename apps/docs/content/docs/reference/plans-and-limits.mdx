@@ -3,7 +3,7 @@ title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
   date: "2026-10-07"
-  commit: "1989423"
+  commit: "2e92d55"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -63,6 +63,10 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | API docs specs. Creating more specs is refused; existing specs stay editable and published. | 3 | 50 | 500 |
 | Password-protected docs. Setting a docs password is refused; docs already protected stay protected after a downgrade. | No | Yes | Yes |
 | Docs on a custom domain. Adding a docs domain is refused; a verified domain keeps serving after a downgrade. | No | Yes | Yes |
+| Chat channels. Creating more channels is refused (direct messages don't count); 0 turns the team space off for the account. | 10 | 200 | 2,000 |
+| Team documents. Creating more documents is refused; existing ones stay editable. | 50 | 2,000 | 20,000 |
+| Tracker issues. Creating more issues is refused; closing issues doesn't free a slot (delete them to). | 200 | 10,000 | 100,000 |
+| Chat history. Messages older than this are hidden from channels, threads and search; they are kept, and upgrading shows them again. | 90 | Unlimited | Unlimited |
 {/* generated:end plans-enforced */}
 
 When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` The member limit answers with a plainer `Plan limit reached` rather than a number-specific message. A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying (agent 1.1.0 waits longer after each refusal, up to five minutes); see [Troubleshooting](/troubleshooting#the-agent-wont-connect).
