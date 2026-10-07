@@ -3,7 +3,7 @@ title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
   date: "2026-10-07"
-  commit: "a682df5"
+  commit: "b0ae506"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -87,6 +87,7 @@ The full list is on [HTTP status codes](/reference/http-status-codes).
 | `No API spec "…" in this workspace (specs: …)` (exit 2) | The `--spec` slug is wrong; the message lists the ones that exist. The same goes for collections, environments and folders. |
 | `Saved the draft but did not publish: 1 breaking change` | `spec push --publish` refuses breaking changes. Add `--allow-breaking` (or `allow-breaking: true` in the action) when they are intended. |
 | `AI assist isn't set up on this server` | The platform has no AI provider configured. On a self-hosted platform, set `ANTHROPIC_API_KEY` on the API ([Deployment](/operators/deployment#ai-assist)). |
+| `This API key made more than 120 requests this minute` | The key's per-minute limit ([Rate limits](/reference/platform-api#rate-limits)). The CLI and the actions wait and retry by themselves; from your own scripts, wait for `Retry-After`. Give parallel jobs separate keys. |
 | `You used all 20 AI drafts of this month` | The plan's monthly allowance is used up; it resets on the first of the month (UTC). |
 
 ## The request is slow or times out

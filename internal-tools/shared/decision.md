@@ -1002,3 +1002,12 @@ Follow-up to phase 7, decision 5. `POST /api-client/:acc/collections/:id/run` (u
 
 **Status:** active.
 
+### 2026-10-07 — Per-key rate limits on the platform API (session upbeat-cannon)
+
+1. **A new plan limit, not `rateLimitPerMinute`.** That one (Free 60) already means SDK tunnel traffic per key, and one CI job polling a two-minute run needs more than 60 calls. `platformApiRequestsPerMinute`: Free 120, Pro 1,200, Enterprise 6,000; 0 shuts keys out of the platform API for a plan; per-account overrides in the console like every limit.
+2. **Counted after the key is verified,** in userAuthGuard, so a request with someone's key ID and a wrong secret can't drain their allowance (failed attempts are covered by the per-IP limiter). Hence not done with @fastify/rate-limit's keyGenerator, which runs before authentication.
+3. **Fixed clock-minute window, one Redis INCR per request** (key `papi:rl:<keyId>:<minute>`, 120 s TTL), shared by all API instances; an in-process counter if Redis fails (logged), so an outage degrades to per-instance limits rather than none or a hard failure. The plan limit is cached per workspace for 60 s.
+4. **Clients absorb it:** PlatformClient waits for Retry-After (1–60 s, 5 s without the header) and retries up to 3 times; job polling is 1 s for ten polls, then 3 s.
+
+**Status:** active.
+

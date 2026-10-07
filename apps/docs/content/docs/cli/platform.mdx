@@ -3,7 +3,7 @@ title: Platform commands
 description: whoami, spec check and push, collection push, test --collection and ai, for CI and scripts, with an API key.
 verified:
   date: "2026-10-07"
-  commit: "cbd841a"
+  commit: "b0ae506"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -30,6 +30,8 @@ npx @vhyxvoid/agent whoami
 ```
 
 Exit codes: `0` success, `1` a failed check or an API error, `2` a usage error (a missing key, an unknown spec, collection, environment or folder).
+
+Each key may make a number of requests per minute ([Rate limits](/reference/platform-api#rate-limits)). When it is reached, the commands wait for the time the API gives and try again, up to three times, before failing.
 
 ## `spec check <file> --spec <slug|id>`
 

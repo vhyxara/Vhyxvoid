@@ -3,7 +3,7 @@ title: Runbook
 description: What to do when something goes wrong, and the routine jobs.
 verified:
   date: "2026-10-07"
-  commit: "a682df5"
+  commit: "b0ae506"
   packages: {}
 sources:
   - packages/shared/src/agentFleet.ts
@@ -58,6 +58,10 @@ Turn off `auth.signupsEnabled`, or limit sign-ups to certain email domains with 
 - Each rule sends at most 12 notifications an hour; the rule's history shows suppressed ones.
 - Email needs `RESEND_API_KEY`; webhooks must answer 2xx within 5 seconds and cannot point at private addresses. Each history entry shows what happened on each channel.
 - `features.alerts` off stops evaluation. **System → Run alert checks now** runs it immediately; a 409 means another API instance holds the job.
+
+## A customer's CI gets 429 from the platform API
+
+The message is `This API key made more than N requests this minute`: the key reached the plan limit `platformApiRequestsPerMinute`. The CLI and the actions already wait and retry three times, so this usually means many jobs share one key. Suggest one key per pipeline. To help one customer, raise the limit for their account in the console (**Accounts**, the account's *Limit overrides* tab); it takes effect within a minute.
 
 ## An admin is locked out
 

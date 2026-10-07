@@ -51,5 +51,5 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] AI assist was tested with fake model clients and a local fake Anthropic endpoint only. Before launch: run a small eval with a real `ANTHROPIC_API_KEY` (descriptions, traffic, specs) and tune the prompts and effort. Found 2026-10-07, session upbeat-cannon.
 - [ ] GitHub sync is one-way (repository → platform via CI). Two-way (dashboard edits opened as pull requests, a GitHub App with webhooks) is not built. Found 2026-10-07, session upbeat-cannon.
 - [ ] VS Code extension: not on the Marketplace (no icon, publisher account); tested with unit tests and a bundle-load test against a stub `vscode`, not in a real extension host (@vscode/test-electron). Found 2026-10-07, session upbeat-cannon.
-- [ ] Platform API: no per-key rate limits (routes have per-IP limits only) and no OpenAPI document of the platform API itself. Found 2026-10-07, session upbeat-cannon.
+- [x] ~~Platform API: no per-key rate limits.~~ Done 2026-10-07: plan limit `platformApiRequestsPerMinute` (Free 120 / Pro 1,200 / Enterprise 6,000) per key per clock minute, counted after verification, 429 + Retry-After + X-RateLimit-* headers; clients retry on 429. Still open: no OpenAPI document of the platform API itself. Found 2026-10-07, session upbeat-cannon.
 

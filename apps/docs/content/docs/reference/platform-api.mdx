@@ -3,12 +3,13 @@ title: Platform API
 description: Use mocks, API docs, collections, the team space and AI assist from scripts and CI with an API key.
 verified:
   date: "2026-10-07"
-  commit: "cbd841a"
+  commit: "b0ae506"
   packages: {}
 sources:
   - apps/api/src/modules/platform/shared/apiKeyAuth.ts
   - apps/api/src/modules/identity/presentation/plugins/guards/userAuthGuard.ts
   - apps/api/src/modules/platform/shared/platformApi.routes.ts
+  - packages/shared/src/planLimits.ts
   - apps/api/src/core/constant/apikey.constant.ts
   - apps/api/src/modules/platform/apiclient/apiClient.routes.ts
 ---
@@ -65,9 +66,31 @@ These stay **dashboard only**: managing members, keys, billing and settings, sha
 | `401` | The key is wrong, revoked, expired or past its rotation grace; or the route is dashboard only. |
 | `403` | The key lacks the route's scope (the message names it), or the URL is for another workspace, or the key's creator is no longer a member. |
 | `402` | A plan limit was reached; the message says which. |
-| `429` | Rate limited. Retry after the `Retry-After` header. |
+| `429` | The key's requests-per-minute limit, or the per-address limit, was reached. Retry after the `Retry-After` header (see [Rate limits](#rate-limits)). |
 
 Responses use the same `{ success, message, data }` envelope as the dashboard; errors add a `code` and a `requestId`. Each successful call updates the key's **Last used** time (at most once a minute).
+
+## Rate limits
+
+Each API key may make a number of requests per clock minute, set by your plan:
+
+| Plan | Requests per key per minute |
+| --- | --- |
+| Free | 120 |
+| Pro | 1,200 |
+| Enterprise | 6,000 |
+
+Every response to a key carries:
+
+| Header | |
+| --- | --- |
+| `X-RateLimit-Limit` | the key's limit per minute |
+| `X-RateLimit-Remaining` | requests left this minute |
+| `X-RateLimit-Reset` | seconds until the minute ends |
+
+Over the limit, the API answers `429` with `Retry-After` (seconds until the next minute). Other keys of the workspace, and dashboard sign-ins, are not affected. Only requests with a valid key count, so nobody can use up your key's allowance by sending its key ID with a wrong secret. Each request also counts against a per-address limit, as it does from the dashboard.
+
+The CLI, the GitHub Actions and the VS Code extension wait for `Retry-After` and try again, up to three times. They also poll background runs and drafts every second at first, then every 3 seconds, so a normal CI job stays well under the limit. To raise a key's limit, upgrade the plan; for many parallel jobs, give each its own key.
 
 ## Examples
 
