@@ -3,7 +3,7 @@ title: Platform commands
 description: whoami, spec check and push, collection push, test --collection and ai, for CI and scripts, with an API key.
 verified:
   date: "2026-10-07"
-  commit: "a682df5"
+  commit: "cbd841a"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -75,7 +75,7 @@ Runs a collection stored in the workspace on the platform, as **Run** in the das
 npx @vhyxvoid/agent test --collection "Shop smoke" --env Staging --junit report.xml
 ```
 
-`--env`, `--folder` (`"Parent/Child"` for a nested one), `--var NAME=value`, `--bail`, `--junit`, `--json` and `--quiet` work as for [file runs](/cli/test). `--timeout`, `--delay`, `--insecure` and `--follow-redirects` only apply to file runs. The platform's runner sends the requests, so they must reach public addresses; to test an app running in the CI job, run a [file](/cli/test) instead. The run shows up in the collection's run history, and the command prints a link to it.
+`--env`, `--folder` (`"Parent/Child"` for a nested one), `--var NAME=value`, `--bail`, `--junit`, `--json` and `--quiet` work as for [file runs](/cli/test). `--timeout`, `--delay`, `--insecure` and `--follow-redirects` only apply to file runs. The platform's runner sends the requests, so they must reach public addresses; to test an app running in the CI job, run a [file](/cli/test) instead. The command starts the run, waits for it (it runs on the platform for up to two minutes) and prints a link to it in the collection's run history. If the run hasn't ended after five minutes, the command stops waiting and exits 1; the run itself carries on and its result appears in the dashboard.
 
 ## `ai mock` and `ai tests`
 

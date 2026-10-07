@@ -992,3 +992,13 @@ Commits 5d99667, 8814426, a2ef6c9, a682df5 and the docs commit after them.
 
 **Status:** active.
 
+### 2026-10-07 — Collection runs are background jobs (session upbeat-cannon)
+
+Follow-up to phase 7, decision 5. `POST /api-client/:acc/collections/:id/run` (up to 120 s) answered after the whole run, so through Cloudflare (100 s) a long run got a 524 although it finished. Now the run row is created with `status: running` and the POST answers 202; the run finishes in the background and updates the row (`done` with the report, or `failed` with an error). Clients poll `GET /runs/:id`.
+
+- **The database row, not Redis, is the job**, unlike AI drafts: runs are already stored and listed, so a running run shows under Recent runs for the whole team and its result is kept like any other run.
+- **No sweeper job:** a row still `running` 5 minutes past the run deadline is reported as failed ("interrupted, the server restarted") when read. The row itself stays `running`; nothing depends on it.
+- Monitors' "Run now" stays synchronous: its deadline is 60 s, under the proxy limits.
+
+**Status:** active.
+

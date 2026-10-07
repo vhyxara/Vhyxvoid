@@ -3,13 +3,14 @@ title: Platform API
 description: Use mocks, API docs, collections, the team space and AI assist from scripts and CI with an API key.
 verified:
   date: "2026-10-07"
-  commit: "a2ef6c9"
+  commit: "cbd841a"
   packages: {}
 sources:
   - apps/api/src/modules/platform/shared/apiKeyAuth.ts
   - apps/api/src/modules/identity/presentation/plugins/guards/userAuthGuard.ts
   - apps/api/src/modules/platform/shared/platformApi.routes.ts
   - apps/api/src/core/constant/apikey.constant.ts
+  - apps/api/src/modules/platform/apiclient/apiClient.routes.ts
 ---
 
 The dashboard's own API also accepts an **API key** on most of its routes. That is how the [CLI's platform commands](/cli/platform), the [GitHub Actions](/integrations/github-actions) and the [VS Code extension](/integrations/vscode) work, and you can call it from your own scripts too.
@@ -82,15 +83,20 @@ jq -Rs '{text: .}' openapi.yaml \
   | jq '.data.counts'
 ```
 
-Run a stored collection and fail the script when a check fails:
+Run a stored collection and fail the script when a check fails. A run can take up to two minutes, so it runs in the background: the POST answers `202` with the run's id at once, and `GET /api-client/:accountId/runs/:runId` returns `"status": "running"` until it is `"done"` (with the `report`) or `"failed"` (with an `error`). This needs `tests:run` to start and `collections:read` to read the result.
 
 ```sh
-curl -s -X POST $API/api-client/$ACC/collections/$COLLECTION/run -H "$AUTH" \
-  -H 'content-type: application/json' -d '{"environmentId": "'$ENV'"}' \
-  | jq -e '.data.report.failed == 0 and .data.report.errored == 0'
+RUN=$(curl -s -X POST $API/api-client/$ACC/collections/$COLLECTION/run -H "$AUTH" \
+  -H 'content-type: application/json' -d '{"environmentId": "'$ENV'"}' | jq -r .data.id)
+while :; do
+  R=$(curl -s $API/api-client/$ACC/runs/$RUN -H "$AUTH")
+  [ "$(echo "$R" | jq -r .data.status)" != running ] && break
+  sleep 2
+done
+echo "$R" | jq -e '.data.status == "done" and .data.report.failed == 0 and .data.report.errored == 0'
 ```
 
-Runs started with a key are stored like any other run and appear in the collection's run history in the dashboard.
+Runs started with a key are stored like any other run and appear in the collection's run history in the dashboard, marked as running until they end. [`vhyxvoid test --collection`](/cli/platform#test---collection-nameid) does this polling for you.
 
 ## AI drafts
 

@@ -3,7 +3,7 @@ title: API client
 description: Send requests from the browser with no CORS trouble, keep them in shared collections, add checks without code, and run whole collections here or in CI.
 verified:
   date: "2026-10-07"
-  commit: "a682df5"
+  commit: "cbd841a"
   packages: {}
 sources:
   - packages/shared/src/apiClient.ts
@@ -136,7 +136,7 @@ In the dashboard, captured values last until you reload the page. They show unde
 
 A request **passes** when all of its checks pass; a request with no checks passes on any answer. A request that can't be sent (a connection error, a timeout, a missing variable) counts as **errored**.
 
-The report shows each request with its status, time, failed checks and, for failures, the start of the response. The last 50 runs of each collection are kept under **Recent runs**. A run uses the saved collection and stops starting new requests after two minutes.
+The report shows each request with its status, time, failed checks and, for failures, the start of the response. The last 50 runs of each collection are kept under **Recent runs**. A run uses the saved collection and stops starting new requests after two minutes. It runs on the server, so closing the dialog doesn't stop it: it shows as *running* under **Recent runs** and its report appears there when it ends. A run cut off by a server restart shows as *stopped*; run it again.
 
 Captured values whose names look like credentials (containing `token`, `secret`, `password`, `key`, `auth`, `session`, `cookie`, `credential` or `signature`) show as `••••` in reports, because reports are shared with the team.
 
