@@ -3,9 +3,11 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a2ef6c9"
   packages: {}
 sources:
+  - apps/api/src/modules/platform/ai/aiModel.ts
+  - apps/api/src/modules/platform/ai/ai.routes.ts
   - docker-compose.yml
   - docker-compose.build.yml
   - Dockerfile.api
@@ -57,6 +59,8 @@ All images run as the unprivileged `node` user on Node 24.
 | `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | no | Fallback price IDs. Prefer setting prices in the console (Plans & pricing). |
 | `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. Load tests and try-it on shared [API docs](/dashboard/api-docs) also send through `HUB_INTERNAL_URL`. |
 | `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_FIRST_NAME`, `SUPER_ADMIN_LAST_NAME` | first run | The first admin, created by the seed. |
+| `ANTHROPIC_API_KEY` | for AI assist | Anthropic API key for [AI assist](/dashboard/ai-assist). Without it, AI assist reports that it isn't set up and everything else works. |
+| `VHYXVOID_AI_MODEL` | no | The Claude model for AI assist (default `claude-opus-5-5`). |
 
 ### Hub (`apps/hub/.env.production`)
 
@@ -120,6 +124,15 @@ The [team space](/dashboard/team-space) pushes changes to browsers over a WebSoc
 - **Cloudflare.** It passes WebSockets through on the proxied API host. No setting is needed.
 - **Several API instances.** These need no pub/sub service. Each change is written to the `team_events` table, and every instance reads new rows once a second while it has open sockets. Rows are kept a day.
 - **Email digest.** The "teamDigest" job sends it hourly, and can be run from the admin system page.
+
+## AI assist
+
+[AI assist](/dashboard/ai-assist) calls the Anthropic API from the API server, so set `ANTHROPIC_API_KEY` there.
+
+- **Cost control.** Each draft is one request: at most 16,000 output tokens, at medium effort. Drafts per workspace per month are the plan limit `aiRequestsPerMonth` (Free 20, Pro 500, Enterprise 5,000). Change it per plan or per account in the console, or turn the feature off with the **AI assist** setting.
+- **Usage.** The `ai_drafts` table has one row per draft: workspace, member, API key, kind, model, input and output tokens, and whether it succeeded. Prompts and drafts are not stored.
+- **Long drafts.** A draft runs in the background and the client polls for it, so no request waits more than a moment. Cloudflare's 100-second limit and nginx's default 60-second read timeout don't apply. The result is kept in Redis for 15 minutes. If the API restarts during a draft, that draft is lost and the client reports it; it isn't counted.
+- **Refusals.** When the model declines a request, the API retries on a fallback model in the same call (Anthropic's server-side fallback). If that also declines, the user is told to rephrase, and the draft isn't counted.
 
 ## Custom domains
 

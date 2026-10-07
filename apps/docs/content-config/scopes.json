@@ -1,5 +1,5 @@
 {
-  "_comment": "Meaning of each ApiScope value (apps/api/src/core/constant/apikey.constant.ts). scripts/generate.mjs fails on an enum value with no entry here. `checked` is what really consumes the scope today (verified 2026-09-21: only tunnel:connect is required by anything).",
+  "_comment": "Meaning of each ApiScope value (apps/api/src/core/constant/apikey.constant.ts). scripts/generate.mjs fails on an enum value with no entry here. `checked` is what really consumes the scope today (re-verified 2026-10-07: tunnel:connect by the hub, and since phase 7 the platform API scopes by the routes that declare config.apiKeyScope).",
   "tunnel:connect": {
     "description": "Connect an agent to the hub, and register a `TunnelClient` session.",
     "checked": "Yes. The hub requires it for agent registration and for `TunnelClient` connections and requests.",
@@ -28,6 +28,51 @@
   "metrics:read": {
     "description": "Read usage metrics.",
     "checked": "No. Accepted when creating a key; nothing requires it yet.",
+    "inDashboard": true
+  },
+  "mocks:read": {
+    "description": "Read mock APIs: the list, definitions, OpenAPI and file exports, and dry runs (try).",
+    "checked": "Yes. The [platform API](/reference/platform-api) requires it on those routes of `/api/v1/mocks`.",
+    "inDashboard": true
+  },
+  "mocks:write": {
+    "description": "Create, change, import into and delete mock APIs.",
+    "checked": "Yes. Required by those routes of `/api/v1/mocks`. Recording from captured traffic and resetting resource data stay dashboard actions.",
+    "inDashboard": true
+  },
+  "specs:read": {
+    "description": "Read API docs: specs, drafts, versions, diffs and exports; check a document against the latest version; compare a spec with live traffic (drift).",
+    "checked": "Yes. Required by the read routes of `/api/v1/specs`, by API drift, and by `vhyxvoid spec check`.",
+    "inDashboard": true
+  },
+  "specs:write": {
+    "description": "Create specs, save drafts and publish versions.",
+    "checked": "Yes. Required by those routes of `/api/v1/specs`; `vhyxvoid spec push` also needs `specs:read`. Restoring an old version, sharing, docs domains and deleting stay dashboard actions.",
+    "inDashboard": true
+  },
+  "collections:read": {
+    "description": "Read API client collections, their exports and runs, and the names of environments.",
+    "checked": "Yes. Required by those routes of `/api/v1/api-client`. Environment values, history and single sends stay in the dashboard.",
+    "inDashboard": true
+  },
+  "tests:run": {
+    "description": "Run collections, create collections and replace one from a file.",
+    "checked": "Yes. Required by the create, save, parse and run routes of `/api/v1/api-client`. `vhyxvoid test --collection` and `vhyxvoid collection push` also need `collections:read` to find the collection by name.",
+    "inDashboard": true
+  },
+  "team:read": {
+    "description": "Read the team space: the channel list, channel messages, search, documents, issues and comments.",
+    "checked": "Yes. Required by those routes of `/api/v1/team`.",
+    "inDashboard": true
+  },
+  "team:write": {
+    "description": "Post channel messages, create and edit documents, open, update and move issues, and comment, as the key's creator.",
+    "checked": "Yes. Required by those routes of `/api/v1/team`. Channels, folders, deleting and editing messages stay dashboard actions.",
+    "inDashboard": true
+  },
+  "ai:use": {
+    "description": "Draft mock APIs and test collections with [AI assist](/dashboard/ai-assist).",
+    "checked": "Yes. Required by `/api/v1/ai` and by `vhyxvoid ai`. Drafts count against the plan limit `aiRequestsPerMonth`.",
     "inDashboard": true
   },
   "*": {

@@ -46,4 +46,10 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] Mock resources: concurrent PUT/PATCH of the same item are last-write-wins (read-modify-write over HGET/HSET). Use a Lua script or WATCH if users need strict updates. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock resources: no relations (`/users/1/posts`) or `_embed`/`_expand` like json-server. Add when asked. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock import: Postman variables other than the leading host are turned into path parameters only when written `{{name}}` in the path; collection-level auth and pre-request scripts are ignored (reported only implicitly). List them in warnings. Found 2026-10-06, session upbeat-cannon.
+- [ ] Collection runs (`POST /api-client/:acc/collections/:id/run`, up to 150 s) are synchronous, so a long run through Cloudflare (100 s limit) answers 524 to the dashboard and to `vhyxvoid test --collection` although the run finishes. Make runs background jobs polled like AI drafts. Found 2026-10-07, session upbeat-cannon.
+- [ ] `aiRequestsPerMonth` is checked before the model call and counted after it, so a burst of concurrent drafts can exceed the allowance by a few. Reserve a row first if that matters. Found 2026-10-07, session upbeat-cannon.
+- [ ] AI assist was tested with fake model clients and a local fake Anthropic endpoint only. Before launch: run a small eval with a real `ANTHROPIC_API_KEY` (descriptions, traffic, specs) and tune the prompts and effort. Found 2026-10-07, session upbeat-cannon.
+- [ ] GitHub sync is one-way (repository → platform via CI). Two-way (dashboard edits opened as pull requests, a GitHub App with webhooks) is not built. Found 2026-10-07, session upbeat-cannon.
+- [ ] VS Code extension: not on the Marketplace (no icon, publisher account); tested with unit tests and a bundle-load test against a stub `vscode`, not in a real extension host (@vscode/test-electron). Found 2026-10-07, session upbeat-cannon.
+- [ ] Platform API: no per-key rate limits (routes have per-IP limits only) and no OpenAPI document of the platform API itself. Found 2026-10-07, session upbeat-cannon.
 

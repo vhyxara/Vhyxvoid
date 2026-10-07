@@ -1,0 +1,102 @@
+---
+title: Platform API
+description: Use mocks, API docs, collections, the team space and AI assist from scripts and CI with an API key.
+verified:
+  date: "2026-10-07"
+  commit: "a2ef6c9"
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/shared/apiKeyAuth.ts
+  - apps/api/src/modules/identity/presentation/plugins/guards/userAuthGuard.ts
+  - apps/api/src/modules/platform/shared/platformApi.routes.ts
+  - apps/api/src/core/constant/apikey.constant.ts
+---
+
+The dashboard's own API also accepts an **API key** on most of its routes. That is how the [CLI's platform commands](/cli/platform), the [GitHub Actions](/integrations/github-actions) and the [VS Code extension](/integrations/vscode) work, and you can call it from your own scripts too.
+
+## Authenticate
+
+Send the key ID and the secret, joined by a dot, as a bearer token:
+
+```sh
+curl https://api.vhyxvoid.com/api/v1/platform/whoami \
+  -H "Authorization: Bearer $VHYXVOID_KEY_ID.$VHYXVOID_SECRET"
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "accountId": "5f1d…",
+    "workspace": "Acme",
+    "slug": "acme",
+    "keyId": "vhyxvoid_dev_…",
+    "scopes": ["specs:read", "specs:write"],
+    "dashboardUrl": "https://www.vhyxvoid.com/organizations/5f1d…"
+  }
+}
+```
+
+`whoami` works with any valid key. Other routes need the right scope.
+
+## What a key can do
+
+A key acts in its own workspace only, **as the member who created it**: issues it opens, messages it posts and versions it publishes show that member's name. The key stops working when that member leaves the workspace, as well as when it is revoked or expires. After a [rotation](/dashboard/api-keys) the old secret keeps working until the grace period ends.
+
+Each route that accepts a key names one scope:
+
+| Scope | Routes |
+| --- | --- |
+| `mocks:read`, `mocks:write` | `/api/v1/mocks/:accountId/…`: list, read, export and try mocks; create, change, import into and delete them |
+| `specs:read`, `specs:write` | `/api/v1/specs/:accountId/…`: read specs, versions and diffs, check a document (`POST …/:id/preview`); create, save drafts, publish. Also API drift: `POST /api/v1/analytics/:accountId/drift` |
+| `collections:read`, `tests:run` | `/api/v1/api-client/:accountId/…`: read collections and runs; create, save, parse a file into a collection, run |
+| `team:read`, `team:write` | `/api/v1/team/:accountId/…`: channels, messages, search, documents, issues, comments |
+| `ai:use` | `/api/v1/ai/:accountId/…`: [AI assist](/dashboard/ai-assist) drafts (see below) |
+
+The full list, with what each scope covers, is on [API key scopes](/reference/scopes). A key with `*` passes every scope check. Your plan limits how many scopes one key can carry; see [Plans and limits](/reference/plans-and-limits).
+
+These stay **dashboard only**: managing members, keys, billing and settings, sharing API docs and their domains, deleting specs, collections and team content, environments, request history, recording mocks from traffic, and the request inspector. A key sent to one of them gets `401 This endpoint needs a dashboard sign-in, not an API key`.
+
+## Errors
+
+| Status | Meaning |
+| --- | --- |
+| `401` | The key is wrong, revoked, expired or past its rotation grace; or the route is dashboard only. |
+| `403` | The key lacks the route's scope (the message names it), or the URL is for another workspace, or the key's creator is no longer a member. |
+| `402` | A plan limit was reached; the message says which. |
+| `429` | Rate limited. Retry after the `Retry-After` header. |
+
+Responses use the same `{ success, message, data }` envelope as the dashboard; errors add a `code` and a `requestId`. Each successful call updates the key's **Last used** time (at most once a minute).
+
+## Examples
+
+Check a spec file against the latest published version, as `vhyxvoid spec check` does:
+
+```sh
+AUTH="Authorization: Bearer $VHYXVOID_KEY_ID.$VHYXVOID_SECRET"
+API=https://api.vhyxvoid.com/api/v1
+ACC=$(curl -s $API/platform/whoami -H "$AUTH" | jq -r .data.accountId)
+SPEC=$(curl -s $API/specs/$ACC -H "$AUTH" | jq -r '.data.specs[] | select(.slug=="shop-api") | .id')
+jq -Rs '{text: .}' openapi.yaml \
+  | curl -s -X POST $API/specs/$ACC/$SPEC/preview -H "$AUTH" -H 'content-type: application/json' -d @- \
+  | jq '.data.counts'
+```
+
+Run a stored collection and fail the script when a check fails:
+
+```sh
+curl -s -X POST $API/api-client/$ACC/collections/$COLLECTION/run -H "$AUTH" \
+  -H 'content-type: application/json' -d '{"environmentId": "'$ENV'"}' \
+  | jq -e '.data.report.failed == 0 and .data.report.errored == 0'
+```
+
+Runs started with a key are stored like any other run and appear in the collection's run history in the dashboard.
+
+## AI drafts
+
+A draft can take a minute or two, longer than a proxy waits for one response, so it runs in the background:
+
+1. `POST /api/v1/ai/:accountId/mock` with `{ "description": "…" }` (or `"trafficLabel"`), or `POST /api/v1/ai/:accountId/tests` with `{ "description", "specId", "trafficLabel", "baseUrl" }`, answers `202` with `{ "id": "…", "status": "running" }`.
+2. `GET /api/v1/ai/:accountId/drafts/:id` returns `"status": "running"` until it is `"done"`, with the draft in `result`, or `"failed"`, with `error.message` and the `error.statusCode` it would have had. Poll every couple of seconds.
+
+A draft can be read for 15 minutes, by the member (or that member's keys) who started it. `GET /api/v1/ai/:accountId` returns whether AI assist is available and how many drafts are left this month.

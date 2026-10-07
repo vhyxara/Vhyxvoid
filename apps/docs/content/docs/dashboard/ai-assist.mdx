@@ -1,0 +1,65 @@
+---
+title: AI assist
+description: Draft mock endpoints or a test collection from a description, from captured traffic, or from your API docs, then review and save.
+verified:
+  date: "2026-10-07"
+  commit: "a2ef6c9"
+  packages: {}
+sources:
+  - packages/shared/src/aiAssist.ts
+  - apps/api/src/modules/platform/ai/ai.routes.ts
+  - apps/api/src/modules/platform/ai/aiModel.ts
+  - apps/web/src/views/org/ai/AiDraftDialog.tsx
+  - apps/web/src/views/org/mocks/MockEditorView.tsx
+  - apps/web/src/views/org/apiclient/ApiClientView.tsx
+---
+
+AI assist writes a first draft for you:
+
+- **Mock endpoints**: paths, realistic example responses, error responses chosen by rules (for example a 404 for an unknown id), and templating where it helps.
+- **A test collection**: requests in a sensible order, checks on status, body and timing, and captures that pass ids from one request to the next.
+
+A draft is never saved on its own. You review it in the editor and save it, like anything you write by hand. Every draft goes through the same checks as a hand-written mock or collection, and anything that doesn't pass is left out with a note.
+
+## Draft mock endpoints
+
+In a [mock API](/dashboard/mock-apis), choose **Draft with AI**. Then pick what to base it on:
+
+- **A description**: for example *"A bookstore API: list books with pagination, get a book by id (404 for unknown ids), create a book (400 without a title)."*
+- **Traffic captured on a tunnel**: the most recent requests the [request inspector](/dashboard/request-inspector) kept for that tunnel, with the real responses. Add a description to steer it.
+
+The new endpoints are added after the ones the mock already has, and are selected in the editor. Endpoints the mock already has (same method and path) are left out. Check them, use **Try**, then **Save**. **Discard** drops them.
+
+Changing a mock is for owners and admins, so the button shows for them only.
+
+## Draft tests
+
+In the [API client](/dashboard/api-client), choose **Draft with AI** under **New collection**. Base it on:
+
+- **A description** of the flows and failures to test;
+- **API docs in this workspace**: the spec's current draft;
+- **Traffic captured on a tunnel**.
+
+Set **Base URL** to fill the `{{baseUrl}}` variable; you can change it later in an environment. A new collection is created with the draft and opened. Credentials are placeholders such as `<token>`: put real values in an [environment](/dashboard/api-client) secret, never in the collection.
+
+## From the CLI and VS Code
+
+`vhyxvoid ai mock` and `vhyxvoid ai tests` write the draft to a file that `vhyxvoid mock` serves and `vhyxvoid test` runs. See [Platform commands](/cli/platform#ai-mock-and-ai-tests). The [VS Code extension](/integrations/vscode) opens drafts in a new tab. Both need an API key with the `ai:use` scope.
+
+## Limits and privacy
+
+- Your plan includes a number of drafts per calendar month (UTC); see [Plans and limits](/reference/plans-and-limits). The dialog shows how many are left. A draft that fails (the model declines, or the answer is cut off) doesn't count. Dashboard, CLI and API key drafts share the same allowance.
+- What you type, and the captured requests or the spec you pick, are sent to the AI provider the platform uses (Anthropic) to write the draft. Captured traffic never contains credentials: the inspector hides `Authorization`, cookies and API key headers when it stores a request, and AI assist also leaves out every header except a few descriptive ones (`content-type`, `accept`, `location` and similar). Bodies are cut to a few kilobytes each.
+- Requests that a [traffic rule](/dashboard/traffic-rules) or a mock answered are not used: they show what the platform answered, not your API.
+- VhyxVoid keeps a log of each draft (who, when, what kind, how many tokens) for the allowance, but not your prompt or the draft.
+- Instructions found inside captured traffic or a spec are treated as data, not followed.
+
+## When it isn't available
+
+| You see | Why |
+| --- | --- |
+| *AI assist is switched off on this platform right now* | The operator turned off **AI assist** in the platform settings. |
+| *AI assist isn't set up on this server yet* | The platform has no AI provider key configured (`ANTHROPIC_API_KEY`). |
+| *AI assist isn't included in your plan* | Your plan's monthly allowance is 0. |
+| *You used all N AI drafts of this month* | The allowance is used up; it resets on the first of the month (UTC). |
+| *No captured requests on … to learn from* | The tunnel has no recent captures. Send traffic through it with the request inspector on, then try again. |

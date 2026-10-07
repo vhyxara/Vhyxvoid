@@ -3,7 +3,7 @@ title: API keys
 description: Create, scope, rotate, and revoke API keys in the dashboard.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -46,7 +46,7 @@ Admins and owners can create keys; the **Create API key** button is hidden for m
 1. Choose **Create API key**.
 2. Give it a **name** (2 to 64 characters) and, if you like, a description.
 3. Pick the environment, **Development** (`DEV`) or **Production** (`PROD`). On the FREE plan only Development is accepted.
-4. Choose the scopes. `tunnel:connect` is selected already, and it is the only one the agent needs. The dialog offers `tunnel:connect`, `tunnel:read` and `metrics:read`; see [API key scopes](/reference/scopes) for what they do. At least one scope is required.
+4. Choose the scopes. `tunnel:connect` is selected already, and it is the only one the agent needs. The dialog also offers `tunnel:read` and `metrics:read`, and the [platform API](/reference/platform-api) scopes for CI, scripts and the VS Code extension: `specs:read`, `specs:write`, `tests:run`, `collections:read`, `mocks:read`, `mocks:write`, `team:read`, `team:write` and `ai:use`. See [API key scopes](/reference/scopes) for what each one does. At least one scope is required.
 5. Optionally set an **Expiry date**. Leave it empty for a key that doesn't expire.
 6. Choose **Create key**.
 

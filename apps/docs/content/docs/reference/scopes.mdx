@@ -2,8 +2,8 @@
 title: API key scopes
 description: The scopes an API key can carry and which of them anything actually checks.
 verified:
-  date: "2026-10-06"
-  commit: "77c2542"
+  date: "2026-10-07"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -11,9 +11,10 @@ sources:
   - apps/hub/src/services/HubAuth.service.ts
   - apps/api/src/modules/key-management/application/use-cases/CreateApiKey.usecase.ts
   - apps/web/src/views/org/api-keys/CreateApiKeyDialog.tsx
+  - apps/api/src/modules/platform/shared/apiKeyAuth.ts
 ---
 
-An API key carries a list of scopes. Today the only one that anything checks is **`tunnel:connect`**, and it is the only one you need for the agent, the framework integrations and the SDK's `TunnelClient`. The dashboard preselects it when you create a key.
+An API key carries a list of scopes. **`tunnel:connect`** is the one the agent, the framework integrations and the SDK's `TunnelClient` need; the dashboard preselects it when you create a key. The scopes from `mocks:read` to `ai:use` open the [platform API](/reference/platform-api) to the key, which is what the [CLI's platform commands](/cli/platform), the [GitHub Actions](/integrations/github-actions) and the [VS Code extension](/integrations/vscode) use.
 
 {/* generated:begin scopes · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
 | Scope | Meaning | Checked by VhyxVoid today? | In the dashboard’s create dialog? |
@@ -24,6 +25,15 @@ An API key carries a list of scopes. Today the only one that anything checks is 
 | `webhook:receive` | Receive inbound webhooks. | No. The [webhook inbox](/dashboard/webhook-inbox) is managed from the dashboard with your sign-in, not with an API key; nothing requires this scope. | No |
 | `webhook:inspect` | Inspect webhook history. | No. The [request inspector](/dashboard/request-inspector) is used from the dashboard with your sign-in, not with an API key; nothing requires this scope. | No |
 | `metrics:read` | Read usage metrics. | No. Accepted when creating a key; nothing requires it yet. | Yes |
+| `mocks:read` | Read mock APIs: the list, definitions, OpenAPI and file exports, and dry runs (try). | Yes. The [platform API](/reference/platform-api) requires it on those routes of `/api/v1/mocks`. | Yes |
+| `mocks:write` | Create, change, import into and delete mock APIs. | Yes. Required by those routes of `/api/v1/mocks`. Recording from captured traffic and resetting resource data stay dashboard actions. | Yes |
+| `specs:read` | Read API docs: specs, drafts, versions, diffs and exports; check a document against the latest version; compare a spec with live traffic (drift). | Yes. Required by the read routes of `/api/v1/specs`, by API drift, and by `vhyxvoid spec check`. | Yes |
+| `specs:write` | Create specs, save drafts and publish versions. | Yes. Required by those routes of `/api/v1/specs`; `vhyxvoid spec push` also needs `specs:read`. Restoring an old version, sharing, docs domains and deleting stay dashboard actions. | Yes |
+| `collections:read` | Read API client collections, their exports and runs, and the names of environments. | Yes. Required by those routes of `/api/v1/api-client`. Environment values, history and single sends stay in the dashboard. | Yes |
+| `tests:run` | Run collections, create collections and replace one from a file. | Yes. Required by the create, save, parse and run routes of `/api/v1/api-client`. `vhyxvoid test --collection` and `vhyxvoid collection push` also need `collections:read` to find the collection by name. | Yes |
+| `team:read` | Read the team space: the channel list, channel messages, search, documents, issues and comments. | Yes. Required by those routes of `/api/v1/team`. | Yes |
+| `team:write` | Post channel messages, create and edit documents, open, update and move issues, and comment, as the key's creator. | Yes. Required by those routes of `/api/v1/team`. Channels, folders, deleting and editing messages stay dashboard actions. | Yes |
+| `ai:use` | Draft mock APIs and test collections with [AI assist](/dashboard/ai-assist). | Yes. Required by `/api/v1/ai` and by `vhyxvoid ai`. Drafts count against the plan limit `aiRequestsPerMonth`. | Yes |
 | `*` | Every scope. | Satisfies any scope check. Only an organization's owner can create a key that has it. | No |
 {/* generated:end scopes */}
 

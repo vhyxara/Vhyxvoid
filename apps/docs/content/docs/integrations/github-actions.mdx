@@ -1,14 +1,23 @@
 ---
 title: GitHub Actions
-description: A public URL for the app in a CI job, for preview links on pull requests and real webhook round trips in tests.
+description: A public URL for the app in a CI job, breaking-change checks for your API spec on pull requests, publishing on merge, and API tests.
 verified:
-  date: "2026-10-06"
-  commit: "e7c1387"
+  date: "2026-10-07"
+  commit: "a682df5"
   packages: {}
 sources:
   - actions/tunnel/action.yml
   - actions/tunnel/start.sh
+  - actions/spec/action.yml
+  - actions/spec/run.sh
+  - actions/api-test/action.yml
 ---
+
+Three actions in the VhyxVoid repository:
+
+- [`actions/tunnel`](#preview-links-on-pull-requests) gives the app in a job a public URL.
+- [`actions/spec`](#api-spec-checks-on-pull-requests) checks an OpenAPI file against its published [API docs](/dashboard/api-docs) and comments breaking changes on the pull request, or publishes it.
+- [`actions/api-test`](#api-tests) runs an [API client](/dashboard/api-client) collection and writes a JUnit report.
 
 The `actions/tunnel` action starts the agent in the background for the rest of the job and gives you the URL. On pull requests it also comments the link, and updates that same comment on every push.
 
@@ -104,3 +113,109 @@ A relative path is resolved from the job's working directory. A URL to a `.tgz` 
 Create a key used only by CI, with an expiry date. Revoking it disconnects running jobs within about a minute, and every connection shows on the workspace's [Activity](/dashboard/activity) page. Each running job uses one agent slot of your plan.
 
 If the key is refused, the step fails and prints the agent's message. Run [`vhyxvoid doctor --connect`](/cli/doctor) with the same key to see why.
+
+## API spec checks on pull requests
+
+`actions/spec` compares the OpenAPI file in the pull request with the latest published version of its API docs, using [`vhyxvoid spec check`](/cli/platform#spec-check-file---spec-slugid). Errors in the document and breaking changes for clients fail the check. The result goes into one pull request comment, updated on every push, and into the job summary.
+
+```yaml
+name: API spec
+on:
+  pull_request:
+    paths: [openapi.yaml]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vhyxara/vhyxvoid/actions/spec@main
+        with:
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+          file: openapi.yaml
+          spec: shop-api
+```
+
+The comment lists each problem and change with its severity and location, and links to the API docs. When a breaking change is intended, merge with the check failing, or set `fail-on: none` for that pull request. Then publish with `allow-breaking`.
+
+## Publish on merge
+
+With `mode: push`, the action saves the file as the draft and publishes it as the next version. Publishing is refused when the document has errors, and when it has breaking changes unless `allow-breaking` is `true`. The release notes default to the commit message.
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths: [openapi.yaml]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vhyxara/vhyxvoid/actions/spec@main
+        with:
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+          file: openapi.yaml
+          spec: shop-api
+          mode: push
+```
+
+| Input | Default | |
+| --- | --- | --- |
+| `api-key`, `secret` | required | a key with `specs:read`, and `specs:write` for `mode: push` |
+| `file` | required | the OpenAPI 3 or Swagger 2 file, YAML or JSON |
+| `spec` | required | the API docs' slug or id |
+| `mode` | `check` | `check` or `push` |
+| `fail-on` | `breaking` | `check`: `breaking`, `warning` or `none`; errors always fail |
+| `allow-breaking` | `false` | `push`: publish even with breaking changes |
+| `notes` | the commit message | `push`: release notes |
+| `comment` | `true` | `check` on a pull request: comment the result (needs `pull-requests: write`) |
+| `github-token` | `github.token` | for the comment |
+| `api-url` | `https://api.vhyxvoid.com` | the API origin, for a self-hosted platform |
+| `agent-version`, `agent-package` | `latest`, none | as for `actions/tunnel` |
+
+Outputs: `breaking` (the number of breaking changes) and `result` (`passed` or `failed`).
+
+## API tests
+
+`actions/api-test` runs a collection and its checks, fails the step when a check fails, and writes a JUnit report that test-report actions can show.
+
+Two ways to run:
+
+- **A collection stored in your workspace.** Give `collection`, plus a key with `collections:read` and `tests:run`. VhyxVoid sends the requests, so they reach public addresses only, such as a staging server.
+- **A collection file in the repository.** Give `file`. Export it from the dashboard, or write one with [`vhyxvoid ai tests`](/cli/platform#ai-mock-and-ai-tests). The runner sends the requests, so they reach the app started earlier in the job, on `localhost`. No key is needed.
+
+```yaml
+      - uses: vhyxara/vhyxvoid/actions/api-test@main
+        with:
+          collection: Shop smoke
+          environment: Staging
+          api-key: ${{ secrets.VHYXVOID_API_KEY }}
+          secret: ${{ secrets.VHYXVOID_SECRET }}
+
+      - run: npm start &
+      - uses: vhyxara/vhyxvoid/actions/api-test@main
+        with:
+          file: tests/shop.vhyxvoid.json
+          environment: Local
+          vars: |
+            apiToken=${{ secrets.SHOP_TEST_TOKEN }}
+```
+
+| Input | Default | |
+| --- | --- | --- |
+| `collection` or `file` | one is required | a stored collection (name or id), or a collection file |
+| `environment` | none | an environment name, or for a file an environment file |
+| `folder` | none | run one folder (`Parent/Child` for a nested one) |
+| `vars` | none | variables, one `NAME=value` per line, above the environment's values |
+| `api-key`, `secret` | none | for `collection`: a key with `collections:read` and `tests:run` |
+| `junit` | `vhyxvoid-junit.xml` | where the JUnit report goes (also the `junit` output) |
+| `api-url`, `agent-version`, `agent-package` | | as for `actions/spec` |
+

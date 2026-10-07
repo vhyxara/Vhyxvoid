@@ -3,7 +3,7 @@ title: vhyxvoid mock
 description: Serve a mock API on your machine, offline, from a dashboard export or an OpenAPI, Postman, Mockoon or HAR file.
 verified:
   date: "2026-10-07"
-  commit: "1a8548c"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -31,6 +31,8 @@ npx @vhyxvoid/agent mock ./users-api.vhyxvoid-mock.json
 ## The file
 
 Export the mock from the dashboard as **VhyxVoid JSON** (everything) or **OpenAPI (JSON)**, or use any JSON document the dashboard can import: OpenAPI 3 / Swagger 2, a Postman collection, a Mockoon environment or a HAR file. YAML isn't read here; export JSON instead. A file that isn't one of these stops with a message that says so.
+
+[`vhyxvoid ai mock`](/cli/platform#ai-mock-and-ai-tests) writes a VhyxVoid mock file from a description, ready to serve here.
 
 ## Options
 

@@ -3,7 +3,7 @@ title: Troubleshooting
 description: What you see, what it means, and what to do. Every entry here was reproduced or read from the code, not guessed.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -71,6 +71,23 @@ Look at the body. If it is JSON with `"tunnel": true` (and the response has an `
 A response with an `x-vhyxvoid-rule` header was answered by one of your [traffic rules](/dashboard/traffic-rules) (a mock, an injected error or a redirect), and one with `x-vhyxvoid-mock` by the label's [mock API](/dashboard/mock-apis), not by your server. If a route your server should answer comes back from a mock, delete that endpoint from the mock, or switch the mock to **Only while the agent is offline**.
 
 The full list is on [HTTP status codes](/reference/http-status-codes).
+
+## Platform commands, actions and the extension
+
+`vhyxvoid whoami`, `spec`, `collection`, `test --collection` and `ai` (and the GitHub Actions and VS Code extension, which use them) print the platform's message:
+
+| You see | Cause and fix |
+| --- | --- |
+| `An API key is needed…` (exit 2) | No key: set `VHYXVOID_API_KEY` to `keyId.secret`, or the key ID with `VHYXVOID_SECRET`. |
+| `Invalid API key`, `This API key has been revoked` or `This API key has expired` | The key is wrong, revoked or expired, or it was rotated and the old secret's hour of grace is over. Run `vhyxvoid whoami` to test a key. |
+| `This workspace is not active` | The workspace is suspended or its subscription ended; see [Billing](/dashboard/billing). |
+| `This API key lacks the scope specs:read` (or another scope) | Create a key with that scope; see [Platform commands](/cli/platform) for what each command needs. Scopes can't be added to an existing key. |
+| `This endpoint needs a dashboard sign-in, not an API key` | That action (sharing, deleting, members, settings…) is dashboard only. See [Platform API](/reference/platform-api#what-a-key-can-do). |
+| `You do not have access to this account` | The member who created the key left the workspace, so the key no longer works. Create a new key. |
+| `No API spec "…" in this workspace (specs: …)` (exit 2) | The `--spec` slug is wrong; the message lists the ones that exist. The same goes for collections, environments and folders. |
+| `Saved the draft but did not publish: 1 breaking change` | `spec push --publish` refuses breaking changes. Add `--allow-breaking` (or `allow-breaking: true` in the action) when they are intended. |
+| `AI assist isn't set up on this server` | The platform has no AI provider configured. On a self-hosted platform, set `ANTHROPIC_API_KEY` on the API ([Deployment](/operators/deployment#ai-assist)). |
+| `You used all 20 AI drafts of this month` | The plan's monthly allowance is used up; it resets on the first of the month (UTC). |
 
 ## The request is slow or times out
 

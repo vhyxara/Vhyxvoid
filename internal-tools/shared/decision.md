@@ -977,3 +977,18 @@ Code commit and docs commit after it (see the plan's status table).
 
 **Status:** active.
 
+### 2026-10-07 — Ecosystem, phase 7 (session upbeat-cannon)
+
+Commits 5d99667, 8814426, a2ef6c9, a682df5 and the docs commit after them.
+
+1. **The public API is the dashboard API, opened route by route.** No second API surface to keep in sync: a route opts in with `config.apiKeyScope`, and `userAuthGuard` accepts `Bearer keyId.secret` there only (everything else answers 401 "needs a dashboard sign-in"). The key acts as its creator, so membership checks, plan limits and activity work unchanged; the key dies with its creator's membership. Kept dashboard-only on purpose: sharing/docs domains, deletes of specs/collections/team content, environments (secret values), history, recording, members, keys, billing, settings.
+2. **Scopes are per resource and verb** (`specs:read`/`specs:write`, `collections:read`/`tests:run`, `mocks:*`, `team:*`, `ai:use`). Commands that look things up by name need the read scope too (documented per command) rather than one scope implying another.
+3. **"GitHub sync" is CI-driven, one-way: repository → platform.** `spec check` on pull requests (comment + job summary, breaking changes fail), `spec push --publish` on merge (refused on errors/breaking unless allowed), `collection push`, `test --collection`. No GitHub App, no webhooks, no platform → PR writes: the repository stays the source of truth and nothing needs GitHub credentials on our side. Two-way sync is backlog.
+4. **AI assist uses one structured-output call per draft, then our own validators.** The model fills a small draft shape (no ids, no defaults); `shared/aiAssist.ts` converts and checks it with `mockDefinitionProblem` / `apiRequestProblem` / `apiCollectionProblem`, dropping invalid parts with warnings, so a draft can never be saved in a shape a human couldn't have written. Claude Opus 5.5 (`VHYXVOID_AI_MODEL` overrides), effort medium, 16k output cap, server-side refusal fallback on. Parsed by us (not `messages.parse`) so refusals and cut-off answers are reported as such.
+5. **Drafts are background jobs, polled.** Cloudflare cuts proxied requests at 100 s and nginx waits 60 s; a draft can take longer. POST answers 202 with an id, the result sits in Redis 15 minutes for the requesting member only. No queue: the instance that accepted the POST runs it; a restart loses it (not counted).
+6. **Captured traffic and specs are data, not instructions.** They go in tagged blocks the user can't close (tags stripped), the system prompt says so, credentials were never stored by the inspector, and only a whitelist of descriptive headers is sent. Platform-answered requests (rules, mocks) are excluded.
+7. **Usage = successful model calls** (`ai_drafts`, no prompts or outputs stored), plan limit `aiRequestsPerMonth` (Free 20 / Pro 500 / Enterprise 5,000), calendar month UTC. A failed call is logged but free.
+8. **VS Code extension reuses the CLI client** (`packages/agent/src/platform.ts` bundled by esbuild) instead of a third client; spec ↔ file links live in the workspace setting `vhyxvoid.specs` so they are shared through the repository.
+
+**Status:** active.
+

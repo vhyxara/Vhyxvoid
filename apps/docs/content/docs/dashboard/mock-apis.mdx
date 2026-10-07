@@ -3,7 +3,7 @@ title: Mock APIs
 description: A working API at a public URL before the backend exists, with realistic data, rules, errors and delays. Created from a template or an OpenAPI file.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages: {}
 sources:
   - packages/shared/src/mockApi.ts
@@ -121,6 +121,10 @@ Already have a working backend? Let it write the mock:
 - **Add to a mock API** (on any request in the inspector) does the same for one request.
 
 Ids in paths (numbers, UUIDs, long tokens such as `cus_NffrFeUfNV2Hib`) become parameters, so `/users/42` and `/users/43` become one `GET /users/:id` endpoint. When the same route answered with different statuses, each becomes a response, and the non-`2xx` ones get a rule on the id they were seen with (for example `404` only for id `99`). Only `Content-Type`, `Location`, `Cache-Control`, `Retry-After` and `WWW-Authenticate` response headers are kept, never cookies or credentials. Routes the mock already has are skipped. Requests answered by a mock or a traffic rule are not offered (they aren't your backend's answers).
+
+## Draft with AI
+
+**Draft with AI** (in the editor, for owners and admins) writes endpoints for you with [AI assist](/dashboard/ai-assist): from a description such as *"a bookstore API with books and authors, 404 for unknown ids"*, or from traffic captured on a tunnel. The new endpoints are added to the editor and are not saved until you **Save**. Routes the mock already has are left out.
 
 ## Import
 

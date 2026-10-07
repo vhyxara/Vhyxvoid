@@ -3,7 +3,7 @@ title: CLI reference
 description: Commands, flags, and environment variables of the vhyxvoid command.
 verified:
   date: "2026-10-07"
-  commit: "1a8548c"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -23,6 +23,9 @@ The flag table and the help output below are generated from the built CLI (`vhyx
 | `vhyxvoid start` | Connects your local server to VhyxVoid and prints the public URL. This is the default command, so `vhyxvoid --port 3000` means `vhyxvoid start --port 3000`. |
 | `vhyxvoid init` | Asks for your key ID, secret, port, label, hub URL and an optional account slug, then writes `.env.vhyxvoid` and adds it to `.gitignore`. It takes no flags. |
 | `vhyxvoid doctor` | Checks your setup (key, local server, hub, optionally a real sign-in and a custom domain's DNS) and prints the fix for each problem. See [doctor](/cli/doctor). |
+| `vhyxvoid mock <file>` | Serves a mock API on this machine, offline. See [mock](/cli/mock). |
+| `vhyxvoid test [file]` | Runs a collection and its checks, from a file or (`--collection`) stored in the workspace. See [test](/cli/test). |
+| `vhyxvoid whoami`, `spec check`, `spec push`, `collection push`, `ai mock`, `ai tests` | Work with your workspace through the platform API, with an API key. See [Platform commands](/cli/platform). |
 | `vhyxvoid --version` | Prints the version of the installed package. |
 | `vhyxvoid help [command]` | Prints help. `vhyxvoid start --help` and `vhyxvoid help start` print the same thing. |
 
@@ -33,7 +36,7 @@ Every flag has an environment variable except `--no-local-discovery`. Precedence
 {/* generated:begin cli-flags · do not edit; run `pnpm --filter @vhyxvoid/docs generate` */}
 | Flag | Environment variable | Default | Meaning |
 | --- | --- | --- | --- |
-| `-k, --key <keyId>` | `VHYXVOID_API_KEY` | none, required | API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`). |
+| `-k, --key <keyId>` | `VHYXVOID_API_KEY` | none, required | API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`). The [platform commands](/cli/platform) also accept `keyId.secret` here on its own. |
 | `-s, --secret <secret>` | `VHYXVOID_SECRET` | none, required | API key secret, shown once when the key is created. |
 | `-p, --port <port>` | `VHYXVOID_PORT` | `3000` | Local port the tunnel forwards to. |
 | `-l, --label <label>` | `VHYXVOID_LABEL` | `default` | Tunnel label: the part of the tunnel URL after `--`. Run one agent per label to expose several servers. |
@@ -82,9 +85,17 @@ Commands:
   mock [options] <file>  Serve a mock API on this machine, offline (a VhyxVoid
                          mock export, OpenAPI, Postman, Mockoon or HAR file, as
                          JSON)
-  test [options] <file>  Run an API collection and its checks (a VhyxVoid
-                         collection export, or a Postman collection / OpenAPI
-                         document as JSON); exits 1 when a check fails, for CI
+  test [options] [file]  Run an API collection and its checks: a file (a
+                         VhyxVoid collection export, or a Postman collection /
+                         OpenAPI document as JSON) here, or --collection stored
+                         in the workspace on the platform; exits 1 when a check
+                         fails, for CI
+  whoami [options]       Show the workspace and scopes of the API key
+  spec                   Check and push OpenAPI specs (API docs) from a
+                         repository
+  collection             Keep API client collections in a repository
+  ai                     Draft a mock API or tests with AI assist (needs an API
+                         key with ai:use)
   start [options]        Start the tunnel agent
   help [command]         display help for command
 ```

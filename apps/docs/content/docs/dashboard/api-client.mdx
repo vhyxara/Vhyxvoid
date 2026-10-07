@@ -3,7 +3,7 @@ title: API client
 description: Send requests from the browser with no CORS trouble, keep them in shared collections, add checks without code, and run whole collections here or in CI.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages: {}
 sources:
   - packages/shared/src/apiClient.ts
@@ -29,6 +29,7 @@ Open **API client** under a workspace. Every member can use it.
 | **Blank** | An empty collection with a `baseUrl` variable. |
 | **Import** | Paste a curl command (in browser dev tools: right-click a request → *Copy as cURL*), or paste or upload a Postman collection (v2.0 or v2.1), an OpenAPI 3 or Swagger 2 document (JSON or YAML), a HAR recording or a VhyxVoid export. Folders, auth, bodies and variables come along; each OpenAPI operation becomes a request with an example body and a status check, grouped by tag. |
 | **Test a mock API** | One request per endpoint of one of your [mock APIs](/dashboard/mock-apis), each checking the status of its default response. Every resource gets a list → create → read → delete flow that passes the new id along. |
+| **Draft with AI** | [AI assist](/dashboard/ai-assist) writes requests with checks and captures from a description, from your API docs, or from traffic captured on a tunnel. Review the draft before you rely on it. |
 
 To add requests to a collection that is already open, use **Import** in the sidebar. The requests land in a new folder when there are several.
 
@@ -158,6 +159,8 @@ Every request you send is in **History** in the sidebar. Only you see your histo
 npx @vhyxvoid/agent test ./users-api.vhyxvoid.json --env Staging \
   --var apiToken=$API_TOKEN --junit report.xml
 ```
+
+To run the collection as it is saved in the workspace instead of a file, use `vhyxvoid test --collection "Users API"` with an API key that has the `collections:read` and `tests:run` scopes; see [Platform commands](/cli/platform#test---collection-nameid). In GitHub Actions, the [`api-test` action](/integrations/github-actions#api-tests) does either.
 
 ## What the runner can reach
 

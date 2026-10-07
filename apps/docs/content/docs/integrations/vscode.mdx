@@ -1,0 +1,57 @@
+---
+title: VS Code
+description: Check and publish OpenAPI specs, run collections and draft mocks or tests with AI, from the editor.
+verified:
+  date: "2026-10-07"
+  commit: "a2ef6c9"
+  packages: {}
+sources:
+  - packages/vscode/package.json
+  - packages/vscode/src/extension.ts
+  - packages/vscode/src/editorText.ts
+---
+
+The VhyxVoid extension for VS Code uses the [platform API](/reference/platform-api) with an API key. It is not on the Marketplace yet: build it from the repository with `pnpm --filter vhyxvoid-vscode package`, then install the `.vsix` with **Extensions: Install from VSIX…**.
+
+## Sign in
+
+1. Create an API key under [API keys](/dashboard/api-keys) with the scopes you need:
+   - `specs:read` to check specs;
+   - `specs:write` to push and publish;
+   - `collections:read` and `tests:run` to run collections;
+   - `ai:use` for drafts.
+2. Run **VhyxVoid: Sign in with an API key** from the command palette and paste `keyId.secret`.
+
+The key is checked, then kept in VS Code's secret storage, and the status bar shows the workspace. Clicking it opens the dashboard. `VHYXVOID_API_KEY` in the environment works too. **VhyxVoid: Sign out** removes the stored key. For a self-hosted platform, set `vhyxvoid.apiUrl` to its API origin.
+
+## Specs
+
+**VhyxVoid: Link this file to API docs** asks which [API docs](/dashboard/api-docs) the open file belongs to. The answer is saved in the workspace setting `vhyxvoid.specs`, a map from the file's path to the spec's slug:
+
+```json title=".vscode/settings.json"
+{
+  "vhyxvoid.specs": { "api/openapi.yaml": "shop-api" }
+}
+```
+
+Commit it, and everyone on the team gets the same link.
+
+- **VhyxVoid: Check this spec** (also the checklist button in the editor title for files named like `openapi`, `swagger` or `spec`) checks the editor's text, including unsaved edits. Problems appear in the **Problems** panel at the line they are about. Breaking changes and warnings for clients appear there too, at the operation they concern, and the full report is in the **VhyxVoid** output.
+- Saving a linked file checks it. A notification appears only when there are errors or breaking changes. Turn this off with `vhyxvoid.checkOnSave`.
+- **VhyxVoid: Save this spec as the draft (and publish)** saves the text as the spec's draft and, if you choose, publishes it. With breaking changes it asks before publishing; with errors it doesn't publish.
+
+## Collections
+
+**VhyxVoid: Run a collection** asks for a collection and an environment, runs it on the platform, and shows each request's result and failed checks in the output, with a link to the run in the dashboard.
+
+## AI drafts
+
+**VhyxVoid: Draft a mock API with AI** and **VhyxVoid: Draft tests with AI** ask for a description and open the draft in a new tab. When the active file is a linked spec, tests are drafted from those API docs. Save the file and use it with [`vhyxvoid mock`](/cli/mock) or [`vhyxvoid test`](/cli/test), or import it in the dashboard. See [AI assist](/dashboard/ai-assist) for limits and what is sent.
+
+## Settings
+
+| Setting | Default | |
+| --- | --- | --- |
+| `vhyxvoid.apiUrl` | `https://api.vhyxvoid.com` | the API origin |
+| `vhyxvoid.specs` | `{}` | file path → spec slug or id |
+| `vhyxvoid.checkOnSave` | `true` | check linked spec files on save |

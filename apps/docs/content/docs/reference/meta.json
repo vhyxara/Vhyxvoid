@@ -3,6 +3,7 @@
   "pages": [
     "plans-and-limits",
     "scopes",
+    "platform-api",
     "environment-variables",
     "http-status-codes"
   ]

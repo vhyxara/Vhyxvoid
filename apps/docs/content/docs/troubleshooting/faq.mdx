@@ -3,7 +3,7 @@ title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -60,6 +60,18 @@ Yes. The [team space](/dashboard/team-space) has:
 - issues with a board.
 
 Paste a link to a mock endpoint, request, load-test run or doc section and it shows as a card. Notifications arrive under the bell, and as a daily email digest.
+
+## Can CI catch breaking changes to my API?
+
+Yes. The [`spec` GitHub Action](/integrations/github-actions#api-spec-checks-on-pull-requests) checks the OpenAPI file in a pull request against the latest published version of your [API docs](/dashboard/api-docs), comments the breaking changes, and fails the check. It can also publish the new version on merge. On another CI, use [`vhyxvoid spec check`](/cli/platform). The [`api-test` action](/integrations/github-actions#api-tests) runs your API client collections.
+
+## Is there an API, or an editor extension?
+
+Yes. With an API key you can use mocks, API docs, collections, the team space and AI assist from your own scripts; see the [Platform API](/reference/platform-api). There is also a [VS Code extension](/integrations/vscode) that checks your spec as you save, runs collections and drafts mocks and tests.
+
+## Can AI write my mocks or tests?
+
+It can write a first draft for you to review. [AI assist](/dashboard/ai-assist) turns a description, traffic captured on a tunnel, or your API docs into mock endpoints or a test collection. Nothing is saved until you save it, and the number of drafts per month depends on your plan.
 
 ## Can I load-test my API or monitor it?
 

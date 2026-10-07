@@ -3,7 +3,7 @@ title: Team space
 description: Chat with channels, threads and live updates, markdown documents with history and comments, and an issue tracker with a board, all linked to your APIs.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages: {}
 sources:
   - packages/shared/src/teamSpace.ts
@@ -130,6 +130,8 @@ If something is still unread after 30 minutes, you get a **daily email digest**:
   - a document or an issue: its creator, or an owner or admin;
   - a channel: owners and admins.
 - **Renaming or archiving a channel:** its creator, or an owner or admin. #general can't be renamed, archived or deleted.
+
+Scripts and bots can read the team space, open and update issues, post to channels, write documents and comment through the [platform API](/reference/platform-api), with an API key that has `team:read` or `team:write`. They act as the member who created the key.
 
 ## Limits
 

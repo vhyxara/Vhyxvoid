@@ -3,7 +3,7 @@ title: vhyxvoid test
 description: Run an API collection and its checks from your machine or CI; the exit code fails the build when a check fails.
 verified:
   date: "2026-10-07"
-  commit: "1a8548c"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -14,7 +14,9 @@ sources:
   - packages/shared/src/httpRunner.ts
 ---
 
-`vhyxvoid test` runs a collection from the [API client](/dashboard/api-client) with the same engine as the dashboard. It sends the same requests, applies the same variables, checks and captures, and gives the same pass or fail. Requests go out from where the command runs, so `localhost` and private networks work. It needs no account or key. It ships with agent 1.1.0 (not on npm yet).
+`vhyxvoid test` runs a collection from the [API client](/dashboard/api-client) with the same engine as the dashboard. It sends the same requests, applies the same variables, checks and captures, and gives the same pass or fail. Requests go out from where the command runs, so `localhost` and private networks work. It needs no account or key.
+
+To run a collection as it is saved in the workspace instead, on the platform, use `--collection` with an API key; see [Platform commands](/cli/platform#test---collection-nameid). To get a first collection file without writing one, try [`vhyxvoid ai tests`](/cli/platform#ai-mock-and-ai-tests). It ships with agent 1.1.0 (not on npm yet).
 
 ```bash
 npx @vhyxvoid/agent test ./users-api.vhyxvoid.json --env Staging --var apiToken=$API_TOKEN

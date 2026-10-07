@@ -6,6 +6,7 @@
     "fastify",
     "standalone-cli",
     "webhooks",
-    "github-actions"
+    "github-actions",
+    "vscode"
   ]
 }

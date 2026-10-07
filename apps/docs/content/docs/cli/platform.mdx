@@ -1,0 +1,100 @@
+---
+title: Platform commands
+description: whoami, spec check and push, collection push, test --collection and ai, for CI and scripts, with an API key.
+verified:
+  date: "2026-10-07"
+  commit: "a682df5"
+  packages:
+    "@vhyxvoid/agent": "1.1.0"
+sources:
+  - packages/agent/src/cli.ts
+  - packages/agent/src/platform.ts
+---
+
+These commands work with your workspace on the platform through the [platform API](/reference/platform-api). They need an API key with the right [scopes](/reference/scopes). They ship with agent 1.1.0, which is not on npm yet.
+
+## The key
+
+Pass `--api-key keyId.secret`, or set `VHYXVOID_API_KEY` to `keyId.secret`. You can also set `VHYXVOID_API_KEY` to the key ID and `VHYXVOID_SECRET` to the secret, as the agent does. For a self-hosted platform, set `--api-url` or `VHYXVOID_API_URL` to the API origin (the default is `https://api.vhyxvoid.com`).
+
+```sh
+export VHYXVOID_API_KEY=vhyxvoid_dev_….
+npx @vhyxvoid/agent whoami
+```
+
+```text
+  Acme
+  key vhyxvoid_dev_3f9c…
+  scopes specs:read, specs:write
+  https://www.vhyxvoid.com/organizations/5f1d…
+```
+
+Exit codes: `0` success, `1` a failed check or an API error, `2` a usage error (a missing key, an unknown spec, collection, environment or folder).
+
+## `spec check <file> --spec <slug|id>`
+
+Checks an OpenAPI file against the [API docs](/dashboard/api-docs) it belongs to. Nothing is saved. Needs `specs:read`.
+
+```sh
+npx @vhyxvoid/agent spec check openapi.yaml --spec shop-api
+```
+
+```text
+  Shop API (shop-api) — compared with v3 (1.2.0)
+
+  Changes: 1 breaking, 0 warning, 2 other
+    ✗ GET /users/{id}: operation removed
+    + GET /teams: new operation
+
+  ✗ 1 breaking change
+```
+
+It prints the document's problems and its changes for clients against the latest published version, and exits 1 on errors or breaking changes. `--fail-on warning` also fails on warnings; `--fail-on none` only fails on errors in the document. `--markdown <file>` writes the report as Markdown. In GitHub Actions the report is also added to the job summary.
+
+## `spec push <file> --spec <slug|id>`
+
+Saves the file as the spec's draft. Needs `specs:read` and `specs:write`.
+
+| Flag | |
+| --- | --- |
+| `--publish` | Also publish the draft as the next version. It is refused when the document has errors or breaking changes, and the command exits 1. The draft stays saved. |
+| `--allow-breaking` | Publish even with breaking changes. |
+| `--notes <text>` | Release notes for the version. |
+
+When nothing changed since the latest version, `--publish` prints `Nothing to publish` and exits 0.
+
+## `collection push <file> --collection <name|id>`
+
+Replaces a stored collection's requests, folders and variables from a file: a VhyxVoid export, a Postman collection, OpenAPI or HAR. Needs `tests:run`. Needs `collections:read` and `tests:run`. Use it to keep a collection in your repository and the dashboard's copy in step.
+
+## `test --collection <name|id>`
+
+Runs a collection stored in the workspace on the platform, as **Run** in the dashboard does, and prints the results. Needs `collections:read` (to find it by name) and `tests:run`.
+
+```sh
+npx @vhyxvoid/agent test --collection "Shop smoke" --env Staging --junit report.xml
+```
+
+`--env`, `--folder` (`"Parent/Child"` for a nested one), `--var NAME=value`, `--bail`, `--junit`, `--json` and `--quiet` work as for [file runs](/cli/test). `--timeout`, `--delay`, `--insecure` and `--follow-redirects` only apply to file runs. The platform's runner sends the requests, so they must reach public addresses; to test an app running in the CI job, run a [file](/cli/test) instead. The run shows up in the collection's run history, and the command prints a link to it.
+
+## `ai mock` and `ai tests`
+
+Draft with [AI assist](/dashboard/ai-assist). Needs `ai:use`, and `specs:read` for `--spec`. Each draft counts against your plan's monthly allowance.
+
+```sh
+npx @vhyxvoid/agent ai mock "a bookstore API: books with pagination, authors, 404 for unknown ids"
+npx @vhyxvoid/agent mock mock.vhyxvoid.json
+
+npx @vhyxvoid/agent ai tests --spec shop-api --base-url https://staging.shop.test
+npx @vhyxvoid/agent test tests.vhyxvoid.json
+```
+
+| Flag | |
+| --- | --- |
+| `--traffic <tunnel>` | Learn from the requests the [request inspector](/dashboard/request-inspector) captured on this tunnel. |
+| `--spec <slug\|id>` | `ai tests` only: base the tests on these API docs. |
+| `--base-url <url>` | `ai tests` only: the `{{baseUrl}}` variable. |
+| `--name <name>` | `ai mock` only: the mock's name in the file. |
+| `-o, --out <file>` | Where to write the file; `-` prints it. The defaults are `mock.vhyxvoid.json` and `tests.vhyxvoid.json`. An existing file is never overwritten. |
+
+`ai mock` writes a mock file that [`vhyxvoid mock`](/cli/mock) serves and the dashboard imports. `ai tests` writes a collection file that [`vhyxvoid test`](/cli/test) runs and the dashboard imports. Review a draft before you rely on it.

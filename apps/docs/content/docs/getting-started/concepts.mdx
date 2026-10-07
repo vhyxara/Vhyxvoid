@@ -3,7 +3,7 @@ title: Concepts
 description: The few ideas behind VhyxVoid, in one page.
 verified:
   date: "2026-10-07"
-  commit: "85fa393"
+  commit: "a682df5"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -18,7 +18,7 @@ sources:
 
 **Account slug and label.** A tunnel URL is `https://<account-slug>--<label>.vhyxvoid.com`. The slug identifies your account. The label names a tunnel, so one account can run several (for example `app` and `api`). The default label is `default`. Labels are lowercase letters, digits and single hyphens, up to 63 characters. A tunnel can also answer on a [custom domain](/dashboard/custom-domains) of yours.
 
-**API key.** A key ID plus a secret, created in the dashboard. The agent uses it to prove which account it belongs to. The secret is shown once. Keys have an environment (**DEV** or **PROD**), scopes, and an optional expiry. Agents need the `tunnel:connect` scope.
+**API key.** A key ID plus a secret, created in the dashboard. The agent uses it to prove which account it belongs to. The secret is shown once. Keys have an environment (**DEV** or **PROD**), scopes, and an optional expiry. Agents need the `tunnel:connect` scope. Keys with other scopes let CI, scripts and the VS Code extension use the [platform API](/reference/platform-api): check and publish API docs, run collections, and more.
 
 **Stable URL.** For a given slug and label, the URL doesn't change between runs. Only one agent at a time serves a given URL.
 

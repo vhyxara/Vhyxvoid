@@ -10,7 +10,7 @@
       ],
       "default": "none, required",
       "flag": "--key",
-      "description": "API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`)."
+      "description": "API key ID (`vhyxvoid_dev_…` or `vhyxvoid_live_…`). The [platform commands](/cli/platform) also accept `keyId.secret` here on its own."
     },
     {
       "name": "VHYXVOID_SECRET",
@@ -124,9 +124,9 @@
       "usedBy": [
         "agent"
       ],
-      "default": "`api.` + the hub's domain",
+      "default": "`https://api.vhyxvoid.com` for the platform commands; `api.` + the hub's domain for `doctor --domain`",
       "flag": null,
-      "description": "API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging)."
+      "description": "API origin (the platform commands' `--api-url` flag): where the platform commands (`whoami`, `spec`, `collection`, `test --collection`, `ai`) send their requests, and where `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging). `/api/v1` is added for you."
     },
     {
       "name": "VHYXVOID_VAR_",

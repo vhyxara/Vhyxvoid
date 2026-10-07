@@ -3,7 +3,7 @@ title: API docs
 description: Write an OpenAPI spec in a form or as YAML, publish versions with a breaking-change report, and share rendered docs with try-it and code samples, publicly, behind a password or on your own domain.
 verified:
   date: "2026-10-07"
-  commit: "2e92d55"
+  commit: "a682df5"
   packages: {}
 sources:
   - packages/shared/src/apiSpec.ts
@@ -119,6 +119,16 @@ Once it is verified, the whole domain shows the docs, and HTTPS certificates are
 - **Make tests** creates an API client collection. Every operation becomes a request with a status check, sent to the spec's first server.
 
 Under [Performance](/dashboard/performance), **Compare with a spec** can use one of these specs. It compares the traffic with the latest published version, or with the draft when nothing is published yet.
+
+## From your repository and editor
+
+When the spec lives in your repository, check it there:
+
+- On pull requests, the [`spec` GitHub Action](/integrations/github-actions#api-spec-checks-on-pull-requests) comments the problems and breaking changes against the latest published version. It can also publish on merge.
+- In any CI, or on your machine, use [`vhyxvoid spec check` and `spec push`](/cli/platform#spec-check-file---spec-slugid).
+- In VS Code, the [extension](/integrations/vscode) shows problems and breaking changes in the editor as you save.
+
+All of them need an API key with `specs:read`, and `specs:write` to push or publish. **Draft with AI** in the API client can also turn a spec into a test collection ([AI assist](/dashboard/ai-assist)).
 
 ## Limits
 

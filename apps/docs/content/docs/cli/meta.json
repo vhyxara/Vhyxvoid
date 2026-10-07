@@ -5,6 +5,7 @@
     "doctor",
     "mock",
     "test",
+    "platform",
     "configuration"
   ]
 }
