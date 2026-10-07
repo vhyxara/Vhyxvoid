@@ -2,10 +2,12 @@
 
 import fp from "fastify-plugin";
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { UnauthorizedError } from "@/core/errors/error.format";
+import { AppError } from "@/core/errors/app-error";
+import { ForbiddenError, UnauthorizedError } from "@/core/errors/error.format";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { JwtPayload } from "@/core/types/core/jwt";
-import { API_KEY_TOKEN_RE, routeAccountId, routeApiKeyScope, verifyApiKey } from "@/modules/platform/shared/apiKeyAuth";
+import { API_KEY_TOKEN_RE, createKeyRateLimiter, routeAccountId, routeApiKeyScope, verifyApiKey } from "@/modules/platform/shared/apiKeyAuth";
+import { currentPlanOverrides, getEffectivePlanLimitsForAccount } from "@vhyxvoid/shared";
 // import { UnauthorizedError } from '../../domain/errors';
 
 /**
@@ -93,6 +95,12 @@ import { API_KEY_TOKEN_RE, routeAccountId, routeApiKeyScope, verifyApiKey } from
 export default fp(async (fastify: FastifyInstance) => {
   const container = fastify.container;
   const jwtService = container.resolve(RS256JwtService);
+  // Platform API: requests per API key per minute (plan limit platformApiRequestsPerMinute).
+  const keyRateLimiter = createKeyRateLimiter({
+    redis: (fastify as unknown as { redis?: Parameters<typeof createKeyRateLimiter>[0]["redis"] }).redis ?? null,
+    limitFor: async (accountId) => (await getEffectivePlanLimitsForAccount((fastify as unknown as { prisma: never }).prisma, accountId, await currentPlanOverrides())).platformApiRequestsPerMinute,
+    log: (err) => fastify.log.warn({ err }, "[platform api] rate counter fell back to this instance"),
+  });
 
   const guard = async (request: FastifyRequest, reply: FastifyReply) => {
     const authHeader = request.headers.authorization;
@@ -122,6 +130,15 @@ export default fp(async (fastify: FastifyInstance) => {
       const pepper = process.env.SERVER_HMAC_PEPPER;
       if (!pepper) throw new UnauthorizedError("API keys are not configured on this server");
       const who = await verifyApiKey((fastify as unknown as { prisma: unknown }).prisma, pepper, token, scope, routeAccountId(request));
+      const rl = await keyRateLimiter.take(who.key.keyId, who.key.accountId);
+      if (rl.limit !== null) {
+        reply.header("x-ratelimit-limit", rl.limit).header("x-ratelimit-remaining", rl.remaining ?? 0).header("x-ratelimit-reset", rl.resetSeconds);
+      }
+      if (!rl.ok) {
+        if (rl.limit === 0) throw new ForbiddenError("Your plan doesn't include the platform API for API keys");
+        reply.header("retry-after", rl.resetSeconds);
+        throw new AppError(`This API key made more than ${rl.limit} requests this minute (your plan's limit); retry in ${rl.resetSeconds} s`, 429, "RATE_LIMITED");
+      }
       request.user = { sub: who.userId, userId: who.userId, email: who.email, tokenVersion: -1, roles: [], abilities: [] };
       request.apiKey = who.key;
       return;

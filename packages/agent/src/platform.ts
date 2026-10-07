@@ -22,6 +22,8 @@ export class PlatformError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Seconds from a 429's Retry-After header. */
+    readonly retryAfter?: number,
   ) {
     super(message);
   }
@@ -51,13 +53,30 @@ export function credentials(opts: { apiKey?: string; apiUrl?: string }, env: Nod
 
 type Fetch = typeof fetch;
 
+/** Waits between polls of a background job: every second at first, then every 3 s (keeps a key well under its per-minute limit). */
+export const pollDelay = (attempt: number, base?: number) => base ?? (attempt < 10 ? 1000 : 3000);
+
 export class PlatformClient {
   constructor(
     private readonly creds: Credentials,
     private readonly fetchImpl: Fetch = fetch,
+    /** How long to wait for a 429's Retry-After, at most; tests pass a tiny one. */
+    private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 
+  /** One API call. A 429 (the key's per-minute limit) waits for Retry-After and tries again, up to 3 times. */
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.once<T>(method, path, body);
+      } catch (err) {
+        if (!(err instanceof PlatformError) || err.status !== 429 || attempt >= 3) throw err;
+        await this.sleep(Math.min(60, Math.max(1, err.retryAfter ?? 5)) * 1000);
+      }
+    }
+  }
+
+  private async once<T>(method: string, path: string, body?: unknown): Promise<T> {
     let res: Response;
     try {
       res = await this.fetchImpl(`${this.creds.apiUrl}${path}`, {
@@ -75,7 +94,7 @@ export class PlatformClient {
     } catch {
       /* not JSON */
     }
-    if (!res.ok) throw new PlatformError(json?.message ?? `${method} ${path} failed (${res.status})`, res.status);
+    if (!res.ok) throw new PlatformError(json?.message ?? `${method} ${path} failed (${res.status})`, res.status, Number(res.headers.get("retry-after")) || undefined);
     return (json?.data ?? json) as T;
   }
 
@@ -236,8 +255,8 @@ export async function runRemote<R>(client: PlatformClient, ref: string, opts: { 
   });
   const url = `${me.dashboardUrl}/api-client/${c.id}`;
   const until = Date.now() + (opts.maxMs ?? 5 * 60_000);
-  while (Date.now() < until) {
-    await new Promise((r) => setTimeout(r, opts.pollMs ?? 1000));
+  for (let attempt = 0; Date.now() < until; attempt++) {
+    await new Promise((r) => setTimeout(r, pollDelay(attempt, opts.pollMs)));
     const r = await client.request<{ status: "running" | "done" | "failed"; error: string | null; rateLimited: boolean; report: R | null }>("GET", `/api-client/${me.accountId}/runs/${started.id}`);
     if (r.status === "done" && r.report) return { collection: c, runId: started.id, report: r.report, rateLimited: r.rateLimited, url };
     if (r.status === "failed") throw new PlatformError(r.error ?? "The run failed; try again", 500);
@@ -281,8 +300,8 @@ export type AiTestsResult = { file: NativeCollectionFile; summary: string; warni
 export async function aiDraft<T>(client: PlatformClient, accountId: string, kind: "mock" | "tests", body: object, opts: { pollMs?: number; maxMs?: number } = {}): Promise<T> {
   const started = await client.request<{ id: string }>("POST", `/ai/${accountId}/${kind}`, body);
   const until = Date.now() + (opts.maxMs ?? 8 * 60_000);
-  while (Date.now() < until) {
-    await new Promise((r) => setTimeout(r, opts.pollMs ?? 2000));
+  for (let attempt = 0; Date.now() < until; attempt++) {
+    await new Promise((r) => setTimeout(r, pollDelay(attempt, opts.pollMs)));
     const s = await client.request<{ status: "running" | "done" | "failed"; result?: T; error?: { message: string; statusCode: number } }>("GET", `/ai/${accountId}/drafts/${started.id}`);
     if (s.status === "done" && s.result) return s.result;
     if (s.status === "failed") throw new PlatformError(s.error?.message ?? "AI assist failed; try again", s.error?.statusCode ?? 500);

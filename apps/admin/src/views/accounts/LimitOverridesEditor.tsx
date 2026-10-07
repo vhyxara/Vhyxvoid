@@ -35,7 +35,8 @@ export const NUMERIC_LIMITS = [
   ['maxTeamDocs', 'Team documents'],
   ['maxTeamIssues', 'Tracker issues'],
   ['teamHistoryDays', 'Chat history shown (days)'],
-  ['aiRequestsPerMonth', 'AI assist drafts per month']
+  ['aiRequestsPerMonth', 'AI assist drafts per month'],
+  ['platformApiRequestsPerMinute', 'Platform API requests per key per minute']
 ] as const
 
 export const BOOLEAN_LIMITS = [

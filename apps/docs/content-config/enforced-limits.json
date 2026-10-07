@@ -165,6 +165,11 @@
       "label": "AI assist drafts",
       "evidence": "apps/api/src/modules/platform/ai/ai.routes.ts",
       "note": "Counted per workspace per calendar month (UTC), dashboard and API keys together; a draft that fails is not counted. 0 turns AI assist off for the plan."
+    },
+    "platformApiRequestsPerMinute": {
+      "label": "Platform API requests per key",
+      "evidence": "apps/api/src/modules/platform/shared/apiKeyAuth.ts",
+      "note": "Counted per API key per clock minute, only after the key is verified; over it the API answers 429 with Retry-After. Dashboard sign-ins aren't counted. 0 stops keys from using the platform API on that plan."
     }
   },
   "notEnforced": {

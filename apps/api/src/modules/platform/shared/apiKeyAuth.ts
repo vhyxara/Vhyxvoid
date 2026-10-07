@@ -92,3 +92,62 @@ export function routeAccountId(request: FastifyRequest): string | undefined {
   const p = request.params as Record<string, string> | undefined;
   return p?.accountId;
 }
+
+// ── Per-key rate limit ────────────────────────────────────────────────────────
+//
+// Each verified key may make `platformApiRequestsPerMinute` (plan limit)
+// requests per clock minute. Counted only after the secret checks out, so
+// nobody can use up another key's allowance by sending its key ID with a
+// wrong secret (per-IP limits cover guessing). One Redis INCR per request
+// (shared across API instances), an in-process counter if Redis fails; the
+// plan's limit is cached per workspace for a minute.
+
+export type RateDecision = { ok: boolean; limit: number | null; remaining: number | null; resetSeconds: number };
+
+type CounterRedis = { incr(key: string): Promise<number>; expire(key: string, seconds: number): Promise<unknown> };
+
+export function createKeyRateLimiter(deps: { redis?: CounterRedis | null; limitFor: (accountId: string) => Promise<number>; log?: (err: unknown) => void; cacheMs?: number }) {
+  const limits = new Map<string, { value: number; until: number }>();
+  const local = new Map<string, { minute: number; n: number }>();
+
+  async function limitOf(accountId: string, now: number): Promise<number> {
+    const hit = limits.get(accountId);
+    if (hit && hit.until > now) return hit.value;
+    const value = await deps.limitFor(accountId);
+    limits.set(accountId, { value, until: now + (deps.cacheMs ?? 60_000) });
+    return value;
+  }
+
+  async function count(keyId: string, minute: number): Promise<number> {
+    if (deps.redis) {
+      try {
+        const k = `papi:rl:${keyId}:${minute}`;
+        const n = await deps.redis.incr(k);
+        if (n === 1) await deps.redis.expire(k, 120);
+        return n;
+      } catch (err) {
+        deps.log?.(err);
+      }
+    }
+    const cur = local.get(keyId);
+    if (!cur || cur.minute !== minute) {
+      local.set(keyId, { minute, n: 1 });
+      if (local.size > 10_000) for (const [k, v] of local) if (v.minute < minute) local.delete(k);
+      return 1;
+    }
+    return ++cur.n;
+  }
+
+  return {
+    async take(keyId: string, accountId: string, now = Date.now()): Promise<RateDecision> {
+      const minute = Math.floor(now / 60_000);
+      const resetSeconds = Math.max(1, Math.ceil(((minute + 1) * 60_000 - now) / 1000));
+      const limit = await limitOf(accountId, now);
+      if (!Number.isFinite(limit)) return { ok: true, limit: null, remaining: null, resetSeconds };
+      const max = Math.max(0, Math.floor(limit));
+      if (max === 0) return { ok: false, limit: 0, remaining: 0, resetSeconds };
+      const n = await count(keyId, minute);
+      return { ok: n <= max, limit: max, remaining: Math.max(0, max - n), resetSeconds };
+    },
+  };
+}

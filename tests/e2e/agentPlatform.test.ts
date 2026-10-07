@@ -6,7 +6,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { PlatformClient, PlatformError, UsageError, aiMock, aiTests, checkFails, folderByPath, checkMarkdown, checkSpec, credentials, formatCheck, pushCollection, pushSpec, runRemote, writeJobSummary, type SpecCheck } from "../../packages/agent/src/platform";
+import { PlatformClient, PlatformError, UsageError, aiMock, pollDelay, aiTests, checkFails, folderByPath, checkMarkdown, checkSpec, credentials, formatCheck, pushCollection, pushSpec, runRemote, writeJobSummary, type SpecCheck } from "../../packages/agent/src/platform";
 
 const KEY = `vhyxvoid_dev_${"a".repeat(32)}`;
 const SECRET = "b".repeat(64);
@@ -149,6 +149,27 @@ describe("collections", () => {
     expect(writeJobSummary("# hi", { GITHUB_STEP_SUMMARY: summary })).toBe(true);
     expect(writeJobSummary("# hi", {})).toBe(false);
     expect(fs.readFileSync(summary, "utf8")).toBe("# hi\n");
+  });
+});
+
+describe("the per-key rate limit", () => {
+  it("waits for Retry-After on a 429 and tries again, up to 3 times", async () => {
+    let n = 0;
+    const waits: number[] = [];
+    const f = (async () => (++n <= 2 ? new Response(JSON.stringify({ message: "This API key made more than 120 requests this minute" }), { status: 429, headers: { "retry-after": "7" } }) : new Response(JSON.stringify({ success: true, data: { accountId: A } }), { status: 200 }))) as unknown as typeof fetch;
+    const c = new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, f, async (ms) => void waits.push(ms));
+    expect(await c.request("GET", "/platform/whoami")).toEqual({ accountId: A });
+    expect(waits).toEqual([7000, 7000]);
+    const always = (async () => new Response(JSON.stringify({ message: "slow down" }), { status: 429 })) as unknown as typeof fetch;
+    const waits2: number[] = [];
+    const err = await new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, always, async (ms) => void waits2.push(ms)).request("GET", "/x").catch((e) => e);
+    expect(err).toMatchObject({ status: 429, message: "slow down" });
+    expect(waits2).toEqual([5000, 5000, 5000]); // no Retry-After: 5 s
+  });
+
+  it("polls every second at first, then every 3 s", () => {
+    expect([0, 9, 10, 50].map((a) => pollDelay(a))).toEqual([1000, 1000, 3000, 3000]);
+    expect(pollDelay(50, 1)).toBe(1);
   });
 });
 

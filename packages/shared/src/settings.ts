@@ -82,6 +82,7 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "maxTeamIssues",
   "teamHistoryDays",
   "aiRequestsPerMonth",
+  "platformApiRequestsPerMinute",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",

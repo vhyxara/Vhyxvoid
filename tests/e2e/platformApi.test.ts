@@ -13,7 +13,7 @@ import { specRoutes } from "../../apps/api/src/modules/platform/specs/specs.rout
 import { teamIssueRoutes } from "../../apps/api/src/modules/platform/team/issues.routes";
 import { teamChatRoutes } from "../../apps/api/src/modules/platform/team/chat.routes";
 import { RS256JwtService } from "../../apps/api/src/modules/identity/infrastructure/crypto/JwtService";
-import { API_KEY_TOKEN_RE } from "../../apps/api/src/modules/platform/shared/apiKeyAuth";
+import { API_KEY_TOKEN_RE, createKeyRateLimiter } from "../../apps/api/src/modules/platform/shared/apiKeyAuth";
 
 const Fastify = createRequire(new URL("../../apps/api/package.json", import.meta.url))("fastify");
 const url = process.env.VHYXVOID_TEST_DATABASE_URL;
@@ -25,6 +25,37 @@ describe("API key token format", () => {
     expect(API_KEY_TOKEN_RE.test(`vhyxvoid_live_${"a".repeat(32)}.${"b".repeat(64)}`)).toBe(true);
     expect(API_KEY_TOKEN_RE.test("eyJhbGciOi.payload.sig")).toBe(false);
     expect(API_KEY_TOKEN_RE.test(`vhyxvoid_dev_${"a".repeat(32)}`)).toBe(false);
+  });
+});
+
+describe("per-key rate limiter", () => {
+  const t0 = Date.UTC(2026, 9, 7, 12, 0, 10); // 10 s into a minute
+
+  it("counts per key per clock minute and resets at the next minute", async () => {
+    let lookups = 0;
+    const rl = createKeyRateLimiter({ limitFor: async () => (lookups++, 2) });
+    expect(await rl.take("k1", "a", t0)).toEqual({ ok: true, limit: 2, remaining: 1, resetSeconds: 50 });
+    expect((await rl.take("k1", "a", t0 + 1000)).ok).toBe(true);
+    expect(await rl.take("k1", "a", t0 + 2000)).toEqual({ ok: false, limit: 2, remaining: 0, resetSeconds: 48 });
+    expect((await rl.take("k2", "a", t0 + 2000)).ok).toBe(true); // another key has its own count
+    expect((await rl.take("k1", "a", t0 + 50_000)).ok).toBe(true); // next minute
+    expect(lookups).toBe(1); // the plan's limit is cached per workspace
+  });
+
+  it("unlimited and zero plans; Redis when it works, this instance when it doesn't", async () => {
+    expect(await createKeyRateLimiter({ limitFor: async () => Infinity }).take("k", "a", t0)).toMatchObject({ ok: true, limit: null });
+    expect(await createKeyRateLimiter({ limitFor: async () => 0 }).take("k", "a", t0)).toMatchObject({ ok: false, limit: 0 });
+    const store = new Map<string, number>();
+    const redis = { incr: async (k: string) => (store.set(k, (store.get(k) ?? 0) + 1), store.get(k)!), expire: async () => 1 };
+    const shared = createKeyRateLimiter({ redis, limitFor: async () => 1 });
+    const other = createKeyRateLimiter({ redis, limitFor: async () => 1 }); // a second API instance
+    expect((await shared.take("k", "a", t0)).ok).toBe(true);
+    expect((await other.take("k", "a", t0)).ok).toBe(false);
+    const errors: unknown[] = [];
+    const broken = createKeyRateLimiter({ redis: { incr: async () => { throw new Error("down") }, expire: async () => 1 }, limitFor: async () => 1, log: (e) => errors.push(e) });
+    expect((await broken.take("k", "a", t0)).ok).toBe(true);
+    expect((await broken.take("k", "a", t0)).ok).toBe(false);
+    expect(errors).toHaveLength(2);
   });
 });
 
@@ -131,6 +162,31 @@ describe.skipIf(!url)("platform API with API keys", () => {
     await prisma.apiKey.update({ where: { keyId: k.keyId }, data: { rotationGraceEndsAt: new Date(Date.now() - 1) } });
     expect((await call("GET", "/api/v1/platform/whoami", `${k.keyId}.${old}`)).status).toBe(401);
     expect((await call("GET", "/api/v1/platform/whoami", k.token)).status).toBe(200);
+  });
+
+  it("each key gets the plan's requests per minute; wrong secrets don't use them up", async () => {
+    const u = await prisma.user.create({ data: { email: `${tag}-rl@papi.test`, password: "x", firstName: "Rl" } });
+    users.push(u.id);
+    const a = await prisma.account.create({ data: { name: `${tag} rl`, slug: `${tag}-rl`, type: "ORGANIZATION", createdById: u.id, limitOverrides: { platformApiRequestsPerMinute: 3 } } as never });
+    accounts.push(a.id);
+    const role = await prisma.role.create({ data: { accountId: a.id, name: "r", level: 100 } });
+    await prisma.accountMember.create({ data: { userId: u.id, accountId: a.id, roleId: role.id, roleLevel: 100 } });
+    const k = await key(a.id, u.id, ["specs:read"]);
+    const k2 = await key(a.id, u.id, ["specs:read"]);
+    // A wrong secret with the right key ID is refused before counting.
+    for (let i = 0; i < 5; i++) expect((await call("GET", "/api/v1/platform/whoami", `${k.keyId}.${"0".repeat(64)}`)).status).toBe(401);
+    const ok = await f.inject({ method: "GET", url: "/api/v1/platform/whoami", headers: { authorization: `Bearer ${k.token}` } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.headers).toMatchObject({ "x-ratelimit-limit": "3", "x-ratelimit-remaining": "2" });
+    expect((await call("GET", `/api/v1/specs/${a.id}`, k.token)).status).toBe(200);
+    expect((await call("GET", "/api/v1/platform/whoami", k.token)).status).toBe(200);
+    const over = await f.inject({ method: "GET", url: "/api/v1/platform/whoami", headers: { authorization: `Bearer ${k.token}` } });
+    // A request near the end of a minute can land in the next one; only assert the refusal when it didn't.
+    if (over.statusCode === 429) {
+      expect(Number(over.headers["retry-after"])).toBeGreaterThan(0);
+      expect(over.json().message).toMatch(/more than 3 requests this minute/);
+      expect((await call("GET", "/api/v1/platform/whoami", k2.token)).status).toBe(200); // other keys are not affected
+    } else expect(over.headers["x-ratelimit-remaining"]).toBe("2");
   });
 
   it("a key stops working when its creator leaves the workspace", async () => {
