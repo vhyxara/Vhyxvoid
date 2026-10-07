@@ -2,8 +2,8 @@
 title: Activity
 description: See who changed what in a workspace, and when its tunnels connected and disconnected. Export it as CSV.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages: {}
 sources:
   - apps/web/src/views/org/activity/ActivityView.tsx
@@ -23,6 +23,7 @@ Open **Activity** under a workspace. Everyone in the workspace can see it; the n
 | API keys | created, revoked (including keys revoked because their owner left), rotated |
 | Tunnels | connected and disconnected (with how long the connection lasted), disconnected by the hub, [access rules](/dashboard/tunnel-access) and share links, [custom domains](/dashboard/custom-domains), the [webhook inbox](/dashboard/webhook-inbox), replays and clearing in the [request inspector](/dashboard/request-inspector), switching request capture on or off, saving or removing [traffic rules](/dashboard/traffic-rules), creating, changing, importing into and deleting [mock APIs](/dashboard/mock-apis), and agents stopped from the dashboard |
 | Alerts | [alerts](/dashboard/alerts) created, changed, paused, resumed and deleted |
+| API client | [collections](/dashboard/api-client) created, imported, changed and deleted, collection runs, and environments created, changed and deleted (sending a single request is not recorded) |
 
 Each entry names the person who made the change. Owners and admins also see the IP address it came from. Passwords, secrets and tokens are never recorded, only that they were set or removed.
 

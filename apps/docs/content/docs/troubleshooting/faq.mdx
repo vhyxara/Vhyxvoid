@@ -2,8 +2,8 @@
 title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -42,6 +42,10 @@ The hub's default wait is 120 seconds, and agent 1.0.20 and later wait for your 
 ## Can I fake a response or simulate an outage?
 
 Yes. A [mock API](/dashboard/mock-apis) is a whole fake API at a public URL, with no backend running: endpoints, rules, realistic data and delays, created from a template or an OpenAPI file. [Traffic rules](/dashboard/traffic-rules) change a running tunnel's traffic instead: answer one path with a mock, inject errors or delays, redirect, rewrite paths or change headers, without touching your app.
+
+## Can I test my API from here, like with Postman?
+
+Yes. The [API client](/dashboard/api-client) sends requests from the platform (so CORS never gets in the way), keeps them in collections your team shares, and checks responses without code. It imports Postman collections, OpenAPI documents, HAR files and curl commands. [`vhyxvoid test`](/cli/test) runs the same collection in CI and fails the build when a check fails.
 
 ## Do WebSockets work through the tunnel?
 

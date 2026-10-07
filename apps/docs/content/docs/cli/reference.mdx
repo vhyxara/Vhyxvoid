@@ -2,8 +2,8 @@
 title: CLI reference
 description: Commands, flags, and environment variables of the vhyxvoid command.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -82,6 +82,9 @@ Commands:
   mock [options] <file>  Serve a mock API on this machine, offline (a VhyxVoid
                          mock export, OpenAPI, Postman, Mockoon or HAR file, as
                          JSON)
+  test [options] <file>  Run an API collection and its checks (a VhyxVoid
+                         collection export, or a Postman collection / OpenAPI
+                         document as JSON); exits 1 when a check fails, for CI
   start [options]        Start the tunnel agent
   help [command]         display help for command
 ```

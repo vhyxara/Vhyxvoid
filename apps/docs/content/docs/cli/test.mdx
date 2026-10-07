@@ -1,0 +1,92 @@
+---
+title: vhyxvoid test
+description: Run an API collection and its checks from your machine or CI; the exit code fails the build when a check fails.
+verified:
+  date: "2026-10-07"
+  commit: "1a8548c"
+  packages:
+    "@vhyxvoid/agent": "1.1.0"
+sources:
+  - packages/agent/src/apiTest.ts
+  - packages/agent/src/cli.ts
+  - packages/shared/src/apiClient.ts
+  - packages/shared/src/apiClientInterop.ts
+  - packages/shared/src/httpRunner.ts
+---
+
+`vhyxvoid test` runs a collection from the [API client](/dashboard/api-client) with the same engine as the dashboard. It sends the same requests, applies the same variables, checks and captures, and gives the same pass or fail. Requests go out from where the command runs, so `localhost` and private networks work. It needs no account or key. It ships with agent 1.1.0 (not on npm yet).
+
+```bash
+npx @vhyxvoid/agent test ./users-api.vhyxvoid.json --env Staging --var apiToken=$API_TOKEN
+```
+
+```text
+  Users API · Staging
+
+  ✓ POST   Log in → 200 64 ms
+  ✓ GET    Users / List users → 200 31 ms
+  ✗ GET    Orders / List orders → 500 4 ms
+    ✗ status equals 200: expected 200, got 500
+
+  3 requests: 2 passed, 1 failed; checks 7/8 in 0.1 s
+```
+
+## The file
+
+These files can be run:
+
+- A **VhyxVoid collection**, exported from the dashboard (**Export → VhyxVoid JSON**). It can carry environments.
+- A **Postman collection** (v2.0 or v2.1), as JSON.
+- An **OpenAPI 3** or **Swagger 2** document, as JSON. Each operation becomes a request with a status check.
+
+YAML isn't read; convert it to JSON first.
+
+## Options
+
+| Option | |
+| --- | --- |
+| `-e, --env <name\|file>` | An environment inside the file, by name. Or a JSON file: a VhyxVoid environment, a Postman environment (`values`), or a plain `{ "NAME": "value" }` object. When the file holds exactly one environment, it is used without this option. |
+| `--var NAME=value` | Set a variable. Repeat it for more. |
+| `--folder <name>` | Run one folder; `"Parent/Child"` for a nested one. Names are not case sensitive. |
+| `--bail` | Stop at the first request that fails; the rest are reported as skipped. |
+| `--timeout <ms>` | Per-request timeout (default 30000). |
+| `--delay <ms>` | Wait between requests. |
+| `-k, --insecure` | Accept self-signed TLS certificates. |
+| `-L, --follow-redirects` | Follow up to 5 redirects. Credentials are dropped on a redirect to another origin. |
+| `--junit <file>` | Write a JUnit XML report: one test case per request, failed checks as failures, send errors as errors. |
+| `--json <file>` | Write the full report as JSON. |
+| `-q, --quiet` | Print only failures and the summary. |
+
+## Variables
+
+A value is looked up in this order, the first match winning:
+
+1. Values captured during the run.
+2. `--var NAME=value`.
+3. Environment variables named `VHYXVOID_VAR_<NAME>`, for example `VHYXVOID_VAR_apiToken`.
+4. The environment (`--env`).
+5. The collection's variables.
+
+Exported files never contain secret values. If the chosen environment has an empty secret that nothing else supplies, the run warns before it starts. Pass the value from your CI's secret store:
+
+```yaml
+# GitHub Actions
+- run: npx -y @vhyxvoid/agent test api/users.vhyxvoid.json --env Staging --junit report.xml
+  env:
+    VHYXVOID_VAR_apiToken: ${{ secrets.API_TOKEN }}
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Every request passed. |
+| `1` | A check failed, a request couldn't be sent, or the collection had nothing to run. |
+| `2` | The command can't start: the file is missing, isn't JSON, or isn't a supported document; the environment or folder doesn't exist; or a `--var` is malformed. |
+
+## Differences from the dashboard
+
+- Requests are sent from your machine or CI runner, so the dashboard's [public-addresses-only rule](/dashboard/api-client#what-the-runner-can-reach) doesn't apply.
+- There is no per-minute send limit.
+- Reports are not saved to the workspace. Use `--junit` or `--json` to keep them.
+- Captured values are printed only when a check fails. Names that look like credentials show as `••••`.

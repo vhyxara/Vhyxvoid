@@ -915,3 +915,17 @@ Commits 0f62342 (engine, hub, API, CLI), 8323f22 (dashboard), docs commit after 
 6. **`vhyxvoid mock` reads JSON only** and imports the engine through a narrow `@vhyxvoid/shared/mock` entry (CJS shared index would have bundled server code). Adding a YAML parser to the agent wasn't worth the dependency; the dashboard exports JSON for every format.
 **Status:** active.
 
+
+### 2026-10-07 — API client and tests, phase 3 (session upbeat-cannon)
+
+Commits 899645b (engine, API, CLI), 1a8548c (dashboard), docs commit after it.
+
+1. **One engine for dashboard and CI** (`packages/shared/src/apiClient.ts`, pure; `httpRunner.ts` for node HTTP with timings): a collection passes or fails the same way in the browser run and in `vhyxvoid test`. The agent imports it through `@vhyxvoid/shared/apiclient`, like the mock engine.
+2. **Requests are sent server-side** (no CORS), so the runner is an SSRF surface. Guard = the alert-webhook one: literal private IPs and internal names refused before connecting, every resolved address checked at connect time by the lookup hook (no DNS rebinding window), re-checked on every redirect hop, redirects off by default. `API_CLIENT_ALLOW_PRIVATE=1` only outside production. Testing a local server is done with a tunnel or `vhyxvoid test`, which sends from where it runs.
+3. **Per-account send budget** (`apiClientSendsPerMinute`, Redis INCR per minute, in-process fallback), every request of a run counted, so a run can't be used to multiply traffic. Runs are synchronous, capped at 2 minutes and 1 MB per response; single sends at 30 s and 5 MB.
+4. **Environment secrets are encrypted at rest** (AES-256-GCM, HKDF from SERVER_HMAC_PEPPER, like refresh successors) and never returned: the dashboard sends `keep: true` to leave one unchanged. Secrets and session-captured values render as `{{name}}` in snippets, the sent view, history URLs and exports; captures with credential-like names show `••••` in stored run reports.
+5. **Collection = one JSON document saved with a version check** (like mocks): no per-request rows. Simple, atomic, and fast at the plan sizes (≤ 2,000 requests); real-time co-editing waits for the team space (phase 6).
+6. **Every member can use and edit** collections and environments (a team tool, like the inspector), unlike mocks, which serve public traffic and stay admin-only.
+7. **Checks are declarative** (status/header/JSON path/body/time/size × equals…schema), no user scripts: nothing to sandbox, and they export to Postman `pm.test` where an equivalent exists. A small JSON-schema subset is implemented in-house instead of pulling Ajv into shared.
+8. **`vhyxvoid test` exit codes** 0/1/2 (1 also when nothing ran, so a wrong folder can't pass CI silently); secrets come from `--var` or `VHYXVOID_VAR_*`.
+**Status:** active.

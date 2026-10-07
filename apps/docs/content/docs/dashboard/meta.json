@@ -5,6 +5,7 @@
     "api-keys",
     "tunnels",
     "mock-apis",
+    "api-client",
     "request-inspector",
     "webhook-inbox",
     "traffic-rules",

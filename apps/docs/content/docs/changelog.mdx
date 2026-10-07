@@ -2,8 +2,8 @@
 title: Changelog
 description: What changed in VhyxVoid, newest first.
 verified:
-  date: "2026-10-06"
-  commit: "96d4bac"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages: {}
 sources:
   - apps/docs/content/docs/changelog.mdx
@@ -13,6 +13,7 @@ sources:
 
 **Dashboard**
 
+- **API client**: send requests from the browser through the platform (no CORS), with collections and folders the team shares, environments with encrypted secrets, bearer, basic, API key and HMAC auth, JSON, GraphQL, form, multipart and file bodies, checks without code (status, headers, JSON path, JSON schema, time, size), captures that chain requests, timings, code in five languages, history, collection runs with reports, imports from curl, Postman, OpenAPI and HAR, and [`vhyxvoid test`](/cli/test) to run a collection in CI. See [API client](/dashboard/api-client).
 - **Mock APIs, part 2**: resources (a REST collection with stored data from a seed, filters, sorting, paging, reset), recording endpoints from real traffic in the inspector, import from Postman, Mockoon and HAR, export to Mock Service Worker, Postman and Mockoon, and [`vhyxvoid mock`](/cli/mock) to run a mock offline.
 - **Mock APIs**: a working API at a public URL with no backend running. Start from a template or an OpenAPI file; endpoints with path parameters, several responses chosen by rules, in turn or at random, templating with realistic fake data, latency, CORS, try-it, OpenAPI export. Mock first next to a live agent, or only while it is offline. See [Mock APIs](/dashboard/mock-apis).
 - **Agents** on the Tunnels page: health, version, uptime, last ping, requests in flight and the key of every connected agent, an update note for old agents, recent disconnects, and **Stop** for owners and admins. See [Tunnels](/dashboard/tunnels#agents).

@@ -1,0 +1,185 @@
+---
+title: API client
+description: Send requests from the browser with no CORS trouble, keep them in shared collections, add checks without code, and run whole collections here or in CI.
+verified:
+  date: "2026-10-07"
+  commit: "1a8548c"
+  packages: {}
+sources:
+  - packages/shared/src/apiClient.ts
+  - packages/shared/src/apiClientInterop.ts
+  - packages/shared/src/httpRunner.ts
+  - apps/api/src/modules/platform/apiclient/apiClient.routes.ts
+  - apps/api/src/modules/platform/apiclient/runner.ts
+  - apps/api/src/modules/platform/apiclient/secrets.ts
+  - apps/web/src/views/org/apiclient/ApiClientView.tsx
+  - apps/web/src/views/org/apiclient/CollectionWorkspaceView.tsx
+  - apps/web/src/views/org/apiclient/ApiClientParts.tsx
+  - apps/web/src/views/org/apiclient/apiClientForm.ts
+---
+
+The API client sends HTTP requests for you from the platform's servers, so a browser's CORS rules never get in the way. Requests live in **collections** the whole workspace shares. **Environments** hold the values that change between Local, Staging and Production, with secrets encrypted. **Checks** test each response without any code, and a collection runs from top to bottom with a report: in the dashboard, or in CI with [`vhyxvoid test`](/cli/test).
+
+Open **API client** under a workspace. Every member can use it.
+
+## Start a collection
+
+| Start | What you get |
+| --- | --- |
+| **Blank** | An empty collection with a `baseUrl` variable. |
+| **Import** | Paste a curl command (in browser dev tools: right-click a request → *Copy as cURL*), or paste or upload a Postman collection (v2.0 or v2.1), an OpenAPI 3 or Swagger 2 document (JSON or YAML), a HAR recording or a VhyxVoid export. Folders, auth, bodies and variables come along; each OpenAPI operation becomes a request with an example body and a status check, grouped by tag. |
+| **Test a mock API** | One request per endpoint of one of your [mock APIs](/dashboard/mock-apis), each checking the status of its default response. Every resource gets a list → create → read → delete flow that passes the new id along. |
+
+To add requests to a collection that is already open, use **Import** in the sidebar. The requests land in a new folder when there are several.
+
+## Build a request
+
+- **Method and URL.** Type a URL with a query string and its parameters move to the **Params** tab. Unticked parameters stay there and are not sent. A URL with no scheme gets `https://`.
+- **Headers.** Common names are suggested as you type. `Content-Length`, `Connection` and `Transfer-Encoding` are set by the client, and any you add are left out with a note.
+- **Auth.** The options are:
+  - **From the collection**, the default for new requests (set it in the collection's **Settings**);
+  - **No auth**;
+  - **Bearer token**;
+  - **Basic**;
+  - **API key**, sent in a header or the query string;
+  - **HMAC signature**: SHA-256, SHA-1 or SHA-512, hex or base64 encoded, in the header you name, with an optional prefix such as `sha256=`. With a timestamp header set, the signed text is `<unix time>.<body>` and the time goes in that header, Stripe style.
+- **Body.** The types are:
+  - **JSON**: checked as you type, with a **Format** button;
+  - **GraphQL**: a query plus a JSON object of variables;
+  - **Form** (urlencoded);
+  - **Multipart form**: text fields and files;
+  - **Raw text**, with its own content type;
+  - **File**.
+
+  Files can be up to 5 MB. Other bodies can be up to 1 MB.
+- **Notes.** A description your team sees with the request.
+
+**Send** (or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd>) sends what is on screen, saved or not. **Save** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>S</kbd>) stores the whole collection for the team in one step. If someone else saved in between, you are asked to reload instead of overwriting their work.
+
+## Variables and environments
+
+Write `{{name}}` anywhere: in the URL, parameters, headers, auth or body. A value is looked up in this order, the first match winning:
+
+1. Values **captured** in this session (see [Captures](#captures)).
+2. The selected **environment** (picked at the top of the collection; the choice is remembered per collection in your browser).
+3. The collection's **variables** (**Settings**).
+
+Built-in values are `{{$uuid}}`, `{{$timestamp}}` (Unix seconds), `{{$isoTimestamp}}` and `{{$randomInt}}` (0–1000). The editor lists the variables a request uses that nothing defines. A request whose URL still has an undefined variable is not sent.
+
+**Environments** belong to the workspace and every collection can use them. Switch **Secret** on for a value such as a token or password. After that:
+
+- the value is stored encrypted (AES-256-GCM, with a key that is not in the database);
+- the API never sends it back: the dashboard shows that a value is set, and you can only replace it;
+- it appears as `{{name}}` in code snippets, in the **Sent** view, in your history and in exports.
+
+A workspace can have up to 50 environments.
+
+## The response
+
+After a send you see:
+
+- the status, time and size, and whether the checks passed;
+- **Body**: pretty JSON or raw text, images shown as images, and other binary bodies described (up to 5 MB are read);
+- **Headers**;
+- **Checks** and the values captured;
+- **Timing**: DNS lookup, TCP connect, TLS handshake, waiting for the server and download, each on a fresh connection, so the numbers mean the same thing every time;
+- **Sent**: exactly what went out, with secrets masked.
+
+Requests time out after 30 seconds and don't follow redirects. Gzip, deflate and Brotli answers are decompressed.
+
+**Suggest checks** adds checks from the current response: its status, its content type, a response time limit of about three times this one, and the top-level JSON fields it has.
+
+## Checks
+
+A check compares part of the response with what you expect. It needs no code.
+
+| Source | What it reads | Operators |
+| --- | --- | --- |
+| Status | The status code | equals, is not, &lt;, ≤, >, ≥ |
+| JSON path | A value in a JSON body: `$.items[0].id`, `$.user["first name"]`, `$.items[-1]`, `$.items[*].id` (all of them), `$.items.length` | all of the operators below |
+| Header | A response header, by name (any case) | equals, is not, contains, doesn't contain, exists, doesn't exist, matches regex |
+| Body text | The whole body | contains, doesn't contain, matches regex, equals, matches JSON schema |
+| Response time | Total milliseconds | equals, is not, &lt;, ≤, >, ≥ |
+| Size | Bytes received | equals, is not, &lt;, ≤, >, ≥ |
+
+Expected values are read as JSON when they parse, so `200`, `true`, `null` and `["a","b"]` compare as those values, and anything else as text. **Contains** looks inside text, inside a list (for an item), or inside an object (for a key). **Is of type** takes `string`, `number`, `integer`, `boolean`, `object`, `array` or `null`. **Matches JSON schema** supports what API tests usually need:
+
+- `type`, `required`, `properties` and `additionalProperties`;
+- `items`, `minItems`, `maxItems` and `uniqueItems`;
+- `enum` and `const`;
+- `minLength`, `maxLength` and `pattern`;
+- `format` (email, uuid, date-time, date, uri);
+- `minimum`, `maximum` and their exclusive forms, and `multipleOf`;
+- `allOf`, `anyOf`, `oneOf` and `not`;
+- `nullable`;
+- local `$ref`.
+
+Expected values can use variables: `$.id` equals `{{userId}}`.
+
+## Captures
+
+A capture saves a value from a response as a variable for the requests after it, for example the token from a login:
+
+| Capture from | Example |
+| --- | --- |
+| JSON path | `$.token` |
+| Header | `Location` |
+| Status | — |
+| Body regex | `"id":"(\w+)"` keeps the first group |
+
+In the dashboard, captured values last until you reload the page. They show under **Settings → Captured in this session** and are treated as secrets in code snippets and the **Sent** view. In a run, they pass from each request to the next.
+
+## Run a collection
+
+**Run** sends every request from top to bottom: first the requests at a level, then its folders, in the order the sidebar shows. You can pick an environment, run a single folder, or stop at the first failure.
+
+A request **passes** when all of its checks pass; a request with no checks passes on any answer. A request that can't be sent (a connection error, a timeout, a missing variable) counts as **errored**.
+
+The report shows each request with its status, time, failed checks and, for failures, the start of the response. The last 50 runs of each collection are kept under **Recent runs**. A run uses the saved collection and stops starting new requests after two minutes.
+
+Captured values whose names look like credentials (containing `token`, `secret`, `password`, `key`, `auth`, `session`, `cookie`, `credential` or `signature`) show as `••••` in reports, because reports are shared with the team.
+
+## Code
+
+**Code** writes the request for curl, JavaScript `fetch`, Node.js `axios`, Python `requests` or Go `net/http`. Variables are filled in. Secrets and captured values stay as `{{name}}`, so the snippet is safe to paste into a chat or a ticket.
+
+## History
+
+Every request you send is in **History** in the sidebar. Only you see your history, and the latest 200 are kept. Opening an entry adds it to the open collection as a new, unsaved request, with the response it got. **Clear my history** deletes yours.
+
+## Export and CI
+
+**Export** downloads one of:
+
+- **VhyxVoid JSON**: the file [`vhyxvoid test`](/cli/test) runs in CI. It can include one environment, with secret values left empty.
+- **Postman collection v2.1**: checks that have a Postman equivalent become `pm.test` scripts.
+
+```bash
+npx @vhyxvoid/agent test ./users-api.vhyxvoid.json --env Staging \
+  --var apiToken=$API_TOKEN --junit report.xml
+```
+
+## What the runner can reach
+
+Requests leave from the platform, not your computer, so they can reach **public addresses only**:
+
+- Private, loopback, link-local and cloud metadata addresses are refused.
+- So are names such as `localhost` and `*.internal`.
+- The check runs again for every address a name resolves to, at connect time, so a DNS answer can't change after the check.
+
+To test a server on your machine, either:
+
+- open a [tunnel](/dashboard/tunnels) to it and send to the tunnel URL, or
+- run the collection with [`vhyxvoid test`](/cli/test), which sends from where it runs.
+
+## Limits
+
+| Plan | Collections | Requests per collection | Sends per minute |
+| --- | --- | --- | --- |
+| Free | 3 | 50 | 30 |
+| Pro | 50 | 500 | 300 |
+| Enterprise | 500 | 2,000 | 1,200 |
+
+Every request in a run counts as a send. Past the limit, a send answers **429**, and a run skips its remaining requests and says why. Operators can change these per plan or per account (see [Plans and billing](/operators/plans-and-billing)). They can also switch the whole API client off with `features.apiClient`; saved collections are kept.
+
+Changes to collections and environments, and each run, appear in [Activity](/dashboard/activity) under **API client**. Sends don't.

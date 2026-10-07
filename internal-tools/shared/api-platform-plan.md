@@ -191,7 +191,7 @@ from captured traffic), public API for everything above.
 | --- | --- | --- |
 | 1. Hosted mock APIs | **shipped** 2026-10-06 (engine, hub, API, dashboard, docs; 32 engine + 6 hub + 10 UI tests, e2e journey step) | b534990, 96d4bac, docs commit |
 | 2. Stateful mocks, record, export | **shipped** 2026-10-06 (resources on Redis, record from inspector/HAR, MSW/Postman/Mockoon/native export, Postman/Mockoon/HAR/native import, `vhyxvoid mock` CLI; 22 engine/CLI + 1 hub + 1 UI tests, e2e step) | 0f62342, 8323f22, docs commit |
-| 3. API client and tests | planned | |
+| 3. API client and tests | **shipped** 2026-10-07 (request builder with auth helpers incl. HMAC and file bodies, collections/folders, environments with encrypted secrets, server-side runner with SSRF guard + per-account rate limit + timings, checks incl. JSON schema, captures, snippets in 5 languages, history, runs with saved reports, curl/Postman/OpenAPI/HAR import, Postman export, `vhyxvoid test` with JUnit; 23 engine + 11 route + 4 CLI + 7 UI tests, e2e step) | 899645b, 1a8548c, docs commit |
 | 4. Performance and monitoring | planned | |
 | 5. API documentation | planned | |
 | 6. Team space | planned | |

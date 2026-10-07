@@ -2,8 +2,8 @@
 title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
-  date: "2026-10-06"
-  commit: "96d4bac"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -112,6 +112,7 @@ Turn product features on or off.
 | `features.webhookInbox` | boolean | `true` | yes | Webhook inbox. Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests. |
 | `features.customDomains` | boolean | `true` | yes | Custom domains. Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels. |
 | `features.trafficRules` | boolean | `true` | yes | Traffic rules. Customers can add rules to a tunnel that answer with a mock, inject delays or errors, redirect, rewrite paths and set headers, applied by the hub before a request reaches the agent. How many per tunnel is the plan limit maxTrafficRules. Off: every rule is ignored at once. |
+| `features.apiClient` | boolean | `true` | yes | API client and tests. Customers can send requests from the dashboard through the platform's server-side runner (public addresses only), keep collections and environments, add checks and run collections. How much is the plan limits maxApiCollections, maxApiCollectionRequests and apiClientSendsPerMinute. Off: sending and runs are refused; saved collections stay. |
 | `features.mockApis` | boolean | `true` | yes | Mock APIs. Customers can create hosted mock APIs that answer at a tunnel label's URL with no agent running (endpoints, response rules, templating, OpenAPI import). How many is the plan limits maxMockApis and maxMockEndpoints. Off: the hub stops answering from mocks. |
 | `features.alerts` | boolean | `true` | yes | Alerts. Customers can create alert rules (tunnel offline, error rate, usage, inbox, domains) delivered by email, in-app and webhook. |
 | `features.feedbackEnabled` | boolean | `true` | yes | Feedback form. Let signed-in users send feedback from the dashboard. |

@@ -127,6 +127,14 @@
       "default": "`api.` + the hub's domain",
       "flag": null,
       "description": "API base URL that `vhyxvoid doctor --domain` reads the custom domain target from (self-hosted or staging)."
+    },
+    {
+      "name": "VHYXVOID_VAR_",
+      "usedBy": [
+        "agent"
+      ],
+      "default": "none",
+      "description": "`vhyxvoid test` only: `VHYXVOID_VAR_<NAME>=value` sets the collection variable `<NAME>` (below `--var`, above the environment), for secrets from a CI secret store. See [vhyxvoid test](/cli/test#variables)."
     }
   ],
   "hub": [

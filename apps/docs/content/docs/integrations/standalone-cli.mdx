@@ -2,8 +2,8 @@
 title: Any stack (CLI)
 description: Tunnel any local server, in any language, with the vhyxvoid command-line agent.
 verified:
-  date: "2026-10-06"
-  commit: "8323f22"
+  date: "2026-10-07"
+  commit: "1a8548c"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -71,7 +71,7 @@ It asks for the key ID, the secret (shown as `*`), the port, the label, the hub 
 
 ## Commands and flags
 
-Besides `start` (the default), `init` and [`doctor`](/cli/doctor), there is [`vhyxvoid mock <file>`](/cli/mock), which serves a mock API on your machine without a tunnel or an account.
+Besides `start` (the default), `init` and [`doctor`](/cli/doctor), there is [`vhyxvoid mock <file>`](/cli/mock), which serves a mock API on your machine without a tunnel or an account, and [`vhyxvoid test <file>`](/cli/test), which runs an API collection and its checks, for CI.
 
 `vhyxvoid` with no command is the same as `vhyxvoid start`. Every flag, its environment variable and its default are listed in the [CLI reference](/cli/reference), which is generated from the command itself. The ones you will use most are `--key`, `--secret`, `--port` and `--label`.
 
