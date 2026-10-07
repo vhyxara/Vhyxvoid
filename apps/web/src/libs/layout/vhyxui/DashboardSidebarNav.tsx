@@ -124,6 +124,9 @@ function OrgSubNav({
           <NavLink href={`/organizations/${id}/mocks`} icon='tabler-api' onNavigate={onNavigate}>
             Mock APIs
           </NavLink>
+          <NavLink href={`/organizations/${id}/api-client`} icon='tabler-send' onNavigate={onNavigate}>
+            API client
+          </NavLink>
           <NavLink href={`/organizations/${id}/rules`} icon='tabler-route' onNavigate={onNavigate}>
             Traffic rules
           </NavLink>

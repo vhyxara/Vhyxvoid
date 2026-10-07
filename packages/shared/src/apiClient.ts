@@ -1320,6 +1320,9 @@ export interface RunOptions {
   beforeEach?: (r: ApiRequest) => Promise<string | null> | string | null;
 }
 
+/** Captured values with names like these are masked in reports (they are saved and shared with the team). */
+export const SENSITIVE_NAME = /token|secret|password|passwd|api[-_.]?key|auth|session|cookie|credential|signature/i;
+
 export async function runCollection(opts: RunOptions): Promise<RunReport> {
   const started = Date.now();
   const { collection } = opts;
@@ -1381,7 +1384,7 @@ export async function runCollection(opts: RunOptions): Promise<RunReport> {
       size: res.size,
       outcome: failed ? "failed" : "passed",
       assertions,
-      captures: captures.map((c) => (scope.secrets.has(c.variable) ? { ...c, value: "••••" } : c)),
+      captures: captures.map((c) => (scope.secrets.has(c.variable) || SENSITIVE_NAME.test(c.variable) ? { ...c, value: "••••" } : c)),
       responsePreview: failed ? (res.bodyEncoding === "utf8" ? res.body.slice(0, 4096) : `<${res.size} bytes of binary>`) : undefined,
     });
     if (failed && opts.bail) stop = `Stopped after "${req.name}"`;

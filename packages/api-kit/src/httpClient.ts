@@ -18,6 +18,8 @@ export type HttpRequestConfig = {
   signal?: AbortSignal
   /** Return the whole JSON body instead of unwrapping `data` (for responses with `meta`). */
   raw?: boolean
+  /** This request's timeout in ms, instead of the client's (long-running calls). */
+  timeoutMs?: number
 }
 
 export type HttpClientConfig = {
@@ -140,7 +142,8 @@ export function createHttpClient(config: HttpClientConfig): HttpClient {
       else req.signal.addEventListener('abort', onAbort, { once: true })
     }
 
-    const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(new Error('timeout')), timeoutMs) : undefined
+    const ms = req.timeoutMs ?? timeoutMs
+    const timer = ms > 0 ? setTimeout(() => controller.abort(new Error('timeout')), ms) : undefined
     const doFetch = config.fetch ?? fetch
     let res: Response
 

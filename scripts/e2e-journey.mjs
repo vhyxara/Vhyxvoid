@@ -881,6 +881,53 @@ await step("mock APIs phase 2: resource CRUD at the URL, data view and reset, re
   return "resource CRUD, record 2, 6 exports, 2 imports";
 });
 
+await step("API client: environment secret, send through the tunnel, captures, run, snippet, export", async () => {
+  const C = (method, p, body) => api(method, `/api-client/${s.personal}${p}`, { token: s.token, body });
+  const env = await C("POST", "/environments", { name: `Journey ${RUN}`, variables: [{ key: "hub", value: HUB }, { key: "apiToken", value: "journey-secret-value", secret: true }] });
+  assert(env.status === 201 && env.json.data.variables[1].value === "" && env.json.data.variables[1].hasValue, `environment ${JSON.stringify(env.json).slice(0, 300)}`);
+  const envId = env.json.data.id;
+  // The tunnel's host is sent as the Host header, so this works without DNS for the hub domain.
+  const echo = { name: "Echo", method: "POST", url: "{{hub}}/echo", params: [{ key: "from", value: "client", enabled: true }], headers: [{ key: "Host", value: s.host, enabled: true }], auth: { type: "bearer", token: "{{apiToken}}" }, body: { type: "json", text: '{"hello":"{{$uuid}}"}' }, assertions: [{ id: "a1", enabled: true, source: "status", op: "eq", value: "200" }, { id: "a2", enabled: true, source: "json", path: "$.headers.authorization", op: "eq", value: "Bearer journey-secret-value" }], captures: [{ id: "c1", enabled: true, variable: "seenPath", source: "json", path: "$.path" }] };
+  const sent = await C("POST", "/send", { request: echo, environmentId: envId });
+  assert(sent.status === 200 && sent.json.data.sent, `send ${sent.status} ${JSON.stringify(sent.json).slice(0, 300)}`);
+  if (sent.json.data.error?.code === "EPRIVATE") {
+    // An API without API_CLIENT_ALLOW_PRIVATE=1 refuses local addresses: that is the SSRF guard working.
+    return "guard refused 127.0.0.1 (set API_CLIENT_ALLOW_PRIVATE=1 on a local API for the rest)";
+  }
+  const d = sent.json.data;
+  assert(d.response?.status === 200 && d.assertions.every((a) => a.pass) && d.captures[0]?.value === "/echo", `send result ${JSON.stringify(d).slice(0, 400)}`);
+  assert(d.request.headers.some(([k, v]) => k === "Authorization" && v === "Bearer {{apiToken}}"), "the sent view masks the secret");
+  assert(d.response.timings.total > 0 && typeof d.response.timings.firstByte === "number", "timings");
+
+  const col = await C("POST", "/collections", { name: `Journey ${RUN}` });
+  assert(col.status === 201, `collection ${col.status}`);
+  const id = col.json.data.id;
+  const saved = await C("PUT", `/collections/${id}`, {
+    expectedVersion: 1,
+    folders: [{ id: "f1", name: "Tunnel" }],
+    requests: [
+      { ...echo, id: "q1" },
+      { ...echo, id: "q2", name: "Uses the capture", method: "GET", body: { type: "none" }, folderId: "f1", params: [{ key: "prev", value: "{{seenPath}}", enabled: true }], assertions: [{ id: "a3", enabled: true, source: "json", path: "$.query", op: "contains", value: "prev=%2Fecho" }], captures: [] },
+      { ...echo, id: "q3", name: "Fails on purpose", method: "GET", url: "{{hub}}/status/500", body: { type: "none" }, folderId: "f1", params: [], assertions: [{ id: "a4", enabled: true, source: "status", op: "eq", value: "200" }], captures: [] },
+    ],
+  });
+  assert(saved.status === 200 && saved.json.data.version === 2, `save ${saved.status} ${JSON.stringify(saved.json).slice(0, 300)}`);
+  const run = await C("POST", `/collections/${id}/run`, { environmentId: envId });
+  const rep = run.json?.data?.report;
+  assert(run.status === 200 && rep.total === 3 && rep.passed === 2 && rep.failed === 1 && rep.results[2].status === 500, `run ${JSON.stringify(rep ?? run.json).slice(0, 500)}`);
+  assert((await C("GET", `/collections/${id}/runs`)).json.data.runs[0].failed === 1, "run is listed");
+  const code = await C("POST", "/snippet", { request: echo, lang: "curl", environmentId: envId });
+  assert(code.json.data.code.includes("Bearer {{apiToken}}") && !code.json.data.code.includes("journey-secret-value"), "snippet masks the secret");
+  const file = await fetch(`${API}/api-client/${s.personal}/collections/${id}/export?format=vhyxvoid&environmentId=${envId}`, { headers: { authorization: `Bearer ${s.token}` } });
+  const text = await file.text();
+  const exported = JSON.parse(text);
+  assert(file.status === 200 && exported.vhyxvoid === "collection" && exported.environments[0].variables.find((v) => v.key === "apiToken").value === "" && !text.includes("enc:v1:"), `export ${file.status}`);
+  const hist = await C("GET", "/history");
+  assert(hist.json.data.items.some((h) => h.url.includes("/echo")), "history has the send");
+  assert((await C("DELETE", `/collections/${id}`)).status === 200 && (await C("DELETE", `/environments/${envId}`)).status === 200, "cleanup");
+  return `send ${Math.round(d.response.timings.total)} ms, run 2/3 with a capture, snippet and export masked`;
+});
+
 await step("traffic chart, activity feed and agent fleet reflect the tunnel", async () => {
   const flush = await fetch(`${HUB}/internal/stats/flush`, { method: "POST", headers: { "x-hub-internal-secret": process.env.HUB_INTERNAL_SECRET ?? "" } });
   assert(flush.ok, `stats flush ${flush.status} (is HUB_INTERNAL_SECRET set for the journey?)`);

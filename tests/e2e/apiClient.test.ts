@@ -283,6 +283,8 @@ describe("runCollection", () => {
     expect(report).toMatchObject({ total: 3, passed: 2, failed: 1, errored: 0, assertions: { passed: 2, failed: 1 }, environment: "staging" });
     expect(report.results[1]).toMatchObject({ outcome: "failed", folder: ["Users"], url: "{{base}}/users/{{uid}}".replace("{{base}}", "https://x.test").replace("{{uid}}", "42") });
     expect(report.results[2].folder).toEqual(["Users", "Nested"]);
+    const tokenRun = await runCollection({ collection: { ...col, requests: [newApiRequest({ id: "t", name: "Login", url: "x.test", captures: [{ id: "c", enabled: true, variable: "accessToken", source: "json", path: "id" }] })] }, send });
+    expect(tokenRun.results[0].captures[0].value).toBe("••••");
     const junit = reportToJUnit(report);
     expect(junit).toContain('<testsuite name="Flow" tests="3" failures="1" errors="0"');
     expect(junit).toContain('<failure message="status equals 201">');

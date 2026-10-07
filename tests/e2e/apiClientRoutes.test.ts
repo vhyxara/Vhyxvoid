@@ -143,6 +143,9 @@ describe.skipIf(!url)("API client routes", () => {
     expect(s.body.data.code).toContain("Bearer {{token}}");
     expect(s.body.data.code).toContain(`${target}/me`);
     expect(s.body.data.code).not.toContain("s3cret");
+    const captured = await call("POST", "/snippet", { request: { name: "x", method: "GET", url: "{{base}}/me", auth: { type: "bearer", token: "{{session}}" } }, lang: "python", environmentId: envId, runtime: { session: "captured-xyz" } });
+    expect(captured.body.data.code).toContain("Bearer {{session}}");
+    expect(captured.body.data.code).not.toContain("captured-xyz");
   });
 
   it("refuses private addresses unless allowed for local development", async () => {

@@ -264,7 +264,9 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     }
     if (body.collection?.auth) auth = body.collection.auth as ApiAuth;
     const env = await findEnv(accountId, body.environmentId);
-    return { variables, auth, env, envVars: envValues(env), runtime: body.runtime ?? {} };
+    // Values captured in the session (often tokens) are treated as secrets: kept as {{name}} in code and the sent view.
+    const runtime = Object.entries(body.runtime ?? {}).map(([key, value]) => ({ key, value, enabled: true, secret: true }));
+    return { variables, auth, env, envVars: envValues(env), runtime };
   }
 
   function checkedRequest(raw: Record<string, unknown>): ApiRequest {

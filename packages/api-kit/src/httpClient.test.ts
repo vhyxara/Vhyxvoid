@@ -145,4 +145,18 @@ describe('createHttpClient', () => {
 
     await expect(c({ url: '/x', method: 'GET' })).rejects.toMatchObject({ status: 0, code: 'TIMEOUT' })
   })
+
+  it('a request can set its own timeout', async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      (_u: string, init: RequestInit) => new Promise((resolve, reject) => {
+        const t = setTimeout(() => resolve(new Response(JSON.stringify({ data: 1 }), { headers: { 'content-type': 'application/json' } })), 40)
+
+        init.signal!.addEventListener('abort', () => (clearTimeout(t), reject(new Error('aborted'))))
+      })
+    )
+    const c = client(fetchMock, { timeoutMs: 10 })
+
+    await expect(c({ url: '/x', method: 'GET', timeoutMs: 1000 })).resolves.toBe(1)
+    await expect(c({ url: '/x', method: 'GET', timeoutMs: 5 })).rejects.toMatchObject({ code: 'TIMEOUT' })
+  })
 })
