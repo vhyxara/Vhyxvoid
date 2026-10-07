@@ -30,7 +30,11 @@ export const NUMERIC_LIMITS = [
   ['loadTestsPerDay', 'Load tests per day'],
   ['maxMonitors', 'Monitors (0 = none)'],
   ['minMonitorIntervalMinutes', 'Shortest monitor interval (minutes)'],
-  ['maxApiSpecs', 'API docs specs (0 = none)']
+  ['maxApiSpecs', 'API docs specs (0 = none)'],
+  ['maxTeamChannels', 'Chat channels (0 = team space off)'],
+  ['maxTeamDocs', 'Team documents'],
+  ['maxTeamIssues', 'Tracker issues'],
+  ['teamHistoryDays', 'Chat history shown (days)']
 ] as const
 
 export const BOOLEAN_LIMITS = [

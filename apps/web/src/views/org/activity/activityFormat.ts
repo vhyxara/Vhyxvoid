@@ -2,7 +2,7 @@
 // it's tested without a DOM. Unknown actions fall back to a tidy version of
 // the action name, so a new server-side action never breaks the page.
 
-export type ActivityCategory = 'members' | 'keys' | 'tunnels' | 'alerts' | 'apis' | 'other'
+export type ActivityCategory = 'members' | 'keys' | 'tunnels' | 'alerts' | 'apis' | 'team' | 'other'
 
 export type ActivityItem = {
   id: string
@@ -157,6 +157,22 @@ export function describeActivity(item: ActivityItem): string {
       return `${m.enabled === false ? 'paused' : m.enabled === true ? 'resumed' : 'changed'} a monitor${s(m.name) ? ` (${m.name})` : ''}`
     case 'MONITOR_DELETED':
       return 'deleted a monitor'
+    case 'TEAM_CHANNEL_CREATED':
+      return `created the channel #${s(m.name) ?? ''}${m.isPrivate ? ' (private)' : ''}`
+    case 'TEAM_CHANNEL_UPDATED':
+      return m.archived === true ? 'archived a channel' : m.archived === false ? 'unarchived a channel' : `changed the channel ${s(m.name) ? `#${m.name}` : ''}`.trim()
+    case 'TEAM_CHANNEL_DELETED':
+      return 'deleted a channel'
+    case 'TEAM_DOC_CREATED':
+      return `created the document “${s(m.title) ?? ''}”`
+    case 'TEAM_DOC_DELETED':
+      return 'deleted a document'
+    case 'TEAM_DOC_RESTORED':
+      return 'restored an older version of a document'
+    case 'TEAM_ISSUE_CREATED':
+      return `opened the issue “${s(m.title) ?? ''}”`
+    case 'TEAM_ISSUE_DELETED':
+      return `deleted issue #${s(m.number) ?? ''}`.trim()
     case 'API_SPEC_CREATED':
       return `created the API docs ${s(m.name) ?? ''}${m.fromMock ? ' from a mock API' : m.fromDocument ? ' from an OpenAPI document' : ''}`.replace('  ', ' ')
     case 'API_SPEC_PUBLISHED':

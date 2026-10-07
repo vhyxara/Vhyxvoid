@@ -37,6 +37,14 @@ import { stopAllLoadTests } from "./perf/loadRunner";
 import { agentRoutes } from "./agents/agents.routes";
 import { specRoutes } from "./specs/specs.routes";
 import { publicSpecRoutes } from "./specs/specs.public.routes";
+import { teamChatRoutes } from "./team/chat.routes";
+import { teamDocRoutes } from "./team/docs.routes";
+import { teamIssueRoutes } from "./team/issues.routes";
+import { teamCommentRoutes } from "./team/comments.routes";
+import { createTeamRealtime } from "./team/realtime";
+import { runTeamDigest } from "./team/digest";
+import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
+import type { JwtPayload } from "@/core/types/core/jwt";
 import type { NotificationService } from "@/modules/notification/application/use-cases";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
@@ -80,6 +88,28 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(adminDomainRoutes, { prefix: "/api/v1/admin/domains", hub });
   await server.register(specRoutes, { prefix: "/api/v1/specs", hub, dns });
   await server.register(publicSpecRoutes, { prefix: "/api/v1/public/specs" });
+  await server.register(teamChatRoutes, { prefix: "/api/v1/team" });
+  await server.register(teamDocRoutes, { prefix: "/api/v1/team" });
+  await server.register(teamIssueRoutes, { prefix: "/api/v1/team" });
+  await server.register(teamCommentRoutes, { prefix: "/api/v1/team" });
+
+  // Live team space updates over WebSocket (same checks as userAuthGuard).
+  const jwt = (server as unknown as { container: { resolve: (t: unknown) => RS256JwtService } }).container.resolve(RS256JwtService);
+  const realtime = createTeamRealtime(prisma, async (token) => {
+    let payload: JwtPayload;
+    try {
+      payload = jwt.verify(token);
+    } catch {
+      return null;
+    }
+    if (payload?.type !== "user" || !payload.sub) return null;
+    const state = await server.authStateCache.getUser(payload.sub);
+    return state && state.active && state.tokenVersion === payload.tokenVersion ? { userId: payload.sub } : null;
+  }, server.log);
+  server.server.on("upgrade", (req, socket, head) => {
+    if (!realtime.handleUpgrade(req, socket, head)) socket.destroy();
+  });
+  server.addHook("onClose", async () => realtime.close());
 
   // Operators can run a job now instead of waiting for its interval.
   await server.register(async (app) => {
@@ -90,9 +120,10 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
       if (name === "alerts") result = await runLeasedJob(prisma, "alerts", 120_000, () => runAlertEvaluation(prisma, alerts), true);
       else if (name === "notices") result = await runLeasedJob(prisma, "notices", 600_000, () => runAccountNotices(prisma, notifications()), true);
       else if (name === "maintenance") result = await runLeasedJob(prisma, "maintenance", 600_000, () => runMaintenance(prisma), true);
+      else if (name === "teamDigest") result = await runLeasedJob(prisma, "teamDigest", 600_000, () => runTeamDigest(prisma, notifications()), true);
       else if (name === "monitors") result = await runLeasedJob(prisma, "monitors", 180_000, () => runDueMonitors(prisma), true);
       else if (name === "domains") result = await runLeasedJob(prisma, "domains", 600_000, async () => ({ checked: await runDomainChecks(prisma, domains) }), true);
-      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains, monitors, notices, maintenance)", data: null });
+      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains, monitors, notices, maintenance, teamDigest)", data: null });
       // Another API instance holds the job right now.
       if (result === undefined) return reply.code(409).send({ success: false, code: "CONFLICT", message: "The job is running on another instance; try again in a minute", data: null });
       return reply.send({ success: true, message: "Done", data: { job: name, result, ms: Date.now() - started } });
@@ -111,6 +142,7 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
       jobs.push(leasedInterval(prisma, "domains", 5 * 60_000, async () => void (await runDomainChecks(prisma, domains))));
       jobs.push(leasedInterval(prisma, "maintenance", 60 * 60_000, async () => void (await runMaintenance(prisma))));
       jobs.push(leasedInterval(prisma, "notices", 15 * 60_000, async () => void (await runAccountNotices(prisma, notifications()))));
+      jobs.push(leasedInterval(prisma, "teamDigest", 60 * 60_000, async () => void (await runTeamDigest(prisma, notifications()))));
     });
     server.addHook("onClose", async () => {
       jobs.forEach((j) => j.stop());

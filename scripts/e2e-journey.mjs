@@ -1472,6 +1472,66 @@ if (process.env.ADMIN_EMAIL) {
     await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": null } } });
   });
 
+  await step("team space: live chat over WebSocket, thread, cards, doc with history, issue on the board", async () => {
+    const T = (m, p, body) => api(m, `/team/${s.personal}${p}`, { token: s.token, body });
+    const o = await T("GET", "/chat");
+    assert(o.status === 200 && o.json.data.channels.some((c) => c.name === "general"), `chat overview ${o.status}`);
+    const ch = await T("POST", "/chat/channels", { name: `journey-${RUN}`, topic: "e2e" });
+    assert(ch.status === 201, `channel ${ch.status}: ${JSON.stringify(ch.json).slice(0, 200)}`);
+    const cid = ch.json.data.id;
+
+    // A live socket sees the message without polling the API.
+    const wsUrl = `${API.replace(/^http/, "ws").replace(/\/api\/v1\/?$/, "")}/api/v1/team/ws`;
+    const ws = new WebSocket(wsUrl);
+    const events = [];
+    const ready = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("socket not ready in 10 s")), 10_000);
+      ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token: s.token, accountId: s.personal }));
+      ws.onmessage = (m) => {
+        const msg = JSON.parse(String(m.data));
+        if (msg.type === "ready") (clearTimeout(t), resolve());
+        else if (msg.type === "event") events.push(msg);
+        else if (msg.type === "error") reject(new Error(msg.message));
+      };
+    });
+    try {
+      await ready;
+      const doc = await T("POST", "/docs", { title: `Runbook ${RUN}`, body: "# Deploy\n\n## Steps\n1. build" });
+      assert(doc.status === 201, `doc ${doc.status}`);
+      const sent = await T("POST", `/chat/channels/${cid}/messages`, { body: `Runbook: /organizations/${s.personal}/team/docs/${doc.json.data.id}#steps` });
+      assert(sent.status === 201 && sent.json.data.cards[0]?.title === `Runbook ${RUN} › Steps`, `card ${JSON.stringify(sent.json).slice(0, 300)}`);
+      for (let i = 0; i < 30 && !events.some((e) => e.kind === "message" && e.payload.message?.id === sent.json.data.id); i++) await sleep(200);
+      assert(events.some((e) => e.kind === "message" && e.payload.message?.id === sent.json.data.id), `no live event (got ${events.map((e) => e.kind).join(",")})`);
+      const reply = await T("POST", `/chat/channels/${cid}/messages`, { body: "done", parentId: sent.json.data.id });
+      assert(reply.status === 201, `reply ${reply.status}`);
+      assert((await T("GET", `/chat/messages/${sent.json.data.id}/thread`)).json.data.root.replyCount === 1, "thread");
+
+      // Document history: a second author session would start v2; here one session stays v1.
+      const v = await T("PUT", `/docs/${doc.json.data.id}`, { body: "# Deploy\n\n## Steps\n1. build\n2. ship", expectedVersion: doc.json.data.version });
+      assert(v.status === 200 && v.json.data.latestVersion === 1, `doc save ${JSON.stringify(v.json).slice(0, 200)}`);
+      assert((await T("PUT", `/docs/${doc.json.data.id}`, { body: "stale", expectedVersion: doc.json.data.version })).status === 409, "stale doc save");
+
+      // Tracker: create linked to the doc, move on the board, search finds it.
+      const issue = await T("POST", "/issues", { title: `Ship runbook ${RUN}`, labels: ["Ops"], links: [`/organizations/${s.personal}/team/docs/${doc.json.data.id}`] });
+      assert(issue.status === 201 && issue.json.data.linkCount === 1, `issue ${JSON.stringify(issue.json).slice(0, 200)}`);
+      const n = issue.json.data.number;
+      assert((await T("POST", `/issues/${n}/move`, { status: "IN_PROGRESS" })).status === 200, "move");
+      const board = await T("GET", `/issues?q=${encodeURIComponent("status:doing label:ops")}&sort=rank`);
+      assert(board.json.data.issues.some((x) => x.number === n), `board ${JSON.stringify(board.json.data.issues).slice(0, 200)}`);
+      const found = await T("GET", `/search?q=${encodeURIComponent(RUN)}`);
+      assert(found.json.data.docs.length >= 1 && found.json.data.issues.length >= 1, `search ${JSON.stringify(found.json.data).slice(0, 300)}`);
+      for (let i = 0; i < 30 && !events.some((e) => e.kind === "issue" && e.payload.number === n); i++) await sleep(200);
+      assert(events.some((e) => e.kind === "issue"), "no live issue event");
+
+      await T("DELETE", `/issues/${n}`);
+      await T("DELETE", `/docs/${doc.json.data.id}`);
+      await T("DELETE", `/chat/channels/${cid}`);
+      return `${events.length} live events; card "${sent.json.data.cards[0].title}"; issue #${n} on the board`;
+    } finally {
+      ws.close();
+    }
+  });
+
   await step("API docs: publish, public page, try-it through a mock, breaking v2, password, docs on a custom domain", async () => {
     const S = (m, p, body) => api(m, `/specs/${s.personal}${p}`, { token: s.token, body });
     // The default plan has neither docs passwords nor docs domains.

@@ -43,6 +43,7 @@ import {
 } from '@/api/infrastructure/services/specs.service'
 import { newRequest } from '@/views/org/apiclient/apiClientForm'
 import { LABEL_RE, labelFromName } from '@/views/org/mocks/mockForm'
+import { ShareToChatButton } from '@/views/org/team/TeamParts'
 import { specKeys, VISIBILITY_LABEL } from './SpecsView'
 import {
   SLUG_RE,
@@ -194,6 +195,7 @@ export default function SpecWorkspaceView({ accountId, specId }: { accountId: st
           )}
         </div>
         <div className='flex items-center gap-2 flex-wrap'>
+          <ShareToChatButton accountId={accountId} path={`/organizations/${accountId}/api-docs/${specId}`} label='Share' />
           <Button variant='outline' size='sm' onClick={() => setGenerate('mock')} icon={<i className='tabler-api' />}>
             Make a mock
           </Button>

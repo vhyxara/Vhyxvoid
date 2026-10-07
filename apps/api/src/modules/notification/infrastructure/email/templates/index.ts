@@ -562,3 +562,32 @@ export function alertNotification(params: {
   const text = `${tag}: ${params.title}\n\n${params.message}\n\n${params.url}\n\nAlert rule: ${params.ruleName} (${params.accountName})\n— ${APP_NAME}`;
   return { subject, html, text };
 }
+
+/** Daily team space digest: unread mentions, replies and assignments of one workspace. */
+export function teamDigest(params: {
+  firstName: string;
+  accountName: string;
+  items: Array<{ title: string; body: string; url: string }>;
+  more: number;
+  url: string;
+  settingsUrl: string;
+}): EmailContent {
+  const h = escapeFields({ firstName: params.firstName, accountName: params.accountName });
+  const n = params.items.length + params.more;
+  const subject = `${n} unread in ${params.accountName}'s team space`;
+  const list = params.items
+    .map((i) => `<li style="margin:0 0 12px;"><a href="${escapeHtml(i.url)}" style="color:#7C3AED;font-weight:600;text-decoration:none;">${escapeHtml(i.title)}</a><br><span style="color:#555;">${escapeHtml(i.body.slice(0, 200))}</span></li>`)
+    .join("");
+  const html = layout(
+    heading(`Hi ${h.firstName || "there"}, here is what you missed`) +
+      para(`In <strong>${h.accountName}</strong>:`) +
+      `<ul style="padding-left:18px;margin:0 0 16px;font-size:14px;line-height:1.5;">${list}</ul>` +
+      (params.more ? para(`…and ${params.more} more.`) : "") +
+      button("Open the team space", params.url) +
+      smallNote(`You get this at most once a day while you have unread mentions, replies or assignments. <a href="${escapeHtml(params.settingsUrl)}">Turn the digest off</a>.`),
+    subject,
+  );
+  const text = `Here is what you missed in ${params.accountName}:\n\n${params.items.map((i) => `- ${i.title}\n  ${i.body.slice(0, 200)}\n  ${i.url}`).join("\n")}${params.more ? `\n…and ${params.more} more.` : ""}\n\n${params.url}\n\nTurn the digest off: ${params.settingsUrl}\n— ${APP_NAME}`;
+  return { subject, html, text };
+}
+

@@ -9,6 +9,7 @@ import { INotificationRepository } from "@/modules/notification/domain/repositor
 import { IEmailService } from "@/modules/notification/domain/services/IEmailService.notification";
 import {
   alertNotification,
+  teamDigest,
   accountInvitation,
   emailVerification,
   feedbackReceived,
@@ -396,6 +397,15 @@ export class SendAlertEmailUseCase {
   }
 }
 
+export class SendTeamDigestEmailUseCase {
+  constructor(private readonly emailService: IEmailService) {}
+
+  async execute(params: Parameters<typeof teamDigest>[0] & { to: string }): Promise<void> {
+    const { subject, html, text } = teamDigest(params);
+    await this.emailService.send({ to: params.to, subject, html, text });
+  }
+}
+
 export class NotificationService {
   readonly sendEmailVerification: SendEmailVerificationUseCase;
   readonly sendInvitation: SendInvitationEmailUseCase;
@@ -412,6 +422,7 @@ export class NotificationService {
   readonly getNotifications: GetNotificationsUseCase;
   readonly sendFeedbackReceived: SendFeedbackReceivedEmailUseCase;
   readonly sendAlert: SendAlertEmailUseCase;
+  readonly sendTeamDigest: SendTeamDigestEmailUseCase;
   constructor(
     emailService: IEmailService,
     notificationRepo: INotificationRepository,
@@ -439,5 +450,6 @@ export class NotificationService {
       emailService,
     );
     this.sendAlert = new SendAlertEmailUseCase(emailService);
+    this.sendTeamDigest = new SendTeamDigestEmailUseCase(emailService);
   }
 }

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { ShareToChatButton } from '@/views/org/team/TeamParts'
 import { Alert, Badge, Button, Card, Checkbox, Dialog, Progress, SelectField, Skeleton, TextareaField, TextField, toast } from '@vhyxui/react'
 
 import { Typography } from '@/components/vhyxui-shims'
@@ -22,10 +23,10 @@ const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
 const keys = { overview: (a: string) => ['load-tests', a] as const, one: (a: string, id: string) => ['load-tests', a, id] as const }
 
-export default function LoadTestsTab({ accountId }: { accountId: string }) {
+export default function LoadTestsTab({ accountId, initialRun }: { accountId: string; initialRun?: string | null }) {
   const ready = useBootstrapReady()
   const q = useQuery({ queryKey: keys.overview(accountId), queryFn: () => loadTestsService.overview(accountId), enabled: ready })
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(initialRun ?? null)
   const [compare, setCompare] = useState<string[]>([])
   const [showCompare, setShowCompare] = useState(false)
   const o = q.data
@@ -249,12 +250,12 @@ function RunView({ accountId, id }: { accountId: string; id: string }) {
 
   return (
     <Card className='p-4' aria-live='polite'>
-      <RunDetails r={r} onCancel={r.status === 'RUNNING' ? () => cancel.mutate() : undefined} cancelling={cancel.isPending || !!r.cancelRequested} onDelete={r.status !== 'RUNNING' ? () => remove.mutate() : undefined} />
+      <RunDetails accountId={accountId} r={r} onCancel={r.status === 'RUNNING' ? () => cancel.mutate() : undefined} cancelling={cancel.isPending || !!r.cancelRequested} onDelete={r.status !== 'RUNNING' ? () => remove.mutate() : undefined} />
     </Card>
   )
 }
 
-function RunDetails({ r, onCancel, cancelling, onDelete }: { r: LoadTestRun; onCancel?: () => void; cancelling?: boolean; onDelete?: () => void }) {
+function RunDetails({ accountId, r, onCancel, cancelling, onDelete }: { accountId: string; r: LoadTestRun; onCancel?: () => void; cancelling?: boolean; onDelete?: () => void }) {
   const t = r.timeline ?? []
   const s = r.summary
   const elapsed = t.length
@@ -280,6 +281,7 @@ function RunDetails({ r, onCancel, cancelling, onDelete }: { r: LoadTestRun; onC
           </span>
         </div>
         <div className='flex gap-2'>
+          {r.status !== 'RUNNING' && <ShareToChatButton accountId={accountId} path={`/organizations/${accountId}/performance?tab=load&run=${r.id}`} label='Share' />}
           {onCancel && (
             <Button size='sm' variant='destructive' onClick={onCancel} loading={cancelling}>
               Stop

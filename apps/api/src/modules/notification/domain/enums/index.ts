@@ -13,6 +13,9 @@ export enum NotificationType {
   TRIAL_ENDING          = 'TRIAL_ENDING',
   TUNNEL_DISCONNECTED   = 'TUNNEL_DISCONNECTED',
   SYSTEM_ALERT          = 'SYSTEM_ALERT',
+  TEAM_MENTION          = 'TEAM_MENTION',
+  TEAM_ASSIGNED         = 'TEAM_ASSIGNED',
+  TEAM_REPLY            = 'TEAM_REPLY',
 }
 
 export enum NotificationChannel {

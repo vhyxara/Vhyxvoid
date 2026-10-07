@@ -46,7 +46,7 @@ export default function PerformanceView({ accountId }: { accountId: string }) {
             <AnalyticsTab accountId={accountId} />
           </Tabs.Content>
           <Tabs.Content value='load'>
-            <LoadTestsTab accountId={accountId} />
+            <LoadTestsTab accountId={accountId} initialRun={params.get('run')} />
           </Tabs.Content>
           <Tabs.Content value='monitors'>
             <MonitorsTab accountId={accountId} initialMonitor={params.get('monitor')} />

@@ -34,3 +34,4 @@ export * from "./apiClientInterop";
 export * from "./httpRunner";
 export * from "./perf";
 export * from "./apiSpec";
+export * from "./teamSpace";

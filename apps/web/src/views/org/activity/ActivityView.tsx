@@ -24,7 +24,8 @@ const CATEGORIES = [
   { value: 'keys', label: 'API keys' },
   { value: 'tunnels', label: 'Tunnels, domains, inbox' },
   { value: 'alerts', label: 'Alerts' },
-  { value: 'apis', label: 'API client and performance' }
+  { value: 'apis', label: 'API client and performance' },
+  { value: 'team', label: 'Team space' }
 ]
 
 const ICONS: Record<string, string> = {
@@ -33,6 +34,7 @@ const ICONS: Record<string, string> = {
   tunnels: 'tabler-plug',
   alerts: 'tabler-bell',
   apis: 'tabler-send',
+  team: 'tabler-messages',
   other: 'tabler-point'
 }
 

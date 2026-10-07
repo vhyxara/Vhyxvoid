@@ -27,7 +27,10 @@ function getNotificationMeta(type: NotificationType): NotificationMeta {
     TRIAL_ENDING: { icon: 'tabler-clock-exclamation', color: '#f59e0b' },
     TUNNEL_DISCONNECTED: { icon: 'tabler-plug-x', color: '#ef4444' },
     SYSTEM_ALERT: { icon: 'tabler-alert-triangle', color: '#f59e0b' },
-    PASSWORD_RESET: { icon: 'tabler-lock-check', color: '#8b5cf6' }
+    PASSWORD_RESET: { icon: 'tabler-lock-check', color: '#8b5cf6' },
+    TEAM_MENTION: { icon: 'tabler-at', color: '#8b5cf6' },
+    TEAM_REPLY: { icon: 'tabler-message-reply', color: '#3b82f6' },
+    TEAM_ASSIGNED: { icon: 'tabler-user-check', color: '#22c55e' }
   }
 
   return map[type] ?? { icon: 'tabler-bell', color: '#94a3b8' }

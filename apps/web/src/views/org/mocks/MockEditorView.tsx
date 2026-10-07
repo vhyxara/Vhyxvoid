@@ -97,7 +97,12 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
   const resource = d?.resources.find(r => r.id === selected) ?? null
 
   useEffect(() => {
-    if (d && !selected && d.endpoints.length) setSelected(d.endpoints[0].id)
+    if (!d || selected) return
+    // ?endpoint=<id> (links shared in chat and issues) opens that endpoint.
+    const wanted = new URLSearchParams(window.location.search).get('endpoint')
+
+    if (wanted && d.endpoints.some(e => e.id === wanted)) setSelected(wanted)
+    else if (d.endpoints.length) setSelected(d.endpoints[0].id)
   }, [d, selected])
 
   // Don't lose unsaved work to a closed tab.

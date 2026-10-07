@@ -56,6 +56,10 @@ export interface PlanLimits {
   maxApiSpecs: number; // API documentation specs per account (0 = none)
   protectedDocs: boolean; // docs can be shared behind a password
   docsCustomDomains: boolean; // docs can be served on the customer's own hostname
+  maxTeamChannels: number; // chat channels per account (0 = team space off); DMs don't count
+  maxTeamDocs: number; // team documents per account
+  maxTeamIssues: number; // tracker issues per account
+  teamHistoryDays: number; // chat messages older than this are hidden (kept; upgrading shows them)
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -97,6 +101,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiSpecs: 3,
     protectedDocs: false,
     docsCustomDomains: false,
+    maxTeamChannels: 10,
+    maxTeamDocs: 50,
+    maxTeamIssues: 200,
+    teamHistoryDays: 90,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -137,6 +145,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiSpecs: 50,
     protectedDocs: true,
     docsCustomDomains: true,
+    maxTeamChannels: 200,
+    maxTeamDocs: 2000,
+    maxTeamIssues: 10000,
+    teamHistoryDays: Infinity,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -175,6 +187,10 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiSpecs: 500,
     protectedDocs: true,
     docsCustomDomains: true,
+    maxTeamChannels: 2000,
+    maxTeamDocs: 20000,
+    maxTeamIssues: 100000,
+    teamHistoryDays: Infinity,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

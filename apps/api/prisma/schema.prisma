@@ -90,6 +90,9 @@ enum NotificationType {
   TUNNEL_DISCONNECTED
   SYSTEM_ALERT
   PASSWORD_RESET
+  TEAM_MENTION
+  TEAM_ASSIGNED
+  TEAM_REPLY
 }
 
 enum NotificationStatus {
@@ -272,6 +275,12 @@ model Account {
   loadTests          LoadTest[]
   apiMonitors        ApiMonitor[]
   apiSpecs           ApiSpec[]
+  teamChannels       TeamChannel[]
+  teamDocs           TeamDoc[]
+  teamIssues         TeamIssue[]
+  teamFolders        TeamFolder[]
+  teamComments       TeamComment[]
+  teamMemberPrefs    TeamMemberPref[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1613,4 +1622,235 @@ model ApiSpecVersion {
 
   @@unique([specId, number])
   @@map("api_spec_versions")
+}
+
+// ── Team space (internal-tools/shared/api-platform-plan.md, phase 6;
+// packages/shared/src/teamSpace.ts) ─────────────────────────────────────
+
+/// A chat channel, or a direct conversation (kind DM, members only).
+model TeamChannel {
+  id            String    @id @default(uuid())
+  accountId     String
+  /// CHANNEL | DM
+  kind          String    @default("CHANNEL")
+  /// Unique per workspace for channels; null for DMs.
+  name          String?
+  topic         String    @default("")
+  isPrivate     Boolean   @default(false)
+  /// Sorted member ids for a DM, so the same people reuse one conversation.
+  dmKey         String?
+  /// A per-API channel: the object it is about (spec, mock, collection).
+  refKind       String?
+  refId         String?
+  archivedAt    DateTime?
+  createdById   String?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  account  Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  members  TeamChannelMember[]
+  messages TeamMessage[]
+
+  @@unique([accountId, name])
+  @@unique([accountId, dmKey])
+  @@index([accountId, refKind, refId])
+  @@map("team_channels")
+}
+
+/// Membership of private channels and DMs, and everyone's read position.
+model TeamChannelMember {
+  channelId  String
+  userId     String
+  accountId  String
+  /// Explicit member (private channels, DMs, joined public channels).
+  joined     Boolean  @default(true)
+  lastReadAt DateTime @default(now())
+  muted      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  channel TeamChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId, accountId])
+  @@map("team_channel_members")
+}
+
+model TeamMessage {
+  id          String    @id @default(uuid())
+  accountId   String
+  channelId   String
+  /// Thread root; null for top-level messages.
+  parentId    String?
+  authorId    String
+  body        String
+  mentions    String[]  @default([])
+  /// TeamRef[] found in the body (rich cards).
+  refs        Json      @default("[]")
+  /// { "👍": [userId, …] }
+  reactions   Json      @default("{}")
+  replyCount  Int       @default(0)
+  lastReplyAt DateTime?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  channel TeamChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+  @@index([parentId, createdAt])
+  @@index([accountId, createdAt])
+  @@map("team_messages")
+}
+
+/// Realtime fan-out between API instances: each instance polls rows newer
+/// than the last it saw and pushes them to its WebSocket clients. Kept a day.
+model TeamEvent {
+  seq       BigInt   @id @default(autoincrement())
+  accountId String
+  kind      String
+  /// Empty = everyone in the workspace; else only these users.
+  userIds   String[] @default([])
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("team_events")
+}
+
+model TeamFolder {
+  id        String   @id @default(uuid())
+  accountId String
+  parentId  String?
+  name      String
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("team_folders")
+}
+
+model TeamDoc {
+  id          String    @id @default(uuid())
+  accountId   String
+  folderId    String?
+  title       String
+  body        String    @default("")
+  /// Bumped on every save; a stale save is refused (409).
+  version     Int       @default(1)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account  Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  versions TeamDocVersion[]
+
+  @@index([accountId, folderId])
+  @@map("team_docs")
+}
+
+/// History: a save more than 10 minutes after the last version (or by
+/// another author) starts a new version; quick saves update the latest one.
+model TeamDocVersion {
+  id        String   @id @default(uuid())
+  docId     String
+  accountId String
+  number    Int
+  title     String
+  body      String
+  authorId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  doc TeamDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@unique([docId, number])
+  @@map("team_doc_versions")
+}
+
+/// Comments on docs (optionally on one heading) and issues.
+model TeamComment {
+  id         String    @id @default(uuid())
+  accountId  String
+  /// doc | issue
+  targetKind String
+  targetId   String
+  /// Heading anchor of a doc comment.
+  anchor     String?
+  authorId   String
+  body       String
+  mentions   String[]  @default([])
+  resolvedAt DateTime?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([targetKind, targetId, createdAt])
+  @@map("team_comments")
+}
+
+model TeamIssue {
+  id          String    @id @default(uuid())
+  accountId   String
+  /// #1, #2… per workspace
+  number      Int
+  title       String
+  body        String    @default("")
+  /// BACKLOG | TODO | IN_PROGRESS | IN_REVIEW | DONE | CANCELLED
+  status      String    @default("TODO")
+  /// NONE | LOW | MEDIUM | HIGH | URGENT
+  priority    String    @default("NONE")
+  assigneeId  String?
+  labels      String[]  @default([])
+  dueDate     DateTime? @db.Date
+  /// TeamRef[]: linked endpoints, requests, runs, docs…
+  refs        Json      @default("[]")
+  /// Board order within a status (rankBetween).
+  rank        String
+  createdById String?
+  closedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  events  TeamIssueEvent[]
+
+  @@unique([accountId, number])
+  @@index([accountId, status, rank])
+  @@index([accountId, assigneeId])
+  @@map("team_issues")
+}
+
+/// An issue's activity feed (created, status, assignee, … , comment).
+model TeamIssueEvent {
+  id        String   @id @default(uuid())
+  issueId   String
+  accountId String
+  actorId   String?
+  kind      String
+  from      Json?
+  to        Json?
+  createdAt DateTime @default(now())
+
+  issue TeamIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt])
+  @@map("team_issue_events")
+}
+
+/// Per user and workspace: the email digest switch and when it last went out.
+model TeamMemberPref {
+  userId       String
+  accountId    String
+  emailDigest  Boolean   @default(true)
+  lastDigestAt DateTime?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([userId, accountId])
+  @@map("team_member_prefs")
 }

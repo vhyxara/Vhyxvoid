@@ -95,7 +95,12 @@ export default function CollectionWorkspaceView({ accountId, collectionId }: { a
   }
 
   useEffect(() => {
-    if (d && !selected && d.requests.length) setSelected(d.requests[0].id)
+    if (!d || selected) return
+    // ?request=<id> (links shared in chat and issues) opens that request.
+    const wanted = new URLSearchParams(window.location.search).get('request')
+
+    if (wanted && d.requests.some(r => r.id === wanted)) setSelected(wanted)
+    else if (d.requests.length) setSelected(d.requests[0].id)
   }, [d, selected])
 
   useEffect(() => {
