@@ -6,7 +6,8 @@ export type ErrorCode =
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'INTERNAL_ERROR'
-  | 'ALREADY_EXIST';
+  | 'ALREADY_EXIST'
+  | 'RATE_LIMITED';
 
 export class AppError extends Error {
   public readonly statusCode: number;

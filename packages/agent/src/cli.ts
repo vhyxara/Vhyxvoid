@@ -351,6 +351,47 @@ program
     process.once("SIGTERM", stop);
   });
 
+// ── test command ──────────────────────────────────────────────────────────────
+
+program
+  .command("test <file>")
+  .description("Run an API collection and its checks (a VhyxVoid collection export, or a Postman collection / OpenAPI document as JSON); exits 1 when a check fails, for CI")
+  .option("-e, --env <name|file>", "Environment: a name inside the file, or a JSON file (VhyxVoid, Postman environment, or {\"NAME\": \"value\"})")
+  .option("--var <NAME=value>", "Set a variable (repeatable); VHYXVOID_VAR_<NAME> environment variables work too", (v: string, prev: string[]) => [...prev, v], [] as string[])
+  .option("--folder <name>", "Run one folder (\"Parent/Child\" for a nested one)")
+  .option("--bail", "Stop at the first failing request")
+  .option("--timeout <ms>", "Per-request timeout", "30000")
+  .option("--delay <ms>", "Wait between requests", "0")
+  .option("-k, --insecure", "Accept self-signed TLS certificates")
+  .option("-L, --follow-redirects", "Follow redirects (up to 5)")
+  .option("--junit <file>", "Write a JUnit XML report (GitHub Actions, GitLab, Jenkins show it)")
+  .option("--json <file>", "Write the full report as JSON")
+  .option("-q, --quiet", "Only print failures and the summary")
+  .action(async (file: string, opts) => {
+    const { runApiTests, exitCodeOf, UsageError } = await import("./apiTest");
+    try {
+      const report = await runApiTests({
+        file,
+        env: opts.env,
+        vars: opts.var,
+        folder: opts.folder,
+        bail: Boolean(opts.bail),
+        timeoutMs: Math.max(1000, parseInt(opts.timeout, 10) || 30_000),
+        delayMs: Math.max(0, parseInt(opts.delay, 10) || 0),
+        insecure: Boolean(opts.insecure),
+        followRedirects: Boolean(opts.followRedirects),
+        junit: opts.junit,
+        json: opts.json,
+        quiet: Boolean(opts.quiet),
+      });
+      if (report.total === 0) console.error("  The collection has no requests to run.\n");
+      process.exit(exitCodeOf(report));
+    } catch (err) {
+      console.error(`\n❌  ${(err as Error).message}\n`);
+      process.exit(err instanceof UsageError ? 2 : 1);
+    }
+  });
+
 // ── start command (default) ───────────────────────────────────────────────────
 
 program

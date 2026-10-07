@@ -160,6 +160,7 @@ model User {
   // @@index([username])
   passwordResetTokens PasswordResetToken[]
   feedbacks           Feedback[]
+  apiRequestHistory   ApiRequestHistory[]
 
   @@index([email])
   @@index([status])
@@ -264,6 +265,10 @@ model Account {
   notices            AccountNotice[]
   ruleSets           TunnelRuleSet[]
   mockApis           MockApi[]
+  apiCollections     ApiCollection[]
+  apiEnvironments    ApiEnvironment[]
+  apiRequestHistory  ApiRequestHistory[]
+  apiTestRuns        ApiTestRun[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1329,4 +1334,104 @@ model MockApi {
 
   @@unique([accountId, label])
   @@map("mock_apis")
+}
+
+/// API client collections (internal-tools/shared/api-platform-plan.md, phase 3;
+/// packages/shared/src/apiClient.ts). Folders and requests are JSON, checked by
+/// apiCollectionProblem on every save.
+model ApiCollection {
+  id          String   @id @default(uuid())
+  accountId   String
+  name        String
+  description String   @default("")
+  /// Default auth for requests set to "inherit".
+  auth        Json     @default("{\"type\":\"none\"}")
+  variables   Json     @default("[]")
+  folders     Json     @default("[]")
+  requests    Json     @default("[]")
+  /// Bumped on every save; a stale save is refused (409).
+  version     Int      @default(1)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  runs    ApiTestRun[]
+
+  @@index([accountId])
+  @@map("api_collections")
+}
+
+/// Named variable sets (Local, Staging, Production). Secret values are
+/// encrypted (AES-256-GCM, key from SERVER_HMAC_PEPPER) and never returned.
+model ApiEnvironment {
+  id          String   @id @default(uuid())
+  accountId   String
+  name        String
+  variables   Json     @default("[]")
+  version     Int      @default(1)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, name])
+  @@map("api_environments")
+}
+
+/// Requests a member sent from the API client (theirs only; the latest 200 kept).
+model ApiRequestHistory {
+  id         String   @id @default(uuid())
+  accountId  String
+  userId     String
+  method     String
+  /// With secrets kept as {{name}}.
+  url        String
+  status     Int?
+  durationMs Int?
+  size       Int?
+  error      String?
+  /// The request as edited (variables unresolved), to open it again.
+  request    Json
+  /// Status, headers, timings and the body cut to 64 KB.
+  response   Json?
+  createdAt  DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, userId, createdAt])
+  @@map("api_request_history")
+}
+
+/// Collection runs with their report (the latest 50 per collection kept).
+model ApiTestRun {
+  id               String   @id @default(uuid())
+  accountId        String
+  collectionId     String
+  environmentId    String?
+  environmentName  String?
+  /// "dashboard" for now; "monitor" and "api" come with later phases.
+  trigger          String   @default("dashboard")
+  total            Int
+  passed           Int
+  failed           Int
+  errored          Int
+  skipped          Int      @default(0)
+  assertionsPassed Int      @default(0)
+  assertionsFailed Int      @default(0)
+  durationMs       Int
+  report           Json
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  account    Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  collection ApiCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId, createdAt])
+  @@index([accountId, createdAt])
+  @@map("api_test_runs")
 }

@@ -2,7 +2,7 @@
 // it's tested without a DOM. Unknown actions fall back to a tidy version of
 // the action name, so a new server-side action never breaks the page.
 
-export type ActivityCategory = 'members' | 'keys' | 'tunnels' | 'alerts' | 'other'
+export type ActivityCategory = 'members' | 'keys' | 'tunnels' | 'alerts' | 'apis' | 'other'
 
 export type ActivityItem = {
   id: string
@@ -143,6 +143,20 @@ export function describeActivity(item: ActivityItem): string {
       return 'reset the data of a mock API resource'
     case 'MOCK_API_DELETED':
       return 'deleted a mock API'
+    case 'API_COLLECTION_CREATED':
+      return `${m.imported ? 'imported' : 'created'} ${s(m.name) ? `the collection ${m.name}` : 'a collection'}${m.fromMock ? ' to test a mock API' : ''}`
+    case 'API_COLLECTION_UPDATED':
+      return `changed the collection ${s(m.name) ?? ''}${typeof m.requests === 'number' ? ` (${m.requests} request${m.requests === 1 ? '' : 's'})` : ''}`.replace('  ', ' ').trim()
+    case 'API_COLLECTION_DELETED':
+      return 'deleted a collection'
+    case 'API_COLLECTION_RUN':
+      return m.folderId ? 'ran a folder of a collection' : 'ran a collection'
+    case 'API_ENVIRONMENT_CREATED':
+      return `created the environment ${s(m.name) ?? ''}`.trim()
+    case 'API_ENVIRONMENT_UPDATED':
+      return `changed the environment ${s(m.name) ?? ''}`.trim()
+    case 'API_ENVIRONMENT_DELETED':
+      return 'deleted an environment'
     case 'INSPECTOR_CAPTURE_CHANGED':
       return m.capture === false ? 'turned off request capture for the workspace' : 'turned on request capture for the workspace'
     case 'INSPECTOR_CLEARED':

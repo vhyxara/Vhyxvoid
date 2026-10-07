@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "main": "../dist/apiClientEngine.js",
+  "types": "../dist/apiClientEngine.d.ts"
+}

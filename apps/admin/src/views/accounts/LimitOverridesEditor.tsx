@@ -20,7 +20,10 @@ export const NUMERIC_LIMITS = [
   ['maxAlertRules', 'Alert rules (0 = no alerts)'],
   ['maxTrafficRules', 'Traffic rules per tunnel (0 = none)'],
   ['maxMockApis', 'Mock APIs (0 = none)'],
-  ['maxMockEndpoints', 'Endpoints per mock API']
+  ['maxMockEndpoints', 'Endpoints per mock API'],
+  ['maxApiCollections', 'API client collections (0 = API client off)'],
+  ['maxApiCollectionRequests', 'Requests per collection'],
+  ['apiClientSendsPerMinute', 'API client sends / minute']
 ] as const
 
 export const BOOLEAN_LIMITS = [

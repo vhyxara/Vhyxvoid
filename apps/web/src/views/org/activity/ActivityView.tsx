@@ -23,7 +23,8 @@ const CATEGORIES = [
   { value: 'members', label: 'Members and workspace' },
   { value: 'keys', label: 'API keys' },
   { value: 'tunnels', label: 'Tunnels, domains, inbox' },
-  { value: 'alerts', label: 'Alerts' }
+  { value: 'alerts', label: 'Alerts' },
+  { value: 'apis', label: 'API client' }
 ]
 
 const ICONS: Record<string, string> = {
@@ -31,6 +32,7 @@ const ICONS: Record<string, string> = {
   keys: 'tabler-key',
   tunnels: 'tabler-plug',
   alerts: 'tabler-bell',
+  apis: 'tabler-send',
   other: 'tabler-point'
 }
 
@@ -115,7 +117,7 @@ export default function ActivityView({ accountId }: { accountId: string }) {
             <i className='tabler-history text-4xl' style={muted} aria-hidden />
             <Typography variant='body1'>Nothing here yet</Typography>
             <Typography variant='body2' style={muted}>
-              Changes to keys, members, tunnels, domains and alerts show up here as they happen.
+              Changes to keys, members, tunnels, domains, alerts and API collections show up here as they happen.
             </Typography>
           </div>
         ) : (

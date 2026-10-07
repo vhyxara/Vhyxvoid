@@ -44,6 +44,9 @@ export interface PlanLimits {
   maxTrafficRules: number; // traffic rules (mocks, rewrites, fault injection) per tunnel (0 = none)
   maxMockApis: number; // hosted mock APIs per account (0 = none)
   maxMockEndpoints: number; // endpoints per mock API
+  maxApiCollections: number; // API client collections per account (0 = API client off)
+  maxApiCollectionRequests: number; // requests per collection
+  apiClientSendsPerMinute: number; // requests the server-side API client sends per account per minute (runs included)
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -73,6 +76,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTrafficRules: 5,
     maxMockApis: 2,
     maxMockEndpoints: 25,
+    maxApiCollections: 3,
+    maxApiCollectionRequests: 50,
+    apiClientSendsPerMinute: 30,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -101,6 +107,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTrafficRules: 50,
     maxMockApis: 25,
     maxMockEndpoints: 250,
+    maxApiCollections: 50,
+    maxApiCollectionRequests: 500,
+    apiClientSendsPerMinute: 300,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -127,6 +136,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTrafficRules: 200,
     maxMockApis: 250,
     maxMockEndpoints: 1000,
+    maxApiCollections: 500,
+    maxApiCollectionRequests: 2000,
+    apiClientSendsPerMinute: 1200,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

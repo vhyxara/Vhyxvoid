@@ -1,7 +1,7 @@
 {
   "name": "@vhyxvoid/shared",
   "version": "1.0.0",
-  "description": "Shared infrastructure — ValidateApiKeyUseCase, Prisma client, Redis client",
+  "description": "Shared infrastructure \u2014 ValidateApiKeyUseCase, Prisma client, Redis client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -19,11 +19,17 @@
       "types": "./dist/mockEngine.d.ts",
       "require": "./dist/mockEngine.js",
       "import": "./dist/mockEngine.js"
+    },
+    "./apiclient": {
+      "types": "./dist/apiClientEngine.d.ts",
+      "require": "./dist/apiClientEngine.js",
+      "import": "./dist/apiClientEngine.js"
     }
   },
   "files": [
     "dist/**/*",
-    "mock"
+    "mock",
+    "apiclient"
   ],
   "scripts": {
     "build": "tsc -b",

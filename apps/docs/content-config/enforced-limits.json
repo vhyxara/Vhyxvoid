@@ -80,6 +80,21 @@
       "label": "Endpoints per mock API",
       "evidence": "apps/api/src/modules/platform/mocks/mocks.routes.ts",
       "note": "Saving a mock with more endpoints is refused."
+    },
+    "maxApiCollections": {
+      "label": "API client collections",
+      "evidence": "apps/api/src/modules/platform/apiclient/apiClient.routes.ts",
+      "note": "Creating or importing more collections is refused; 0 turns the API client off for the account (sending is refused too)."
+    },
+    "maxApiCollectionRequests": {
+      "label": "Requests per collection",
+      "evidence": "apps/api/src/modules/platform/apiclient/apiClient.routes.ts",
+      "note": "Saving or importing a collection with more requests is refused."
+    },
+    "apiClientSendsPerMinute": {
+      "label": "API client sends per minute",
+      "evidence": "apps/api/src/modules/platform/apiclient/apiClient.routes.ts",
+      "note": "Every request the server-side runner sends counts, including each request of a collection run; over the limit the send answers 429 and a run skips the rest."
     }
   },
   "notEnforced": {
