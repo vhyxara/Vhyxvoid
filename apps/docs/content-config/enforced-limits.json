@@ -125,6 +125,21 @@
       "label": "Shortest monitor interval",
       "evidence": "apps/api/src/modules/platform/perf/monitors.routes.ts",
       "note": "Creating or changing a monitor to run more often is refused."
+    },
+    "maxApiSpecs": {
+      "label": "API docs specs",
+      "evidence": "apps/api/src/modules/platform/specs/specs.routes.ts",
+      "note": "Creating more specs is refused; existing specs stay editable and published."
+    },
+    "protectedDocs": {
+      "label": "Password-protected docs",
+      "evidence": "apps/api/src/modules/platform/specs/specs.routes.ts",
+      "note": "Setting a docs password is refused; docs already protected stay protected after a downgrade."
+    },
+    "docsCustomDomains": {
+      "label": "Docs on a custom domain",
+      "evidence": "apps/api/src/modules/platform/specs/specs.routes.ts",
+      "note": "Adding a docs domain is refused; a verified domain keeps serving after a downgrade."
     }
   },
   "notEnforced": {

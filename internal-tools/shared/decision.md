@@ -943,3 +943,20 @@ Commits 4831dc3 (engine, hub, API), 85fa393 (dashboard), docs commit after it.
 7. **Monitors reuse the API client engine and guard** (public addresses only), run by a leased "monitors" job every minute (5 at a time, 60 s cap each); they don't consume the interactive send budget (bounded by maxMonitors/minMonitorIntervalMinutes instead). Results kept 30 days; reports only for failures. **MONITOR** is a state alert rule (label = monitor id or any, threshold = failures in a row).
 8. **Members can run load tests** (like the API client); monitors are admin-managed (they run unattended and alert people).
 **Status:** active.
+
+### 2026-10-07 — API documentation, phase 5 (session upbeat-cannon)
+
+Commit 1989423 (engine, API, hub, dashboard, public page), docs commit after it.
+
+1. **The server parses; the browser has no YAML parser.** The editor posts its text to `/specs/:id/preview` (debounced 500 ms) and gets problems, the parsed document (for the form) and the docs model. One parser (the `yaml` package the API already used for mocks), no 100 KB client dependency, and preview/publish can never disagree. Form edits send the whole document back; the API writes it in the draft's format. YAML comments are lost on a form save (documented in the UI copy: the form "writes back").
+2. **Draft + immutable versions.** Drafts save even when broken (people stop half-way through a change); publishing requires zero errors, stores text + parsed doc + the diff against the previous version and its breaking count. Readers only ever see published versions. Swagger 2 is converted on create/publish so the stored text is what the docs show.
+3. **Breaking-change rules are written from the client's side**, split by direction: in requests a new required field/param, a narrowed enum or a removed content type breaks; in responses a removed field or a type change breaks, a new enum value is a warning. `allOf` is flattened before comparing (the starter's `User` is `allOf`). Operations match by method + path shape (`{id}` == `{userId}`), so renaming a path parameter is not "removed + added". Descriptions/examples are not compared.
+4. **Sharing:** PRIVATE / PUBLIC / PASSWORD. The password is an HMAC with the pepper (like tunnel passwords); readers get a 12 h token `exp.sig` keyed on pepper + the password hash, so changing the password signs everyone out without storing sessions. The token travels in `x-docs-token` (and `?token=` for the download link only).
+5. **Public endpoints allow any origin without credentials.** The global CORS plugin became a delegator: `/api/v1/public/specs*` reflects the origin with credentials off; everything else keeps the allowlist. Needed because docs can live on a customer's domain.
+6. **Try-it on public docs goes only to a linked mock, through our hub** (HUB_INTERNAL_URL + the mock's Host, no internal secret, so it is counted and rate-limited like any visitor; 30/min per reader IP on the API). Without a linked mock the reader's browser calls the real server itself (their CORS). The dashboard preview uses the API client's guarded sender instead. We never proxy readers to arbitrary hosts.
+7. **Docs custom domains reuse the tunnel custom-domain edge.** Same TXT + CNAME and target; Caddy's `allow` also approves verified docs domains; the hub, finding no tunnel domain, asks `api_specs` (cached like tunnel domains, dropped by the same invalidation) and forwards to DOCS_WEB_URL with `x-vhyxvoid-docs-host`; the web middleware rewrites any path to the docs page for that host. Cookies are stripped both ways. A hostname serves a tunnel or docs, not both (refused when a verified tunnel domain has it).
+8. **The public page scopes its own theme.** The brand theme on `<html>` is near-black in both modes, so the docs wrapper sets `data-theme` itself (re-declaring the vhyx tokens for its subtree), defaulting to the reader's system preference, remembered per browser.
+9. **Every member edits and publishes** (a team tool, like the API client); sharing, domains and deleting are owners/admins.
+
+**Status:** active.
+

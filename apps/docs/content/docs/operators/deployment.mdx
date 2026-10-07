@@ -2,8 +2,8 @@
 title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
-  date: "2026-10-06"
-  commit: "d28cd42"
+  date: "2026-10-07"
+  commit: "1989423"
   packages: {}
 sources:
   - docker-compose.yml
@@ -55,7 +55,7 @@ All images run as the unprivileged `node` user on Node 24.
 | `APP_NAME`, `SUPPORT_EMAIL`, `ADMIN_FEEDBACK_EMAIL` | no | Email copy and recipients. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for paid mode | Stripe API and webhook signature. Without them the API still runs (free mode); billing endpoints answer 503. |
 | `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | no | Fallback price IDs. Prefer setting prices in the console (Plans & pricing). |
-| `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. |
+| `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. Load tests and try-it on shared [API docs](/dashboard/api-docs) also send through `HUB_INTERNAL_URL`. |
 | `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_FIRST_NAME`, `SUPER_ADMIN_LAST_NAME` | first run | The first admin, created by the seed. |
 
 ### Hub (`apps/hub/.env.production`)
@@ -70,6 +70,7 @@ All images run as the unprivileged `node` user on Node 24.
 | `HUB_INTERNAL_SECRET` | for the admin console | Same value as the API. |
 | `HUB_INSTANCE_ID` | no | Name of this hub instance in logs and metrics. Default `hub-primary`. |
 | `TUNNEL_REQUEST_TIMEOUT_MS` | no | How long a public request waits for the agent. |
+| `DOCS_WEB_URL` | for API docs on custom domains | Where the hub reaches the website (`http://web:3000`). Requests to a customer's verified docs domain are forwarded there. Without it those domains answer 404. |
 | `TUNNEL_STATS_RETENTION_DAYS` | no | How long per-minute request counts (used by error-rate alerts) are kept. Default 7. |
 
 ### Edge (`docker-compose.yml`)
@@ -126,6 +127,14 @@ To turn it on:
 3. Check the plan limit `maxCustomDomains` (FREE: 0, PRO: 5, ENTERPRISE: 100) and the switch `features.customDomains`.
 
 Domains are rechecked every 5 minutes by a background job on the API; the console's **Custom domains** screen lists them all.
+
+[API docs](/dashboard/api-docs) can be served on a customer's domain too, through the same edge:
+
+- They use the same DNS records and the same target.
+- The `allow` endpoint also approves verified docs domains.
+- The hub forwards those hostnames to the website at `DOCS_WEB_URL`, with an `x-vhyxvoid-docs-host` header. The website's middleware turns that into the docs page.
+
+Set `DOCS_WEB_URL` on the hub, and run the `web` profile, or point it at wherever the website runs. Plan limit: `docsCustomDomains`.
 
 ## Stripe
 

@@ -3,7 +3,7 @@ title: Plans and limits
 description: The limits VhyxVoid actually enforces, by plan.
 verified:
   date: "2026-10-07"
-  commit: "85fa393"
+  commit: "1989423"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -60,6 +60,9 @@ This page lists only limits that VhyxVoid checks today. It is generated from the
 | Load tests per day. Load tests started per account per UTC day; the next one is refused. | 5 | 100 | 1,000 |
 | Monitors. Creating more monitors is refused; existing monitors keep running after a downgrade. | 1 | 20 | 200 |
 | Shortest monitor interval. Creating or changing a monitor to run more often is refused. | 15 | 1 | 1 |
+| API docs specs. Creating more specs is refused; existing specs stay editable and published. | 3 | 50 | 500 |
+| Password-protected docs. Setting a docs password is refused; docs already protected stay protected after a downgrade. | No | Yes | Yes |
+| Docs on a custom domain. Adding a docs domain is refused; a verified domain keeps serving after a downgrade. | No | Yes | Yes |
 {/* generated:end plans-enforced */}
 
 When one of these is exceeded the dashboard shows the error from the API, for example `API key limit reached (3). Revoke an existing key or upgrade your plan.`, `Your plan does not allow PROD environment keys. Upgrade to Pro.` or `Key rotation is not available on your plan. Upgrade to Pro.` The member limit answers with a plainer `Plan limit reached` rather than a number-specific message. A concurrent-agent limit is instead returned to the agent itself, which prints it and keeps retrying (agent 1.1.0 waits longer after each refusal, up to five minutes); see [Troubleshooting](/troubleshooting#the-agent-wont-connect).

@@ -1,0 +1,142 @@
+---
+title: API docs
+description: Write an OpenAPI spec in a form or as YAML, publish versions with a breaking-change report, and share rendered docs with try-it and code samples, publicly, behind a password or on your own domain.
+verified:
+  date: "2026-10-07"
+  commit: "1989423"
+  packages: {}
+sources:
+  - packages/shared/src/apiSpec.ts
+  - apps/api/src/modules/platform/specs/specs.routes.ts
+  - apps/api/src/modules/platform/specs/specs.public.routes.ts
+  - apps/api/src/modules/platform/specs/specDocs.ts
+  - apps/hub/src/handlers/DocsDomain.handler.ts
+  - apps/web/src/views/org/specs/SpecWorkspaceView.tsx
+  - apps/web/src/views/org/specs/SpecsView.tsx
+  - apps/web/src/components/apidocs/SpecDocsView.tsx
+  - apps/web/src/views/apidocs/PublicDocsView.tsx
+---
+
+Open **API docs** under a workspace. A **spec** is one OpenAPI document. You edit it and publish versions of it. One spec gives you all of these, and they agree with each other:
+
+- the docs;
+- a [mock API](/dashboard/mock-apis);
+- a test collection for the [API client](/dashboard/api-client).
+
+Everyone in the workspace can edit and publish. Owners and admins choose how docs are shared and can delete them.
+
+## Start a spec
+
+- **Blank** starts from a small working example: users, a schema and bearer auth.
+- **Import OpenAPI** takes OpenAPI 3.0 or 3.1, or Swagger 2.0, as JSON or YAML (paste it or upload a file of up to 5 MB). Swagger 2 is converted to OpenAPI 3.0.3.
+- **From a mock API** documents a mock you already built: every endpoint with its example responses. The server URL is the mock's, and try-it on the shared docs goes to that mock.
+
+## Edit
+
+The spec has a **draft** and **published versions**. Readers only ever see a published version, so you can edit the draft freely.
+
+**Editor** shows the spec as text. It is checked as you type, and each problem shows where it is. Click a problem to jump to its line. **Ctrl/⌘ + S** saves. A draft can be saved even with errors, so you can stop halfway through a change.
+
+Errors are problems that would break a reader or a code generator:
+
+- an `openapi`, `info.title` or `info.version` that is missing or invalid;
+- a `$ref` to something that doesn't exist;
+- a path parameter that isn't in the path, isn't declared, or isn't `required`;
+- the same `operationId` used twice;
+- a status code that isn't one, such as `600` (use `200`, `4XX` or `default`);
+- an operation with no responses;
+- a schema type that doesn't exist.
+
+Warnings are worth fixing but don't block anything. Examples: no `servers`, an operation with no summary, a `GET` with a body.
+
+**Form** edits the saved spec without YAML:
+
+- the title, version and description;
+- the servers;
+- operations: add and delete them, and change each one's summary, description, `operationId`, tags, deprecation, parameters and responses.
+
+The form writes back into the text. Schemas, examples and anything else stay as they are; edit those in the editor.
+
+**Preview** shows the docs exactly as readers will see them. **Try it** sends requests from VhyxVoid through the API client, which reaches public addresses only.
+
+## Publish
+
+**Publish…** freezes the draft as the next version (v1, v2…), with optional release notes. A draft with errors can't be published.
+
+Before you publish, you see what changed since the last version, the way a client of the API sees it. Each change is marked as one of:
+
+| Mark | Examples |
+| --- | --- |
+| **Breaking**: clients built on the last version may stop working | An operation or a `2xx` response removed; a new required parameter, header or body field; a parameter or field that became required; a type change; an enum value no longer accepted in a request; a field removed from a response; authentication added to a public operation; a request content type no longer accepted |
+| **Warning** | Now deprecated; a parameter removed; a non-`2xx` response removed; a response field that may now be missing; a new enum value in a response; authentication changed; a server removed |
+| **Other** | A new operation, optional parameter, field or response; a new server; a new `info.version` |
+
+When there are breaking changes, you have to confirm before publishing. Descriptions and examples aren't compared.
+
+Each published version is kept. Under **Versions** you can:
+
+- compare any version with another or with the draft;
+- download a version as YAML or JSON;
+- copy an old version back into the draft with **Restore to draft**.
+
+## Share
+
+Under **Sharing**, choose who can read the published docs:
+
+- **Private**: only this workspace, in the dashboard.
+- **Public**: anyone with the link `/api-docs/<workspace>/<spec>` on the VhyxVoid site.
+- **Password**: anyone with the link and the password, which needs at least 6 characters. Readers stay signed in for 12 hours in that browser tab. Changing the password signs everyone out.
+
+The shared page shows:
+
+- every operation with its parameters, request body, responses and schemas, grouped by tag, with a contents column and a filter;
+- code samples in cURL, JavaScript (`fetch`), Python and Go, with the first server's URL, example values and the auth the operation needs;
+- a version picker, the changes in the version shown, and downloads of the OpenAPI document as YAML or JSON;
+- a light/dark switch (it follows the reader's system setting at first).
+
+**Try it on the shared page** can go one of two ways:
+
+- **To a mock API** you pick. Readers' requests go to that mock, through VhyxVoid, and never to another host. They count toward your usage like any request to the mock. Each reader can send up to 30 a minute.
+- **Without a mock**, the reader's browser sends the request straight to the server URL. Your API must then allow cross-origin requests (CORS) from the docs page.
+
+### Your own domain
+
+To serve the docs on a hostname of yours, such as `docs.acme.dev`:
+
+1. Enter the hostname under **Your own domain**.
+2. Create the two DNS records shown, just like a tunnel's [custom domain](/dashboard/custom-domains):
+   - a **TXT** record that proves the domain is yours;
+   - a **CNAME** record that sends readers to us.
+3. Choose **Check DNS now**.
+
+Once it is verified, the whole domain shows the docs, and HTTPS certificates are issued on the first visit. A hostname that already serves a tunnel can't also serve docs.
+
+## Generate from the spec
+
+- **Make a mock** creates a mock API from the current draft. Every operation becomes an endpoint that answers with its example, or with one built from its schema. You can also make the new mock the one the shared docs' try-it uses.
+- **Make tests** creates an API client collection. Every operation becomes a request with a status check, sent to the spec's first server.
+
+Under [Performance](/dashboard/performance), **Compare with a spec** can use one of these specs. It compares the traffic with the latest published version, or with the draft when nothing is published yet.
+
+## Limits
+
+| Plan | Specs | Password-protected docs | Docs on your own domain |
+| --- | --- | --- | --- |
+| Free | 3 | — | — |
+| Pro | 50 | Yes | Yes |
+| Enterprise | 500 | Yes | Yes |
+
+Operators can change these per plan or per account, and can switch the feature off with `features.apiDocs`. While it is off:
+
+- editing and publishing are refused;
+- shared pages answer “No docs here”;
+- specs are kept.
+
+After a downgrade:
+
+- docs already behind a password stay protected;
+- a verified domain keeps serving.
+
+A spec can be up to 5 MB and 2,000 operations.
+
+Creating, publishing, restoring, sharing, domain changes and deleting appear in [Activity](/dashboard/activity).

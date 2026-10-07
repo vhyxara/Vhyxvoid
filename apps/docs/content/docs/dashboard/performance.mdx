@@ -3,7 +3,7 @@ title: Performance
 description: Per-endpoint speed and errors from real traffic, load tests against your own tunnels and mocks, and monitors that run your API collections on a schedule.
 verified:
   date: "2026-10-07"
-  commit: "85fa393"
+  commit: "1989423"
   packages: {}
 sources:
   - packages/shared/src/perf.ts
@@ -63,7 +63,7 @@ Some details:
 
 ### Compare with a spec
 
-**Compare with a spec** checks the traffic against one of your mock APIs or an OpenAPI 3 / Swagger 2 document (paste it or pick a file, JSON or YAML). It lists:
+**Compare with a spec** checks the traffic against a spec. The spec can be one of your mock APIs, one of your [API docs](/dashboard/api-docs) (its latest published version, or its draft when nothing is published), or an OpenAPI 3 / Swagger 2 document (paste it or pick a file, JSON or YAML). It lists:
 
 - **traffic the spec doesn't describe**: endpoints that were called but aren't in the spec;
 - **status codes the spec doesn't list**: for example `5xx` answers on an operation that only documents `200` and `404`. `4XX` and `default` in the spec count as documenting the class;

@@ -3,7 +3,7 @@ title: FAQ
 description: Short answers to the questions people ask first, each pointing at the page that owns the detail.
 verified:
   date: "2026-10-07"
-  commit: "85fa393"
+  commit: "1989423"
   packages:
     "@vhyxvoid/agent": "1.1.0"
     "@vhyxvoid/sdk": "1.1.0"
@@ -46,6 +46,10 @@ Yes. A [mock API](/dashboard/mock-apis) is a whole fake API at a public URL, wit
 ## Can I test my API from here, like with Postman?
 
 Yes. The [API client](/dashboard/api-client) sends requests from the platform (so CORS never gets in the way), keeps them in collections your team shares, and checks responses without code. It imports Postman collections, OpenAPI documents, HAR files and curl commands. [`vhyxvoid test`](/cli/test) runs the same collection in CI and fails the build when a check fails.
+
+## Can I write and share API docs, like with Swagger?
+
+Yes. [API docs](/dashboard/api-docs) edits an OpenAPI spec in a form or as YAML, checked as you type. It publishes versions with a report of breaking changes. It shares rendered docs publicly, behind a password or on your own domain, with code samples and try-it. The same spec makes a mock API and a test collection in one click.
 
 ## Can I load-test my API or monitor it?
 

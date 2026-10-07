@@ -36,6 +36,9 @@ questions tracked in context.md's Known Risks/Gaps (numbered items). When an ite
 - [ ] Monitors run from one region (the API's). Multi-region checks and per-region latency need runners elsewhere. Found 2026-10-07, session upbeat-cannon.
 - [ ] Endpoint analytics are per 5 minutes with bucket-level percentiles and 7-day retention for every plan. If customers want 30/90 days, add an hourly rollup table (and tie retention to analyticsRetentionDays). Found 2026-10-07, session upbeat-cannon.
 - [ ] Spec drift compares status classes, not exact codes (the hub stores classes). Store a small per-code map if exact codes are asked for. Found 2026-10-07, session upbeat-cannon.
+- [ ] API docs: the editor is a plain textarea with a line gutter (no syntax highlighting or autocomplete) and YAML comments are lost when the form saves. A CodeMirror editor with an OpenAPI schema would add both; keep the server as the one parser. Found 2026-10-07, session upbeat-cannon.
+- [ ] API docs: no external `$ref` (other files/URLs) — they are reported as a warning and not followed. Bundle on import if customers split specs. Found 2026-10-07, session upbeat-cannon.
+- [ ] API docs: public pages render client-side (fetch after load). Server-side rendering would help search engines index public docs. Found 2026-10-07, session upbeat-cannon.
 - [ ] Mock APIs: no console (admin) screen lists mocks; operators see them only through usage and the account's limits. Add an admin list (with disable) if abuse needs it. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock resources: concurrent PUT/PATCH of the same item are last-write-wins (read-modify-write over HGET/HSET). Use a Lua script or WATCH if users need strict updates. Found 2026-10-06, session upbeat-cannon.
 - [ ] Mock resources: no relations (`/users/1/posts`) or `_embed`/`_expand` like json-server. Add when asked. Found 2026-10-06, session upbeat-cannon.
