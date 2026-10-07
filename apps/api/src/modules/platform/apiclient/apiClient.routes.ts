@@ -8,9 +8,9 @@
 //   PUT    /:accountId/collections/:id              { name?, description?, auth?, variables?, folders?, requests?, expectedVersion? }
 //   DELETE /:accountId/collections/:id
 //   GET    /:accountId/collections/:id/export       ?format=vhyxvoid|postman (&environmentId= adds it, secrets empty)
-//   POST   /:accountId/collections/:id/run          { environmentId?, folderId?, requestIds?, bail?, runtime? } report, saved
+//   POST   /:accountId/collections/:id/run          { environmentId?, folderId?, requestIds?, bail?, runtime? } 202 { id }: runs in the background
 //   GET    /:accountId/collections/:id/runs         the latest runs (no report)
-//   GET    /:accountId/runs/:runId                  one run with its report
+//   GET    /:accountId/runs/:runId                  one run: status running | done | failed, and its report when done
 //   POST   /:accountId/environments                 { name, variables }
 //   PUT    /:accountId/environments/:id             { name?, variables?, expectedVersion? } (secret + keep: true keeps the stored value)
 //   DELETE /:accountId/environments/:id
@@ -123,6 +123,8 @@ const exportQuery = z.object({ format: z.enum(["vhyxvoid", "postman"]).default("
 const HISTORY_KEEP = 200;
 const RUNS_KEEP = 50;
 const RUN_DEADLINE_MS = 120_000;
+/** How long after its deadline a run still marked running is treated as interrupted. */
+const RUN_GRACE_MS = 5 * 60_000;
 const HISTORY_BODY_BYTES = 64 * 1024;
 
 type CollectionRow = { id: string; accountId: string; name: string; description: string; auth: unknown; variables: unknown; folders: unknown; requests: unknown; version: number; createdAt: Date; updatedAt: Date };
@@ -399,6 +401,10 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Running ──
+  // A run can take up to RUN_DEADLINE_MS, longer than a proxy waits for one
+  // response (Cloudflare cuts proxied requests at 100 s), so it is started
+  // here and finishes in the background; the run row is the job. Clients poll
+  // GET /runs/:runId until its status is no longer "running".
   fastify.post("/:accountId/collections/:id/run", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = runBody.parse(request.body ?? {});
@@ -406,20 +412,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     const lim = await usable(accountId);
     const row = await findCollection(accountId, id);
     const env = await findEnv(accountId, body.environmentId);
-    let rateLimited = false;
-    const report = await runCollection({
-      collection: collectionOf(row),
-      environment: envValues(env),
-      environmentName: env?.name,
-      overrides: body.runtime,
-      folderId: body.folderId ?? undefined,
-      requestIds: body.requestIds,
-      bail: body.bail,
-      deadlineMs: RUN_DEADLINE_MS,
-      beforeEach: async () => ((await takeSend(accountId, lim.sendsPerMinute)) ? null : ((rateLimited = true), `Rate limit reached: ${lim.sendsPerMinute} sends a minute on your plan`)),
-      send: (built) => guardedSend(built, { timeoutMs: API_CLIENT_BOUNDS.timeoutMs, maxBytes: 1_000_000, followRedirects: 0 }),
-    });
-    const saved = await db.apiTestRun.create({
+    const started = await db.apiTestRun.create({
       data: {
         accountId,
         collectionId: id,
@@ -427,20 +420,53 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
         environmentName: env?.name ?? null,
         // A run started with an API key comes from CI, a script or the editor.
         trigger: request.apiKey ? "api" : "dashboard",
-        total: report.total,
-        passed: report.passed,
-        failed: report.failed,
-        errored: report.errored,
-        skipped: report.skipped,
-        assertionsPassed: report.assertions.passed,
-        assertionsFailed: report.assertions.failed,
-        durationMs: report.durationMs,
-        report: report as never,
+        status: "running",
+        total: 0,
+        passed: 0,
+        failed: 0,
+        errored: 0,
+        durationMs: 0,
         createdById: m.userId,
       },
     });
-    void pruneRuns(id);
-    return successResponse(reply, "Run finished", 200, { id: saved.id, createdAt: saved.createdAt, rateLimited, report });
+    void (async () => {
+      let rateLimited = false;
+      try {
+        const report = await runCollection({
+          collection: collectionOf(row),
+          environment: envValues(env),
+          environmentName: env?.name,
+          overrides: body.runtime,
+          folderId: body.folderId ?? undefined,
+          requestIds: body.requestIds,
+          bail: body.bail,
+          deadlineMs: RUN_DEADLINE_MS,
+          beforeEach: async () => ((await takeSend(accountId, lim.sendsPerMinute)) ? null : ((rateLimited = true), `Rate limit reached: ${lim.sendsPerMinute} sends a minute on your plan`)),
+          send: (built) => guardedSend(built, { timeoutMs: API_CLIENT_BOUNDS.timeoutMs, maxBytes: 1_000_000, followRedirects: 0 }),
+        });
+        await db.apiTestRun.update({
+          where: { id: started.id },
+          data: {
+            status: "done",
+            rateLimited,
+            total: report.total,
+            passed: report.passed,
+            failed: report.failed,
+            errored: report.errored,
+            skipped: report.skipped,
+            assertionsPassed: report.assertions.passed,
+            assertionsFailed: report.assertions.failed,
+            durationMs: report.durationMs,
+            report: report as never,
+          },
+        });
+      } catch (err) {
+        request.log.error({ err }, "[api-client] run failed");
+        await db.apiTestRun.update({ where: { id: started.id }, data: { status: "failed", error: "The run stopped unexpectedly; try again" } }).catch(() => undefined);
+      }
+      await pruneRuns(id);
+    })();
+    return successResponse(reply, "Run started", 202, { id: started.id, status: "running", createdAt: started.createdAt });
   });
 
   async function pruneRuns(collectionId: string) {
@@ -452,7 +478,12 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     }
   }
 
-  const runSummary = (r: any) => ({ id: r.id, collectionId: r.collectionId, environmentName: r.environmentName, trigger: r.trigger, total: r.total, passed: r.passed, failed: r.failed, errored: r.errored, skipped: r.skipped, assertionsPassed: r.assertionsPassed, assertionsFailed: r.assertionsFailed, durationMs: r.durationMs, createdAt: r.createdAt, createdById: r.createdById });
+  /** A run still "running" long after its deadline was cut off by a restart of the API instance running it. */
+  const runStatus = (r: { status: string; error?: string | null; createdAt: Date }) =>
+    r.status === "running" && Date.now() - new Date(r.createdAt).getTime() > RUN_DEADLINE_MS + RUN_GRACE_MS
+      ? { status: "failed", error: "The run was interrupted (the server restarted); run it again" }
+      : { status: r.status, error: r.error ?? null };
+  const runSummary = (r: any) => ({ id: r.id, collectionId: r.collectionId, environmentName: r.environmentName, trigger: r.trigger, ...runStatus(r), rateLimited: r.rateLimited, total: r.total, passed: r.passed, failed: r.failed, errored: r.errored, skipped: r.skipped, assertionsPassed: r.assertionsPassed, assertionsFailed: r.assertionsFailed, durationMs: r.durationMs, createdAt: r.createdAt, createdById: r.createdById });
 
   fastify.get("/:accountId/collections/:id/runs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);

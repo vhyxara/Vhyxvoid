@@ -1046,7 +1046,11 @@ export function RunDialog({ accountId, collectionId, folders, environmentId, env
     onError: e => toast.danger((e as Error).message)
   })
 
-  const openRun = useMutation({ mutationFn: (id: string) => apiClientService.runDetail(accountId, id), onSuccess: r => setReport(r.report), onError: e => toast.danger((e as Error).message) })
+  const openRun = useMutation({
+    mutationFn: (id: string) => apiClientService.runDetail(accountId, id),
+    onSuccess: r => (r.report ? setReport(r.report) : toast.info(r.status === 'running' ? 'This run is still going' : (r.error ?? 'This run has no report'))),
+    onError: e => toast.danger((e as Error).message)
+  })
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
@@ -1086,11 +1090,21 @@ export function RunDialog({ accountId, collectionId, folders, environmentId, env
                   {runs.data.runs.slice(0, 10).map(r => (
                     <li key={r.id}>
                       <button type='button' onClick={() => openRun.mutate(r.id)} className='flex flex-wrap items-center gap-3' style={{ inlineSize: '100%', padding: '6px 4px', background: 'none', border: 0, color: 'inherit', cursor: 'pointer', textAlign: 'start', fontSize: 13 }}>
-                        <Badge size='sm' variant={r.failed + r.errored === 0 ? 'success' : 'danger'}>
-                          {r.failed + r.errored === 0 ? 'passed' : `${r.failed + r.errored} failing`}
-                        </Badge>
+                        {r.status === 'running' ? (
+                          <Badge size='sm' variant='info'>
+                            running
+                          </Badge>
+                        ) : r.status === 'failed' ? (
+                          <Badge size='sm' variant='danger'>
+                            stopped
+                          </Badge>
+                        ) : (
+                          <Badge size='sm' variant={r.failed + r.errored === 0 ? 'success' : 'danger'}>
+                            {r.failed + r.errored === 0 ? 'passed' : `${r.failed + r.errored} failing`}
+                          </Badge>
+                        )}
                         <span>
-                          {r.passed}/{r.total} · {formatMs(r.durationMs)}
+                          {r.status === 'done' ? `${r.passed}/${r.total} · ${formatMs(r.durationMs)}` : r.status === 'running' ? 'in progress' : (r.error ?? 'stopped')}
                           {r.environmentName ? ` · ${r.environmentName}` : ''}
                         </span>
                         <span style={muted}>{new Date(r.createdAt).toLocaleString()}</span>

@@ -148,6 +148,10 @@ export type RunSummary = {
   collectionId: string
   environmentName: string | null
   trigger: string
+  /** running | done | failed: runs finish in the background. */
+  status: 'running' | 'done' | 'failed'
+  error: string | null
+  rateLimited: boolean
   total: number
   passed: number
   failed: number
@@ -176,10 +180,23 @@ export const apiClientService = {
   saveCollection: (accountId: string, id: string, data: Partial<Pick<Collection, 'name' | 'description' | 'auth' | 'variables' | 'folders' | 'requests'>> & { expectedVersion?: number }) =>
     httpClient<Collection>({ url: `${base(accountId)}/collections/${id}`, method: 'PUT', data }),
   removeCollection: (accountId: string, id: string) => httpClient<{ id: string }>({ url: `${base(accountId)}/collections/${id}`, method: 'DELETE' }),
-  run: (accountId: string, id: string, data: { environmentId?: string | null; folderId?: string | null; requestIds?: string[]; bail?: boolean; runtime?: Record<string, string> }) =>
-    httpClient<{ id: string; createdAt: string; rateLimited: boolean; report: RunReport }>({ url: `${base(accountId)}/collections/${id}/run`, method: 'POST', data, timeoutMs: 150_000 }),
+  /** Starts a run (it finishes in the background on the API, longer than a proxy waits for one response), then polls it. */
+  run: async (accountId: string, id: string, data: { environmentId?: string | null; folderId?: string | null; requestIds?: string[]; bail?: boolean; runtime?: Record<string, string> }, pollMs = 1000, maxMs = 5 * 60_000) => {
+    const started = await httpClient<{ id: string; createdAt: string }>({ url: `${base(accountId)}/collections/${id}/run`, method: 'POST', data })
+    const until = Date.now() + maxMs
+
+    while (Date.now() < until) {
+      await new Promise(r => setTimeout(r, pollMs))
+      const r = await httpClient<RunSummary & { report: RunReport | null }>({ url: `${base(accountId)}/runs/${started.id}`, method: 'GET' })
+
+      if (r.status === 'done' && r.report) return { id: r.id, createdAt: r.createdAt, rateLimited: r.rateLimited, report: r.report }
+      if (r.status === 'failed') throw new Error(r.error ?? 'The run failed; try again')
+    }
+
+    throw new Error('The run is taking too long; it keeps going, and shows under Recent runs when it ends')
+  },
   runs: (accountId: string, id: string) => httpClient<{ runs: RunSummary[] }>({ url: `${base(accountId)}/collections/${id}/runs`, method: 'GET' }),
-  runDetail: (accountId: string, runId: string) => httpClient<RunSummary & { report: RunReport }>({ url: `${base(accountId)}/runs/${runId}`, method: 'GET' }),
+  runDetail: (accountId: string, runId: string) => httpClient<RunSummary & { report: RunReport | null }>({ url: `${base(accountId)}/runs/${runId}`, method: 'GET' }),
   createEnvironment: (accountId: string, data: { name: string; variables: EnvVariable[] }) => httpClient<Environment>({ url: `${base(accountId)}/environments`, method: 'POST', data }),
   saveEnvironment: (accountId: string, id: string, data: { name?: string; variables?: EnvVariable[]; expectedVersion?: number }) =>
     httpClient<Environment>({ url: `${base(accountId)}/environments/${id}`, method: 'PUT', data }),

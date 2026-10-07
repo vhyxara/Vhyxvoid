@@ -90,8 +90,13 @@ describe.skipIf(!url)("platform API with API keys", () => {
     expect(r.status).toBe(200);
     expect(r.body.data).toMatchObject({ accountId: ws.accountId, keyId: k.keyId, scopes: ["specs:read"] });
     expect((await call("GET", "/api/v1/platform/whoami", `${k.keyId}.${"0".repeat(64)}`)).status).toBe(401);
-    await new Promise((res) => setTimeout(res, 50));
-    expect((await prisma.apiKey.findUnique({ where: { keyId: k.keyId } }))!.lastUsedAt).not.toBeNull();
+    // lastUsedAt is written without holding up the response: wait for it rather than a fixed delay.
+    let used: Date | null = null;
+    for (let i = 0; i < 60 && !used; i++) {
+      used = (await prisma.apiKey.findUnique({ where: { keyId: k.keyId } }))!.lastUsedAt;
+      if (!used) await new Promise((res) => setTimeout(res, 50));
+    }
+    expect(used).not.toBeNull();
   });
 
   it("scopes, workspaces and dashboard-only routes are enforced", async () => {

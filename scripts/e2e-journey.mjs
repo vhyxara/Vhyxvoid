@@ -912,9 +912,17 @@ await step("API client: environment secret, send through the tunnel, captures, r
     ],
   });
   assert(saved.status === 200 && saved.json.data.version === 2, `save ${saved.status} ${JSON.stringify(saved.json).slice(0, 300)}`);
-  const run = await C("POST", `/collections/${id}/run`, { environmentId: envId });
+  // Runs finish in the background: start (202), then poll until done.
+  const started = await C("POST", `/collections/${id}/run`, { environmentId: envId });
+  assert(started.status === 202 && started.json.data.status === "running", `run start ${started.status}: ${JSON.stringify(started.json).slice(0, 300)}`);
+  let run;
+  for (let i = 0; i < 120; i++) {
+    run = await C("GET", `/runs/${started.json.data.id}`);
+    if (run.json?.data?.status !== "running") break;
+    await sleep(500);
+  }
   const rep = run.json?.data?.report;
-  assert(run.status === 200 && rep.total === 3 && rep.passed === 2 && rep.failed === 1 && rep.results[2].status === 500, `run ${JSON.stringify(rep ?? run.json).slice(0, 500)}`);
+  assert(run.status === 200 && run.json.data.status === "done" && rep.total === 3 && rep.passed === 2 && rep.failed === 1 && rep.results[2].status === 500, `run ${JSON.stringify(rep ?? run.json).slice(0, 500)}`);
   assert((await C("GET", `/collections/${id}/runs`)).json.data.runs[0].failed === 1, "run is listed");
   const code = await C("POST", "/snippet", { request: echo, lang: "curl", environmentId: envId });
   assert(code.json.data.code.includes("Bearer {{apiToken}}") && !code.json.data.code.includes("journey-secret-value"), "snippet masks the secret");

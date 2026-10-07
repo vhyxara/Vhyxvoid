@@ -211,7 +211,7 @@ async function findCollection(client: PlatformClient, accountId: string, ref: st
 }
 
 /** Runs a stored collection on the platform (its runner, public addresses only). */
-export async function runRemote<R>(client: PlatformClient, ref: string, opts: { environment?: string; folder?: string; bail?: boolean; vars?: Record<string, string> }) {
+export async function runRemote<R>(client: PlatformClient, ref: string, opts: { environment?: string; folder?: string; bail?: boolean; vars?: Record<string, string>; pollMs?: number; maxMs?: number }) {
   const me = await client.whoami();
   const { c, o } = await findCollection(client, me.accountId, ref);
   let environmentId: string | undefined;
@@ -227,13 +227,22 @@ export async function runRemote<R>(client: PlatformClient, ref: string, opts: { 
     if (!folderId) throw new UsageError(`No folder "${opts.folder}" in ${c.name} (folders: ${full.folders.map((f) => `"${f.name}"`).join(", ") || "none"})`);
   }
   const vars = opts.vars && Object.keys(opts.vars).length ? opts.vars : undefined;
-  const r = await client.request<{ id: string; report: R; rateLimited: boolean }>("POST", `/api-client/${me.accountId}/collections/${c.id}/run`, {
+  // The run finishes in the background on the platform (it can take longer than a proxy waits for one response); poll it.
+  const started = await client.request<{ id: string }>("POST", `/api-client/${me.accountId}/collections/${c.id}/run`, {
     ...(environmentId ? { environmentId } : {}),
     ...(folderId ? { folderId } : {}),
     ...(opts.bail ? { bail: true } : {}),
     ...(vars ? { runtime: vars } : {}),
   });
-  return { collection: c, runId: r.id, report: r.report, rateLimited: r.rateLimited, url: `${me.dashboardUrl}/api-client/${c.id}` };
+  const url = `${me.dashboardUrl}/api-client/${c.id}`;
+  const until = Date.now() + (opts.maxMs ?? 5 * 60_000);
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, opts.pollMs ?? 1000));
+    const r = await client.request<{ status: "running" | "done" | "failed"; error: string | null; rateLimited: boolean; report: R | null }>("GET", `/api-client/${me.accountId}/runs/${started.id}`);
+    if (r.status === "done" && r.report) return { collection: c, runId: started.id, report: r.report, rateLimited: r.rateLimited, url };
+    if (r.status === "failed") throw new PlatformError(r.error ?? "The run failed; try again", 500);
+  }
+  throw new PlatformError(`The run is taking too long; it keeps going on the platform: ${url}`, 504);
 }
 
 /** A folder by id or by "Parent/Child" names (case-insensitive). */

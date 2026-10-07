@@ -105,14 +105,22 @@ describe("collections", () => {
   const overview = { "GET /api/v1/api-client/acc-1": () => ({ data: { collections: [{ id: "c1", name: "Smoke" }], environments: [{ id: "e1", name: "Staging" }] } }) };
 
   it("runs a stored collection by name with an environment", async () => {
-    const api = fakeApi({ ...whoami, ...overview, "POST /api/v1/api-client/acc-1/collections/c1/run": () => ({ data: { id: "run1", rateLimited: false, report: { total: 1 } } }) });
-    const r = await runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f), "smoke", { environment: "staging" });
+    let polls = 0;
+    const api = fakeApi({
+      ...whoami,
+      ...overview,
+      "POST /api/v1/api-client/acc-1/collections/c1/run": () => ({ status: 202, data: { id: "run1", status: "running" } }),
+      // Still running on the first poll, done on the second.
+      "GET /api/v1/api-client/acc-1/runs/run1": () => (++polls < 2 ? { data: { status: "running", report: null } } : { data: { status: "done", rateLimited: false, report: { total: 1 } } }),
+    });
+    const r = await runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f), "smoke", { environment: "staging", pollMs: 1 });
     expect(r).toMatchObject({ runId: "run1", report: { total: 1 }, url: "https://app.test/organizations/acc-1/api-client/c1" });
-    expect(api.calls.at(-1)!.body).toEqual({ environmentId: "e1" });
+    expect(polls).toBe(2);
+    expect(api.calls.find((c) => c.method === "POST")!.body).toEqual({ environmentId: "e1" });
     await expect(runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f), "Smoke", { environment: "prod" })).rejects.toThrow(/No environment "prod".*"Staging"/);
-    const api2 = fakeApi({ ...whoami, ...overview, "GET /api/v1/api-client/acc-1/collections/c1": () => ({ data: { folders: [{ id: "f1", name: "Users" }, { id: "f2", name: "Admin", parentId: "f1" }] } }), "POST /api/v1/api-client/acc-1/collections/c1/run": () => ({ data: { id: "run2", rateLimited: false, report: {} } }) });
-    await runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api2.f), "c1", { folder: "users/admin", bail: true, vars: { token: "x" } });
-    expect(api2.calls.at(-1)!.body).toEqual({ folderId: "f2", bail: true, runtime: { token: "x" } });
+    const api2 = fakeApi({ ...whoami, ...overview, "GET /api/v1/api-client/acc-1/collections/c1": () => ({ data: { folders: [{ id: "f1", name: "Users" }, { id: "f2", name: "Admin", parentId: "f1" }] } }), "POST /api/v1/api-client/acc-1/collections/c1/run": () => ({ status: 202, data: { id: "run2" } }), "GET /api/v1/api-client/acc-1/runs/run2": () => ({ data: { status: "failed", error: "The run was interrupted (the server restarted); run it again", report: null } }) });
+    await expect(runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api2.f), "c1", { folder: "users/admin", bail: true, vars: { token: "x" }, pollMs: 1 })).rejects.toThrow(/interrupted/);
+    expect(api2.calls.find((c) => c.method === "POST")!.body).toEqual({ folderId: "f2", bail: true, runtime: { token: "x" } });
     await expect(runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api2.f), "c1", { folder: "Nope" })).rejects.toThrow(/No folder "Nope".*"Users"/);
     expect(folderByPath([{ id: "f1", name: "A" }], "f1")).toBe("f1");
   });

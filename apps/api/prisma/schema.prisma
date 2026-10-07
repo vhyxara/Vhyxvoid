@@ -1455,7 +1455,7 @@ model ApiTestRun {
   collectionId     String
   environmentId    String?
   environmentName  String?
-  /// "dashboard" for now; "monitor" and "api" come with later phases.
+  /// "dashboard" or "api" (started with an API key: CI, scripts, the editor).
   trigger          String   @default("dashboard")
   total            Int
   passed           Int
@@ -1465,7 +1465,14 @@ model ApiTestRun {
   assertionsPassed Int      @default(0)
   assertionsFailed Int      @default(0)
   durationMs       Int
-  report           Json
+  /// Null while the run is running.
+  report           Json?
+  /// running | done | failed. A run is started by POST …/run and finishes in the background.
+  status           String   @default("done")
+  /// Why a run failed (status failed).
+  error            String?
+  /// The plan's send rate stopped the run early.
+  rateLimited      Boolean  @default(false)
   createdById      String?
   createdAt        DateTime @default(now())
 

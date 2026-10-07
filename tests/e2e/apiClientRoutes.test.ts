@@ -177,9 +177,18 @@ describe.skipIf(!url)("API client routes", () => {
     });
     expect(save.status).toBe(200);
     expect(save.body.data.version).toBe(2);
+    // The run starts at once (202) and finishes in the background; poll it like the dashboard and the CLI.
     const run = await call("POST", `/collections/${collectionId}/run`, { environmentId: envId });
-    expect(run.status).toBe(200);
-    const report = run.body.data.report;
+    expect(run.status).toBe(202);
+    expect(run.body.data.status).toBe("running");
+    let polled = await call("GET", `/runs/${run.body.data.id}`);
+    for (let i = 0; i < 200 && polled.body.data.status === "running"; i++) {
+      expect(polled.body.data.report).toBeNull();
+      await new Promise((r) => setTimeout(r, 25));
+      polled = await call("GET", `/runs/${run.body.data.id}`);
+    }
+    expect(polled.body.data).toMatchObject({ status: "done", error: null, rateLimited: false, total: 3, failed: 1 });
+    const report = polled.body.data.report;
     expect(report).toMatchObject({ total: 3, passed: 2, failed: 1, environment: "Staging" });
     expect(report.results[0].captures[0]).toMatchObject({ variable: "token", value: "••••" });
     expect(report.results[2]).toMatchObject({ outcome: "failed", status: 404, folder: ["Account"] });
@@ -187,6 +196,15 @@ describe.skipIf(!url)("API client routes", () => {
     expect(runs.body.data.runs[0]).toMatchObject({ total: 3, failed: 1, environmentName: "Staging" });
     const detail = await call("GET", `/runs/${run.body.data.id}`);
     expect(detail.body.data.report.results).toHaveLength(3);
+  });
+
+  it("a run left running by a restarted server reads as interrupted", async () => {
+    const stuck = await prisma.apiTestRun.create({ data: { accountId: ws.accountId, collectionId, status: "running", total: 0, passed: 0, failed: 0, errored: 0, durationMs: 0, createdAt: new Date(Date.now() - 10 * 60_000) } });
+    const r = await call("GET", `/runs/${stuck.id}`);
+    expect(r.body.data).toMatchObject({ status: "failed", error: expect.stringMatching(/interrupted/), report: null });
+    const fresh = await prisma.apiTestRun.create({ data: { accountId: ws.accountId, collectionId, status: "running", total: 0, passed: 0, failed: 0, errored: 0, durationMs: 0 } });
+    expect((await call("GET", `/runs/${fresh.id}`)).body.data.status).toBe("running");
+    await prisma.apiTestRun.deleteMany({ where: { id: { in: [stuck.id, fresh.id] } } });
   });
 
   it("exports VhyxVoid (with the environment, secrets empty) and Postman files", async () => {
