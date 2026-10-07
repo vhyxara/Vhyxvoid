@@ -7,7 +7,7 @@ branding:
 
 inputs:
   collection:
-    description: A collection stored in the workspace (name or id). Needs api-key and secret with the tests:run scope. Its requests are sent from VhyxVoid, so they reach public addresses only.
+    description: A collection stored in the workspace (name or id). Needs api-key and secret with the collections:read and tests:run scopes. Its requests are sent from VhyxVoid, so they reach public addresses only.
     required: false
     default: ""
   file:
@@ -27,7 +27,7 @@ inputs:
     required: false
     default: ""
   api-key:
-    description: API key ID with the tests:run scope (stored collections). Store it as a secret.
+    description: API key ID with the collections:read and tests:run scopes (stored collections). Store it as a secret.
     required: false
     default: ""
   secret:

@@ -7,7 +7,7 @@ branding:
 
 inputs:
   api-key:
-    description: API key ID with the specs:read scope (specs:write to push). Store it as a secret.
+    description: API key ID with the specs:read scope (and specs:write to push). Store it as a secret.
     required: true
   secret:
     description: The API key's secret. Store it as a secret.

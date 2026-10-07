@@ -296,7 +296,7 @@ export async function aiMock(client: PlatformClient, opts: { description?: strin
   return { file, summary: r.summary, warnings: r.warnings, usage: r.usage };
 }
 
-/** Draft a test collection (needs ai:use; specs:read is not needed for --spec). The result is a collection file `vhyxvoid test` runs. */
+/** Draft a test collection (needs ai:use, and specs:read to find --spec by slug). The result is a collection file `vhyxvoid test` runs. */
 export async function aiTests(client: PlatformClient, opts: { description?: string; traffic?: string; spec?: string; baseUrl?: string; pollMs?: number }): Promise<AiTestsResult> {
   if (!opts.description?.trim() && !opts.traffic && !opts.spec) throw new UsageError("Describe what to test, or pass --spec <slug> or --traffic <tunnel>");
   const me = await client.whoami();
