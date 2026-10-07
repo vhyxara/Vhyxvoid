@@ -184,6 +184,19 @@ describe.skipIf(!url)("/api/v1/ai with a fake model", () => {
     return `${keyId}.${secret}`;
   }
   const call = (method: string, path: string, token: string, payload?: unknown) => f.inject({ method, url: path, payload: payload as never, headers: { authorization: `Bearer ${token}` } }).then((r: any) => ({ status: r.statusCode, body: r.json() }));
+  /** POST a draft, then poll it the way the dashboard and the CLI do; reads like one synchronous call. */
+  async function draft(path: string, token: string, payload: unknown) {
+    const started = await call("POST", path, token, payload);
+    if (started.status !== 202) return started;
+    expect(started.body.data.status).toBe("running");
+    for (let i = 0; i < 50; i++) {
+      const r = await call("GET", `/api/v1/ai/${accountId}/drafts/${started.body.data.id}`, token);
+      if (r.body.data?.status === "done") return { status: 200, body: { data: r.body.data.result }, id: started.body.data.id };
+      if (r.body.data?.status === "failed") return { status: r.body.data.error.statusCode, body: { message: r.body.data.error.message }, id: started.body.data.id };
+      await new Promise((res) => setTimeout(res, 20));
+    }
+    throw new Error("draft never finished");
+  }
 
   beforeAll(async () => {
     process.env.SERVER_HMAC_PEPPER = PEPPER;
@@ -197,7 +210,13 @@ describe.skipIf(!url)("/api/v1/ai with a fake model", () => {
     f = Fastify();
     f.decorate("prisma", prisma);
     f.decorate("platformSettings", { get: async (k: string) => (k.startsWith("features.") ? true : undefined) });
-    f.decorate("redis", { lrange: async (k: string) => (k.endsWith(":shop") ? captured.map((c) => JSON.stringify(c)) : []) });
+    const kv = new Map<string, string>();
+    f.decorate("redis", {
+      lrange: async (k: string) => (k.endsWith(":shop") ? captured.map((c) => JSON.stringify(c)) : []),
+      // Like Upstash: JSON strings come back parsed.
+      get: async (k: string) => (kv.has(k) ? JSON.parse(kv.get(k)!) : null),
+      set: async (k: string, v: string) => void kv.set(k, v),
+    });
     f.decorate("container", { resolve: (t: unknown) => (t === RS256JwtService ? { verify: () => { throw new Error("no jwt") } } : undefined) });
     f.decorate("authStateCache", { getUser: async () => null });
     f.setErrorHandler((err: any, _r: any, reply: any) => reply.code(err.name === "ZodError" ? 400 : (err.statusCode ?? 500)).send({ message: err.message }));
@@ -216,13 +235,13 @@ describe.skipIf(!url)("/api/v1/ai with a fake model", () => {
   it("drafts a mock and a collection, counting each", async () => {
     const k = await key(["ai:use"]);
     expect((await call("GET", `/api/v1/ai/${accountId}`, k)).body.data).toMatchObject({ available: true, configured: true, model: "fake-model", used: 0, limit: 20 });
-    const m = await call("POST", `/api/v1/ai/${accountId}/mock`, k, { description: "A users API" });
+    const m = await draft(`/api/v1/ai/${accountId}/mock`, k, { description: "A users API" });
     expect(m.status).toBe(200);
     expect(m.body.data.endpoints).toHaveLength(2);
     expect(m.body.data.warnings).toHaveLength(2);
     expect(m.body.data.usage).toMatchObject({ used: 1, limit: 20 });
     expect(calls.at(-1)).toContain("<description>\nA users API\n</description>");
-    const t = await call("POST", `/api/v1/ai/${accountId}/tests`, k, { description: "Smoke tests", baseUrl: "https://staging.acme.test" });
+    const t = await draft(`/api/v1/ai/${accountId}/tests`, k, { description: "Smoke tests", baseUrl: "https://staging.acme.test" });
     expect(t.status).toBe(200);
     expect(t.body.data.collection.variables[0]).toEqual({ key: "baseUrl", value: "https://staging.acme.test", enabled: true });
     const rows = await prisma.aiDraft.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } });
@@ -231,7 +250,7 @@ describe.skipIf(!url)("/api/v1/ai with a fake model", () => {
 
   it("uses captured traffic; failures are logged but free; scopes and limits apply", async () => {
     const k = await key(["ai:use"]);
-    const m = await call("POST", `/api/v1/ai/${accountId}/mock`, k, { trafficLabel: "shop" });
+    const m = await draft(`/api/v1/ai/${accountId}/mock`, k, { trafficLabel: "shop" });
     expect(m.status).toBe(200);
     expect(m.body.data.traffic).toEqual({ groups: 1, requests: 1 });
     expect(calls.at(-1)).toContain("## GET /orders/:id");
@@ -240,18 +259,23 @@ describe.skipIf(!url)("/api/v1/ai with a fake model", () => {
 
     failNext = new AiDraftError("The model declined this request; rephrase the description", "refused");
     const before = await prisma.aiDraft.count({ where: { accountId, ok: true } });
-    const refused = await call("POST", `/api/v1/ai/${accountId}/mock`, k, { description: "x" });
+    const refused = await draft(`/api/v1/ai/${accountId}/mock`, k, { description: "x" });
     expect(refused.status).toBe(422);
     expect(refused.body.message).toMatch(/declined/);
     expect(await prisma.aiDraft.count({ where: { accountId, ok: true } })).toBe(before);
     expect(await prisma.aiDraft.count({ where: { accountId, ok: false } })).toBe(1);
+
+    // A draft is only readable by the member who asked, and expires.
+    const other = await call("GET", `/api/v1/ai/${accountId}/drafts/${crypto.randomUUID()}`, k);
+    expect(other.status).toBe(404);
+    expect(other.body.message).toMatch(/expired/);
 
     const noScope = await key(["specs:read"]);
     expect((await call("POST", `/api/v1/ai/${accountId}/mock`, noScope, { description: "x" })).status).toBe(403);
 
     // The free plan's 20 drafts a month.
     await prisma.aiDraft.createMany({ data: Array.from({ length: 20 - before }, () => ({ accountId, userId, kind: "mock", source: "description", model: "fake-model", ok: true })) });
-    const over = await call("POST", `/api/v1/ai/${accountId}/tests`, k, { description: "x" });
+    const over = await draft(`/api/v1/ai/${accountId}/tests`, k, { description: "x" });
     expect(over.status).toBe(402);
     expect(over.body.message).toMatch(/all 20 AI drafts of this month; more on \d{4}-\d{2}-01/);
   });

@@ -147,21 +147,28 @@ describe("collections", () => {
 describe("ai drafts", () => {
   const usage = { used: 3, limit: 20, resetsAt: "2026-11-01T00:00:00.000Z" };
   it("writes a mock file and a collection file the offline commands read", async () => {
+    let polls = 0;
     const api = fakeApi({
       ...whoami,
       ...specs,
-      "POST /api/v1/ai/acc-1/mock": () => ({ data: { summary: "Books", endpoints: [{ id: "e1", enabled: true, method: "GET", path: "/books", responses: [{ id: "r1", status: 200, isDefault: true }] }], warnings: [], usage } }),
-      "POST /api/v1/ai/acc-1/tests": () => ({ data: { summary: "Smoke", collection: { name: "Smoke", auth: { type: "none" }, variables: [{ key: "baseUrl", value: "https://x.test", enabled: true }], folders: [], requests: [{ id: "q1" }] }, warnings: ["one skipped"], usage } }),
+      "POST /api/v1/ai/acc-1/mock": () => ({ status: 202, data: { id: "d1", status: "running" } }),
+      "POST /api/v1/ai/acc-1/tests": () => ({ status: 202, data: { id: "d2", status: "running" } }),
+      // The first poll is still running; the next one has the result.
+      "GET /api/v1/ai/acc-1/drafts/d1": () => (++polls % 2 ? { data: { status: "running" } } : { data: { status: "done", result: { summary: "Books", endpoints: [{ id: "e1", enabled: true, method: "GET", path: "/books", responses: [{ id: "r1", status: 200, isDefault: true }] }], warnings: [], usage } } }),
+      "GET /api/v1/ai/acc-1/drafts/d2": () => ({ data: { status: "done", result: { summary: "Smoke", collection: { name: "Smoke", auth: { type: "none" }, variables: [{ key: "baseUrl", value: "https://x.test", enabled: true }], folders: [], requests: [{ id: "q1" }] }, warnings: ["one skipped"], usage } } }),
     });
     const client = new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f);
-    const m = await aiMock(client, { description: " a bookstore ", name: "Books" });
+    const m = await aiMock(client, { description: " a bookstore ", name: "Books", pollMs: 1 });
     expect(m.file).toMatchObject({ vhyxvoid: "mock-api", version: 1, name: "Books", description: "Books", mode: "ALWAYS", endpoints: [{ path: "/books" }] });
-    expect(api.calls.at(-1)!.body).toEqual({ description: "a bookstore" });
-    const t = await aiTests(client, { spec: "shop", baseUrl: "https://x.test" });
+    expect(api.calls.find((c) => c.url.endsWith("/ai/acc-1/mock"))!.body).toEqual({ description: "a bookstore" });
+    expect(polls).toBe(2);
+    const t = await aiTests(client, { spec: "shop", baseUrl: "https://x.test", pollMs: 1 });
     expect(t.file).toMatchObject({ vhyxvoid: "collection", version: 1, collection: { name: "Smoke", requests: [{ id: "q1" }] } });
-    expect(api.calls.at(-1)!.body).toEqual({ specId: "s1", baseUrl: "https://x.test" });
+    expect(api.calls.find((c) => c.url.endsWith("/ai/acc-1/tests"))!.body).toEqual({ specId: "s1", baseUrl: "https://x.test" });
     expect(t.warnings).toEqual(["one skipped"]);
     await expect(aiMock(client, {})).rejects.toThrow(UsageError);
+    const failing = fakeApi({ ...whoami, "POST /api/v1/ai/acc-1/mock": () => ({ status: 202, data: { id: "d3" } }), "GET /api/v1/ai/acc-1/drafts/d3": () => ({ data: { status: "failed", error: { message: "The model declined this request", statusCode: 422 } } }) });
+    await expect(aiMock(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, failing.f), { description: "x", pollMs: 1 })).rejects.toMatchObject({ status: 422, message: "The model declined this request" });
     await expect(aiTests(client, { description: "  " })).rejects.toThrow(/--spec/);
   });
 });

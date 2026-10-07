@@ -89,7 +89,7 @@ export class AiDraftError extends Error {
 
 export function anthropicModel(env: NodeJS.ProcessEnv = process.env): AiModel | null {
   if (!env.ANTHROPIC_API_KEY) return null;
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}), timeout: 180_000, maxRetries: 2 });
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, ...(env.ANTHROPIC_BASE_URL ? { baseURL: env.ANTHROPIC_BASE_URL } : {}), timeout: 240_000, maxRetries: 1 });
   const model = env.VHYXVOID_AI_MODEL?.trim() || DEFAULT_AI_MODEL;
 
   async function run<S extends z.ZodType>(schema: S, system: string, prompt: string): Promise<DraftResult<z.infer<S>>> {

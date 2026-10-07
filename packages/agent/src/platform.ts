@@ -268,29 +268,46 @@ type AiUsage = { used: number; limit: number | null; resetsAt: string };
 export type AiMockResult = { file: NativeMockFile; summary: string; warnings: string[]; usage: AiUsage };
 export type AiTestsResult = { file: NativeCollectionFile; summary: string; warnings: string[]; usage: AiUsage };
 
+/** Drafts run in the background on the API: start one, then poll until it is done. */
+export async function aiDraft<T>(client: PlatformClient, accountId: string, kind: "mock" | "tests", body: object, opts: { pollMs?: number; maxMs?: number } = {}): Promise<T> {
+  const started = await client.request<{ id: string }>("POST", `/ai/${accountId}/${kind}`, body);
+  const until = Date.now() + (opts.maxMs ?? 8 * 60_000);
+  while (Date.now() < until) {
+    await new Promise((r) => setTimeout(r, opts.pollMs ?? 2000));
+    const s = await client.request<{ status: "running" | "done" | "failed"; result?: T; error?: { message: string; statusCode: number } }>("GET", `/ai/${accountId}/drafts/${started.id}`);
+    if (s.status === "done" && s.result) return s.result;
+    if (s.status === "failed") throw new PlatformError(s.error?.message ?? "AI assist failed; try again", s.error?.statusCode ?? 500);
+  }
+  throw new PlatformError("The draft is taking too long; try again with a shorter description", 504);
+}
+
 /** Draft a mock API (needs ai:use). The result is a VhyxVoid mock file `vhyxvoid mock` serves. */
-export async function aiMock(client: PlatformClient, opts: { description?: string; traffic?: string; name?: string }): Promise<AiMockResult> {
+export async function aiMock(client: PlatformClient, opts: { description?: string; traffic?: string; name?: string; pollMs?: number }): Promise<AiMockResult> {
   if (!opts.description?.trim() && !opts.traffic) throw new UsageError("Describe the API, or pass --traffic <tunnel> to learn from captured requests");
   const me = await client.whoami();
-  const r = await client.request<{ summary: string; endpoints: MockEndpoint[]; warnings: string[]; usage: AiUsage }>("POST", `/ai/${me.accountId}/mock`, {
-    ...(opts.description?.trim() ? { description: opts.description.trim() } : {}),
-    ...(opts.traffic ? { trafficLabel: opts.traffic } : {}),
-  });
+  const r = await aiDraft<{ summary: string; endpoints: MockEndpoint[]; warnings: string[]; usage: AiUsage }>(
+    client,
+    me.accountId,
+    "mock",
+    { ...(opts.description?.trim() ? { description: opts.description.trim() } : {}), ...(opts.traffic ? { trafficLabel: opts.traffic } : {}) },
+    { pollMs: opts.pollMs },
+  );
   const file = exportNative({ mode: "ALWAYS", cors: true, latencyMs: 0, endpoints: r.endpoints }, { name: opts.name || "AI draft", description: r.summary });
   return { file, summary: r.summary, warnings: r.warnings, usage: r.usage };
 }
 
 /** Draft a test collection (needs ai:use; specs:read is not needed for --spec). The result is a collection file `vhyxvoid test` runs. */
-export async function aiTests(client: PlatformClient, opts: { description?: string; traffic?: string; spec?: string; baseUrl?: string }): Promise<AiTestsResult> {
+export async function aiTests(client: PlatformClient, opts: { description?: string; traffic?: string; spec?: string; baseUrl?: string; pollMs?: number }): Promise<AiTestsResult> {
   if (!opts.description?.trim() && !opts.traffic && !opts.spec) throw new UsageError("Describe what to test, or pass --spec <slug> or --traffic <tunnel>");
   const me = await client.whoami();
   const specId = opts.spec ? (await findSpec(client, me.accountId, opts.spec)).id : undefined;
-  const r = await client.request<{ summary: string; collection: ApiCollection; warnings: string[]; usage: AiUsage }>("POST", `/ai/${me.accountId}/tests`, {
-    ...(opts.description?.trim() ? { description: opts.description.trim() } : {}),
-    ...(opts.traffic ? { trafficLabel: opts.traffic } : {}),
-    ...(specId ? { specId } : {}),
-    ...(opts.baseUrl ? { baseUrl: opts.baseUrl } : {}),
-  });
+  const r = await aiDraft<{ summary: string; collection: ApiCollection; warnings: string[]; usage: AiUsage }>(
+    client,
+    me.accountId,
+    "tests",
+    { ...(opts.description?.trim() ? { description: opts.description.trim() } : {}), ...(opts.traffic ? { trafficLabel: opts.traffic } : {}), ...(specId ? { specId } : {}), ...(opts.baseUrl ? { baseUrl: opts.baseUrl } : {}) },
+    { pollMs: opts.pollMs },
+  );
   return { file: nativeCollectionFile(r.collection), summary: r.summary, warnings: r.warnings, usage: r.usage };
 }
 
