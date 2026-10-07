@@ -26,6 +26,10 @@ services:
     restart: unless-stopped
     env_file:
       - ./apps/hub/.env.production
+    environment:
+      # Customers' API docs domains are forwarded to the website (the "web"
+      # profile below); override in .env.production if it runs elsewhere.
+      DOCS_WEB_URL: ${DOCS_WEB_URL:-http://web:3000}
     ports:
       - "127.0.0.1:9001:9001"
     networks:

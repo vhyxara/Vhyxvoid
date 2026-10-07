@@ -185,7 +185,7 @@ export const apiClientService = {
     httpClient<Environment>({ url: `${base(accountId)}/environments/${id}`, method: 'PUT', data }),
   removeEnvironment: (accountId: string, id: string) => httpClient<{ id: string }>({ url: `${base(accountId)}/environments/${id}`, method: 'DELETE' }),
   parse: (accountId: string, document: string) => httpClient<ParsedDocument>({ url: `${base(accountId)}/parse`, method: 'POST', data: { document } }),
-  send: (accountId: string, data: SendContext & { request: ApiRequest; followRedirects?: boolean; timeoutMs?: number }) =>
+  send: (accountId: string, data: SendContext & { request: ApiRequest; followRedirects?: boolean; timeoutMs?: number; noHistory?: boolean }) =>
     httpClient<SendResult>({ url: `${base(accountId)}/send`, method: 'POST', data, timeoutMs: 150_000 }),
   snippet: (accountId: string, data: SendContext & { request: ApiRequest; lang: SnippetLanguage }) =>
     httpClient<{ lang: SnippetLanguage; code: string | null; problems: string[] }>({ url: `${base(accountId)}/snippet`, method: 'POST', data }),

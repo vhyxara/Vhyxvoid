@@ -1472,6 +1472,79 @@ if (process.env.ADMIN_EMAIL) {
     await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": null } } });
   });
 
+  await step("API docs: publish, public page, try-it through a mock, breaking v2, password, docs on a custom domain", async () => {
+    const S = (m, p, body) => api(m, `/specs/${s.personal}${p}`, { token: s.token, body });
+    // The default plan has neither docs passwords nor docs domains.
+    await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { protectedDocs: true, docsCustomDomains: true } } });
+    const created = await S("POST", "", { name: `Journey API ${RUN}` });
+    assert(created.status === 201, `create ${created.status}: ${JSON.stringify(created.json).slice(0, 300)}`);
+    const spec = created.json.data;
+    const draft = (await S("GET", `/${spec.id}`)).json.data;
+    assert(draft.problems.length === 0, `starter has problems: ${JSON.stringify(draft.problems)}`);
+    const v1 = await S("POST", `/${spec.id}/publish`, { notes: "first" });
+    assert(v1.status === 201 && v1.json.data.number === 1, `publish ${v1.status}: ${JSON.stringify(v1.json).slice(0, 300)}`);
+
+    // The mock made from the same spec answers try-it on the shared page.
+    const mock = await api("POST", `/mocks/${s.personal}`, { token: s.token, body: { label: `docs-${RUN}`, name: "Docs mock", document: draft.draftText } });
+    assert(mock.status === 201 && mock.json.data.endpointCount === 3, `mock from spec ${mock.status}: ${JSON.stringify(mock.json).slice(0, 300)}`);
+    assert((await S("PUT", `/${spec.id}/sharing`, { visibility: "PUBLIC", tryMockId: mock.json.data.id })).status === 200, "share");
+    const ws = new URL(spec.publicUrl).pathname.split("/")[2];
+    const pub = (p, init = {}) => fetch(`${API}/public/specs/${ws}/${spec.slug}${p}`, init).then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }));
+    const read = await pub("");
+    assert(read.status === 200 && read.json.data.model.operationCount === 3 && read.json.data.canTry, `public read ${read.status}`);
+    assert(read.json.data.model.tags[0].operations[0].samples.curl.includes("curl"), "code samples");
+    const tried = await pub("/try", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: "/users/42" }) });
+    assert(tried.status === 200 && tried.json.data.status === 200 && JSON.parse(tried.json.data.body).id === 42, `try ${JSON.stringify(tried.json).slice(0, 300)}`);
+
+    // v2 drops an operation: published with a breaking change, both versions readable.
+    const doc = (await S("POST", `/${spec.id}/preview`, {})).json.data.doc;
+    delete doc.paths["/users/{id}"];
+    doc.info.version = "2.0.0";
+    await S("PUT", `/${spec.id}`, { doc });
+    const v2 = await S("POST", `/${spec.id}/publish`, {});
+    assert(v2.status === 201 && v2.json.data.breaking === 1, `v2 ${JSON.stringify(v2.json).slice(0, 300)}`);
+    assert((await pub("?version=1")).json.data.model.operationCount === 3 && (await pub("")).json.data.model.operationCount === 2, "versions");
+
+    // Password: locked until unlocked.
+    await S("PUT", `/${spec.id}/sharing`, { visibility: "PASSWORD", password: "journey-pass" });
+    const locked = await pub("");
+    assert(locked.status === 401 && locked.json.data.passwordRequired, `password docs readable without a token: ${locked.status}`);
+    const un = await pub("/unlock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "journey-pass" }) });
+    const ok = await fetch(`${API}/public/specs/${ws}/${spec.slug}`, { headers: { "x-docs-token": un.json.data.token } });
+    assert(ok.status === 200, `unlocked read ${ok.status}`);
+
+    // Docs on a custom domain: verified by TXT, then the hub forwards it to the web app.
+    let domain = "skipped";
+    const dnsFile = process.env.DNS_TEST_RECORDS_FILE;
+    if (dnsFile) {
+      await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": "edge.vv.test" } } });
+      await S("PUT", `/${spec.id}/sharing`, { visibility: "PUBLIC" });
+      const host = `docs-${RUN}.journey.test`;
+      const add = await S("PUT", `/${spec.id}/domain`, { hostname: host });
+      assert(add.status === 200, `docs domain ${add.status}: ${JSON.stringify(add.json).slice(0, 300)}`);
+      const rec = add.json.data.domainRecords.verification;
+      fs.writeFileSync(dnsFile, JSON.stringify({ [rec.name]: { TXT: [rec.value] }, [host]: { CNAME: ["edge.vv.test."] } }));
+      const check = await S("POST", `/${spec.id}/domain/check`);
+      assert(check.json.data.customDomainVerified, `docs domain check ${JSON.stringify(check.json).slice(0, 300)}`);
+      assert((await fetch(`${API}/public/domains/allow?domain=${host}`)).status === 200, "edge may issue a certificate for the docs domain");
+      const byHost = await fetch(`${API}/public/specs/by-host/${host}`).then((r) => r.json());
+      assert(byHost.data?.slug === spec.slug, `by-host ${JSON.stringify(byHost)}`);
+      if (process.env.DOCS_WEB_URL) {
+        const page = await tunnel(host, "GET", "/");
+        assert(page.status === 200 && /<html/i.test(page.body.toString()), `docs domain through the hub ${page.status}`);
+        domain = "served by the hub";
+      } else domain = "verified (no DOCS_WEB_URL)";
+      await S("PUT", `/${spec.id}/domain`, { hostname: null });
+      await P("PATCH", "/settings", { body: { changes: { "tunnels.customDomainTarget": null } } });
+      fs.writeFileSync(dnsFile, "{}");
+    }
+    await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+    assert((await S("DELETE", `/${spec.id}`)).status === 200, "delete spec");
+    assert((await pub("")).status === 404, "deleted docs still public");
+    await api("DELETE", `/mocks/${s.personal}/${mock.json.data.id}`, { token: s.token });
+    return `v1 → v2 with ${v2.json.data.breaking} breaking; try-it ${tried.json.data.status}; password ${locked.status}; domain ${domain}`;
+  });
+
   await step("alerts: test notification, error rate fires and resolves over a webhook, history", async () => {
     const AL = (m, p, o = {}) => api(m, `/alerts/${s.personal}${p}`, { token: s.token, ...o });
     const received = [];

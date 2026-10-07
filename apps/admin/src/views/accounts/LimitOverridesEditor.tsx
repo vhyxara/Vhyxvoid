@@ -29,7 +29,8 @@ export const NUMERIC_LIMITS = [
   ['maxLoadTestRps', 'Load test requests / second'],
   ['loadTestsPerDay', 'Load tests per day'],
   ['maxMonitors', 'Monitors (0 = none)'],
-  ['minMonitorIntervalMinutes', 'Shortest monitor interval (minutes)']
+  ['minMonitorIntervalMinutes', 'Shortest monitor interval (minutes)'],
+  ['maxApiSpecs', 'API docs specs (0 = none)']
 ] as const
 
 export const BOOLEAN_LIMITS = [
@@ -38,6 +39,8 @@ export const BOOLEAN_LIMITS = [
   ['expiryAllowed', 'Key expiry'],
   ['accessRules', 'Tunnel access rules (password, IP allowlist, share links)'],
   ['customDomains', 'Custom domains'],
+  ['protectedDocs', 'Password-protected API docs'],
+  ['docsCustomDomains', 'API docs on a custom domain'],
   ['prioritySupport', 'Priority support']
 ] as const
 

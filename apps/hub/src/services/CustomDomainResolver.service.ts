@@ -25,6 +25,7 @@ export interface ResolvedDomain extends TunnelRoute {
 
 export class CustomDomainResolver {
   private readonly cache = new Map<string, { value: ResolvedDomain | null; expiresAt: number }>();
+  private readonly docsCache = new Map<string, { value: boolean; expiresAt: number }>();
 
   constructor(
     private readonly prisma: Prisma,
@@ -62,8 +63,36 @@ export class CustomDomainResolver {
     return value;
   }
 
+  /**
+   * A verified domain of shared API docs (apps/api platform/specs), served by
+   * the web app instead of a tunnel. Same caching as tunnel domains.
+   */
+  async resolveDocs(hostname: string): Promise<boolean> {
+    const hit = this.docsCache.get(hostname);
+    if (hit && hit.expiresAt > this.now()) return hit.value;
+    let value: boolean;
+    try {
+      const row = await this.prisma.apiSpec?.findFirst({
+        where: { customDomain: hostname, customDomainVerifiedAt: { not: null }, visibility: { not: 'PRIVATE' } },
+        select: { id: true, account: { select: { status: true } } },
+      });
+      value = Boolean(row) && !['DELETED', 'SUSPENDED'].includes(row.account?.status);
+    } catch (err) {
+      console.warn({ err: (err as Error).message, hostname }, '[domains] docs lookup failed');
+      return false;
+    }
+    if (this.docsCache.size >= MAX_ENTRIES) this.docsCache.delete(this.docsCache.keys().next().value as string);
+    this.docsCache.set(hostname, { value, expiresAt: this.now() + (value ? FOUND_TTL_MS : MISSING_TTL_MS) });
+    return value;
+  }
+
   invalidate(hostname?: string): void {
-    if (hostname) this.cache.delete(hostname.toLowerCase());
-    else this.cache.clear();
+    if (hostname) {
+      this.cache.delete(hostname.toLowerCase());
+      this.docsCache.delete(hostname.toLowerCase());
+    } else {
+      this.cache.clear();
+      this.docsCache.clear();
+    }
   }
 }

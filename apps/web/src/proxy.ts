@@ -119,7 +119,17 @@ const PUBLIC = [
   withOrWithout('reset-password')
 ]
 
-const LANDING = [/^\/$/, /^\/pricing/, /^\/docs/, /^\/contact/, /^\/about/, /^\/support/, /^\/p\//]
+const LANDING = [
+  /^\/$/,
+  /^\/pricing/,
+  /^\/docs/,
+  /^\/contact/,
+  /^\/about/,
+  /^\/support/,
+  /^\/p\//,
+  /^\/api-docs\//,
+  /^\/api-docs-host\//
+]
 
 // ── Bare backend paths — rewritten to default locale internally ───────────
 // Backend email links have no locale. We rewrite /verify-email → /en/verify-email
@@ -137,6 +147,18 @@ const intlMiddleware = createMiddleware(routing)
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // A customer's docs domain, forwarded by the hub (apps/hub DocsDomain.handler):
+  // every page path shows those docs, nothing else of the app.
+  const docsHost = request.headers.get('x-vhyxvoid-docs-host')
+
+  if (docsHost && /^[a-z0-9.-]{1,253}$/i.test(docsHost)) {
+    const url = request.nextUrl.clone()
+
+    url.pathname = `/${routing.defaultLocale}/api-docs-host/${encodeURIComponent(docsHost.toLowerCase())}`
+
+    return NextResponse.rewrite(url)
+  }
 
   // 0. /docs is proxied to apps/docs (next.config.ts rewrites). Bypass next-intl:
   // it would rewrite /docs to /en/docs, and the docs rewrite would no longer match.

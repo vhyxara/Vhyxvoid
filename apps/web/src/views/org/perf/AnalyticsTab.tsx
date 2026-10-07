@@ -14,6 +14,7 @@ import { Typography } from '@/components/vhyxui-shims'
 import { LINE_COLORS, LineChart, Sparkline } from '@/components/charts/LineChart'
 import { TrafficChart } from '@/components/charts/TrafficChart'
 import { useBootstrapReady } from '@/api/application/hooks/useBootstrapSession'
+import { specsService } from '@/api/infrastructure/services/specs.service'
 import { analyticsService, type AnalyticsWindow, type DriftReport, type EndpointSummary } from '@/api/infrastructure/services/perf.service'
 import { mocksService } from '@/api/infrastructure/services/mocks.service'
 import { METHOD_VARIANT } from '../apiclient/apiClientForm'
@@ -279,15 +280,17 @@ function EndpointDialog({ accountId, window, e, onClose }: { accountId: string; 
 }
 
 function DriftDialog({ accountId, window, label, onClose }: { accountId: string; window: AnalyticsWindow; label: string; onClose: () => void }) {
-  const [source, setSource] = useState<'mock' | 'openapi'>('mock')
+  const [source, setSource] = useState<'mock' | 'spec' | 'openapi'>('mock')
   const [mockId, setMockId] = useState('')
+  const [specId, setSpecId] = useState('')
   const [doc, setDoc] = useState('')
   const [report, setReport] = useState<DriftReport | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const mocks = useQuery({ queryKey: ['mocks', accountId], queryFn: () => mocksService.overview(accountId) })
+  const specs = useQuery({ queryKey: ['specs', accountId], queryFn: () => specsService.overview(accountId), enabled: source === 'spec' })
 
   const run = useMutation({
-    mutationFn: () => analyticsService.drift(accountId, { window, label: label || undefined, ...(source === 'mock' ? { mockId } : { document: doc }) }),
+    mutationFn: () => analyticsService.drift(accountId, { window, label: label || undefined, ...(source === 'mock' ? { mockId } : source === 'spec' ? { specId } : { document: doc }) }),
     onSuccess: setReport,
     onError: e => toast.danger((e as Error).message)
   })
@@ -303,8 +306,10 @@ function DriftDialog({ accountId, window, label, onClose }: { accountId: string;
             {label ? `, ${label}` : ''}).
           </Typography>
           <div className='flex flex-col gap-3 mbs-3'>
-            <SelectField name='source' label='Spec' value={source} onValueChange={v => setSource(v as 'mock' | 'openapi')} options={[{ value: 'mock', label: 'One of my mock APIs' }, { value: 'openapi', label: 'An OpenAPI document' }]} />
-            {source === 'mock' ? (
+            <SelectField name='source' label='Spec' value={source} onValueChange={v => setSource(v as 'mock' | 'spec' | 'openapi')} options={[{ value: 'mock', label: 'One of my mock APIs' }, { value: 'spec', label: 'One of my API docs' }, { value: 'openapi', label: 'An OpenAPI document' }]} />
+            {source === 'spec' ? (
+              <SelectField name='spec' label='API docs' value={specId} onValueChange={setSpecId} options={(specs.data?.specs ?? []).map(s => ({ value: s.id, label: s.latest ? `${s.name} (v${s.latest.number})` : `${s.name} (draft)` }))} placeholder={specs.data?.specs.length ? 'Pick one' : 'No API docs yet'} hint='Its latest published version, or the draft if nothing is published.' />
+            ) : source === 'mock' ? (
               <SelectField name='mock' label='Mock API' value={mockId} onValueChange={setMockId} options={(mocks.data?.mocks ?? []).map(m => ({ value: m.id, label: m.name }))} placeholder={mocks.data?.mocks.length ? 'Pick one' : 'No mock APIs yet'} />
             ) : (
               <>
@@ -328,7 +333,7 @@ function DriftDialog({ accountId, window, label, onClose }: { accountId: string;
               </>
             )}
             <div>
-              <Button onClick={() => run.mutate()} loading={run.isPending} disabled={source === 'mock' ? !mockId : doc.trim().length < 2}>
+              <Button onClick={() => run.mutate()} loading={run.isPending} disabled={source === 'mock' ? !mockId : source === 'spec' ? !specId : doc.trim().length < 2}>
                 Compare
               </Button>
             </div>

@@ -60,12 +60,15 @@ export const registerPlugins = async (server: FastifyInstance) => {
   await server.register(fastifyCompress);
   await server.register(fastifyCookie);
 
+  const methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
   await server.register(fastifyCors, {
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) cb(null, true);
-      else cb(new Error("Not allowed by CORS"), false);
+    delegator: (req, cb) => {
+      // Published API docs can live on a customer's own domain: any origin may
+      // read them, without cookies (platform/specs/specs.public.routes.ts).
+      if (req.url?.startsWith("/api/v1/public/specs")) return cb(null, { origin: true, credentials: false, methods: ["GET", "POST", "OPTIONS"] });
+      const origin = req.headers.origin;
+      if (!origin || allowedOrigins.includes(origin)) cb(null, { origin: true, methods, credentials: true });
+      else cb(new Error("Not allowed by CORS"), { origin: false });
     },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
   });
 };

@@ -157,6 +157,18 @@ export function describeActivity(item: ActivityItem): string {
       return `${m.enabled === false ? 'paused' : m.enabled === true ? 'resumed' : 'changed'} a monitor${s(m.name) ? ` (${m.name})` : ''}`
     case 'MONITOR_DELETED':
       return 'deleted a monitor'
+    case 'API_SPEC_CREATED':
+      return `created the API docs ${s(m.name) ?? ''}${m.fromMock ? ' from a mock API' : m.fromDocument ? ' from an OpenAPI document' : ''}`.replace('  ', ' ')
+    case 'API_SPEC_PUBLISHED':
+      return 'published a new version of API docs'
+    case 'API_SPEC_RESTORED':
+      return 'restored an older version of API docs into the draft'
+    case 'API_SPEC_SHARING_UPDATED':
+      return `made API docs ${m.visibility === 'PUBLIC' ? 'public' : m.visibility === 'PASSWORD' ? 'password-protected' : m.visibility === 'PRIVATE' ? 'private' : 'shared differently'}${m.passwordChanged ? ' (new password)' : ''}`
+    case 'API_SPEC_DOMAIN_UPDATED':
+      return m.hostname ? `served API docs on ${m.hostname}` : 'removed the custom domain of API docs'
+    case 'API_SPEC_DELETED':
+      return 'deleted API docs'
     case 'API_COLLECTION_DELETED':
       return 'deleted a collection'
     case 'API_COLLECTION_RUN':

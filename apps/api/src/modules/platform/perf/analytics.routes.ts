@@ -3,7 +3,7 @@
 //
 //   GET  /:accountId?window=1h|6h|24h|7d&label=      endpoints with volume, error rate, percentiles, trend; new endpoints; slowest
 //   GET  /:accountId/endpoint?window&label&method&route  one endpoint over time (requests, errors, p50/p95/p99 per bucket)
-//   POST /:accountId/drift                            { window, label?, mockId? | document? } traffic vs a spec
+//   POST /:accountId/drift                            { window, label?, mockId? | specId? | document? } traffic vs a spec (specId: its latest published version, else its draft)
 //
 // Aggregation happens in SQL (histograms summed per index), so a busy week
 // never loads every 5-minute row into the API.
@@ -26,6 +26,7 @@ import {
   type MockApiDefinition,
 } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { parseSpecText } from "../specs/specDocs";
 
 const WINDOWS = { "1h": 60, "6h": 360, "24h": 1440, "7d": 10_080 } as const;
 type WindowKey = keyof typeof WINDOWS;
@@ -42,9 +43,10 @@ const driftBody = z
     window: z.enum(Object.keys(WINDOWS) as [WindowKey, ...WindowKey[]]).default("7d"),
     label,
     mockId: z.string().uuid().optional(),
+    specId: z.string().uuid().optional(),
     document: z.union([z.string().min(2).max(5_000_000), z.record(z.string(), z.unknown())]).optional(),
   })
-  .refine((b) => !!b.mockId !== (b.document !== undefined), { message: "Give either a mock API or a document" });
+  .refine((b) => [b.mockId, b.specId, b.document].filter((x) => x !== undefined).length === 1, { message: "Give one of a mock API, an API spec or a document" });
 
 const histSums = Array.from({ length: ENDPOINT_HIST_SIZE }, (_, i) => `COALESCE(SUM("hist"[${i + 1}]), 0)::int AS h${i}`).join(", ");
 
@@ -81,7 +83,7 @@ const toStatRow = (r: AggRow): EndpointStatRow => ({
 
 export async function analyticsRoutes(fastify: FastifyInstance) {
   const prisma = prismaOf(fastify);
-  const db = prisma as unknown as { $queryRawUnsafe<T>(sql: string, ...values: unknown[]): Promise<T>; accountMember: any; mockApi: any };
+  const db = prisma as unknown as { $queryRawUnsafe<T>(sql: string, ...values: unknown[]): Promise<T>; accountMember: any; mockApi: any; apiSpec: any; apiSpecVersion: any };
 
   async function member(request: FastifyRequest, accountId: string) {
     const user = getUserContext(request);
@@ -214,6 +216,14 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
       if (!mock) throw new NotFoundError("Mock API not found");
       spec = specFromMock({ endpoints: (mock.endpoints ?? []) as MockApiDefinition["endpoints"], resources: (mock.resources ?? []) as MockApiDefinition["resources"] });
       specName = mock.name;
+    } else if (body.specId) {
+      const s = await db.apiSpec.findFirst({ where: { id: body.specId, accountId }, select: { id: true, name: true, draftText: true } });
+      if (!s) throw new NotFoundError("API spec not found");
+      const latest = await db.apiSpecVersion.findFirst({ where: { specId: s.id }, orderBy: { number: "desc" }, select: { doc: true } });
+      const doc = latest?.doc ?? parseSpecText(s.draftText).doc;
+      if (!doc) throw new ValidationError("The spec's draft doesn't parse and nothing is published yet");
+      spec = specFromOpenApi(doc);
+      specName = s.name;
     } else {
       let doc: unknown = body.document;
       if (typeof doc === "string") {

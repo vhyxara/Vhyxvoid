@@ -33,6 +33,7 @@ import { InboxService } from '@/services/Inbox.service';
 import { CustomDomainResolver } from '@/services/CustomDomainResolver.service';
 import { TrafficStatsService } from '@/services/TrafficStats.service';
 import { requestHostname, type TunnelRoute } from '@/handlers/HttpTunnel.handler';
+import { proxyDocsDomain } from '@/handlers/DocsDomain.handler';
 import { replayInspectedRequest } from '@/services/Replay.service';
 import type { InspectorRedisWriter } from '@vhyxvoid/shared';
 import { RedisResourceStore, type ResourceRedis } from '@vhyxvoid/shared';
@@ -246,6 +247,10 @@ export class HubServer {
         const host = requestHostname(req);
         if (this.customDomains.isCandidate(host)) {
           const found = await this.customDomains.resolve(host);
+          if (!found && process.env.DOCS_WEB_URL && (await this.customDomains.resolveDocs(host))) {
+            proxyDocsDomain(req, res, process.env.DOCS_WEB_URL, host);
+            return;
+          }
           if (!found) {
             const body = JSON.stringify({ error: `No tunnel is connected to ${host}.`, status: 404, tunnel: true });
             res.writeHead(404, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-vhyxvoid-error': 'UNKNOWN_DOMAIN' });

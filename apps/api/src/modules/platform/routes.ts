@@ -35,6 +35,8 @@ import { monitorRoutes } from "./perf/monitors.routes";
 import { runDueMonitors } from "./perf/monitors.worker";
 import { stopAllLoadTests } from "./perf/loadRunner";
 import { agentRoutes } from "./agents/agents.routes";
+import { specRoutes } from "./specs/specs.routes";
+import { publicSpecRoutes } from "./specs/specs.public.routes";
 import type { NotificationService } from "@/modules/notification/application/use-cases";
 
 export async function registerPlatformRoutes(server: FastifyInstance) {
@@ -69,12 +71,15 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   const prisma = prismaOf(server);
   const notifications = () => (server as unknown as { notificationService?: NotificationService }).notificationService;
   const alerts = new AlertService(prisma, notifications);
-  const domains = new DomainService(prisma, buildDnsResolver(), hub, alerts);
+  const dns = buildDnsResolver();
+  const domains = new DomainService(prisma, dns, hub, alerts);
   server.decorate("platformAlerts", alerts);
   await server.register(domainRoutes, { prefix: "/api/v1/domains", hub, domains });
   await server.register(publicDomainRoutes, { prefix: "/api/v1/public/domains" });
   await server.register(alertRoutes, { prefix: "/api/v1/alerts", alerts });
   await server.register(adminDomainRoutes, { prefix: "/api/v1/admin/domains", hub });
+  await server.register(specRoutes, { prefix: "/api/v1/specs", hub, dns });
+  await server.register(publicSpecRoutes, { prefix: "/api/v1/public/specs" });
 
   // Operators can run a job now instead of waiting for its interval.
   await server.register(async (app) => {

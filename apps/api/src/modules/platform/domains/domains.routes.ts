@@ -148,7 +148,8 @@ export async function domainRoutes(fastify: FastifyInstance, opts: { hub: HubCli
 /**
  * GET /api/v1/public/domains/allow?domain=  — the edge's on-demand TLS "ask"
  * endpoint (Caddy): 200 only for a verified domain of a usable account, so
- * certificates are never requested for hostnames nobody verified.
+ * certificates are never requested for hostnames nobody verified. Verified
+ * domains of shared API docs (platform/specs) count too.
  */
 export async function publicDomainRoutes(fastify: FastifyInstance) {
   const prisma = prismaOf(fastify);
@@ -161,7 +162,14 @@ export async function publicDomainRoutes(fastify: FastifyInstance) {
           select: { id: true },
         })
       : null;
-    if (!row) return reply.code(404).send({ allowed: false });
+    const docs =
+      !row && (await fastify.platformSettings.get("features.apiDocs"))
+        ? await (prisma as unknown as { apiSpec: any }).apiSpec.findFirst({
+            where: { customDomain: domain.toLowerCase().replace(/\.$/, ""), customDomainVerifiedAt: { not: null }, visibility: { not: "PRIVATE" }, account: { status: { notIn: ["DELETED", "SUSPENDED"] } } },
+            select: { id: true },
+          })
+        : null;
+    if (!row && !docs) return reply.code(404).send({ allowed: false });
     return reply.send({ allowed: true });
   });
 }

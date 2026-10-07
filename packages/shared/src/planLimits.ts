@@ -53,6 +53,9 @@ export interface PlanLimits {
   loadTestsPerDay: number; // load tests started per account per day (UTC)
   maxMonitors: number; // scheduled collection monitors per account (0 = none)
   minMonitorIntervalMinutes: number; // shortest monitor interval
+  maxApiSpecs: number; // API documentation specs per account (0 = none)
+  protectedDocs: boolean; // docs can be shared behind a password
+  docsCustomDomains: boolean; // docs can be served on the customer's own hostname
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -91,6 +94,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     loadTestsPerDay: 5,
     maxMonitors: 1,
     minMonitorIntervalMinutes: 15,
+    maxApiSpecs: 3,
+    protectedDocs: false,
+    docsCustomDomains: false,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -128,6 +134,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     loadTestsPerDay: 100,
     maxMonitors: 20,
     minMonitorIntervalMinutes: 1,
+    maxApiSpecs: 50,
+    protectedDocs: true,
+    docsCustomDomains: true,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -163,6 +172,9 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     loadTestsPerDay: 1000,
     maxMonitors: 200,
     minMonitorIntervalMinutes: 1,
+    maxApiSpecs: 500,
+    protectedDocs: true,
+    docsCustomDomains: true,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

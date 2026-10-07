@@ -40,6 +40,54 @@ describe("CustomDomainResolver", () => {
     await r.resolve("a.b.dev");
     expect(failing.customDomain.findFirst).toHaveBeenCalledTimes(2); // failures are not cached
   });
+
+  it("finds shared API docs domains, cached and dropped with the same invalidation", async () => {
+    const p = { customDomain: { findFirst: vi.fn(async () => null) }, apiSpec: { findFirst: vi.fn(async () => ({ id: "s", account: { status: "ACTIVE" } })) } };
+    const r = new CustomDomainResolver(p, "vhyxvoid.com");
+    expect(await r.resolveDocs("docs.acme.dev")).toBe(true);
+    expect(p.apiSpec.findFirst.mock.calls[0][0].where).toMatchObject({ customDomain: "docs.acme.dev", customDomainVerifiedAt: { not: null }, visibility: { not: "PRIVATE" } });
+    await r.resolveDocs("docs.acme.dev");
+    expect(p.apiSpec.findFirst).toHaveBeenCalledTimes(1);
+    r.invalidate("docs.acme.dev");
+    await r.resolveDocs("docs.acme.dev");
+    expect(p.apiSpec.findFirst).toHaveBeenCalledTimes(2);
+    const suspended = { apiSpec: { findFirst: vi.fn(async () => ({ id: "s", account: { status: "SUSPENDED" } })) } };
+    expect(await new CustomDomainResolver(suspended, "v.com").resolveDocs("d.b.dev")).toBe(false);
+  });
+});
+
+describe("docs domain proxy", () => {
+  it("forwards to the web app with the docs host, without cookies either way", async () => {
+    const { proxyDocsDomain, DOCS_HOST_HEADER } = await import("../../apps/hub/src/handlers/DocsDomain.handler");
+    const http = await import("node:http");
+    const seen: Array<Record<string, unknown>> = [];
+    const web = http.createServer((req, res) => {
+      seen.push({ url: req.url, ...req.headers });
+      res.writeHead(200, { "content-type": "text/html", "set-cookie": "s=1" });
+      res.end("<html>docs</html>");
+    });
+    await new Promise<void>((r) => web.listen(0, "127.0.0.1", r));
+    const hub = http.createServer((req, res) => proxyDocsDomain(req, res, `http://127.0.0.1:${(web.address() as { port: number }).port}`, "docs.acme.dev"));
+    await new Promise<void>((r) => hub.listen(0, "127.0.0.1", r));
+    try {
+      const res = await new Promise<{ status: number; headers: Record<string, unknown>; body: string }>((resolve, reject) => {
+        const req = http.request({ host: "127.0.0.1", port: (hub.address() as { port: number }).port, path: "/?version=2", headers: { host: "docs.acme.dev", cookie: "secret=1", [DOCS_HOST_HEADER]: "evil.dev" } }, (r) => {
+          let b = "";
+          r.on("data", (c) => (b += c));
+          r.on("end", () => resolve({ status: r.statusCode ?? 0, headers: r.headers, body: b }));
+        });
+        req.on("error", reject);
+        req.end();
+      });
+      expect(res).toMatchObject({ status: 200, body: "<html>docs</html>" });
+      expect(res.headers["set-cookie"]).toBeUndefined();
+      expect(seen[0]).toMatchObject({ url: "/?version=2", [DOCS_HOST_HEADER]: "docs.acme.dev", "x-forwarded-host": "docs.acme.dev" });
+      expect(seen[0].cookie).toBeUndefined();
+    } finally {
+      hub.close();
+      web.close();
+    }
+  });
 });
 
 describe("TrafficStatsService", () => {

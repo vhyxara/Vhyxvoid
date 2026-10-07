@@ -271,6 +271,7 @@ model Account {
   apiTestRuns        ApiTestRun[]
   loadTests          LoadTest[]
   apiMonitors        ApiMonitor[]
+  apiSpecs           ApiSpec[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1547,4 +1548,69 @@ model ApiMonitorResult {
   @@index([monitorId, at])
   @@index([at])
   @@map("api_monitor_results")
+}
+
+enum ApiSpecVisibility {
+  PRIVATE
+  PUBLIC
+  PASSWORD
+}
+
+/// API documentation (internal-tools/shared/api-platform-plan.md, phase 5;
+/// packages/shared/src/apiSpec.ts). The draft is the text being edited; a
+/// publish freezes it as an ApiSpecVersion, which is what readers see.
+model ApiSpec {
+  id                     String            @id @default(uuid())
+  accountId              String
+  name                   String
+  /// Public URL: /api-docs/<workspace slug>/<slug>
+  slug                   String
+  description            String            @default("")
+  draftText              String
+  /// yaml | json — how the draft is written back after a form edit.
+  draftFormat            String            @default("yaml")
+  /// Bumped on every save; a stale save is refused (409).
+  version                Int               @default(1)
+  visibility             ApiSpecVisibility @default(PRIVATE)
+  /// HMAC of the docs password (like tunnel passwords); set when PASSWORD.
+  passwordHash           String?
+  customDomain           String?           @unique
+  customDomainToken      String?
+  customDomainVerifiedAt DateTime?
+  /// Mock API that "Try it" sends to on the public page (null = no try-it there).
+  tryMockId              String?
+  createdById            String?
+  updatedById            String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  account  Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  versions ApiSpecVersion[]
+
+  @@unique([accountId, slug])
+  @@map("api_specs")
+}
+
+/// A published version: the text and parsed document, and what changed since the previous one.
+model ApiSpecVersion {
+  id            String   @id @default(uuid())
+  specId        String
+  accountId     String
+  /// 1, 2, 3… per spec
+  number        Int
+  /// info.version of the document
+  version       String
+  text          String
+  doc           Json
+  /// SpecChange[] against the previous published version
+  changes       Json     @default("[]")
+  breaking      Int      @default(0)
+  notes         String   @default("")
+  publishedById String?
+  createdAt     DateTime @default(now())
+
+  spec ApiSpec @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([specId, number])
+  @@map("api_spec_versions")
 }

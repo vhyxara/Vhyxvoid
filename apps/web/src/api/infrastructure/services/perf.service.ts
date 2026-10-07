@@ -183,7 +183,7 @@ export const analyticsService = {
     httpClient<AnalyticsOverview>({ url: `/analytics/${a(accountId)}`, method: 'GET', params: { window, label } }),
   endpoint: (accountId: string, q: { window: AnalyticsWindow; label: string; method: string; route: string }) =>
     httpClient<EndpointDetail>({ url: `/analytics/${a(accountId)}/endpoint`, method: 'GET', params: q }),
-  drift: (accountId: string, data: { window: AnalyticsWindow; label?: string; mockId?: string; document?: string }) =>
+  drift: (accountId: string, data: { window: AnalyticsWindow; label?: string; mockId?: string; specId?: string; document?: string }) =>
     httpClient<DriftReport>({ url: `/analytics/${a(accountId)}/drift`, method: 'POST', data })
 }
 
