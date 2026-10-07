@@ -115,9 +115,10 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     await t.notify(accountId, actorId, added, { type: "TEAM_MENTION", title: `${names[actorId]} mentioned you in #${i.number}`, body: plainText(i.title, names), path: `/organizations/${accountId}/team/issues/${i.number}`, metadata: { issueNumber: i.number } });
   }
 
-  fastify.get("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
+  const issuesQuery = z.object({ q: z.string().max(500).default(""), sort: z.enum(["rank", "updated", "created", "priority", "due", "number"]).default("updated") });
+  fastify.get("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", apiDoc: { summary: "List issues", description: "q uses the filter syntax of the dashboard, for example: status:todo assignee:me label:bug.", query: issuesQuery } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const qs = z.object({ q: z.string().max(500).default(""), sort: z.enum(["rank", "updated", "created", "priority", "due", "number"]).default("updated") }).parse(request.query ?? {});
+    const qs = issuesQuery.parse(request.query ?? {});
     const m = await t.member(request, accountId);
     const q = parseIssueQuery(qs.q);
     const today = new Date(new Date().toISOString().slice(0, 10));
@@ -159,11 +160,10 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const createIssueBody = z.object({ title: fields.title, body: fields.body.default(""), status: fields.status.default("TODO"), priority: fields.priority.default("NONE"), assigneeId: fields.assigneeId.default(null), labels: fields.labels.default([]), dueDate: fields.dueDate.default(null), links: fields.links.default([]) });
+  fastify.post("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", apiDoc: { summary: "Open an issue", description: "Opened by the key's creator. links attach dashboard objects (mock endpoints, requests, runs, docs).", body: createIssueBody, status: 201 }, rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const b = z
-      .object({ title: fields.title, body: fields.body.default(""), status: fields.status.default("TODO"), priority: fields.priority.default("NONE"), assigneeId: fields.assigneeId.default(null), labels: fields.labels.default([]), dueDate: fields.dueDate.default(null), links: fields.links.default([]) })
-      .parse(request.body ?? {});
+    const b = createIssueBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     const lim = await t.writable(accountId);
     const count = await db.teamIssue.count({ where: { accountId } });
@@ -203,7 +203,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     return successResponse(reply, `Created #${issue.number}`, 201, view(issue, await t.names(issue.assigneeId ? [issue.assigneeId] : [])));
   });
 
-  fastify.get("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", apiDoc: { summary: "Get an issue", description: "With its links and activity." } } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
     const m = await t.member(request, accountId);
     const i = await find(accountId, n);
@@ -228,9 +228,10 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.patch("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const updateIssueBody = z.object({ title: fields.title.optional(), body: fields.body.optional(), status: fields.status.optional(), priority: fields.priority.optional(), assigneeId: fields.assigneeId.optional(), labels: fields.labels.optional(), dueDate: fields.dueDate.optional(), links: fields.links.optional() });
+  fastify.patch("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", apiDoc: { summary: "Update an issue", description: "Any of title, body, status, priority, assignee, labels, due date and links.", body: updateIssueBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
-    const b = z.object({ title: fields.title.optional(), body: fields.body.optional(), status: fields.status.optional(), priority: fields.priority.optional(), assigneeId: fields.assigneeId.optional(), labels: fields.labels.optional(), dueDate: fields.dueDate.optional(), links: fields.links.optional() }).parse(request.body ?? {});
+    const b = updateIssueBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     await t.writable(accountId);
     const before = await find(accountId, n);
@@ -272,9 +273,10 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Saved", 200, view(issue, await t.names(issue.assigneeId ? [issue.assigneeId] : [])));
   });
 
-  fastify.post("/:accountId/issues/:n/move", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const moveIssueBody = z.object({ status: fields.status, before: z.number().int().min(1).nullable().optional(), after: z.number().int().min(1).nullable().optional() });
+  fastify.post("/:accountId/issues/:n/move", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", apiDoc: { summary: "Move an issue on the board", description: "To a status column, between two issues (their numbers).", body: moveIssueBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
-    const b = z.object({ status: fields.status, before: z.number().int().min(1).nullable().optional(), after: z.number().int().min(1).nullable().optional() }).parse(request.body ?? {});
+    const b = moveIssueBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     await t.writable(accountId);
     const issue = await find(accountId, n);

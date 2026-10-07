@@ -148,14 +148,14 @@ export async function aiRoutes(fastify: FastifyInstance, opts: { model?: AiModel
     return id;
   }
 
-  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use" } }, async (request, reply) => {
+  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", apiDoc: { summary: "AI assist status", description: "Whether AI assist is available, the model, and drafts used and allowed this month." } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     await member(request, accountId);
     const s = await status(accountId);
     return successResponse(reply, "Success", 200, { ...s, available: s.enabled && s.configured && s.limit !== 0 });
   });
 
-  fastify.get("/:accountId/drafts/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use" } }, async (request, reply) => {
+  fastify.get("/:accountId/drafts/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", apiDoc: { summary: "A draft's status and result", description: "status is running, done (with result) or failed (with error.message and error.statusCode). Readable for 15 minutes by the member who started it." } } }, async (request, reply) => {
     const { accountId, id } = params.extend({ id: z.string().uuid() }).parse(request.params);
     const userId = await member(request, accountId);
     const raw = await redis.get(draftKey(accountId, id));
@@ -164,7 +164,7 @@ export async function aiRoutes(fastify: FastifyInstance, opts: { model?: AiModel
     return successResponse(reply, "Success", 200, { id, kind: v.kind, status: v.status, ...(v.result ? { result: v.result } : {}), ...(v.error ? { error: v.error } : {}) });
   });
 
-  fastify.post("/:accountId/mock", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/mock", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", apiDoc: { summary: "Start a mock API draft", description: "From a description, traffic captured on a tunnel (trafficLabel), or both; mockId leaves out routes the mock already has. Answers 202 with an id; poll GET /ai/{accountId}/drafts/{id}. result: summary, endpoints, warnings, usage.", body: mockBody, status: 202 }, rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const b = mockBody.parse(request.body ?? {});
     if (!b.description && !b.trafficLabel) throw new ValidationError("Describe the API, or pick a tunnel whose captured traffic to learn from");
@@ -191,7 +191,7 @@ export async function aiRoutes(fastify: FastifyInstance, opts: { model?: AiModel
     return successResponse(reply, "Drafting", 202, { id, status: "running" });
   });
 
-  fastify.post("/:accountId/tests", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/tests", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "ai:use", apiDoc: { summary: "Start a test collection draft", description: "From a description, API docs (specId), captured traffic (trafficLabel), or a combination. Answers 202 with an id; poll GET /ai/{accountId}/drafts/{id}. result: summary, collection, warnings, usage.", body: testsBody, status: 202 }, rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const b = testsBody.parse(request.body ?? {});
     if (!b.description && !b.trafficLabel && !b.specId) throw new ValidationError("Describe what to test, or pick API docs or a tunnel to learn from");

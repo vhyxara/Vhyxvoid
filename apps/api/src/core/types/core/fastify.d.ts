@@ -160,6 +160,8 @@ declare module "fastify" {
   interface FastifyContextConfig {
     /** This route also accepts an API key with this scope (platform API, platform/shared/apiKeyAuth.ts). */
     apiKeyScope?: string;
+    /** For the platform API's OpenAPI document (platform/shared/platformOpenApi.ts). */
+    apiDoc?: import("@/modules/platform/shared/platformOpenApi").ApiDoc;
   }
 
   interface FastifyRequest {

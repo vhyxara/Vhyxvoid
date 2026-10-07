@@ -50,9 +50,10 @@ export async function teamCommentRoutes(fastify: FastifyInstance) {
     createdAt: c.createdAt,
   });
 
-  fastify.get("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
+  const commentsQuery = z.object({ target });
+  fastify.get("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", apiDoc: { summary: "List comments", description: "On a document (target doc:<id>) or an issue (target issue:<number>).", query: commentsQuery } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const q = z.object({ target }).parse(request.query ?? {});
+    const q = commentsQuery.parse(request.query ?? {});
     await t.member(request, accountId);
     const tg = await resolveTarget(accountId, q.target);
     const rows = (await db.teamComment.findMany({ where: { accountId, targetKind: tg.kind, targetId: tg.id }, orderBy: { createdAt: "asc" }, take: 500 })) as Comment[];
@@ -60,9 +61,10 @@ export async function teamCommentRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { comments: rows.map((r) => view(r, names)) });
   });
 
-  fastify.post("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const commentBody = z.object({ target, body: z.string().trim().min(1).max(TEAM_BOUNDS.commentLength), anchor: z.string().max(120).nullable().optional() });
+  fastify.post("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", apiDoc: { summary: "Comment", description: "On a document (anchor: a heading id) or an issue. Notifies mentions, and the document's author or the issue's assignee and creator.", body: commentBody, status: 201 }, rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const b = z.object({ target, body: z.string().trim().min(1).max(TEAM_BOUNDS.commentLength), anchor: z.string().max(120).nullable().optional() }).parse(request.body ?? {});
+    const b = commentBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     await t.writable(accountId);
     const tg = await resolveTarget(accountId, b.target);

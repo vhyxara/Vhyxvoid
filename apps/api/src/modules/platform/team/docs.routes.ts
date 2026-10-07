@@ -70,7 +70,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     await t.notify(accountId, userId, added, { type: "TEAM_MENTION", title: `${names[userId]} mentioned you in “${doc.title}”`, body: plainText(line, names), path: `/organizations/${accountId}/team/docs/${doc.id}`, metadata: { docId: doc.id } });
   }
 
-  fastify.get("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", apiDoc: { summary: "List documents and folders" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await t.member(request, accountId);
     const [folders, docs, lim] = await Promise.all([
@@ -132,9 +132,10 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Folder removed; its contents moved up", 200, { id: fid });
   });
 
-  fastify.post("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const createDocBody = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle), folderId: z.string().uuid().nullable().optional(), body: z.string().max(TEAM_BOUNDS.docBody).default("") });
+  fastify.post("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", apiDoc: { summary: "Create a document", description: "Markdown, optionally in a folder.", body: createDocBody, status: 201 }, rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const b = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle), folderId: z.string().uuid().nullable().optional(), body: z.string().max(TEAM_BOUNDS.docBody).default("") }).parse(request.body ?? {});
+    const b = createDocBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     const lim = await t.writable(accountId);
     const count = await db.teamDoc.count({ where: { accountId } });
@@ -147,7 +148,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Document created", 201, { id: d.id, title: d.title, version: d.version });
   });
 
-  fastify.get("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", apiDoc: { summary: "Get a document", description: "Its markdown, outline and version." } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const m = await t.member(request, accountId);
     const d = await find(accountId, id);
@@ -172,9 +173,10 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.put("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 2 * 1024 * 1024, config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  const saveDocBody = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle).optional(), body: z.string().max(TEAM_BOUNDS.docBody).optional(), folderId: z.string().uuid().nullable().optional(), expectedVersion: z.number().int().min(1).optional() });
+  fastify.put("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 2 * 1024 * 1024, config: { apiKeyScope: "team:write", apiDoc: { summary: "Save a document", description: "Pass expectedVersion to refuse a save over a newer one (409). Edits by the same person within minutes join one history version.", body: saveDocBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
-    const b = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle).optional(), body: z.string().max(TEAM_BOUNDS.docBody).optional(), folderId: z.string().uuid().nullable().optional(), expectedVersion: z.number().int().min(1).optional() }).parse(request.body ?? {});
+    const b = saveDocBody.parse(request.body ?? {});
     const m = await t.member(request, accountId);
     await t.writable(accountId);
     const before = await find(accountId, id);

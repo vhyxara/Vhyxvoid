@@ -39,6 +39,7 @@ import { specRoutes } from "./specs/specs.routes";
 import { publicSpecRoutes } from "./specs/specs.public.routes";
 import { teamChatRoutes } from "./team/chat.routes";
 import { platformApiRoutes } from "./shared/platformApi.routes";
+import { platformRouteCollector } from "./shared/platformOpenApi";
 import { aiRoutes } from "./ai/ai.routes";
 import { teamDocRoutes } from "./team/docs.routes";
 import { teamIssueRoutes } from "./team/issues.routes";
@@ -53,6 +54,9 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   const hub = new HubClient();
   // Team activity rows for the feature routes below (shared/activity.ts).
   recordActivity(server, prismaOf(server));
+  // Collects the routes that take API keys, for the platform API's OpenAPI document.
+  const platformRoutes = platformRouteCollector();
+  server.addHook("onRoute", platformRoutes.onRoute);
   await server.register(adminSystemRoutes, { prefix: "/api/v1/admin", hub });
   await server.register(adminAccountRoutes, { prefix: "/api/v1/admin/accounts", hub });
   await server.register(adminUserRoutes, { prefix: "/api/v1/admin/users" });
@@ -91,7 +95,7 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(specRoutes, { prefix: "/api/v1/specs", hub, dns });
   await server.register(publicSpecRoutes, { prefix: "/api/v1/public/specs" });
   await server.register(teamChatRoutes, { prefix: "/api/v1/team" });
-  await server.register(platformApiRoutes, { prefix: "/api/v1/platform" });
+  await server.register(platformApiRoutes, { prefix: "/api/v1/platform", openApiRoutes: platformRoutes.routes });
   await server.register(aiRoutes, { prefix: "/api/v1/ai" });
   await server.register(teamDocRoutes, { prefix: "/api/v1/team" });
   await server.register(teamIssueRoutes, { prefix: "/api/v1/team" });

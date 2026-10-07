@@ -78,6 +78,12 @@ const sharingBody = z.object({
   tryMockId: z.string().uuid().nullable().optional(),
 });
 const ref = z.union([z.literal("draft"), z.literal("latest"), z.string().uuid()]);
+const validateBody = z.object({ text: z.string().max(5_000_000) });
+/** No text: the saved draft. */
+const previewBody = z.object({ text: z.string().max(5_000_000).optional() });
+const publishBody = z.object({ notes: z.string().trim().max(2000).default("") });
+const diffQuery = z.object({ from: ref, to: ref.default("draft") });
+const exportQuery = z.object({ format: z.enum(["yaml", "json"]).default("yaml"), version: ref.default("draft") });
 
 type Row = {
   id: string;
@@ -173,7 +179,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return { label: `v${v.number}`, doc: v.doc, text: v.text, format: v.text.trimStart().startsWith("{") ? "json" : "yaml" };
   }
 
-  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "List API specs", description: "Each spec with its slug, draft version, latest published version and sharing." } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await member(request, accountId);
     const [rows, lim] = await Promise.all([db.apiSpec.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }) as Promise<Row[]>, limits(accountId)]);
@@ -187,7 +193,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", apiDoc: { summary: "Create an API spec", description: "From a starter, a document (OpenAPI 3.x or Swagger 2, text or object), or a mock API (mockId).", body: createBody, status: 201 }, rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -234,15 +240,15 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "API spec created", 201, summary(row, null, m.workspace));
   });
 
-  fastify.post("/:accountId/validate", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/validate", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", apiDoc: { summary: "Validate a document", description: "Problems (with their location and severity) and the docs model of an OpenAPI document. Nothing is saved.", body: validateBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
-    const { text } = z.object({ text: z.string().max(5_000_000) }).parse(request.body ?? {});
+    const { text } = validateBody.parse(request.body ?? {});
     await member(request, accountId);
     const p = parseSpecText(text);
     return successResponse(reply, "Success", 200, { problems: p.problems, converted: p.converted, format: p.format, model: p.doc ? specModel(p.doc) : null });
   });
 
-  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "Get an API spec", description: "The draft text, its problems, the latest published version and sharing." } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const m = await member(request, accountId);
     const [r, lim] = await Promise.all([find(accountId, id), limits(accountId)]);
@@ -260,7 +266,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", apiDoc: { summary: "Save the draft", description: "text (YAML or JSON) or doc (an object), plus name, slug or description. A draft with errors is kept. Pass expectedVersion to refuse a save over a newer one (409).", body: saveBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -294,9 +300,9 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Saved", 200, { ...summary(r, await latestOf(r.id), m.workspace), draftText: r.draftText, draftFormat: r.draftFormat, problems: p.problems });
   });
 
-  fastify.post("/:accountId/:id/preview", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/preview", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", apiDoc: { summary: "Check a document against the latest version", description: "Problems and the changes for clients (breaking, warning, info) against the latest published version, for the given text or the saved draft. Nothing is saved. What vhyxvoid spec check calls.", body: previewBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
-    const { text } = z.object({ text: z.string().max(5_000_000).optional() }).parse(request.body ?? {});
+    const { text } = previewBody.parse(request.body ?? {});
     await member(request, accountId);
     const r = await find(accountId, id);
     const p = parseSpecText(text ?? r.draftText);
@@ -305,9 +311,9 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { problems: p.problems, converted: p.converted, doc: p.doc, model: p.doc ? specModel(p.doc) : null, against: versionSummary(latest), changes, counts: changeCounts(changes) });
   });
 
-  fastify.post("/:accountId/:id/publish", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:write", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/publish", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:write", apiDoc: { summary: "Publish the draft", description: "Freezes the draft as the next version with its change report. Refused with errors in the document; 409 when nothing changed since the latest version.", body: publishBody, status: 201 }, rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
-    const { notes } = z.object({ notes: z.string().trim().max(2000).default("") }).parse(request.body ?? {});
+    const { notes } = publishBody.parse(request.body ?? {});
     const m = await member(request, accountId);
     await usable(accountId);
     const r = await find(accountId, id);
@@ -334,7 +340,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     }
   });
 
-  fastify.get("/:accountId/:id/versions", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/:id/versions", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "List published versions" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     await member(request, accountId);
     await find(accountId, id);
@@ -342,7 +348,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { versions: rows.map((v) => ({ ...versionSummary(v), counts: changeCounts(Array.isArray(v.changes) ? (v.changes as never) : []) })) });
   });
 
-  fastify.get("/:accountId/:id/versions/:vid", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/:id/versions/:vid", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "Get a published version", description: "Its text and its changes against the version before." } } }, async (request, reply) => {
     const { accountId, id, vid } = verParams.parse(request.params);
     await member(request, accountId);
     await find(accountId, id);
@@ -362,9 +368,9 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, `Version ${v.number} copied into the draft`, 200, { id, number: v.number });
   });
 
-  fastify.get("/:accountId/:id/diff", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/:id/diff", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "Compare two versions", description: "from and to are a version id, latest or draft.", query: diffQuery } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
-    const q = z.object({ from: ref, to: ref.default("draft") }).parse(request.query ?? {});
+    const q = diffQuery.parse(request.query ?? {});
     await member(request, accountId);
     const r = await find(accountId, id);
     const [a, b] = await Promise.all([resolveRef(r, q.from), resolveRef(r, q.to)]);
@@ -373,9 +379,9 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { from: a.label, to: b.label, changes, counts: changeCounts(changes) });
   });
 
-  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
+  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read", apiDoc: { summary: "Export a spec", description: "The draft, the latest version or a given version, as YAML or JSON.", query: exportQuery, file: "The OpenAPI document." } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
-    const q = z.object({ format: z.enum(["yaml", "json"]).default("yaml"), version: ref.default("draft") }).parse(request.query ?? {});
+    const q = exportQuery.parse(request.query ?? {});
     await member(request, accountId);
     const r = await find(accountId, id);
     const x = await resolveRef(r, q.version);
