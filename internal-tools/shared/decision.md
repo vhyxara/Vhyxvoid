@@ -1011,3 +1011,11 @@ Follow-up to phase 7, decision 5. `POST /api-client/:acc/collections/:id/run` (u
 
 **Status:** active.
 
+### 2026-10-07 — The platform API's OpenAPI document is generated from the routes (session upbeat-cannon)
+
+1. **Generated, not written.** Every route with `config.apiKeyScope` also carries `config.apiDoc` (summary, description, the zod schemas its handler parses the body and query with, success status). An onRoute hook collects them as routes register; `buildPlatformOpenApi` turns them into OpenAPI 3.1 (zod 4 `toJSONSchema`, input side). So the document lists exactly what accepts a key, and request schemas are the validation schemas themselves. Inline handler schemas were moved into named constants (in scope, just before their route) to make this possible.
+2. **Response bodies are not schema'd.** Handlers build responses ad hoc; describing them would mean typing every response. Each operation's description says what comes back; the envelope, errors and rate-limit headers are in components.
+3. **Served publicly** at `GET /api/v1/platform/openapi.json` (no key, cached, 5-minute cache-control); server URL `https://api.<HUB_DOMAIN>`. A copy lives in `apps/docs/public/platform-api.openapi.json`; tests/e2e/platformOpenApi.test.ts fails when it is outdated (`UPDATE_PLATFORM_OPENAPI=1` refreshes it), when a key route has no summary, or when our own validator (validateSpec) finds an error. Also checked once with Redocly lint: valid.
+
+**Status:** active.
+

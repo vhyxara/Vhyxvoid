@@ -3,12 +3,13 @@ title: Platform API
 description: Use mocks, API docs, collections, the team space and AI assist from scripts and CI with an API key.
 verified:
   date: "2026-10-07"
-  commit: "b0ae506"
+  commit: "762aa8a"
   packages: {}
 sources:
   - apps/api/src/modules/platform/shared/apiKeyAuth.ts
   - apps/api/src/modules/identity/presentation/plugins/guards/userAuthGuard.ts
   - apps/api/src/modules/platform/shared/platformApi.routes.ts
+  - apps/api/src/modules/platform/shared/platformOpenApi.ts
   - packages/shared/src/planLimits.ts
   - apps/api/src/core/constant/apikey.constant.ts
   - apps/api/src/modules/platform/apiclient/apiClient.routes.ts
@@ -69,6 +70,31 @@ These stay **dashboard only**: managing members, keys, billing and settings, sha
 | `429` | The key's requests-per-minute limit, or the per-address limit, was reached. Retry after the `Retry-After` header (see [Rate limits](#rate-limits)). |
 
 Responses use the same `{ success, message, data }` envelope as the dashboard; errors add a `code` and a `requestId`. Each successful call updates the key's **Last used** time (at most once a minute).
+
+## OpenAPI document
+
+The platform API is described by an OpenAPI 3.1 document:
+
+- **Live:** `https://api.vhyxvoid.com/api/v1/platform/openapi.json`. Fetching it needs no key.
+- **In these docs:** [platform-api.openapi.json](https://www.vhyxvoid.com/docs/platform-api.openapi.json), the same document for this version of the docs.
+
+It is generated from the routes the API serves, so it lists exactly the routes that accept a key. For each one it gives:
+- the scope it needs (also as `x-required-scope`);
+- the path and query parameters;
+- the JSON schema of the request body, the same schema the API validates with;
+- the success status, and the error and rate-limit responses.
+
+Response bodies are described in each operation's description rather than as schemas.
+
+Use it to:
+- generate a client in your language;
+- import it into Postman or Insomnia;
+- import it into the [API client](/dashboard/api-client) as a collection of requests, or into a [mock API](/dashboard/mock-apis) to test against.
+
+```sh
+curl -s https://api.vhyxvoid.com/api/v1/platform/openapi.json -o vhyxvoid-platform.json
+npx @openapitools/openapi-generator-cli generate -i vhyxvoid-platform.json -g typescript-fetch -o ./vhyxvoid-client
+```
 
 ## Rate limits
 
