@@ -5,6 +5,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { UnauthorizedError } from "@/core/errors/error.format";
 import { RS256JwtService } from "@/modules/identity/infrastructure/crypto/JwtService";
 import { JwtPayload } from "@/core/types/core/jwt";
+import { API_KEY_TOKEN_RE, routeAccountId, routeApiKeyScope, verifyApiKey } from "@/modules/platform/shared/apiKeyAuth";
 // import { UnauthorizedError } from '../../domain/errors';
 
 /**
@@ -112,6 +113,18 @@ export default fp(async (fastify: FastifyInstance) => {
 
     if (!token?.trim()) {
       throw new UnauthorizedError("Missing token in authorization header");
+    }
+
+    // An API key (keyId.secret) on a route that accepts one (phase 7 platform API).
+    if (API_KEY_TOKEN_RE.test(token)) {
+      const scope = routeApiKeyScope(request);
+      if (!scope) throw new UnauthorizedError("This endpoint needs a dashboard sign-in, not an API key");
+      const pepper = process.env.SERVER_HMAC_PEPPER;
+      if (!pepper) throw new UnauthorizedError("API keys are not configured on this server");
+      const who = await verifyApiKey((fastify as unknown as { prisma: unknown }).prisma, pepper, token, scope, routeAccountId(request));
+      request.user = { sub: who.userId, userId: who.userId, email: who.email, tokenVersion: -1, roles: [], abilities: [] };
+      request.apiKey = who.key;
+      return;
     }
 
     let payload: JwtPayload;

@@ -173,7 +173,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return { label: `v${v.number}`, doc: v.doc, text: v.text, format: v.text.trimStart().startsWith("{") ? "json" : "yaml" };
   }
 
-  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await member(request, accountId);
     const [rows, lim] = await Promise.all([db.apiSpec.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }) as Promise<Row[]>, limits(accountId)]);
@@ -187,7 +187,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -234,7 +234,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "API spec created", 201, summary(row, null, m.workspace));
   });
 
-  fastify.post("/:accountId/validate", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/validate", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const { text } = z.object({ text: z.string().max(5_000_000) }).parse(request.body ?? {});
     await member(request, accountId);
@@ -242,7 +242,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { problems: p.problems, converted: p.converted, format: p.format, model: p.doc ? specModel(p.doc) : null });
   });
 
-  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const m = await member(request, accountId);
     const [r, lim] = await Promise.all([find(accountId, id), limits(accountId)]);
@@ -260,7 +260,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -294,7 +294,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Saved", 200, { ...summary(r, await latestOf(r.id), m.workspace), draftText: r.draftText, draftFormat: r.draftFormat, problems: p.problems });
   });
 
-  fastify.post("/:accountId/:id/preview", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/preview", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const { text } = z.object({ text: z.string().max(5_000_000).optional() }).parse(request.body ?? {});
     await member(request, accountId);
@@ -305,7 +305,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { problems: p.problems, converted: p.converted, doc: p.doc, model: p.doc ? specModel(p.doc) : null, against: versionSummary(latest), changes, counts: changeCounts(changes) });
   });
 
-  fastify.post("/:accountId/:id/publish", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/publish", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:write", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const { notes } = z.object({ notes: z.string().trim().max(2000).default("") }).parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -334,7 +334,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     }
   });
 
-  fastify.get("/:accountId/:id/versions", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/versions", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     await member(request, accountId);
     await find(accountId, id);
@@ -342,7 +342,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { versions: rows.map((v) => ({ ...versionSummary(v), counts: changeCounts(Array.isArray(v.changes) ? (v.changes as never) : []) })) });
   });
 
-  fastify.get("/:accountId/:id/versions/:vid", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/versions/:vid", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId, id, vid } = verParams.parse(request.params);
     await member(request, accountId);
     await find(accountId, id);
@@ -362,7 +362,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, `Version ${v.number} copied into the draft`, 200, { id, number: v.number });
   });
 
-  fastify.get("/:accountId/:id/diff", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/diff", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const q = z.object({ from: ref, to: ref.default("draft") }).parse(request.query ?? {});
     await member(request, accountId);
@@ -373,7 +373,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { from: a.label, to: b.label, changes, counts: changeCounts(changes) });
   });
 
-  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "specs:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const q = z.object({ format: z.enum(["yaml", "json"]).default("yaml"), version: ref.default("draft") }).parse(request.query ?? {});
     await member(request, accountId);

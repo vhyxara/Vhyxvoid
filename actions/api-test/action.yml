@@ -1,0 +1,81 @@
+name: VhyxVoid API tests
+description: Run an API client collection and its checks in CI, either stored in your workspace (on the platform) or from a file in the repository (on the runner, so it can reach the app in this job). Writes a JUnit report.
+author: VhyxVoid
+branding:
+  icon: check-circle
+  color: purple
+
+inputs:
+  collection:
+    description: A collection stored in the workspace (name or id). Needs api-key and secret with the tests:run scope. Its requests are sent from VhyxVoid, so they reach public addresses only.
+    required: false
+    default: ""
+  file:
+    description: A collection file in the repository (VhyxVoid export, Postman collection or OpenAPI JSON). Runs on the runner, so localhost works. No API key needed.
+    required: false
+    default: ""
+  environment:
+    description: Environment name (stored collection), or a name in the file / an environment file.
+    required: false
+    default: ""
+  vars:
+    description: "File runs: variables, one NAME=value per line."
+    required: false
+    default: ""
+  api-key:
+    description: API key ID with the tests:run scope (stored collections). Store it as a secret.
+    required: false
+    default: ""
+  secret:
+    description: The API key's secret.
+    required: false
+    default: ""
+  junit:
+    description: Where to write the JUnit XML report.
+    required: false
+    default: vhyxvoid-junit.xml
+  api-url:
+    description: API origin.
+    required: false
+    default: https://api.vhyxvoid.com
+  agent-version:
+    description: "@vhyxvoid/agent version to run from npm. Ignored when agent-package is set."
+    required: false
+    default: latest
+  agent-package:
+    description: "Run this agent package instead (a .tgz path or URL, or a package directory)."
+    required: false
+    default: ""
+
+outputs:
+  junit:
+    description: Path of the JUnit report.
+    value: ${{ inputs.junit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run the API tests
+      shell: bash
+      env:
+        VHYXVOID_API_KEY: ${{ inputs.api-key }}
+        VHYXVOID_SECRET: ${{ inputs.secret }}
+        VHYXVOID_API_URL: ${{ inputs.api-url }}
+        INPUT_COLLECTION: ${{ inputs.collection }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_ENVIRONMENT: ${{ inputs.environment }}
+        INPUT_VARS: ${{ inputs.vars }}
+        INPUT_JUNIT: ${{ inputs.junit }}
+        INPUT_AGENT_VERSION: ${{ inputs.agent-version }}
+        INPUT_AGENT_PACKAGE: ${{ inputs.agent-package }}
+      run: |
+        set -uo pipefail
+        if [ -n "$INPUT_AGENT_PACKAGE" ]; then pkg="$INPUT_AGENT_PACKAGE"; case "$pkg" in /*|http*|@*) ;; *) [ -e "$pkg" ] && pkg="$PWD/$pkg" ;; esac; else pkg="@vhyxvoid/agent@${INPUT_AGENT_VERSION:-latest}"; fi
+        args=(test)
+        if [ -n "$INPUT_COLLECTION" ]; then args+=(--collection "$INPUT_COLLECTION");
+        elif [ -n "$INPUT_FILE" ]; then args+=("$INPUT_FILE");
+        else echo "::error::Set collection (stored in the workspace) or file (in the repository)."; exit 2; fi
+        [ -n "$INPUT_ENVIRONMENT" ] && args+=(--env "$INPUT_ENVIRONMENT")
+        while IFS= read -r v; do [ -n "$v" ] && args+=(--var "$v"); done <<< "$INPUT_VARS"
+        args+=(--junit "$INPUT_JUNIT")
+        npx -y --package="$pkg" vhyxvoid "${args[@]}"

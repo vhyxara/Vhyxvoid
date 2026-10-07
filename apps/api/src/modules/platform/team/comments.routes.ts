@@ -50,7 +50,7 @@ export async function teamCommentRoutes(fastify: FastifyInstance) {
     createdAt: c.createdAt,
   });
 
-  fastify.get("/:accountId/comments", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const q = z.object({ target }).parse(request.query ?? {});
     await t.member(request, accountId);
@@ -60,7 +60,7 @@ export async function teamCommentRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { comments: rows.map((r) => view(r, names)) });
   });
 
-  fastify.post("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/comments", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const b = z.object({ target, body: z.string().trim().min(1).max(TEAM_BOUNDS.commentLength), anchor: z.string().max(120).nullable().optional() }).parse(request.body ?? {});
     const m = await t.member(request, accountId);

@@ -1,0 +1,108 @@
+name: VhyxVoid API spec
+description: Check an OpenAPI file in the repository against its published API docs (breaking changes fail the check and are commented on the pull request), or push it as the next version.
+author: VhyxVoid
+branding:
+  icon: book-open
+  color: purple
+
+inputs:
+  api-key:
+    description: API key ID with the specs:read scope (specs:write to push). Store it as a secret.
+    required: true
+  secret:
+    description: The API key's secret. Store it as a secret.
+    required: true
+  file:
+    description: The OpenAPI 3 or Swagger 2 file (YAML or JSON).
+    required: true
+  spec:
+    description: The API docs to compare with or update (slug or id).
+    required: true
+  mode:
+    description: "check: report problems and changes (default). push: save the file as the draft and publish it (refused on errors, and on breaking changes unless allow-breaking)."
+    required: false
+    default: check
+  fail-on:
+    description: "check: breaking (default) | warning | none. Errors in the document always fail."
+    required: false
+    default: breaking
+  allow-breaking:
+    description: "push: publish even with breaking changes."
+    required: false
+    default: "false"
+  notes:
+    description: "push: release notes. Defaults to the commit message."
+    required: false
+    default: ""
+  comment:
+    description: "check on a pull request: post (and update) a comment with the result. Needs `pull-requests: write`."
+    required: false
+    default: "true"
+  github-token:
+    description: Token for the pull request comment.
+    required: false
+    default: ${{ github.token }}
+  api-url:
+    description: API origin.
+    required: false
+    default: https://api.vhyxvoid.com
+  agent-version:
+    description: "@vhyxvoid/agent version to run from npm. Ignored when agent-package is set."
+    required: false
+    default: latest
+  agent-package:
+    description: "Run this agent package instead (a .tgz path or URL, or a package directory)."
+    required: false
+    default: ""
+
+outputs:
+  breaking:
+    description: Number of breaking changes against the latest published version.
+    value: ${{ steps.run.outputs.breaking }}
+  result:
+    description: "passed | failed"
+    value: ${{ steps.run.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: ${{ inputs.mode == 'push' && 'Push the spec' || 'Check the spec' }}
+      id: run
+      shell: bash
+      env:
+        VHYXVOID_API_KEY: ${{ inputs.api-key }}
+        VHYXVOID_SECRET: ${{ inputs.secret }}
+        VHYXVOID_API_URL: ${{ inputs.api-url }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_SPEC: ${{ inputs.spec }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_ALLOW_BREAKING: ${{ inputs.allow-breaking }}
+        INPUT_NOTES: ${{ inputs.notes || github.event.head_commit.message }}
+        INPUT_AGENT_VERSION: ${{ inputs.agent-version }}
+        INPUT_AGENT_PACKAGE: ${{ inputs.agent-package }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"
+
+    - name: Comment on the pull request
+      if: always() && inputs.mode == 'check' && inputs.comment == 'true' && github.event.pull_request.number && steps.run.outputs.summary-file
+      uses: actions/github-script@v7
+      env:
+        SUMMARY_FILE: ${{ steps.run.outputs.summary-file }}
+        SPEC: ${{ inputs.spec }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs')
+          const marker = `<!-- vhyxvoid-spec:${process.env.SPEC} -->`
+          const body = `${marker}\n${fs.readFileSync(process.env.SUMMARY_FILE, 'utf8')}\n\n_Checked by [VhyxVoid](https://www.vhyxvoid.com) on commit \`${(context.payload.pull_request?.head?.sha ?? context.sha).slice(0, 7)}\`._`
+          const { owner, repo } = context.repo
+          const issue_number = context.payload.pull_request.number
+          const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 })
+          const mine = comments.find(c => c.body?.includes(marker))
+          if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body })
+          else await github.rest.issues.createComment({ owner, repo, issue_number, body })
+
+    - name: Result
+      if: always()
+      shell: bash
+      run: exit ${{ steps.run.outputs.exit-code || 1 }}

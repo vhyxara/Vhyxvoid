@@ -70,7 +70,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     await t.notify(accountId, userId, added, { type: "TEAM_MENTION", title: `${names[userId]} mentioned you in “${doc.title}”`, body: plainText(line, names), path: `/organizations/${accountId}/team/docs/${doc.id}`, metadata: { docId: doc.id } });
   }
 
-  fastify.get("/:accountId/docs", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await t.member(request, accountId);
     const [folders, docs, lim] = await Promise.all([
@@ -132,7 +132,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Folder removed; its contents moved up", 200, { id: fid });
   });
 
-  fastify.post("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/docs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const b = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle), folderId: z.string().uuid().nullable().optional(), body: z.string().max(TEAM_BOUNDS.docBody).default("") }).parse(request.body ?? {});
     const m = await t.member(request, accountId);
@@ -147,7 +147,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Document created", 201, { id: d.id, title: d.title, version: d.version });
   });
 
-  fastify.get("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const m = await t.member(request, accountId);
     const d = await find(accountId, id);
@@ -172,7 +172,7 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.put("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 2 * 1024 * 1024, config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/docs/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 2 * 1024 * 1024, config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const b = z.object({ title: z.string().trim().min(1).max(TEAM_BOUNDS.docTitle).optional(), body: z.string().max(TEAM_BOUNDS.docBody).optional(), folderId: z.string().uuid().nullable().optional(), expectedVersion: z.number().int().min(1).optional() }).parse(request.body ?? {});
     const m = await t.member(request, accountId);

@@ -15,7 +15,17 @@ import type { ApiScope, ApiKey, ApiKeyEnvironment } from '@/api/domain/key-manag
 const AVAILABLE_SCOPES: { value: ApiScope; label: string; description: string }[] = [
   { value: 'tunnel:connect', label: 'Tunnel Connect', description: 'Allow tunnel connections' },
   { value: 'tunnel:read', label: 'Tunnel Read', description: 'Read tunnel data' },
-  { value: 'metrics:read', label: 'Metrics Read', description: 'Read usage metrics' }
+  { value: 'metrics:read', label: 'Metrics Read', description: 'Read usage metrics' },
+  // Platform API: scripts, CI, the GitHub Action and the VS Code extension
+  { value: 'specs:read', label: 'Specs Read', description: 'Read API docs and check documents for breaking changes (CI)' },
+  { value: 'specs:write', label: 'Specs Write', description: 'Push drafts and publish versions from a repository' },
+  { value: 'tests:run', label: 'Tests Run', description: 'Run API client collections (CI), push collections' },
+  { value: 'collections:read', label: 'Collections Read', description: 'Read collections and their runs' },
+  { value: 'mocks:read', label: 'Mocks Read', description: 'List and export mock APIs' },
+  { value: 'mocks:write', label: 'Mocks Write', description: 'Create, import and change mock APIs' },
+  { value: 'team:read', label: 'Team Read', description: 'Read issues, documents and chat' },
+  { value: 'team:write', label: 'Team Write', description: 'Open issues, comment, post to chat (bots)' },
+  { value: 'ai:use', label: 'AI Assist', description: 'Generate mocks and tests from a description' }
 ]
 
 const schema = yup.object({

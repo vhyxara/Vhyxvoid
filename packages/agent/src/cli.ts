@@ -354,8 +354,11 @@ program
 // ── test command ──────────────────────────────────────────────────────────────
 
 program
-  .command("test <file>")
-  .description("Run an API collection and its checks (a VhyxVoid collection export, or a Postman collection / OpenAPI document as JSON); exits 1 when a check fails, for CI")
+  .command("test [file]")
+  .description("Run an API collection and its checks: a file (a VhyxVoid collection export, or a Postman collection / OpenAPI document as JSON) here, or --collection stored in the workspace on the platform; exits 1 when a check fails, for CI")
+  .option("-c, --collection <name|id>", "Run a collection stored in the workspace, on the platform (needs an API key with tests:run)")
+  .option("--api-key <keyId.secret>", "API key for --collection. Env: VHYXVOID_API_KEY (+ VHYXVOID_SECRET)")
+  .option("--api-url <origin>", "API origin. Env: VHYXVOID_API_URL (default https://api.vhyxvoid.com)")
   .option("-e, --env <name|file>", "Environment: a name inside the file, or a JSON file (VhyxVoid, Postman environment, or {\"NAME\": \"value\"})")
   .option("--var <NAME=value>", "Set a variable (repeatable); VHYXVOID_VAR_<NAME> environment variables work too", (v: string, prev: string[]) => [...prev, v], [] as string[])
   .option("--folder <name>", "Run one folder (\"Parent/Child\" for a nested one)")
@@ -367,8 +370,30 @@ program
   .option("--junit <file>", "Write a JUnit XML report (GitHub Actions, GitLab, Jenkins show it)")
   .option("--json <file>", "Write the full report as JSON")
   .option("-q, --quiet", "Only print failures and the summary")
-  .action(async (file: string, opts) => {
-    const { runApiTests, exitCodeOf, UsageError } = await import("./apiTest");
+  .action(async (file: string | undefined, opts) => {
+    const { runApiTests, exitCodeOf, UsageError, formatResult, formatSummary } = await import("./apiTest");
+    if (opts.collection) {
+      const p = await import("./platform");
+      const { reportToJUnit } = await import("@vhyxvoid/shared/apiclient");
+      try {
+        const client = new p.PlatformClient(p.credentials({ apiKey: opts.apiKey, apiUrl: opts.apiUrl }));
+        const r = await p.runRemote<import("@vhyxvoid/shared/apiclient").RunReport>(client, opts.collection, { environment: opts.env, bail: Boolean(opts.bail) });
+        if (!opts.quiet) console.log(`\n  ${r.collection.name} (on the platform)\n`);
+        for (const res of r.report.results) if (!opts.quiet || res.outcome !== "passed") for (const l of formatResult(res)) console.log(`  ${l}`);
+        console.log(`\n  ${formatSummary(r.report)}${r.rateLimited ? " (stopped by the plan's send rate)" : ""}\n  ${r.url}\n`);
+        if (opts.junit) fs.writeFileSync(opts.junit, reportToJUnit(r.report));
+        if (opts.json) fs.writeFileSync(opts.json, JSON.stringify(r.report, null, 2));
+        p.writeJobSummary(`### ${exitCodeOf(r.report) ? "❌" : "✅"} ${r.collection.name}\n\n${formatSummary(r.report)}\n\n[Open in VhyxVoid](${r.url})`);
+        process.exit(exitCodeOf(r.report));
+      } catch (err) {
+        console.error(`\n❌  ${(err as Error).message}\n`);
+        process.exit(err instanceof p.UsageError ? 2 : 1);
+      }
+    }
+    if (!file) {
+      console.error("\n❌  Give a collection file, or --collection <name|id> to run one stored in the workspace.\n");
+      process.exit(2);
+    }
     try {
       const report = await runApiTests({
         file,
@@ -391,6 +416,86 @@ program
       process.exit(err instanceof UsageError ? 2 : 1);
     }
   });
+
+// ── platform API: specs and collections from CI ──────────────────────────────
+
+const withApi = (cmd: Command) =>
+  cmd.option("--api-key <keyId.secret>", "API key. Env: VHYXVOID_API_KEY (+ VHYXVOID_SECRET)").option("--api-url <origin>", "API origin. Env: VHYXVOID_API_URL (default https://api.vhyxvoid.com)");
+
+async function platformAction(fn: (p: typeof import("./platform"), client: import("./platform").PlatformClient) => Promise<number>, opts: { apiKey?: string; apiUrl?: string }) {
+  const p = await import("./platform");
+  try {
+    const client = new p.PlatformClient(p.credentials(opts));
+    process.exit(await fn(p, client));
+  } catch (err) {
+    console.error(`\n❌  ${(err as Error).message}\n`);
+    process.exit(err instanceof p.UsageError ? 2 : 1);
+  }
+}
+
+withApi(program.command("whoami").description("Show the workspace and scopes of the API key")).action((opts) =>
+  platformAction(async (_p, client) => {
+    const me = await client.whoami();
+    console.log(`\n  ${me.workspace ?? me.accountId}\n  key ${me.keyId}\n  scopes ${me.scopes.join(", ")}\n  ${me.dashboardUrl}\n`);
+    return 0;
+  }, opts),
+);
+
+const specCmd = program.command("spec").description("Check and push OpenAPI specs (API docs) from a repository");
+
+withApi(
+  specCmd
+    .command("check <file>")
+    .description("Check a spec file: its problems, and its changes against the latest published version. Exits 1 on errors or breaking changes (see --fail-on). Needs specs:read")
+    .requiredOption("-s, --spec <slug|id>", "The API docs to compare with")
+    .option("--fail-on <level>", "breaking (default) | warning | none (only errors fail)", "breaking")
+    .option("--markdown <file>", "Write a Markdown summary (for a PR comment); in GitHub Actions it also goes to the job summary"),
+).action((file: string, opts) =>
+  platformAction(async (p, client) => {
+    const failOn = (["breaking", "warning", "none"].includes(opts.failOn) ? opts.failOn : "breaking") as import("./platform").FailOn;
+    const c = await p.checkSpec(client, file, opts.spec);
+    console.log(`\n${p.formatCheck(c).map((l) => `  ${l}`).join("\n")}\n`);
+    const me = await client.whoami().catch(() => null);
+    const summary = p.checkMarkdown(c, failOn, me?.dashboardUrl);
+    if (opts.markdown) fs.writeFileSync(opts.markdown, summary);
+    p.writeJobSummary(summary);
+    const fail = p.checkFails(c, failOn);
+    console.log(fail ? `  ✗ ${fail}\n` : "  ✓ OK\n");
+    return fail ? 1 : 0;
+  }, opts),
+);
+
+withApi(
+  specCmd
+    .command("push <file>")
+    .description("Save a spec file as the draft of the API docs; --publish publishes it (refused on errors, and on breaking changes without --allow-breaking). Needs specs:write")
+    .requiredOption("-s, --spec <slug|id>", "The API docs to update")
+    .option("--publish", "Publish a new version")
+    .option("--notes <text>", "Release notes for the version")
+    .option("--allow-breaking", "Publish even with breaking changes"),
+).action((file: string, opts) =>
+  platformAction(async (p, client) => {
+    const r = await p.pushSpec(client, file, opts.spec, { publish: Boolean(opts.publish), notes: opts.notes, allowBreaking: Boolean(opts.allowBreaking) });
+    const failed = opts.publish && !r.published && !r.message.startsWith("Nothing to publish");
+    console.log(`\n${p.formatCheck(r.check).map((l) => `  ${l}`).join("\n")}\n\n  ${failed ? "✗" : "✓"} ${r.message}\n`);
+    return failed ? 1 : 0;
+  }, opts),
+);
+
+const collectionCmd = program.command("collection").description("Keep API client collections in a repository");
+
+withApi(
+  collectionCmd
+    .command("push <file>")
+    .description("Replace a stored collection's requests, folders and variables from a file (VhyxVoid export, Postman, OpenAPI, HAR). Needs tests:run")
+    .requiredOption("-c, --collection <name|id>", "The collection to replace"),
+).action((file: string, opts) =>
+  platformAction(async (p, client) => {
+    const r = await p.pushCollection(client, file, opts.collection);
+    console.log(`\n  ✓ ${r.collection.name}: ${r.requests} request(s) in ${r.folders} folder(s)\n`);
+    return 0;
+  }, opts),
+);
 
 // ── start command (default) ───────────────────────────────────────────────────
 

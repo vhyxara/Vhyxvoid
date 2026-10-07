@@ -205,7 +205,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { window: q.window, stepMinutes: STEP_MINUTES[q.window], summary, points });
   });
 
-  fastify.post("/:accountId/drift", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/drift", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "specs:read", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = driftBody.parse(request.body ?? {});
     await member(request, accountId);

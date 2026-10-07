@@ -277,7 +277,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   }
 
   // ── Overview ──
-  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     await member(request, accountId);
     const [collections, environments, lim] = await Promise.all([
@@ -298,7 +298,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Collections ──
-  fastify.post("/:accountId/collections", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/collections", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -344,14 +344,14 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Collection created", 201, { ...collectionFull(row), warnings, environmentsCreated: createdEnvs });
   });
 
-  fastify.get("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     await member(request, accountId);
     const lim = await limits(accountId);
     return successResponse(reply, "Success", 200, { ...collectionFull(await findCollection(accountId, id)), maxRequests: lim.maxRequests });
   });
 
-  fastify.put("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -385,7 +385,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Collection deleted", 200, { id });
   });
 
-  fastify.get("/:accountId/collections/:id/export", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/collections/:id/export", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const q = exportQuery.parse(request.query ?? {});
     await member(request, accountId);
@@ -399,7 +399,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Running ──
-  fastify.post("/:accountId/collections/:id/run", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/collections/:id/run", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = runBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -425,7 +425,8 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
         collectionId: id,
         environmentId: env?.id ?? null,
         environmentName: env?.name ?? null,
-        trigger: "dashboard",
+        // A run started with an API key comes from CI, a script or the editor.
+        trigger: request.apiKey ? "api" : "dashboard",
         total: report.total,
         passed: report.passed,
         failed: report.failed,
@@ -453,7 +454,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
 
   const runSummary = (r: any) => ({ id: r.id, collectionId: r.collectionId, environmentName: r.environmentName, trigger: r.trigger, total: r.total, passed: r.passed, failed: r.failed, errored: r.errored, skipped: r.skipped, assertionsPassed: r.assertionsPassed, assertionsFailed: r.assertionsFailed, durationMs: r.durationMs, createdAt: r.createdAt, createdById: r.createdById });
 
-  fastify.get("/:accountId/collections/:id/runs", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/collections/:id/runs", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     await member(request, accountId);
     await findCollection(accountId, id);
@@ -461,7 +462,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { runs: rows.map(runSummary) });
   });
 
-  fastify.get("/:accountId/runs/:runId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/runs/:runId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "collections:read" } }, async (request, reply) => {
     const { accountId, runId } = runParams.parse(request.params);
     await member(request, accountId);
     const row = await db.apiTestRun.findFirst({ where: { id: runId, accountId } });
@@ -512,7 +513,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Parse (import into the open collection) ──
-  fastify.post("/:accountId/parse", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/parse", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = z.object({ document: documentInput }).parse(request.body ?? {});
     await member(request, accountId);

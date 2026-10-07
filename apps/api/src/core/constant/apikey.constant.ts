@@ -37,6 +37,17 @@ export enum ApiScope {
   // Metrics
   METRICS_READ = "metrics:read", // read own usage / metrics
 
+  // Platform API (phase 7): the dashboard's features from scripts, CI and the editor
+  MOCKS_READ = "mocks:read", // list and export mock APIs
+  MOCKS_WRITE = "mocks:write", // create, change, import, delete mock APIs
+  SPECS_READ = "specs:read", // read API specs, versions, diffs; validate documents
+  SPECS_WRITE = "specs:write", // change drafts, publish versions
+  COLLECTIONS_READ = "collections:read", // read API client collections and runs
+  TESTS_RUN = "tests:run", // run collections (and record the run)
+  TEAM_READ = "team:read", // read issues, documents, channels
+  TEAM_WRITE = "team:write", // create issues, comment, post messages
+  AI_USE = "ai:use", // AI assist: generate mocks and tests
+
   // Wildcard — OWNER-level keys only, grants all scopes
   WILDCARD = "*",
 }

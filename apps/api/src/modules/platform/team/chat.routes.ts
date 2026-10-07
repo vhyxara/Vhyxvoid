@@ -103,7 +103,7 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     });
   }
 
-  fastify.get("/:accountId/chat", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/chat", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await t.member(request, accountId);
     const lim = await t.limits(accountId);
@@ -275,7 +275,7 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { id: ch.id });
   });
 
-  fastify.get("/:accountId/chat/channels/:cid/messages", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/chat/channels/:cid/messages", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId, cid } = chParams.parse(request.params);
     const q = z.object({ before: z.coerce.date().optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }).parse(request.query ?? {});
     const m = await t.member(request, accountId);
@@ -314,7 +314,7 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { root: r, replies: rest });
   });
 
-  fastify.post("/:accountId/chat/channels/:cid/messages", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/chat/channels/:cid/messages", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, cid } = chParams.parse(request.params);
     const b = z.object({ body, parentId: z.string().uuid().optional() }).parse(request.body ?? {});
     const m = await t.member(request, accountId);
@@ -440,7 +440,7 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, {});
   });
 
-  fastify.get("/:accountId/search", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.get("/:accountId/search", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const { q } = z.object({ q: z.string().trim().min(2).max(100) }).parse(request.query ?? {});
     const m = await t.member(request, accountId);

@@ -157,7 +157,15 @@ declare module "fastify" {
       reply: import("fastify").FastifyReply,
     ) => Promise<void>;
   }
+  interface FastifyContextConfig {
+    /** This route also accepts an API key with this scope (platform API, platform/shared/apiKeyAuth.ts). */
+    apiKeyScope?: string;
+  }
+
   interface FastifyRequest {
+    // Set by userAuthGuard when the request came with an API key (platform API).
+    apiKey?: { keyId: string; accountId: string; scopes: string[] };
+
     // Set by userAuthGuard from a verified user access token.
     user?: {
       sub: string;

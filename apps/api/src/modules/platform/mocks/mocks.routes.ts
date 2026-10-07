@@ -216,7 +216,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
   const problemOf = (def: MockApiDefinition, maxEndpoints: number) => mockDefinitionProblem(def, maxEndpoints) ?? resourcesProblem(def.resources);
   const invalidate = (accountId: string, l: string) => opts.hub.invalidatePolicy(accountId, l).catch(() => undefined);
 
-  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const m = await member(request, accountId);
     const [rows, lim] = await Promise.all([db.mockApi.findMany({ where: { accountId }, orderBy: { createdAt: "asc" } }) as Promise<Row[]>, limits(accountId)]);
@@ -230,7 +230,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:write", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await admin(request, accountId);
@@ -282,14 +282,14 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     }
   });
 
-  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const m = await member(request, accountId);
     const lim = await limits(accountId);
     return successResponse(reply, "Success", 200, { ...full(await find(accountId, id), m.slug), canManage: m.level >= RoleLevel.ADMIN, maxEndpoints: lim.maxEndpoints, enabledOnPlatform: lim.enabled });
   });
 
-  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:write", rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await admin(request, accountId);
@@ -337,7 +337,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Mock API saved", 200, full(row, m.slug));
   });
 
-  fastify.delete("/:accountId/:id", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.delete("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:write" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     await admin(request, accountId);
     const row = await find(accountId, id);
@@ -348,7 +348,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Mock API removed", 200, { id, label: row.label });
   });
 
-  fastify.post("/:accountId/:id/import", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/import", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "mocks:write", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = importBody.parse(request.body ?? {});
     const m = await admin(request, accountId);
@@ -383,7 +383,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.get("/:accountId/:id/openapi", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/openapi", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const { format } = z.object({ format: z.enum(["json", "yaml"]).default("json") }).parse(request.query);
     const m = await member(request, accountId);
@@ -395,7 +395,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 2));
   });
 
-  fastify.post("/:accountId/:id/try", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/try", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read", rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = tryBody.parse(request.body ?? {});
     await member(request, accountId);
@@ -418,7 +418,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, answer ? { matched: true, ...answer } : { matched: false });
   });
 
-  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/:id/export", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read" } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const { format } = exportQuery.parse(request.query);
     const m = await member(request, accountId);

@@ -115,7 +115,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     await t.notify(accountId, actorId, added, { type: "TEAM_MENTION", title: `${names[actorId]} mentioned you in #${i.number}`, body: plainText(i.title, names), path: `/organizations/${accountId}/team/issues/${i.number}`, metadata: { issueNumber: i.number } });
   }
 
-  fastify.get("/:accountId/issues", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const qs = z.object({ q: z.string().max(500).default(""), sort: z.enum(["rank", "updated", "created", "priority", "due", "number"]).default("updated") }).parse(request.query ?? {});
     const m = await t.member(request, accountId);
@@ -159,7 +159,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/issues", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const b = z
       .object({ title: fields.title, body: fields.body.default(""), status: fields.status.default("TODO"), priority: fields.priority.default("NONE"), assigneeId: fields.assigneeId.default(null), labels: fields.labels.default([]), dueDate: fields.dueDate.default(null), links: fields.links.default([]) })
@@ -203,7 +203,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     return successResponse(reply, `Created #${issue.number}`, 201, view(issue, await t.names(issue.assigneeId ? [issue.assigneeId] : [])));
   });
 
-  fastify.get("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
+  fastify.get("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:read" } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
     const m = await t.member(request, accountId);
     const i = await find(accountId, n);
@@ -228,7 +228,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.patch("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.patch("/:accountId/issues/:n", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
     const b = z.object({ title: fields.title.optional(), body: fields.body.optional(), status: fields.status.optional(), priority: fields.priority.optional(), assigneeId: fields.assigneeId.optional(), labels: fields.labels.optional(), dueDate: fields.dueDate.optional(), links: fields.links.optional() }).parse(request.body ?? {});
     const m = await t.member(request, accountId);
@@ -272,7 +272,7 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Saved", 200, view(issue, await t.names(issue.assigneeId ? [issue.assigneeId] : [])));
   });
 
-  fastify.post("/:accountId/issues/:n/move", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/issues/:n/move", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "team:write", rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, n } = numParams.parse(request.params);
     const b = z.object({ status: fields.status, before: z.number().int().min(1).nullable().optional(), after: z.number().int().min(1).nullable().optional() }).parse(request.body ?? {});
     const m = await t.member(request, accountId);
