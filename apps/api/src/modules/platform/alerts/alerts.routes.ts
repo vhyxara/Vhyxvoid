@@ -44,6 +44,8 @@ function normalise<T extends { type?: string; label?: string | null; threshold?:
   if (type === "USAGE") Object.assign(out, { label: null, windowMinutes: null, minRequests: null });
   if (type === "INBOX_FAILED") Object.assign(out, { threshold: null, windowMinutes: null, minRequests: null });
   if (type === "DOMAIN") Object.assign(out, { label: null, threshold: null, windowMinutes: null, minRequests: null });
+  // MONITOR: label = the monitor's id (null = every monitor), threshold = failed checks in a row.
+  if (type === "MONITOR") Object.assign(out, { windowMinutes: null, minRequests: null });
   return out;
 }
 
@@ -72,18 +74,21 @@ export async function alertRoutes(fastify: FastifyInstance, opts: { alerts: Aler
   fastify.get("/:accountId", { onRequest: [fastify.userAuthGuard] }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const level = await role(request, accountId);
-    const [rules, events, lim, enabled, labels] = await Promise.all([
+    const [rules, events, lim, enabled, labels, monitors] = await Promise.all([
       prisma.alertRule.findMany({ where: { accountId }, orderBy: { createdAt: "asc" }, include: { states: { where: { firing: true }, select: { subject: true, since: true } } } }),
       prisma.alertEvent.findMany({ where: { accountId }, orderBy: { createdAt: "desc" }, take: 50 }),
       maxRules(accountId),
       fastify.platformSettings.get("features.alerts"),
       prisma.tunnelSession.findMany({ where: { accountId }, distinct: ["label"], select: { label: true }, orderBy: { label: "asc" }, take: 200 }),
+      prisma.apiMonitor.findMany({ where: { accountId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
     return successResponse(reply, "Success", 200, {
       available: Boolean(enabled) && lim.max > 0,
       maxRules: lim.max,
       canManage: level >= RoleLevel.ADMIN,
       tunnelLabels: labels.map((l) => l.label),
+      /** MONITOR rules pick one of these (stored in `label`). */
+      monitors,
       rules: rules.map(({ states, ...r }) => ({ ...r, description: describeAlertRule(r as never), firing: states })),
       events: events.map((e) => ({ ...e, ruleName: rules.find((r) => r.id === e.ruleId)?.name ?? "" })),
     });

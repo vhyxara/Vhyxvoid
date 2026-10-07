@@ -29,6 +29,11 @@ import { activityRoutes } from "./activity/activity.routes";
 import { trafficRuleRoutes } from "./traffic-rules/trafficRules.routes";
 import { mockRoutes } from "./mocks/mocks.routes";
 import { apiClientRoutes } from "./apiclient/apiClient.routes";
+import { analyticsRoutes } from "./perf/analytics.routes";
+import { loadTestRoutes } from "./perf/loadTests.routes";
+import { monitorRoutes } from "./perf/monitors.routes";
+import { runDueMonitors } from "./perf/monitors.worker";
+import { stopAllLoadTests } from "./perf/loadRunner";
 import { agentRoutes } from "./agents/agents.routes";
 import type { NotificationService } from "@/modules/notification/application/use-cases";
 
@@ -55,6 +60,9 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(agentRoutes, { prefix: "/api/v1/agents", hub });
   await server.register(mockRoutes, { prefix: "/api/v1/mocks", hub });
   await server.register(apiClientRoutes, { prefix: "/api/v1/api-client" });
+  await server.register(analyticsRoutes, { prefix: "/api/v1/analytics" });
+  await server.register(loadTestRoutes, { prefix: "/api/v1/load-tests" });
+  await server.register(monitorRoutes, { prefix: "/api/v1/monitors" });
   await server.register(adminTrafficRoutes, { prefix: "/api/v1/admin/traffic" });
 
   // Custom domains and alerts share one AlertService (domain events notify through it).
@@ -77,19 +85,24 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
       if (name === "alerts") result = await runLeasedJob(prisma, "alerts", 120_000, () => runAlertEvaluation(prisma, alerts), true);
       else if (name === "notices") result = await runLeasedJob(prisma, "notices", 600_000, () => runAccountNotices(prisma, notifications()), true);
       else if (name === "maintenance") result = await runLeasedJob(prisma, "maintenance", 600_000, () => runMaintenance(prisma), true);
+      else if (name === "monitors") result = await runLeasedJob(prisma, "monitors", 180_000, () => runDueMonitors(prisma), true);
       else if (name === "domains") result = await runLeasedJob(prisma, "domains", 600_000, async () => ({ checked: await runDomainChecks(prisma, domains) }), true);
-      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains, notices, maintenance)", data: null });
+      else return reply.code(404).send({ success: false, code: "NOT_FOUND", message: "Unknown job (alerts, domains, monitors, notices, maintenance)", data: null });
       // Another API instance holds the job right now.
       if (result === undefined) return reply.code(409).send({ success: false, code: "CONFLICT", message: "The job is running on another instance; try again in a minute", data: null });
       return reply.send({ success: true, message: "Done", data: { job: name, result, ms: Date.now() - started } });
     });
   }, { prefix: "/api/v1/admin/system" });
 
+  // Load tests running in this process end (as ERROR) when the API shuts down.
+  server.addHook("onClose", async () => stopAllLoadTests());
+
   // Background jobs, one instance at a time (job leases). Off in tests.
   if (process.env.DISABLE_BACKGROUND_JOBS !== "1") {
     const jobs: Array<{ stop: () => void }> = [];
     server.addHook("onReady", async () => {
       jobs.push(leasedInterval(prisma, "alerts", 60_000, async () => void (await runAlertEvaluation(prisma, alerts))));
+      jobs.push(leasedInterval(prisma, "monitors", 60_000, async () => void (await runDueMonitors(prisma))));
       jobs.push(leasedInterval(prisma, "domains", 5 * 60_000, async () => void (await runDomainChecks(prisma, domains))));
       jobs.push(leasedInterval(prisma, "maintenance", 60 * 60_000, async () => void (await runMaintenance(prisma))));
       jobs.push(leasedInterval(prisma, "notices", 15 * 60_000, async () => void (await runAccountNotices(prisma, notifications()))));

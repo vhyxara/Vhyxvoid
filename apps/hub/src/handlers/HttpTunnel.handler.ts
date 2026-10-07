@@ -120,6 +120,9 @@ function mockAnswers(def: MockApiDefinition, head: ReturnType<typeof mockRequest
   return mockHandles(def, head) || resourceHandles(def, head);
 }
 
+/** Marks load-test traffic sent by the API (with x-vhyxvoid-internal). */
+export const LOAD_TEST_HEADER = 'x-vhyxvoid-load-test';
+
 export class HttpTunnelHandler {
   constructor(
     private readonly subdomainRegistry: SubdomainRegistry,
@@ -263,7 +266,7 @@ export class HttpTunnelHandler {
     // lookup so a flood aimed at a URL with no agent connected is still
     // capped, not just one with a live agent behind it. See
     // shared/decision.md, 2026-09-22, "S5 investigation and proposal".
-    if (this.usageLimiter) {
+    if (this.usageLimiter && !this.isLoadTest(req)) {
       const rateCheck = await this.usageLimiter.checkRequest(entry.accountId);
       if (!rateCheck.allowed) {
         return this.sendError(
@@ -386,6 +389,7 @@ export class HttpTunnelHandler {
     const forwardHeaders = this.sanitizeHeaders(req.headers as Record<string, string>);
     delete forwardHeaders['x-vhyxvoid-internal'];
     delete forwardHeaders['x-vhyxvoid-replay-of'];
+    delete forwardHeaders[LOAD_TEST_HEADER];
     delete forwardHeaders[INBOX_DELIVERY_HEADER];
     // The tunnel's own credentials are not the app's: don't forward them.
     this.withoutTunnelCredentials(forwardHeaders, access.stripAuthorization);
@@ -412,8 +416,8 @@ export class HttpTunnelHandler {
       captured = true;
       // What the caller received: the app's status, or the hub's 502/504.
       const finalStatus = response?.status ?? streamHead?.status ?? (error === 'AGENT_TIMEOUT' ? 504 : 502);
-      this.stats?.record(entryAccountId, label, finalStatus, Date.now() - startedAt);
-      if (!this.inspector) return;
+      this.stats?.record(entryAccountId, label, finalStatus, Date.now() - startedAt, req.method ?? 'GET', req.url ?? '/');
+      if (!this.inspector || this.isLoadTest(req)) return;
       const resHeaders = response?.headers ?? streamHead?.headers ?? {};
       const resBinary = response?.bodyEncoding ? response.bodyEncoding === 'base64' : isBinaryContentType(resHeaders['content-type']);
       const entry: InspectedRequest = {
@@ -791,7 +795,7 @@ export class HttpTunnelHandler {
     const plan = evaluateTrafficRules(rules, { method: req.method ?? 'GET', path: req.url ?? '/', headers: req.headers }, { online: false });
     if (!plan.respond) return false;
 
-    if (this.usageLimiter) {
+    if (this.usageLimiter && !this.isLoadTest(req)) {
       const rate = await this.usageLimiter.checkRequest(accountId);
       if (!rate.allowed) {
         this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {
@@ -828,7 +832,7 @@ export class HttpTunnelHandler {
     ctx: { label: string; accountSlug: string; hostname: string },
   ): Promise<void> {
     const { accountId } = found;
-    if (this.usageLimiter) {
+    if (this.usageLimiter && !this.isLoadTest(req)) {
       const rate = await this.usageLimiter.checkRequest(accountId);
       if (!rate.allowed) {
         this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {
@@ -903,8 +907,8 @@ export class HttpTunnelHandler {
     res.end(payload.length ? payload : undefined);
 
     const durationMs = Date.now() - startedAt;
-    this.stats?.record(ctx.accountId, ctx.label, answer.status, durationMs);
-    if (!this.inspector) return;
+    this.stats?.record(ctx.accountId, ctx.label, answer.status, durationMs, req.method ?? 'GET', req.url ?? '/');
+    if (!this.inspector || this.isLoadTest(req)) return;
     const endpoint = mock.def.endpoints.find((e) => e.id === answer.endpointId);
     const response = endpoint?.responses.find((r) => r.id === answer.responseId);
     const resource = answer.endpointId.startsWith('resource:') ? mock.def.resources?.find((r) => `resource:${r.id}` === answer.endpointId) : undefined;
@@ -973,8 +977,8 @@ export class HttpTunnelHandler {
     res.end(req.method === 'HEAD' ? undefined : payload);
 
     const durationMs = Date.now() - startedAt;
-    this.stats?.record(ctx.accountId, ctx.label, r.status, durationMs);
-    if (!this.inspector) return;
+    this.stats?.record(ctx.accountId, ctx.label, r.status, durationMs, req.method ?? 'GET', req.url ?? '/');
+    if (!this.inspector || this.isLoadTest(req)) return;
     const flat = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v]));
     this.inspector.record(ctx.accountId, {
       id: `req_${randomUUID().replace(/-/g, '')}`,
@@ -1080,6 +1084,16 @@ export class HttpTunnelHandler {
     return /^[0-9a-f-]{36}$/.test(id) ? id : null;
   }
 
+  /**
+   * A load test from the API (phase 4): marked and carrying the internal
+   * secret. It skips the per-minute abuse limit (the load test has its own
+   * caps per plan) and the inspector (it would push real requests out); it
+   * still counts as usage and in traffic and endpoint stats.
+   */
+  private isLoadTest(req: IncomingMessage): boolean {
+    return typeof req.headers[LOAD_TEST_HEADER] === 'string' && this.isInternal(req);
+  }
+
   /** Sent by this hub (replay, inbox delivery): carries HUB_INTERNAL_SECRET. */
   private isInternal(req: IncomingMessage): boolean {
     const secret = process.env.HUB_INTERNAL_SECRET;
@@ -1118,7 +1132,7 @@ export class HttpTunnelHandler {
     // Same gates as live traffic: abuse limit and access rules.
     let access = knownAccess;
     if (!access) {
-      if (this.usageLimiter) {
+      if (this.usageLimiter && !this.isLoadTest(req)) {
         const rate = await this.usageLimiter.checkRequest(accountId);
         if (!rate.allowed) {
           this.sendError(res, 429, `Rate limit exceeded: ${rate.limitPerMinute} requests/min for this account's plan`, {

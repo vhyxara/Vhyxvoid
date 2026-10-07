@@ -269,6 +269,8 @@ model Account {
   apiEnvironments    ApiEnvironment[]
   apiRequestHistory  ApiRequestHistory[]
   apiTestRuns        ApiTestRun[]
+  loadTests          LoadTest[]
+  apiMonitors        ApiMonitor[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1197,6 +1199,7 @@ enum AlertType {
   USAGE
   INBOX_FAILED
   DOMAIN
+  MONITOR
 }
 
 // One alert rule of an account (rules in packages/shared/src/alerts.ts).
@@ -1278,6 +1281,32 @@ model TunnelMinuteStat {
   @@map("tunnel_minute_stats")
 }
 
+// Public traffic per endpoint (method + route pattern) per 5 minutes, written
+// by the hub with TunnelMinuteStat (phase 4 analytics). hist = latency
+// histogram counts (bounds in packages/shared/src/perf.ts), added up on merge.
+model TunnelEndpointStat {
+  accountId String
+  label     String
+  method    String
+  route     String
+  bucket    DateTime
+  requests  Int      @default(0)
+  s2xx      Int      @default(0)
+  s3xx      Int      @default(0)
+  s4xx      Int      @default(0)
+  s5xx      Int      @default(0)
+  totalMs   BigInt   @default(0)
+  maxMs     Int      @default(0)
+  hist      Int[]
+  /// One concrete path seen (to match against a spec's patterns).
+  sample    String   @default("")
+
+  @@id([accountId, label, method, route, bucket])
+  @@index([bucket])
+  @@index([accountId, bucket])
+  @@map("tunnel_endpoint_stats")
+}
+
 // Lets exactly one API instance run a periodic job at a time.
 model JobLease {
   name      String   @id
@@ -1357,7 +1386,8 @@ model ApiCollection {
   updatedAt   DateTime @updatedAt
 
   account Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  runs    ApiTestRun[]
+  runs     ApiTestRun[]
+  monitors ApiMonitor[]
 
   @@index([accountId])
   @@map("api_collections")
@@ -1434,4 +1464,87 @@ model ApiTestRun {
   @@index([collectionId, createdAt])
   @@index([accountId, createdAt])
   @@map("api_test_runs")
+}
+
+/// Load tests against the workspace's own tunnels, mocks and verified custom
+/// domains (phase 4; engine in packages/shared/src/perf.ts). Sent to the hub
+/// directly by the API instance that runs it; progress is written every
+/// couple of seconds for the live chart.
+model LoadTest {
+  id              String    @id @default(uuid())
+  accountId       String
+  name            String
+  /// The URL as entered (a tunnel, mock or custom-domain URL of the account).
+  target          String
+  /// LoadTestConfig: request, vus, durationSec, rampUpSec, thinkTimeMs, maxRps, thresholds.
+  config          Json
+  /// RUNNING | PASSED | FAILED | CANCELLED | ERROR
+  status          String    @default("RUNNING")
+  summary         Json?
+  timeline        Json      @default("[]")
+  error           String?
+  instance        String?
+  cancelRequested Boolean   @default(false)
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([status])
+  @@map("load_tests")
+}
+
+/// Scheduled collection runs (phase 4). The "monitors" job runs the due ones
+/// every minute; MONITOR alert rules fire on consecutive failures.
+model ApiMonitor {
+  id                  String    @id @default(uuid())
+  accountId           String
+  name                String
+  collectionId        String
+  environmentId       String?
+  folderId            String?
+  intervalMinutes     Int       @default(5)
+  enabled             Boolean   @default(true)
+  /// PENDING (never ran) | UP | DOWN
+  status              String    @default("PENDING")
+  consecutiveFailures Int       @default(0)
+  lastRunAt           DateTime?
+  nextRunAt           DateTime  @default(now())
+  lastDurationMs      Int?
+  lastError           String?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  account    Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  collection ApiCollection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  results    ApiMonitorResult[]
+
+  @@index([enabled, nextRunAt])
+  @@index([accountId])
+  @@map("api_monitors")
+}
+
+/// One monitor check. Kept 30 days; the report only for failed checks.
+model ApiMonitorResult {
+  id         String   @id @default(uuid())
+  monitorId  String
+  accountId  String
+  at         DateTime @default(now())
+  ok         Boolean
+  total      Int
+  passed     Int
+  failed     Int
+  errored    Int
+  durationMs Int
+  report     Json?
+
+  monitor ApiMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, at])
+  @@index([at])
+  @@map("api_monitor_results")
 }

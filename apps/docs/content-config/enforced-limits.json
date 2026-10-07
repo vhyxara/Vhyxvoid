@@ -95,6 +95,36 @@
       "label": "API client sends per minute",
       "evidence": "apps/api/src/modules/platform/apiclient/apiClient.routes.ts",
       "note": "Every request the server-side runner sends counts, including each request of a collection run; over the limit the send answers 429 and a run skips the rest."
+    },
+    "maxLoadTestVus": {
+      "label": "Load test virtual users",
+      "evidence": "apps/api/src/modules/platform/perf/loadTests.routes.ts",
+      "note": "Starting a load test with more virtual users is refused; 0 turns load tests off for the account."
+    },
+    "maxLoadTestSeconds": {
+      "label": "Longest load test",
+      "evidence": "apps/api/src/modules/platform/perf/loadTests.routes.ts",
+      "note": "Starting a longer load test is refused."
+    },
+    "maxLoadTestRps": {
+      "label": "Load test requests per second",
+      "evidence": "apps/api/src/modules/platform/perf/loadTests.routes.ts",
+      "note": "The runner paces every load test to this rate (a lower cap can be set per test)."
+    },
+    "loadTestsPerDay": {
+      "label": "Load tests per day",
+      "evidence": "apps/api/src/modules/platform/perf/loadTests.routes.ts",
+      "note": "Load tests started per account per UTC day; the next one is refused."
+    },
+    "maxMonitors": {
+      "label": "Monitors",
+      "evidence": "apps/api/src/modules/platform/perf/monitors.routes.ts",
+      "note": "Creating more monitors is refused; existing monitors keep running after a downgrade."
+    },
+    "minMonitorIntervalMinutes": {
+      "label": "Shortest monitor interval",
+      "evidence": "apps/api/src/modules/platform/perf/monitors.routes.ts",
+      "note": "Creating or changing a monitor to run more often is refused."
     }
   },
   "notEnforced": {

@@ -47,6 +47,12 @@ export interface PlanLimits {
   maxApiCollections: number; // API client collections per account (0 = API client off)
   maxApiCollectionRequests: number; // requests per collection
   apiClientSendsPerMinute: number; // requests the server-side API client sends per account per minute (runs included)
+  maxLoadTestVus: number; // virtual users per load test (0 = load tests off)
+  maxLoadTestSeconds: number; // longest load test
+  maxLoadTestRps: number; // requests per second a load test may send
+  loadTestsPerDay: number; // load tests started per account per day (UTC)
+  maxMonitors: number; // scheduled collection monitors per account (0 = none)
+  minMonitorIntervalMinutes: number; // shortest monitor interval
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -79,6 +85,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiCollections: 3,
     maxApiCollectionRequests: 50,
     apiClientSendsPerMinute: 30,
+    maxLoadTestVus: 10,
+    maxLoadTestSeconds: 60,
+    maxLoadTestRps: 50,
+    loadTestsPerDay: 5,
+    maxMonitors: 1,
+    minMonitorIntervalMinutes: 15,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -110,6 +122,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiCollections: 50,
     maxApiCollectionRequests: 500,
     apiClientSendsPerMinute: 300,
+    maxLoadTestVus: 100,
+    maxLoadTestSeconds: 300,
+    maxLoadTestRps: 500,
+    loadTestsPerDay: 100,
+    maxMonitors: 20,
+    minMonitorIntervalMinutes: 1,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -139,6 +157,12 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxApiCollections: 500,
     maxApiCollectionRequests: 2000,
     apiClientSendsPerMinute: 1200,
+    maxLoadTestVus: 500,
+    maxLoadTestSeconds: 900,
+    maxLoadTestRps: 2000,
+    loadTestsPerDay: 1000,
+    maxMonitors: 200,
+    minMonitorIntervalMinutes: 1,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

@@ -8,6 +8,7 @@ import {
   currentPlanOverrides,
   diffAlertStates,
   errorRateSubjects,
+  monitorSubjects,
   getEffectivePlanLimitsForAccount,
   offlineSubjects,
   readSetting,
@@ -23,7 +24,7 @@ type Rule = AlertRuleRow & { cursorAt: Date | null; createdAt: Date };
 export async function runAlertEvaluation(prisma: PrismaClient, alerts: AlertService, now = Date.now()): Promise<{ rules: number; notified: number }> {
   if (!(await readSetting("features.alerts"))) return { rules: 0, notified: 0 };
   const rules = (await prisma.alertRule.findMany({
-    where: { enabled: true, type: { in: ["TUNNEL_OFFLINE", "ERROR_RATE", "USAGE", "INBOX_FAILED"] }, account: { status: { notIn: ["DELETED", "SUSPENDED"] } } },
+    where: { enabled: true, type: { in: ["TUNNEL_OFFLINE", "ERROR_RATE", "USAGE", "INBOX_FAILED", "MONITOR"] }, account: { status: { notIn: ["DELETED", "SUSPENDED"] } } },
   })) as unknown as Rule[];
   let notified = 0;
 
@@ -67,6 +68,21 @@ export async function runAlertEvaluation(prisma: PrismaClient, alerts: AlertServ
           path: `${base}/inspector`,
           detail: s,
         }));
+      } else if (rule.type === "MONITOR") {
+        const monitors = await prisma.apiMonitor.findMany({
+          where: { accountId: rule.accountId, ...(rule.label ? { id: rule.label } : {}) },
+          select: { id: true, name: true, enabled: true, consecutiveFailures: true, lastError: true, collectionId: true },
+        });
+        firing = monitorSubjects(rule, monitors).map((m) => {
+          const full = monitors.find((x) => x.id === m.id)!;
+          return {
+            subject: m.id,
+            title: `Monitor ${m.name} is failing`,
+            message: `${m.consecutiveFailures} checks in a row failed.${full.lastError ? ` Last: ${full.lastError}` : ""}`,
+            path: `${base}/performance?tab=monitors&monitor=${m.id}`,
+            detail: { name: m.name, failures: m.consecutiveFailures },
+          };
+        });
       } else if (rule.type === "USAGE") {
         const monthStart = new Date(Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1));
         const [usage, limits] = await Promise.all([
@@ -108,9 +124,9 @@ export async function runAlertEvaluation(prisma: PrismaClient, alerts: AlertServ
         await alerts.notify(rule, {
           kind: "RESOLVED",
           subject,
-          title: rule.type === "TUNNEL_OFFLINE" ? `Tunnel ${subject} is back online` : `Errors on ${subject} are back to normal`,
+          title: rule.type === "TUNNEL_OFFLINE" ? `Tunnel ${subject} is back online` : rule.type === "MONITOR" ? `Monitor ${(state.detail as { name?: string } | null)?.name ?? subject} is passing again` : `Errors on ${subject} are back to normal`,
           message: `Resolved after about ${minutes} minute${minutes === 1 ? "" : "s"}.`,
-          path: `${base}/${rule.type === "TUNNEL_OFFLINE" ? "tunnels" : "inspector"}`,
+          path: rule.type === "MONITOR" ? `${base}/performance?tab=monitors&monitor=${subject}` : `${base}/${rule.type === "TUNNEL_OFFLINE" ? "tunnels" : "inspector"}`,
         });
         notified++;
       }

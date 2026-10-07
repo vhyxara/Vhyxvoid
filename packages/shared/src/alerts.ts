@@ -4,20 +4,22 @@
 // worker evaluates them once a minute; these are the pure parts.
 //
 // Two kinds of rule:
-//   state rules   TUNNEL_OFFLINE, ERROR_RATE, USAGE: each evaluation gives
+//   state rules   TUNNEL_OFFLINE, ERROR_RATE, USAGE, MONITOR: each evaluation gives
 //                 the set of subjects (tunnel labels, or a usage period) that
 //                 are firing now; a subject notifies once when it starts
 //                 firing and once when it recovers (diffAlertStates).
 //   event rules   INBOX_FAILED, DOMAIN: something happened (a webhook gave
 //                 up, a domain stopped pointing at us); each event notifies.
 
-export const ALERT_TYPES = ["TUNNEL_OFFLINE", "ERROR_RATE", "USAGE", "INBOX_FAILED", "DOMAIN"] as const;
+export const ALERT_TYPES = ["TUNNEL_OFFLINE", "ERROR_RATE", "USAGE", "INBOX_FAILED", "DOMAIN", "MONITOR"] as const;
 export type AlertTypeName = (typeof ALERT_TYPES)[number];
 
 export const ALERT_DEFAULTS = {
   TUNNEL_OFFLINE: { windowMinutes: 5 },
   ERROR_RATE: { threshold: 10, windowMinutes: 5, minRequests: 20 },
   USAGE: { threshold: 80 },
+  /** Consecutive failed checks before alerting. */
+  MONITOR: { threshold: 2 },
 } as const;
 
 /** Bounds the API enforces on rule settings. */
@@ -95,6 +97,19 @@ export function usageSubject(rule: AlertRuleLike, used: number, limit: number, n
   return { subject: `usage:${month}:${threshold}`, percent };
 }
 
+export interface MonitorState {
+  id: string;
+  name: string;
+  enabled: boolean;
+  consecutiveFailures: number;
+}
+
+/** Monitors (rule.label = one monitor's id, or every monitor) failing at least `threshold` checks in a row. */
+export function monitorSubjects(rule: AlertRuleLike, monitors: MonitorState[]): MonitorState[] {
+  const n = rule.threshold ?? ALERT_DEFAULTS.MONITOR.threshold;
+  return monitors.filter((m) => m.enabled && (rule.label ? m.id === rule.label : true) && m.consecutiveFailures >= n).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Which subjects start firing and which recover, given what was firing before. */
 export function diffAlertStates(previous: Array<{ subject: string; firing: boolean }>, firingNow: string[]): { fire: string[]; resolve: string[] } {
   const was = new Set(previous.filter((p) => p.firing).map((p) => p.subject));
@@ -119,5 +134,9 @@ export function describeAlertRule(rule: AlertRuleLike): string {
       return `a webhook in ${rule.label ? `${rule.label}'s` : "any"} inbox fails for good`;
     case "DOMAIN":
       return "a custom domain is verified or stops pointing at us";
+    case "MONITOR": {
+      const n = rule.threshold ?? ALERT_DEFAULTS.MONITOR.threshold;
+      return `${rule.label ? "a monitor" : "any monitor"} fails ${n} check${n === 1 ? "" : "s"} in a row`;
+    }
   }
 }

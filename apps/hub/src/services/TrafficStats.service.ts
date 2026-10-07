@@ -5,6 +5,22 @@
 // FLUSH_MS as ONE upsert statement for all tunnels that had traffic, so the
 // request path never waits on Postgres. Rows older than RETENTION_DAYS are
 // deleted hourly. Counting is best effort: a crash loses up to FLUSH_MS.
+//
+// Per endpoint too (phase 4 analytics): method + route pattern ("/users/:id")
+// per 5 minutes, with status classes and a latency histogram whose buckets
+// add up in SQL, so percentiles survive merging. At most
+// ENDPOINT_ROUTES_PER_TUNNEL distinct routes per tunnel per flush; the rest
+// count as "(other)".
+
+import {
+  ENDPOINT_BUCKET_MS,
+  ENDPOINT_HIST_SIZE,
+  ENDPOINT_OTHER_ROUTE,
+  ENDPOINT_ROUTES_PER_TUNNEL,
+  ENDPOINT_STATS_RETENTION_DAYS,
+  endpointHistIndex,
+  routeOf,
+} from '@vhyxvoid/shared';
 
 const FLUSH_MS = 30_000;
 const CLEANUP_MS = 60 * 60_000;
@@ -12,6 +28,23 @@ export const TUNNEL_STATS_RETENTION_DAYS = 7;
 const MAX_ROWS_PER_FLUSH = 2_000;
 
 type Prisma = any;
+
+interface EndpointBucket {
+  accountId: string;
+  label: string;
+  method: string;
+  route: string;
+  bucket: number;
+  requests: number;
+  s2xx: number;
+  s3xx: number;
+  s4xx: number;
+  s5xx: number;
+  totalMs: number;
+  maxMs: number;
+  hist: number[];
+  sample: string;
+}
 
 interface Bucket {
   accountId: string;
@@ -25,6 +58,9 @@ interface Bucket {
 
 export class TrafficStatsService {
   private buckets = new Map<string, Bucket>();
+  private endpoints = new Map<string, EndpointBucket>();
+  /** Routes counted per tunnel since the last flush (the cardinality cap). */
+  private routes = new Map<string, Set<string>>();
   private flushTimer: NodeJS.Timeout | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
@@ -48,7 +84,8 @@ export class TrafficStatsService {
   }
 
   /** One finished request (the status the caller received). */
-  record(accountId: string, label: string, status: number, durationMs: number): void {
+  record(accountId: string, label: string, status: number, durationMs: number, method?: string, path?: string): void {
+    if (method && path) this.recordEndpoint(accountId, label, status, durationMs, method, path);
     const minute = Math.floor(this.now() / 60_000) * 60_000;
     const key = `${accountId}\u0000${label}\u0000${minute}`;
     let b = this.buckets.get(key);
@@ -62,9 +99,38 @@ export class TrafficStatsService {
     b.totalMs += Math.max(0, Math.round(durationMs));
   }
 
+  private recordEndpoint(accountId: string, label: string, status: number, durationMs: number, method: string, path: string): void {
+    const tunnel = `${accountId}\u0000${label}`;
+    let seen = this.routes.get(tunnel);
+    if (!seen) this.routes.set(tunnel, (seen = new Set()));
+    let route = routeOf(path);
+    if (!seen.has(route)) {
+      if (seen.size >= ENDPOINT_ROUTES_PER_TUNNEL) route = ENDPOINT_OTHER_ROUTE;
+      else seen.add(route);
+    }
+    const m = method.toUpperCase().slice(0, 10);
+    const bucket = Math.floor(this.now() / ENDPOINT_BUCKET_MS) * ENDPOINT_BUCKET_MS;
+    const key = `${tunnel}\u0000${m}\u0000${route}\u0000${bucket}`;
+    let e = this.endpoints.get(key);
+    if (!e) {
+      e = { accountId, label, method: m, route, bucket, requests: 0, s2xx: 0, s3xx: 0, s4xx: 0, s5xx: 0, totalMs: 0, maxMs: 0, hist: new Array(ENDPOINT_HIST_SIZE).fill(0), sample: path.split('?')[0].slice(0, 500) };
+      this.endpoints.set(key, e);
+    }
+    const ms = Math.max(0, Math.round(durationMs));
+    e.requests++;
+    if (status >= 500) e.s5xx++;
+    else if (status >= 400) e.s4xx++;
+    else if (status >= 300) e.s3xx++;
+    else e.s2xx++;
+    e.totalMs += ms;
+    e.maxMs = Math.max(e.maxMs, ms);
+    e.hist[endpointHistIndex(ms)]++;
+  }
+
   /** Writes and clears what was counted. Returns the number of rows written. */
   async flush(): Promise<number> {
-    if (this.buckets.size === 0) return 0;
+    const endpoints = await this.flushEndpoints();
+    if (this.buckets.size === 0) return endpoints;
     const all = [...this.buckets.values()];
     this.buckets = new Map();
     let written = 0;
@@ -98,6 +164,47 @@ export class TrafficStatsService {
     return written;
   }
 
+  private async flushEndpoints(): Promise<number> {
+    if (this.endpoints.size === 0) return 0;
+    const all = [...this.endpoints.values()];
+    this.endpoints = new Map();
+    this.routes = new Map();
+    let written = 0;
+    const per = 13;
+    for (let i = 0; i < all.length; i += 1000) {
+      const chunk = all.slice(i, i + 1000);
+      const values: unknown[] = [];
+      const rows = chunk.map((e, j) => {
+        const o = j * per;
+        values.push(e.accountId, e.label, e.method, e.route, new Date(e.bucket), e.requests, e.s2xx, e.s3xx, e.s4xx, e.s5xx, BigInt(e.totalMs), e.maxMs, e.hist);
+        return `(${Array.from({ length: per }, (_, k) => `$${o + k + 1}${k === per - 1 ? '::int[]' : ''}`).join(', ')}, $${chunk.length * per + j + 1})`;
+      });
+      values.push(...chunk.map((e) => e.sample));
+      try {
+        await this.prisma.$executeRawUnsafe(
+          `INSERT INTO "tunnel_endpoint_stats" ("accountId", "label", "method", "route", "bucket", "requests", "s2xx", "s3xx", "s4xx", "s5xx", "totalMs", "maxMs", "hist", "sample")
+           VALUES ${rows.join(', ')}
+           ON CONFLICT ("accountId", "label", "method", "route", "bucket") DO UPDATE SET
+             "requests" = "tunnel_endpoint_stats"."requests" + EXCLUDED."requests",
+             "s2xx" = "tunnel_endpoint_stats"."s2xx" + EXCLUDED."s2xx",
+             "s3xx" = "tunnel_endpoint_stats"."s3xx" + EXCLUDED."s3xx",
+             "s4xx" = "tunnel_endpoint_stats"."s4xx" + EXCLUDED."s4xx",
+             "s5xx" = "tunnel_endpoint_stats"."s5xx" + EXCLUDED."s5xx",
+             "totalMs" = "tunnel_endpoint_stats"."totalMs" + EXCLUDED."totalMs",
+             "maxMs" = GREATEST("tunnel_endpoint_stats"."maxMs", EXCLUDED."maxMs"),
+             "hist" = ARRAY(SELECT COALESCE(a, 0) + COALESCE(b, 0) FROM unnest("tunnel_endpoint_stats"."hist", EXCLUDED."hist") AS x(a, b))`,
+          ...values,
+        );
+        written += chunk.length;
+      } catch (err) {
+        // Dropped rather than retried: endpoint analytics are best effort and
+        // must never grow the hub's memory while the database is down.
+        console.warn({ err: (err as Error).message, rows: chunk.length }, '[stats] endpoint flush failed');
+      }
+    }
+    return written;
+  }
+
   private merge(b: Bucket): void {
     const key = `${b.accountId}\u0000${b.label}\u0000${b.minute}`;
     const cur = this.buckets.get(key);
@@ -114,6 +221,9 @@ export class TrafficStatsService {
     const res = await this.prisma.tunnelMinuteStat.deleteMany({
       where: { minute: { lt: new Date(this.now() - TUNNEL_STATS_RETENTION_DAYS * 86_400_000) } },
     });
-    return res.count;
+    const ep = await this.prisma.tunnelEndpointStat.deleteMany({
+      where: { bucket: { lt: new Date(this.now() - ENDPOINT_STATS_RETENTION_DAYS * 86_400_000) } },
+    });
+    return res.count + ep.count;
   }
 }

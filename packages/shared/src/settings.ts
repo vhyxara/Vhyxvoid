@@ -70,6 +70,12 @@ const NUMERIC_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "maxApiCollections",
   "maxApiCollectionRequests",
   "apiClientSendsPerMinute",
+  "maxLoadTestVus",
+  "maxLoadTestSeconds",
+  "maxLoadTestRps",
+  "loadTestsPerDay",
+  "maxMonitors",
+  "minMonitorIntervalMinutes",
 ];
 const BOOLEAN_LIMITS: ReadonlyArray<keyof PlanLimits> = [
   "customDomains",
@@ -182,6 +188,7 @@ export const SETTING_DEFINITIONS = {
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
   "features.trafficRules": { group: "features", label: "Traffic rules", description: "Customers can add rules to a tunnel that answer with a mock, inject delays or errors, redirect, rewrite paths and set headers, applied by the hub before a request reaches the agent. How many per tunnel is the plan limit maxTrafficRules. Off: every rule is ignored at once.", type: "boolean", default: true, public: true },
+  "features.performance": { group: "features", label: "Load tests, monitors and API analytics", description: "Customers can load-test their own tunnels, mocks and verified custom domains (sent straight to the hub, never to other hosts), schedule monitors that run collections and feed MONITOR alerts, and see per-endpoint analytics. How much is the plan limits maxLoadTestVus, maxLoadTestSeconds, maxLoadTestRps, loadTestsPerDay, maxMonitors and minMonitorIntervalMinutes. Off: new load tests are refused, running ones stop within a second, monitors pause; analytics stay readable.", type: "boolean", default: true, public: true },
   "features.apiClient": { group: "features", label: "API client and tests", description: "Customers can send requests from the dashboard through the platform's server-side runner (public addresses only), keep collections and environments, add checks and run collections. How much is the plan limits maxApiCollections, maxApiCollectionRequests and apiClientSendsPerMinute. Off: sending and runs are refused; saved collections stay.", type: "boolean", default: true, public: true },
   "features.mockApis": { group: "features", label: "Mock APIs", description: "Customers can create hosted mock APIs that answer at a tunnel label's URL with no agent running (endpoints, response rules, templating, OpenAPI import). How many is the plan limits maxMockApis and maxMockEndpoints. Off: the hub stops answering from mocks.", type: "boolean", default: true, public: true },
   "features.alerts": { group: "features", label: "Alerts", description: "Customers can create alert rules (tunnel offline, error rate, usage, inbox, domains) delivered by email, in-app and webhook.", type: "boolean", default: true, public: true },

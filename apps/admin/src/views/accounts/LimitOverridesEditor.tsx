@@ -23,7 +23,13 @@ export const NUMERIC_LIMITS = [
   ['maxMockEndpoints', 'Endpoints per mock API'],
   ['maxApiCollections', 'API client collections (0 = API client off)'],
   ['maxApiCollectionRequests', 'Requests per collection'],
-  ['apiClientSendsPerMinute', 'API client sends / minute']
+  ['apiClientSendsPerMinute', 'API client sends / minute'],
+  ['maxLoadTestVus', 'Load test virtual users (0 = load tests off)'],
+  ['maxLoadTestSeconds', 'Longest load test (seconds)'],
+  ['maxLoadTestRps', 'Load test requests / second'],
+  ['loadTestsPerDay', 'Load tests per day'],
+  ['maxMonitors', 'Monitors (0 = none)'],
+  ['minMonitorIntervalMinutes', 'Shortest monitor interval (minutes)']
 ] as const
 
 export const BOOLEAN_LIMITS = [

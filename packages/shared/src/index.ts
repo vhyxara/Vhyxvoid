@@ -32,3 +32,4 @@ export * from "./mockInterop";
 export * from "./apiClient";
 export * from "./apiClientInterop";
 export * from "./httpRunner";
+export * from "./perf";
