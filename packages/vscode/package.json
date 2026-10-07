@@ -1,0 +1,84 @@
+{
+  "name": "vhyxvoid-vscode",
+  "displayName": "VhyxVoid",
+  "description": "Check and publish OpenAPI specs, run API test collections and draft mocks or tests with AI, from the editor, with a VhyxVoid API key.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "vhyxvoid",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Testing",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "openapi",
+    "api",
+    "mock",
+    "testing",
+    "vhyxvoid"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:yaml",
+    "onLanguage:json"
+  ],
+  "contributes": {
+    "commands": [
+      { "command": "vhyxvoid.signIn", "title": "Sign in with an API key", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.signOut", "title": "Sign out", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.checkSpec", "title": "Check this spec", "category": "VhyxVoid", "icon": "$(checklist)" },
+      { "command": "vhyxvoid.pushSpec", "title": "Save this spec as the draft (and publish)", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.linkSpec", "title": "Link this file to API docs", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.runCollection", "title": "Run a collection", "category": "VhyxVoid", "icon": "$(play)" },
+      { "command": "vhyxvoid.draftMock", "title": "Draft a mock API with AI", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.draftTests", "title": "Draft tests with AI", "category": "VhyxVoid" },
+      { "command": "vhyxvoid.openDashboard", "title": "Open the dashboard", "category": "VhyxVoid" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "vhyxvoid.checkSpec", "when": "resourceFilename =~ /openapi|swagger|spec/i && resourceExtname =~ /\\.(ya?ml|json)$/", "group": "navigation" }
+      ],
+      "commandPalette": [
+        { "command": "vhyxvoid.checkSpec", "when": "editorLangId == yaml || editorLangId == json" },
+        { "command": "vhyxvoid.pushSpec", "when": "editorLangId == yaml || editorLangId == json" },
+        { "command": "vhyxvoid.linkSpec", "when": "editorLangId == yaml || editorLangId == json" }
+      ]
+    },
+    "configuration": {
+      "title": "VhyxVoid",
+      "properties": {
+        "vhyxvoid.apiUrl": {
+          "type": "string",
+          "default": "https://api.vhyxvoid.com",
+          "description": "The VhyxVoid API origin (change it for a self-hosted platform)."
+        },
+        "vhyxvoid.specs": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": { "type": "string" },
+          "markdownDescription": "Which API docs each spec file belongs to: workspace-relative path → spec slug or id. Set by **VhyxVoid: Link this file to API docs**; commit it so the team shares it."
+        },
+        "vhyxvoid.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check linked spec files when they are saved: problems appear in the Problems panel, breaking changes in the VhyxVoid output."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node18 --external:vscode --outfile=dist/extension.js",
+    "typecheck": "tsc --noEmit -p .",
+    "package": "npx -y @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/vscode": "~1.90.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.9.3"
+  }
+}

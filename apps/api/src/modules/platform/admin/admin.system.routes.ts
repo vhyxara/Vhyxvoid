@@ -217,6 +217,7 @@ export async function adminSystemRoutes(fastify: FastifyInstance, opts: { hub: H
         maxTeamDocs: "enforced (creating a document)",
         maxTeamIssues: "enforced (creating an issue)",
         teamHistoryDays: "enforced (older messages are hidden from history, threads and search; nothing is deleted)",
+        aiRequestsPerMonth: "enforced (AI assist drafts; counted per calendar month, UTC)",
         protectedDocs: "enforced (setting a docs password; protected docs of a downgraded plan stay protected)",
         docsCustomDomains: "enforced (adding a docs domain; public docs on a verified domain keep answering after a downgrade)",
         customDomains: "enforced (adding a custom domain)",

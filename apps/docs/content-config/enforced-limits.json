@@ -160,6 +160,11 @@
       "label": "Chat history",
       "evidence": "apps/api/src/modules/platform/team/chat.routes.ts",
       "note": "Messages older than this are hidden from channels, threads and search; they are kept, and upgrading shows them again."
+    },
+    "aiRequestsPerMonth": {
+      "label": "AI assist drafts",
+      "evidence": "apps/api/src/modules/platform/ai/ai.routes.ts",
+      "note": "Counted per workspace per calendar month (UTC), dashboard and API keys together; a draft that fails is not counted. 0 turns AI assist off for the plan."
     }
   },
   "notEnforced": {

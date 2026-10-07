@@ -56,6 +56,8 @@ export const ACTIVITY_ROUTES: Record<string, ActivityRoute> = {
   "PUT /api/v1/specs/:accountId/:id/sharing": { action: "API_SPEC_SHARING_UPDATED", resourceType: "ApiSpec", meta: (p, b) => ({ id: p.id, visibility: str(b?.visibility, 20), passwordChanged: typeof b?.password === "string" || undefined }) },
   "PUT /api/v1/specs/:accountId/:id/domain": { action: "API_SPEC_DOMAIN_UPDATED", resourceType: "ApiSpec", meta: (p, b) => ({ id: p.id, hostname: b?.hostname === null ? null : str(b?.hostname, 253) }) },
   "DELETE /api/v1/specs/:accountId/:id": { action: "API_SPEC_DELETED", resourceType: "ApiSpec", meta: (p) => ({ id: p.id }) },
+  "POST /api/v1/ai/:accountId/mock": { action: "AI_DRAFT_CREATED", resourceType: "AiDraft", meta: (_p, b) => ({ kind: "mock", source: b?.trafficLabel ? "traffic" : "description", label: str(b?.trafficLabel, 63) }) },
+  "POST /api/v1/ai/:accountId/tests": { action: "AI_DRAFT_CREATED", resourceType: "AiDraft", meta: (_p, b) => ({ kind: "tests", source: b?.specId ? "spec" : b?.trafficLabel ? "traffic" : "description", label: str(b?.trafficLabel, 63) }) },
   "POST /api/v1/monitors/:accountId": { action: "MONITOR_CREATED", resourceType: "ApiMonitor", meta: (_p, b) => ({ name: str(b?.name, 80), intervalMinutes: typeof b?.intervalMinutes === "number" ? b.intervalMinutes : undefined }) },
   "PUT /api/v1/monitors/:accountId/:id": { action: "MONITOR_UPDATED", resourceType: "ApiMonitor", meta: (p, b) => ({ id: p.id, name: str(b?.name, 80), enabled: typeof b?.enabled === "boolean" ? b.enabled : undefined }) },
   "DELETE /api/v1/monitors/:accountId/:id": { action: "MONITOR_DELETED", resourceType: "ApiMonitor", meta: (p) => ({ id: p.id }) },

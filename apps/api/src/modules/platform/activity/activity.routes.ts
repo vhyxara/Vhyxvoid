@@ -21,7 +21,7 @@ export const ACTIVITY_CATEGORIES = {
   // Upper case: rows from shared/activity.ts; dotted: rows the routes write themselves.
   tunnels: ["TUNNEL_", "INBOX_", "INSPECTOR_", "REQUEST_", "DOMAIN_", "TRAFFIC_RULES_", "AGENT_", "MOCK_API_", "tunnel.", "custom_domain."],
   alerts: ["ALERT_"],
-  apis: ["API_COLLECTION_", "API_ENVIRONMENT_", "LOAD_TEST_", "MONITOR_", "API_SPEC_"],
+  apis: ["API_COLLECTION_", "API_ENVIRONMENT_", "LOAD_TEST_", "MONITOR_", "API_SPEC_", "AI_DRAFT_"],
   team: ["TEAM_"],
 } as const;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;

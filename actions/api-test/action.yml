@@ -19,7 +19,11 @@ inputs:
     required: false
     default: ""
   vars:
-    description: "File runs: variables, one NAME=value per line."
+    description: "Variables, one NAME=value per line (above the environment's values)."
+    required: false
+    default: ""
+  folder:
+    description: 'Run one folder ("Parent/Child" for a nested one).'
     required: false
     default: ""
   api-key:
@@ -65,6 +69,7 @@ runs:
         INPUT_FILE: ${{ inputs.file }}
         INPUT_ENVIRONMENT: ${{ inputs.environment }}
         INPUT_VARS: ${{ inputs.vars }}
+        INPUT_FOLDER: ${{ inputs.folder }}
         INPUT_JUNIT: ${{ inputs.junit }}
         INPUT_AGENT_VERSION: ${{ inputs.agent-version }}
         INPUT_AGENT_PACKAGE: ${{ inputs.agent-package }}
@@ -76,6 +81,7 @@ runs:
         elif [ -n "$INPUT_FILE" ]; then args+=("$INPUT_FILE");
         else echo "::error::Set collection (stored in the workspace) or file (in the repository)."; exit 2; fi
         [ -n "$INPUT_ENVIRONMENT" ] && args+=(--env "$INPUT_ENVIRONMENT")
+        [ -n "$INPUT_FOLDER" ] && args+=(--folder "$INPUT_FOLDER")
         while IFS= read -r v; do [ -n "$v" ] && args+=(--var "$v"); done <<< "$INPUT_VARS"
         args+=(--junit "$INPUT_JUNIT")
         npx -y --package="$pkg" vhyxvoid "${args[@]}"

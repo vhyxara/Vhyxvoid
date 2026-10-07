@@ -15,6 +15,9 @@
 
 import * as fs from "fs";
 
+import { exportNative, type MockEndpoint, type NativeMockFile } from "@vhyxvoid/shared/mock";
+import { nativeCollectionFile, type ApiCollection, type NativeCollectionFile } from "@vhyxvoid/shared/apiclient";
+
 export class PlatformError extends Error {
   constructor(
     message: string,
@@ -97,7 +100,7 @@ export type SpecCheck = {
 
 export type FailOn = "breaking" | "warning" | "none";
 
-async function findSpec(client: PlatformClient, accountId: string, ref: string): Promise<SpecSummary> {
+export async function findSpec(client: PlatformClient, accountId: string, ref: string): Promise<SpecSummary> {
   const list = await client.request<{ specs: SpecSummary[] }>("GET", `/specs/${accountId}`);
   const s = list.specs.find((x) => x.id === ref || x.slug === ref.toLowerCase());
   if (!s) throw new UsageError(`No API spec "${ref}" in this workspace (specs: ${list.specs.map((x) => x.slug).join(", ") || "none"})`);
@@ -114,9 +117,14 @@ function readText(file: string): string {
 
 /** Problems in the file and its changes against the spec's latest published version. */
 export async function checkSpec(client: PlatformClient, file: string, ref: string): Promise<SpecCheck> {
+  return checkSpecText(client, readText(file), ref);
+}
+
+/** Same as checkSpec, for text that isn't in a file (an editor's unsaved buffer). */
+export async function checkSpecText(client: PlatformClient, text: string, ref: string): Promise<SpecCheck> {
   const me = await client.whoami();
   const spec = await findSpec(client, me.accountId, ref);
-  const r = await client.request<{ problems: SpecProblem[]; changes: SpecChange[]; counts: SpecCheck["counts"]; against: SpecCheck["against"]; converted: boolean }>("POST", `/specs/${me.accountId}/${spec.id}/preview`, { text: readText(file) });
+  const r = await client.request<{ problems: SpecProblem[]; changes: SpecChange[]; counts: SpecCheck["counts"]; against: SpecCheck["against"]; converted: boolean }>("POST", `/specs/${me.accountId}/${spec.id}/preview`, { text });
   return { spec: { id: spec.id, name: spec.name, slug: spec.slug }, against: r.against, problems: r.problems, changes: r.changes, counts: r.counts, converted: r.converted };
 }
 
@@ -170,11 +178,15 @@ export type PushResult = { saved: boolean; published: { number: number; breaking
  * has errors or (without allowBreaking) breaking changes.
  */
 export async function pushSpec(client: PlatformClient, file: string, ref: string, opts: { publish?: boolean; notes?: string; allowBreaking?: boolean }): Promise<PushResult> {
+  return pushSpecText(client, readText(file), ref, opts);
+}
+
+/** Same as pushSpec, for text that isn't in a file. */
+export async function pushSpecText(client: PlatformClient, text: string, ref: string, opts: { publish?: boolean; notes?: string; allowBreaking?: boolean }): Promise<PushResult> {
   const me = await client.whoami();
   const spec = await findSpec(client, me.accountId, ref);
-  const text = readText(file);
   await client.request("PUT", `/specs/${me.accountId}/${spec.id}`, { text, expectedVersion: spec.version });
-  const check = await checkSpec(client, file, spec.id);
+  const check = await checkSpecText(client, text, spec.id);
   if (!opts.publish) return { saved: true, published: null, check, message: `Saved the draft of ${spec.name}` };
   const fail = checkFails(check, opts.allowBreaking ? "none" : "breaking");
   if (fail) return { saved: true, published: null, check, message: `Saved the draft but did not publish: ${fail}${check.counts.breaking && !opts.allowBreaking ? " (use --allow-breaking to publish anyway)" : ""}` };
@@ -199,7 +211,7 @@ async function findCollection(client: PlatformClient, accountId: string, ref: st
 }
 
 /** Runs a stored collection on the platform (its runner, public addresses only). */
-export async function runRemote<R>(client: PlatformClient, ref: string, opts: { environment?: string; folder?: string; bail?: boolean }) {
+export async function runRemote<R>(client: PlatformClient, ref: string, opts: { environment?: string; folder?: string; bail?: boolean; vars?: Record<string, string> }) {
   const me = await client.whoami();
   const { c, o } = await findCollection(client, me.accountId, ref);
   let environmentId: string | undefined;
@@ -208,8 +220,35 @@ export async function runRemote<R>(client: PlatformClient, ref: string, opts: { 
     if (!e) throw new UsageError(`No environment "${opts.environment}" (environments: ${o.environments.map((x) => `"${x.name}"`).join(", ") || "none"})`);
     environmentId = e.id;
   }
-  const r = await client.request<{ id: string; report: R; rateLimited: boolean }>("POST", `/api-client/${me.accountId}/collections/${c.id}/run`, { ...(environmentId ? { environmentId } : {}), ...(opts.bail ? { bail: true } : {}) });
+  let folderId: string | undefined;
+  if (opts.folder) {
+    const full = await client.request<{ folders: Array<{ id: string; name: string; parentId?: string | null }> }>("GET", `/api-client/${me.accountId}/collections/${c.id}`);
+    folderId = folderByPath(full.folders, opts.folder);
+    if (!folderId) throw new UsageError(`No folder "${opts.folder}" in ${c.name} (folders: ${full.folders.map((f) => `"${f.name}"`).join(", ") || "none"})`);
+  }
+  const vars = opts.vars && Object.keys(opts.vars).length ? opts.vars : undefined;
+  const r = await client.request<{ id: string; report: R; rateLimited: boolean }>("POST", `/api-client/${me.accountId}/collections/${c.id}/run`, {
+    ...(environmentId ? { environmentId } : {}),
+    ...(folderId ? { folderId } : {}),
+    ...(opts.bail ? { bail: true } : {}),
+    ...(vars ? { runtime: vars } : {}),
+  });
   return { collection: c, runId: r.id, report: r.report, rateLimited: r.rateLimited, url: `${me.dashboardUrl}/api-client/${c.id}` };
+}
+
+/** A folder by id or by "Parent/Child" names (case-insensitive). */
+export function folderByPath(folders: ReadonlyArray<{ id: string; name: string; parentId?: string | null }>, ref: string): string | undefined {
+  if (folders.some((f) => f.id === ref)) return ref;
+  const parts = ref.split("/").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  let parent: string | null = null;
+  let found: string | undefined;
+  for (const part of parts) {
+    const f = folders.find((x) => (x.parentId ?? null) === parent && x.name.toLowerCase() === part);
+    if (!f) return undefined;
+    found = f.id;
+    parent = f.id;
+  }
+  return found;
 }
 
 /** Replaces a stored collection's requests, folders and variables from a file (any format the dashboard imports). */
@@ -221,6 +260,42 @@ export async function pushCollection(client: PlatformClient, file: string, ref: 
   const col = parsed.collection;
   await client.request("PUT", `/api-client/${me.accountId}/collections/${c.id}`, { auth: col.auth, variables: col.variables, folders: col.folders, requests: col.requests, expectedVersion: current.version });
   return { collection: c, requests: col.requests.length, folders: col.folders.length };
+}
+
+// ── AI assist ────────────────────────────────────────────────────────────────
+
+type AiUsage = { used: number; limit: number | null; resetsAt: string };
+export type AiMockResult = { file: NativeMockFile; summary: string; warnings: string[]; usage: AiUsage };
+export type AiTestsResult = { file: NativeCollectionFile; summary: string; warnings: string[]; usage: AiUsage };
+
+/** Draft a mock API (needs ai:use). The result is a VhyxVoid mock file `vhyxvoid mock` serves. */
+export async function aiMock(client: PlatformClient, opts: { description?: string; traffic?: string; name?: string }): Promise<AiMockResult> {
+  if (!opts.description?.trim() && !opts.traffic) throw new UsageError("Describe the API, or pass --traffic <tunnel> to learn from captured requests");
+  const me = await client.whoami();
+  const r = await client.request<{ summary: string; endpoints: MockEndpoint[]; warnings: string[]; usage: AiUsage }>("POST", `/ai/${me.accountId}/mock`, {
+    ...(opts.description?.trim() ? { description: opts.description.trim() } : {}),
+    ...(opts.traffic ? { trafficLabel: opts.traffic } : {}),
+  });
+  const file = exportNative({ mode: "ALWAYS", cors: true, latencyMs: 0, endpoints: r.endpoints }, { name: opts.name || "AI draft", description: r.summary });
+  return { file, summary: r.summary, warnings: r.warnings, usage: r.usage };
+}
+
+/** Draft a test collection (needs ai:use; specs:read is not needed for --spec). The result is a collection file `vhyxvoid test` runs. */
+export async function aiTests(client: PlatformClient, opts: { description?: string; traffic?: string; spec?: string; baseUrl?: string }): Promise<AiTestsResult> {
+  if (!opts.description?.trim() && !opts.traffic && !opts.spec) throw new UsageError("Describe what to test, or pass --spec <slug> or --traffic <tunnel>");
+  const me = await client.whoami();
+  const specId = opts.spec ? (await findSpec(client, me.accountId, opts.spec)).id : undefined;
+  const r = await client.request<{ summary: string; collection: ApiCollection; warnings: string[]; usage: AiUsage }>("POST", `/ai/${me.accountId}/tests`, {
+    ...(opts.description?.trim() ? { description: opts.description.trim() } : {}),
+    ...(opts.traffic ? { trafficLabel: opts.traffic } : {}),
+    ...(specId ? { specId } : {}),
+    ...(opts.baseUrl ? { baseUrl: opts.baseUrl } : {}),
+  });
+  return { file: nativeCollectionFile(r.collection), summary: r.summary, warnings: r.warnings, usage: r.usage };
+}
+
+export function usageLine(u: AiUsage): string {
+  return u.limit === null ? `${u.used} AI draft(s) this month` : `${u.used} of ${u.limit} AI drafts used this month`;
 }
 
 /** Appends to the GitHub Actions job summary when running in Actions. */

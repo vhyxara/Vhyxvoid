@@ -377,7 +377,10 @@ program
       const { reportToJUnit } = await import("@vhyxvoid/shared/apiclient");
       try {
         const client = new p.PlatformClient(p.credentials({ apiKey: opts.apiKey, apiUrl: opts.apiUrl }));
-        const r = await p.runRemote<import("@vhyxvoid/shared/apiclient").RunReport>(client, opts.collection, { environment: opts.env, bail: Boolean(opts.bail) });
+        const ignored = [opts.timeout !== "30000" && "timeout", opts.delay !== "0" && "delay", opts.insecure && "insecure", opts.followRedirects && "follow-redirects"].filter(Boolean);
+        if (ignored.length) console.error(`  ! --${ignored.join(", --")} only apply to file runs; the platform's runner uses the collection's settings`);
+        const { parseVars } = await import("./apiTest");
+        const r = await p.runRemote<import("@vhyxvoid/shared/apiclient").RunReport>(client, opts.collection, { environment: opts.env, folder: opts.folder, bail: Boolean(opts.bail), vars: parseVars(opts.var) });
         if (!opts.quiet) console.log(`\n  ${r.collection.name} (on the platform)\n`);
         for (const res of r.report.results) if (!opts.quiet || res.outcome !== "passed") for (const l of formatResult(res)) console.log(`  ${l}`);
         console.log(`\n  ${formatSummary(r.report)}${r.rateLimited ? " (stopped by the plan's send rate)" : ""}\n  ${r.url}\n`);
@@ -493,6 +496,58 @@ withApi(
   platformAction(async (p, client) => {
     const r = await p.pushCollection(client, file, opts.collection);
     console.log(`\n  ✓ ${r.collection.name}: ${r.requests} request(s) in ${r.folders} folder(s)\n`);
+    return 0;
+  }, opts),
+);
+
+const aiCmd = program.command("ai").description("Draft a mock API or tests with AI assist (needs an API key with ai:use)");
+
+function writeDraft(out: string | undefined, json: unknown): string {
+  const text = `${JSON.stringify(json, null, 2)}\n`;
+  if (!out || out === "-") {
+    process.stdout.write(text);
+    return "stdout";
+  }
+  if (fs.existsSync(out)) throw new Error(`${out} already exists; pick another --out or remove it`);
+  fs.writeFileSync(out, text);
+  return out;
+}
+
+withApi(
+  aiCmd
+    .command("mock [description...]")
+    .description("Draft mock endpoints from a description or captured traffic; writes a mock file to serve with `vhyxvoid mock`")
+    .option("--traffic <tunnel>", "Learn from requests the request inspector captured on this tunnel")
+    .option("--name <name>", "Name in the file", "AI draft")
+    .option("-o, --out <file>", "Where to write the mock file (- for stdout)", "mock.vhyxvoid.json"),
+).action((words: string[], opts) =>
+  platformAction(async (p, client) => {
+    const r = await p.aiMock(client, { description: words.join(" "), traffic: opts.traffic, name: opts.name });
+    const where = writeDraft(opts.out, r.file);
+    const log = where === "stdout" ? console.error : console.log;
+    log(`\n  ✓ ${r.file.endpoints.length} endpoint(s) → ${where}\n  ${r.summary}`);
+    for (const w of r.warnings) log(`  ! ${w}`);
+    log(`  ${p.usageLine(r.usage)}${where === "stdout" ? "" : `\n\n  Try it: npx vhyxvoid mock ${where}`}\n`);
+    return 0;
+  }, opts),
+);
+
+withApi(
+  aiCmd
+    .command("tests [description...]")
+    .description("Draft a test collection from a description, API docs or captured traffic; writes a collection file to run with `vhyxvoid test`")
+    .option("--spec <slug|id>", "Base the tests on these API docs")
+    .option("--traffic <tunnel>", "Learn from requests the request inspector captured on this tunnel")
+    .option("--base-url <url>", "The API's base URL ({{baseUrl}})")
+    .option("-o, --out <file>", "Where to write the collection file (- for stdout)", "tests.vhyxvoid.json"),
+).action((words: string[], opts) =>
+  platformAction(async (p, client) => {
+    const r = await p.aiTests(client, { description: words.join(" "), traffic: opts.traffic, spec: opts.spec, baseUrl: opts.baseUrl });
+    const where = writeDraft(opts.out, r.file);
+    const log = where === "stdout" ? console.error : console.log;
+    log(`\n  ✓ ${r.file.collection.requests.length} request(s) → ${where}\n  ${r.summary}`);
+    for (const w of r.warnings) log(`  ! ${w}`);
+    log(`  ${p.usageLine(r.usage)}${where === "stdout" ? "" : `\n\n  Run it: npx vhyxvoid test ${where}`}\n`);
     return 0;
   }, opts),
 );

@@ -34,7 +34,8 @@ export const NUMERIC_LIMITS = [
   ['maxTeamChannels', 'Chat channels (0 = team space off)'],
   ['maxTeamDocs', 'Team documents'],
   ['maxTeamIssues', 'Tracker issues'],
-  ['teamHistoryDays', 'Chat history shown (days)']
+  ['teamHistoryDays', 'Chat history shown (days)'],
+  ['aiRequestsPerMonth', 'AI assist drafts per month']
 ] as const
 
 export const BOOLEAN_LIMITS = [

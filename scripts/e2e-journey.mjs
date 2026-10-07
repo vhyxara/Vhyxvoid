@@ -1605,6 +1605,84 @@ if (process.env.ADMIN_EMAIL) {
     return `v1 → v2 with ${v2.json.data.breaking} breaking; try-it ${tried.json.data.status}; password ${locked.status}; domain ${domain}`;
   });
 
+  await step("platform API: scoped key, CLI whoami, spec check and push, test --collection, AI assist", async () => {
+    const S = (m, p, body, token = s.token) => api(m, `/specs/${s.personal}${p}`, { token, body });
+    const C = (m, p, body) => api(m, `/api-client/${s.personal}${p}`, { token: s.token, body });
+    // Five scopes; the free plan allows two per key.
+    await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: { maxScopesPerKey: 10 } } });
+    const dir = fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "vv-ci-"));
+    const cleanup = [];
+    try {
+      const spec = (await S("POST", "", { name: `CLI API ${RUN}` })).json.data;
+      cleanup.push(() => S("DELETE", `/${spec.id}`));
+      assert((await S("POST", `/${spec.id}/publish`, {})).status === 201, "publish v1");
+      const k = await api("POST", `/apikeys/organizations/${s.personal}/api-keys`, { token: s.token, body: { name: `ci-${RUN}`, environment: "DEV", scopes: ["specs:read", "specs:write", "collections:read", "tests:run", "ai:use"] } });
+      assert(k.status === 201 || k.status === 200, `key ${k.status}: ${JSON.stringify(k.json).slice(0, 300)}`);
+      const kd = k.json.data ?? k.json;
+      const keyId = kd.key?.keyId ?? kd.keyId;
+      const token = `${keyId}.${kd.secret}`;
+      cleanup.push(() => api("POST", `/apikeys/organizations/${s.personal}/api-keys/${kd.key?.id ?? kd.id}/revoke`, { token: s.token, body: {} }));
+      // A key works where a route declares its scope; sharing is dashboard-only.
+      assert((await S("GET", "", undefined, token)).status === 200, "list specs with the key");
+      const share = await S("PUT", `/${spec.id}/sharing`, { visibility: "PUBLIC" }, token);
+      assert(share.status === 401 && /dashboard sign-in/.test(share.json?.message ?? ""), `sharing with a key ${share.status}`);
+
+      const cliPath = path.join(root, "packages/agent/dist/cli.js");
+      const cli = (args) =>
+        new Promise((resolve) => {
+          const child = spawn(process.execPath, [cliPath, ...args], { cwd: dir, env: { ...process.env, VHYXVOID_API_KEY: token, VHYXVOID_SECRET: "", VHYXVOID_API_URL: API.replace(/\/api\/v1$/, ""), GITHUB_STEP_SUMMARY: path.join(dir, "summary.md"), DOTENV_CONFIG_QUIET: "true" } });
+          let out = "";
+          child.stdout.on("data", (d) => (out += d));
+          child.stderr.on("data", (d) => (out += d));
+          child.on("exit", (code) => resolve({ code, out }));
+        });
+      const me = await cli(["whoami"]);
+      assert(me.code === 0 && me.out.includes(keyId), `whoami ${me.code}: ${me.out}`);
+
+      // v2 drops an operation: check fails, push refuses to publish, --allow-breaking publishes.
+      const doc = (await S("POST", `/${spec.id}/preview`, {})).json.data.doc;
+      delete doc.paths["/users/{id}"];
+      fs.writeFileSync(path.join(dir, "openapi.json"), JSON.stringify(doc, null, 2));
+      const checked = await cli(["spec", "check", "openapi.json", "--spec", spec.slug]);
+      assert(checked.code === 1 && /1 breaking change/.test(checked.out), `spec check ${checked.code}: ${checked.out}`);
+      assert(fs.readFileSync(path.join(dir, "summary.md"), "utf8").includes("breaking"), "job summary written");
+      const refused = await cli(["spec", "push", "openapi.json", "--spec", spec.slug, "--publish"]);
+      assert(refused.code === 1 && /did not publish/.test(refused.out), `push ${refused.code}: ${refused.out}`);
+      const pushed = await cli(["spec", "push", "openapi.json", "--spec", spec.slug, "--publish", "--allow-breaking", "--notes", "from CI"]);
+      assert(pushed.code === 0 && /Published .* v2/.test(pushed.out), `push --allow-breaking ${pushed.code}: ${pushed.out}`);
+      const versions = (await S("GET", `/${spec.id}/versions`)).json.data.versions;
+      assert(versions.length === 2 && versions[0].breaking === 1 && versions[0].notes === "from CI", `versions ${JSON.stringify(versions).slice(0, 300)}`);
+
+      // A stored collection run from CI by name; the run is recorded as an API run.
+      const col = await C("POST", "/collections", { name: `CI ${RUN}` });
+      cleanup.push(() => C("DELETE", `/collections/${col.json.data.id}`));
+      await C("PUT", `/collections/${col.json.data.id}`, { expectedVersion: 1, variables: [{ key: "hub", value: HUB, enabled: true }], requests: [{ id: "q1", name: "Echo", method: "GET", url: "{{hub}}/echo", params: [], headers: [{ key: "Host", value: s.host, enabled: true }], auth: { type: "inherit" }, body: { type: "none" }, assertions: [{ id: "a1", enabled: true, source: "status", op: "eq", value: "200" }], captures: [] }] });
+      const ran = await cli(["test", "--collection", `CI ${RUN}`, "--junit", "junit.xml"]);
+      const runs = (await C("GET", `/collections/${col.json.data.id}/runs`)).json.data.runs;
+      assert(runs.length === 1 && fs.existsSync(path.join(dir, "junit.xml")), `test --collection ${ran.code}: ${ran.out}`);
+      const runNote = ran.code === 0 ? "passed" : /EPRIVATE|private/i.test(ran.out) ? "refused 127.0.0.1 (no API_CLIENT_ALLOW_PRIVATE)" : `exit ${ran.code}`;
+      assert(ran.code === 0 || runNote !== `exit ${ran.code}`, `test --collection ${ran.code}: ${ran.out}`);
+
+      // AI assist answers with its status; without ANTHROPIC_API_KEY on the API it says so.
+      const ai = await api("GET", `/ai/${s.personal}`, { token });
+      assert(ai.status === 200 && ai.json.data.limit === 20, `ai status ${ai.status}: ${JSON.stringify(ai.json).slice(0, 200)}`);
+      let aiNote = "drafted";
+      if (!ai.json.data.configured) {
+        const draft = await cli(["ai", "mock", "a", "bookstore", "API", "-o", "mock.json"]);
+        assert(draft.code === 1 && /ANTHROPIC_API_KEY/.test(draft.out), `ai mock without a provider ${draft.code}: ${draft.out}`);
+        aiNote = "not configured (503, as expected)";
+      } else {
+        const draft = await cli(["ai", "mock", "a", "bookstore", "API", "with", "books", "and", "authors", "-o", "mock.json"]);
+        assert(draft.code === 0 && JSON.parse(fs.readFileSync(path.join(dir, "mock.json"), "utf8")).endpoints.length > 0, `ai mock ${draft.code}: ${draft.out}`);
+      }
+      return `whoami, check 1 breaking (exit 1), push refused then v2 published, collection run ${runNote}, AI ${aiNote}`;
+    } finally {
+      for (const c of cleanup.reverse()) await c().catch(() => undefined);
+      await P("PATCH", `/accounts/${s.personal}`, { body: { limitOverrides: null } });
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   await step("alerts: test notification, error rate fires and resolves over a webhook, history", async () => {
     const AL = (m, p, o = {}) => api(m, `/alerts/${s.personal}${p}`, { token: s.token, ...o });
     const received = [];

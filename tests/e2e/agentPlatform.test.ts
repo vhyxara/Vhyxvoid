@@ -6,7 +6,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-import { PlatformClient, PlatformError, UsageError, checkFails, checkMarkdown, checkSpec, credentials, formatCheck, pushCollection, pushSpec, runRemote, writeJobSummary, type SpecCheck } from "../../packages/agent/src/platform";
+import { PlatformClient, PlatformError, UsageError, aiMock, aiTests, checkFails, folderByPath, checkMarkdown, checkSpec, credentials, formatCheck, pushCollection, pushSpec, runRemote, writeJobSummary, type SpecCheck } from "../../packages/agent/src/platform";
 
 const KEY = `vhyxvoid_dev_${"a".repeat(32)}`;
 const SECRET = "b".repeat(64);
@@ -110,6 +110,11 @@ describe("collections", () => {
     expect(r).toMatchObject({ runId: "run1", report: { total: 1 }, url: "https://app.test/organizations/acc-1/api-client/c1" });
     expect(api.calls.at(-1)!.body).toEqual({ environmentId: "e1" });
     await expect(runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f), "Smoke", { environment: "prod" })).rejects.toThrow(/No environment "prod".*"Staging"/);
+    const api2 = fakeApi({ ...whoami, ...overview, "GET /api/v1/api-client/acc-1/collections/c1": () => ({ data: { folders: [{ id: "f1", name: "Users" }, { id: "f2", name: "Admin", parentId: "f1" }] } }), "POST /api/v1/api-client/acc-1/collections/c1/run": () => ({ data: { id: "run2", rateLimited: false, report: {} } }) });
+    await runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api2.f), "c1", { folder: "users/admin", bail: true, vars: { token: "x" } });
+    expect(api2.calls.at(-1)!.body).toEqual({ folderId: "f2", bail: true, runtime: { token: "x" } });
+    await expect(runRemote(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api2.f), "c1", { folder: "Nope" })).rejects.toThrow(/No folder "Nope".*"Users"/);
+    expect(folderByPath([{ id: "f1", name: "A" }], "f1")).toBe("f1");
   });
 
   it("pushes a collection file through the importer with the current version", async () => {
@@ -136,5 +141,27 @@ describe("collections", () => {
     expect(writeJobSummary("# hi", { GITHUB_STEP_SUMMARY: summary })).toBe(true);
     expect(writeJobSummary("# hi", {})).toBe(false);
     expect(fs.readFileSync(summary, "utf8")).toBe("# hi\n");
+  });
+});
+
+describe("ai drafts", () => {
+  const usage = { used: 3, limit: 20, resetsAt: "2026-11-01T00:00:00.000Z" };
+  it("writes a mock file and a collection file the offline commands read", async () => {
+    const api = fakeApi({
+      ...whoami,
+      ...specs,
+      "POST /api/v1/ai/acc-1/mock": () => ({ data: { summary: "Books", endpoints: [{ id: "e1", enabled: true, method: "GET", path: "/books", responses: [{ id: "r1", status: 200, isDefault: true }] }], warnings: [], usage } }),
+      "POST /api/v1/ai/acc-1/tests": () => ({ data: { summary: "Smoke", collection: { name: "Smoke", auth: { type: "none" }, variables: [{ key: "baseUrl", value: "https://x.test", enabled: true }], folders: [], requests: [{ id: "q1" }] }, warnings: ["one skipped"], usage } }),
+    });
+    const client = new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f);
+    const m = await aiMock(client, { description: " a bookstore ", name: "Books" });
+    expect(m.file).toMatchObject({ vhyxvoid: "mock-api", version: 1, name: "Books", description: "Books", mode: "ALWAYS", endpoints: [{ path: "/books" }] });
+    expect(api.calls.at(-1)!.body).toEqual({ description: "a bookstore" });
+    const t = await aiTests(client, { spec: "shop", baseUrl: "https://x.test" });
+    expect(t.file).toMatchObject({ vhyxvoid: "collection", version: 1, collection: { name: "Smoke", requests: [{ id: "q1" }] } });
+    expect(api.calls.at(-1)!.body).toEqual({ specId: "s1", baseUrl: "https://x.test" });
+    expect(t.warnings).toEqual(["one skipped"]);
+    await expect(aiMock(client, {})).rejects.toThrow(UsageError);
+    await expect(aiTests(client, { description: "  " })).rejects.toThrow(/--spec/);
   });
 });

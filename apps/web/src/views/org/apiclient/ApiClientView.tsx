@@ -9,7 +9,7 @@ import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Alert, Badge, Button, Card, Dialog, SelectField, Skeleton, TextareaField, TextField, toast } from '@vhyxui/react'
 import { PageHeader } from '@vhyxui/blocks'
@@ -19,6 +19,7 @@ import { useBootstrapReady } from '@/api/application/hooks/useBootstrapSession'
 import { apiClientService, type ApiClientOverview, type CollectionSummary } from '@/api/infrastructure/services/apiClient.service'
 import { mocksService } from '@/api/infrastructure/services/mocks.service'
 import { EnvironmentsDialog } from './ApiClientParts'
+import AiDraftDialog from '../ai/AiDraftDialog'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
@@ -30,13 +31,15 @@ export const apiClientKeys = {
   history: (a: string) => ['api-client', a, 'history'] as const
 }
 
-type Start = 'blank' | 'import' | 'mock'
+type Start = 'blank' | 'import' | 'mock' | 'ai'
 
 export default function ApiClientView({ accountId }: { accountId: string }) {
   const ready = useBootstrapReady()
   const { data: o, isLoading, error } = useQuery({ queryKey: apiClientKeys.overview(accountId), queryFn: () => apiClientService.overview(accountId), enabled: ready })
   const [start, setStart] = useState<Start | null>(null)
   const [envs, setEnvs] = useState(false)
+  const router = useRouter()
+  const qc = useQueryClient()
 
   const atLimit = !!o && o.collections.length >= o.maxCollections
   const canCreate = !!o && o.enabled && o.maxCollections > 0 && !atLimit
@@ -74,6 +77,7 @@ export default function ApiClientView({ accountId }: { accountId: string }) {
                 <StartCard icon='tabler-file-plus' title='Blank' body='An empty collection with a baseUrl variable. Add requests, folders and checks.' disabled={!canCreate} onClick={() => setStart('blank')} />
                 <StartCard icon='tabler-file-import' title='Import' body='Paste a curl command, or a Postman collection, OpenAPI / Swagger (JSON or YAML), a HAR recording or a VhyxVoid export.' disabled={!canCreate} onClick={() => setStart('import')} />
                 <StartCard icon='tabler-api' title='Test a mock API' body='One request per endpoint with status checks, and create → read → delete flows for resources.' disabled={!canCreate} onClick={() => setStart('mock')} />
+                <StartCard icon='tabler-sparkles' title='Draft with AI' body='Describe what to test, or start from API docs or traffic captured on a tunnel. You get requests with checks to review.' disabled={!canCreate} onClick={() => setStart('ai')} />
               </div>
             </section>
           )}
@@ -112,17 +116,32 @@ export default function ApiClientView({ accountId }: { accountId: string }) {
                 Run in CI
               </Typography>
               <Typography variant='body2' style={muted}>
-                Export a collection (VhyxVoid JSON) and run it with the agent. It exits with 1 when a check fails and can write a JUnit report. Requests go from the CI machine, so localhost works.
+                Run a saved collection by name with an API key (scope tests:run), or export it (VhyxVoid JSON) and run the file, which sends requests from the CI machine so localhost works. Either way it exits with 1 when a check fails and can write a JUnit report. In GitHub Actions, use the api-test action.
               </Typography>
               <pre style={{ ...mono, margin: 0, padding: 12, borderRadius: 8, background: 'var(--vhyx-color-bg-muted)', overflowX: 'auto' }}>
-                {`npx -y @vhyxvoid/agent test ./shop.vhyxvoid.json --env Staging \\\n  --var token=$API_TOKEN --junit report.xml`}
+                {`VHYXVOID_API_KEY=$VHYXVOID_API_KEY npx -y @vhyxvoid/agent test --collection Shop --env Staging --junit report.xml\n\nnpx -y @vhyxvoid/agent test ./shop.vhyxvoid.json --env Staging \\\n  --var token=$API_TOKEN --junit report.xml`}
               </pre>
             </div>
           </Card>
         </>
       )}
 
-      {start && o && <CreateDialog accountId={accountId} start={start} onClose={() => setStart(null)} />}
+      {start === 'ai' && o && (
+        <AiDraftDialog
+          kind='tests'
+          accountId={accountId}
+          onClose={() => setStart(null)}
+          onApply={async r => {
+            // Create, then fill it in one version-checked save.
+            const created = await apiClientService.createCollection(accountId, { name: r.collection.name })
+            const saved = await apiClientService.saveCollection(accountId, created.id, { ...r.collection, expectedVersion: created.version })
+
+            qc.invalidateQueries({ queryKey: apiClientKeys.overview(accountId) })
+            router.push(`/organizations/${accountId}/api-client/${saved.id}`)
+          }}
+        />
+      )}
+      {start && start !== 'ai' && o && <CreateDialog accountId={accountId} start={start} onClose={() => setStart(null)} />}
       {envs && o && <EnvironmentsDialog accountId={accountId} environments={o.environments} max={o.maxEnvironments} onClose={() => setEnvs(false)} />}
     </div>
   )

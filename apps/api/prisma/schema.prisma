@@ -281,6 +281,7 @@ model Account {
   teamFolders        TeamFolder[]
   teamComments       TeamComment[]
   teamMemberPrefs    TeamMemberPref[]
+  aiDrafts           AiDraft[]
   tunnelRequests     TunnelRequest[]
   stripeCustomerId   String? // Stripe Customer ID — set once on first checkout
   subscriptions      Subscription[]
@@ -1853,4 +1854,30 @@ model TeamMemberPref {
 
   @@id([userId, accountId])
   @@map("team_member_prefs")
+}
+
+/// One AI assist draft (phase 7): what was asked, by whom, the tokens it
+/// cost, and whether it produced something. Successful rows count against
+/// the plan limit aiRequestsPerMonth. The prompt and the draft are not kept.
+model AiDraft {
+  id           String   @id @default(uuid())
+  accountId    String
+  userId       String
+  /// Set when an API key asked (platform API).
+  keyId        String?
+  /// mock | tests
+  kind         String
+  /// description | traffic | spec
+  source       String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  ok           Boolean
+  error        String?
+  createdAt    DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("ai_drafts")
 }

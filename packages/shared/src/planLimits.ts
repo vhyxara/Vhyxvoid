@@ -60,6 +60,7 @@ export interface PlanLimits {
   maxTeamDocs: number; // team documents per account
   maxTeamIssues: number; // tracker issues per account
   teamHistoryDays: number; // chat messages older than this are hidden (kept; upgrading shows them)
+  aiRequestsPerMonth: number; // AI assist drafts (mocks, tests) per account per calendar month (0 = off)
 
   // ── API key limits (existing — kept as-is) ──────────────────────────────
   maxApiKeys: number; // total API keys per account
@@ -105,6 +106,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTeamDocs: 50,
     maxTeamIssues: 200,
     teamHistoryDays: 90,
+    aiRequestsPerMonth: 20,
     // API keys
     maxApiKeys: 3,
     maxScopesPerKey: 2,
@@ -149,6 +151,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTeamDocs: 2000,
     maxTeamIssues: 10000,
     teamHistoryDays: Infinity,
+    aiRequestsPerMonth: 500,
     // API keys
     maxApiKeys: 20,
     maxScopesPerKey: 10,
@@ -191,6 +194,7 @@ export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
     maxTeamDocs: 20000,
     maxTeamIssues: 100000,
     teamHistoryDays: Infinity,
+    aiRequestsPerMonth: 5000,
     // API keys
     maxApiKeys: Infinity,
     maxScopesPerKey: Infinity,

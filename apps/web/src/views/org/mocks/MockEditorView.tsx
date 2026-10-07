@@ -54,6 +54,7 @@ import {
 } from './mockForm'
 import { mockKeys } from './MocksView'
 import { ExportDialog, RecordDialog, ResourceEditor } from './MockPhase2Parts'
+import AiDraftDialog from '../ai/AiDraftDialog'
 
 const muted = { color: 'var(--vhyx-color-text-muted)' } as const
 const mono = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 } as const
@@ -88,7 +89,7 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
   const [draft, setDraft] = useState<Draft | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
-  const [dialog, setDialog] = useState<'try' | 'import' | 'delete' | 'export' | 'record' | null>(null)
+  const [dialog, setDialog] = useState<'try' | 'import' | 'delete' | 'export' | 'record' | 'ai' | null>(null)
 
   const d = draft ?? (m ? draftOf(m) : null)
   const dirty = !!m && !!draft && JSON.stringify(draft) !== JSON.stringify(draftOf(m))
@@ -208,6 +209,11 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
           {canEdit && (
             <Button size='sm' variant='ghost' icon={<i className='tabler-player-record' />} onClick={() => setDialog('record')} disabled={dirty} title={dirty ? 'Save or discard your changes first' : 'Create endpoints from captured traffic'}>
               Record
+            </Button>
+          )}
+          {canEdit && (
+            <Button size='sm' variant='ghost' icon={<i className='tabler-sparkles' />} onClick={() => setDialog('ai')} title='Draft endpoints from a description or captured traffic'>
+              Draft with AI
             </Button>
           )}
           {canEdit && (
@@ -472,6 +478,20 @@ export default function MockEditorView({ accountId, mockId }: { accountId: strin
             qc.setQueryData(mockKeys.one(accountId, mockId), { ...m, ...updated })
             qc.invalidateQueries({ queryKey: mockKeys.overview(accountId) })
             setDraft(null)
+          }}
+        />
+      )}
+      {dialog === 'ai' && (
+        <AiDraftDialog
+          kind='mock'
+          accountId={accountId}
+          mockId={mockId}
+          defaultLabel={m.label}
+          onClose={() => setDialog(null)}
+          onApply={r => {
+            // Added to the unsaved draft, after what is there; Save keeps them.
+            setEndpoints(eps => [...eps, ...r.endpoints])
+            if (r.endpoints[0]) setSelected(r.endpoints[0].id)
           }}
         />
       )}

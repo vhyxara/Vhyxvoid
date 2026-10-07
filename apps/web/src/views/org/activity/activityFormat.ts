@@ -175,6 +175,8 @@ export function describeActivity(item: ActivityItem): string {
       return `deleted issue #${s(m.number) ?? ''}`.trim()
     case 'API_SPEC_CREATED':
       return `created the API docs ${s(m.name) ?? ''}${m.fromMock ? ' from a mock API' : m.fromDocument ? ' from an OpenAPI document' : ''}`.replace('  ', ' ')
+    case 'AI_DRAFT_CREATED':
+      return `drafted ${m.kind === 'tests' ? 'API tests' : 'a mock API'} with AI${m.source === 'traffic' ? ` from traffic on ${s(m.label) ?? 'a tunnel'}` : m.source === 'spec' ? ' from API docs' : ''}`
     case 'API_SPEC_PUBLISHED':
       return 'published a new version of API docs'
     case 'API_SPEC_RESTORED':

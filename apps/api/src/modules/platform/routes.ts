@@ -39,6 +39,7 @@ import { specRoutes } from "./specs/specs.routes";
 import { publicSpecRoutes } from "./specs/specs.public.routes";
 import { teamChatRoutes } from "./team/chat.routes";
 import { platformApiRoutes } from "./shared/platformApi.routes";
+import { aiRoutes } from "./ai/ai.routes";
 import { teamDocRoutes } from "./team/docs.routes";
 import { teamIssueRoutes } from "./team/issues.routes";
 import { teamCommentRoutes } from "./team/comments.routes";
@@ -91,6 +92,7 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(publicSpecRoutes, { prefix: "/api/v1/public/specs" });
   await server.register(teamChatRoutes, { prefix: "/api/v1/team" });
   await server.register(platformApiRoutes, { prefix: "/api/v1/platform" });
+  await server.register(aiRoutes, { prefix: "/api/v1/ai" });
   await server.register(teamDocRoutes, { prefix: "/api/v1/team" });
   await server.register(teamIssueRoutes, { prefix: "/api/v1/team" });
   await server.register(teamCommentRoutes, { prefix: "/api/v1/team" });
