@@ -22,6 +22,15 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
       config: {
         rawBody: true, // tells fastify-raw-body plugin to attach raw body
       },
+      // Before anything reads the body. Stripe always sends JSON; any other
+      // content type made fastify's text parser and fastify-raw-body (which
+      // reads the raw stream first) read it together, and raw-body threw an
+      // uncaught TypeError that ended the whole process.
+      onRequest: async (request, reply) => {
+        const type = String(request.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase();
+        if (type !== "application/json") return reply.code(415).send({ success: false, message: "Stripe webhooks are sent as application/json", code: "VALIDATION_ERROR", data: null });
+        if (!request.headers["stripe-signature"]) throw new ValidationError("Missing stripe-signature header");
+      },
     },
     async (request: any, reply) => {
       const signature = request.headers["stripe-signature"];

@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import { registerPlugins } from "@/modules/identity/presentation/plugins/register.plugin";
 import registerRoutes from "@/modules/identity/presentation/http/index";
 import rawBody from "fastify-raw-body";
+import { rejectUnsafeText } from "@/core/middleware/unsafe-text.middleware";
 import { TRUST_PROXY } from "@/core/constant/rateLimit.constant";
 // import { initRedis } from '@/core/redis/RedisClient';
 
@@ -28,6 +29,8 @@ export const buildServer = async () => {
 
   // Attach requestId context for logging
   server.addHook("onRequest", requestIdHook);
+  // Text Postgres can't store (NUL, unpaired surrogates) is a 400, not a 500.
+  server.addHook("preValidation", rejectUnsafeText);
 
   // Global error handler — MUST be registered before registerPlugins/
   // registerRoutes below. Fastify's encapsulation model resolves each
