@@ -15,6 +15,7 @@ import { successResponse } from "@/core/utils/response.util";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { ALERT_BOUNDS, ALERT_TYPES, currentPlanOverrides, describeAlertRule, getEffectivePlanLimitsForAccount } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { lockedCreate } from "../shared/createLock";
 import type { AlertRuleRow, AlertService } from "./alerts.service";
 import { validateWebhookUrl } from "./webhook";
 
@@ -103,22 +104,26 @@ export async function alertRoutes(fastify: FastifyInstance, opts: { alerts: Aler
     if (count >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: count, limitKey: "maxAlertRules", plan: lim.plan });
     const b = normalise(raw.type, raw);
     checkWebhook(b.webhookUrl);
-    const rule = await prisma.alertRule.create({
-      data: {
-        accountId,
-        type: b.type,
-        name: b.name,
-        enabled: b.enabled ?? true,
-        label: b.label ?? null,
-        threshold: b.threshold ?? null,
-        windowMinutes: b.windowMinutes ?? null,
-        minRequests: b.minRequests ?? null,
-        notifyMembers: b.notifyMembers ?? true,
-        emails: b.emails ?? [],
-        webhookUrl: b.webhookUrl ?? null,
-        createdById: getUserContext(request).id,
-        cursorAt: new Date(),
-      },
+    const rule = await lockedCreate(prisma, accountId, "alertRule", async (tx) => {
+      const now = await tx.alertRule.count({ where: { accountId } });
+      if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxAlertRules", plan: lim.plan });
+      return tx.alertRule.create({
+        data: {
+          accountId,
+          type: b.type,
+          name: b.name,
+          enabled: b.enabled ?? true,
+          label: b.label ?? null,
+          threshold: b.threshold ?? null,
+          windowMinutes: b.windowMinutes ?? null,
+          minRequests: b.minRequests ?? null,
+          notifyMembers: b.notifyMembers ?? true,
+          emails: b.emails ?? [],
+          webhookUrl: b.webhookUrl ?? null,
+          createdById: getUserContext(request).id,
+          cursorAt: new Date(),
+        },
+      });
     });
     return successResponse(reply, "Alert created", 201, { ...rule, description: describeAlertRule(rule as never), firing: [] });
   });

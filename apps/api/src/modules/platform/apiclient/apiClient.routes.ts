@@ -64,6 +64,7 @@ import {
 import { prismaOf } from "../shared/http";
 import { guardedSend } from "./runner";
 import { decryptSecret, encryptSecret } from "./secrets";
+import { lockedCreate } from "../shared/createLock";
 
 const params = z.object({ accountId: z.string().uuid() });
 const idParams = params.extend({ id: z.string().uuid() });
@@ -71,6 +72,8 @@ const runParams = params.extend({ runId: z.string().uuid() });
 const historyParams = params.extend({ hid: z.string().uuid() });
 
 const json = z.record(z.string(), z.unknown());
+// Routes that take documents or file bodies raise fastify's 1 MB bodyLimit to
+// match these bounds (a 413 before validation otherwise).
 const documentInput = z.union([z.string().min(2).max(10_000_000), json]);
 const variablesInput = z.array(z.object({ key: z.string(), value: z.string(), enabled: z.boolean().default(true), secret: z.boolean().optional(), keep: z.boolean().optional() })).max(API_CLIENT_BOUNDS.variables);
 
@@ -301,7 +304,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Collections ──
-  fastify.post("/:accountId/collections", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", apiDoc: { summary: "Create a collection", description: "Blank, imported from a document (curl, Postman, OpenAPI, HAR, VhyxVoid export), or tests for a mock API (mockId).", body: createBody, status: 201 }, rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/collections", { onRequest: [fastify.userAuthGuard], bodyLimit: 12 * 1024 * 1024, config: { apiKeyScope: "tests:run", apiDoc: { summary: "Create a collection", description: "Blank, imported from a document (curl, Postman, OpenAPI, HAR, VhyxVoid export), or tests for a mock API (mockId).", body: createBody, status: 201 }, rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -329,9 +332,13 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     if (body.description !== undefined) collection.description = body.description;
     const problem = apiCollectionProblem(collection, lim.maxRequests);
     if (problem) throw new ValidationError(problem);
-    const row = (await db.apiCollection.create({
-      data: { accountId, name: collection.name, description: collection.description ?? "", auth: collection.auth as never, variables: collection.variables as never, folders: collection.folders as never, requests: collection.requests as never, createdById: m.userId, updatedById: m.userId },
-    })) as CollectionRow;
+    const row = await lockedCreate(prisma, accountId, "apiCollection", async (tx: typeof db) => {
+      const now = await tx.apiCollection.count({ where: { accountId } });
+      if (now >= lim.maxCollections) throw new PlanLimitExceededError({ limit: lim.maxCollections, current: now, limitKey: "maxApiCollections", plan: lim.plan });
+      return (await tx.apiCollection.create({
+        data: { accountId, name: collection.name, description: collection.description ?? "", auth: collection.auth as never, variables: collection.variables as never, folders: collection.folders as never, requests: collection.requests as never, createdById: m.userId, updatedById: m.userId },
+      })) as CollectionRow;
+    });
     // Environments that came with a VhyxVoid file are added when the name is free.
     const createdEnvs: string[] = [];
     for (const e of environments.slice(0, 10)) {
@@ -354,7 +361,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     return successResponse(reply, "Success", 200, { ...collectionFull(await findCollection(accountId, id)), maxRequests: lim.maxRequests });
   });
 
-  fastify.put("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", apiDoc: { summary: "Save a collection", description: "Replaces the fields given. Pass expectedVersion to refuse a save over a newer one (409).", body: saveBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/collections/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 12 * 1024 * 1024, config: { apiKeyScope: "tests:run", apiDoc: { summary: "Save a collection", description: "Replaces the fields given. Pass expectedVersion to refuse a save over a newer one (409).", body: saveBody }, rateLimit: { max: 240, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await member(request, accountId);
@@ -508,10 +515,11 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     const body = envBody.parse(request.body ?? {});
     const m = await member(request, accountId);
     await usable(accountId);
-    const count = await db.apiEnvironment.count({ where: { accountId } });
-    if (count >= API_CLIENT_BOUNDS.environments) throw new ValidationError(`A workspace can have up to ${API_CLIENT_BOUNDS.environments} environments`);
     try {
-      const row = await db.apiEnvironment.create({ data: { accountId, name: body.name, variables: storeVariables(body.variables, []) as never, createdById: m.userId, updatedById: m.userId } });
+      const row = await lockedCreate(prisma, accountId, "apiEnvironment", async (tx: typeof db) => {
+        if ((await tx.apiEnvironment.count({ where: { accountId } })) >= API_CLIENT_BOUNDS.environments) throw new ValidationError(`A workspace can have up to ${API_CLIENT_BOUNDS.environments} environments`);
+        return tx.apiEnvironment.create({ data: { accountId, name: body.name, variables: storeVariables(body.variables, []) as never, createdById: m.userId, updatedById: m.userId } });
+      });
       return successResponse(reply, "Environment created", 201, envPublic(row));
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError(`There is already an environment called "${body.name}"`);
@@ -545,7 +553,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
   });
 
   // ── Parse (import into the open collection) ──
-  fastify.post("/:accountId/parse", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "tests:run", apiDoc: { summary: "Parse a document into a collection", description: "curl, Postman, OpenAPI, HAR or a VhyxVoid file, as a collection. Nothing is saved.", body: parseBody }, rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/parse", { onRequest: [fastify.userAuthGuard], bodyLimit: 12 * 1024 * 1024, config: { apiKeyScope: "tests:run", apiDoc: { summary: "Parse a document into a collection", description: "curl, Postman, OpenAPI, HAR or a VhyxVoid file, as a collection. Nothing is saved.", body: parseBody }, rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = parseBody.parse(request.body ?? {});
     await member(request, accountId);
@@ -600,7 +608,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     }
   }
 
-  fastify.post("/:accountId/snippet", { onRequest: [fastify.userAuthGuard], config: { rateLimit: { max: 600, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/snippet", { onRequest: [fastify.userAuthGuard], bodyLimit: 12 * 1024 * 1024, config: { rateLimit: { max: 600, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = snippetBody.parse(request.body ?? {});
     await member(request, accountId);

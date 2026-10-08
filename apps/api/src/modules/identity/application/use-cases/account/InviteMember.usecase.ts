@@ -12,6 +12,7 @@ import { TokenHasher } from "@/modules/identity/infrastructure/crypto/TokenHashe
 import { AccountInvitation } from "@/modules/identity/domain/entities/account/AccountInvitation.entities";
 import { NotificationService } from "@/modules/notification/application/use-cases";
 import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
+import { lockForCreate } from "@/modules/platform/shared/createLock";
 
 export class InviteMemberUseCase {
   constructor(
@@ -31,6 +32,7 @@ export class InviteMemberUseCase {
   }) {
     return this.uow.execute(
       async ({
+        prisma,
         membershipRepository,
         invitationRepository,
         afterCommit,
@@ -81,6 +83,9 @@ export class InviteMemberUseCase {
         // the owner alone already occupies the limit).
         // Sequential, not Promise.all: these run on one interactive
         // transaction's connection, where parallel queries gain nothing.
+        // Parallel invites/accepts for this workspace queue here, so each
+        // counts the members and invitations the ones before it added.
+        if ((prisma as Partial<typeof prisma> | undefined)?.$executeRaw) await lockForCreate(prisma, params.accountId, "member");
         const currentMemberCount = await membershipRepository.count(
           params.accountId,
         );

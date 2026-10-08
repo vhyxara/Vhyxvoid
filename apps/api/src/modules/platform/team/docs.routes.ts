@@ -24,6 +24,7 @@ import { ConflictError, ForbiddenError, NotFoundError, PlanLimitExceededError, V
 import { successResponse } from "@/core/utils/response.util";
 import { TEAM_BOUNDS, diffLines, diffStats, docOutline, mentionsOf, plainText, refsInText } from "@vhyxvoid/shared";
 import { cardKey, resolveCards, teamContext, type Db } from "./team.shared";
+import { lockedCreate } from "../shared/createLock";
 
 const params = z.object({ accountId: z.string().uuid() });
 const idParams = params.extend({ id: z.string().uuid() });
@@ -94,8 +95,10 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     await t.member(request, accountId);
     await t.writable(accountId);
     await folder(accountId, b.parentId);
-    if ((await db.teamFolder.count({ where: { accountId } })) >= 500) throw new ValidationError("At most 500 folders");
-    const f = await db.teamFolder.create({ data: { accountId, name: b.name, parentId: b.parentId ?? null } });
+    const f = await lockedCreate(t.prisma, accountId, "teamFolder", async (tx: Db) => {
+      if ((await tx.teamFolder.count({ where: { accountId } })) >= 500) throw new ValidationError("At most 500 folders");
+      return tx.teamFolder.create({ data: { accountId, name: b.name, parentId: b.parentId ?? null } });
+    });
     await t.emit(accountId, "doc", { folders: true });
     return successResponse(reply, "Folder created", 201, f);
   });
@@ -141,7 +144,11 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     const count = await db.teamDoc.count({ where: { accountId } });
     if (count >= lim.maxDocs) throw new PlanLimitExceededError({ limit: lim.maxDocs, current: count, limitKey: "maxTeamDocs", plan: lim.plan });
     await folder(accountId, b.folderId);
-    const d = (await db.teamDoc.create({ data: { accountId, title: b.title, body: b.body, folderId: b.folderId ?? null, createdById: m.userId, updatedById: m.userId } })) as Doc;
+    const d = await lockedCreate(t.prisma, accountId, "teamDoc", async (tx: Db) => {
+      const now = await tx.teamDoc.count({ where: { accountId } });
+      if (now >= lim.maxDocs) throw new PlanLimitExceededError({ limit: lim.maxDocs, current: now, limitKey: "maxTeamDocs", plan: lim.plan });
+      return (await tx.teamDoc.create({ data: { accountId, title: b.title, body: b.body, folderId: b.folderId ?? null, createdById: m.userId, updatedById: m.userId } })) as Doc;
+    });
     await snapshot(d, m.userId);
     await notifyMentions(accountId, m.userId, d, "");
     await t.emit(accountId, "doc", { docId: d.id });

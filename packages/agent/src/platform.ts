@@ -42,12 +42,19 @@ export interface Credentials {
  * --api-url or VHYXVOID_API_URL (an origin), default https://api.vhyxvoid.com.
  */
 export function credentials(opts: { apiKey?: string; apiUrl?: string }, env: NodeJS.ProcessEnv = process.env): Credentials {
+  // CI secrets often carry a trailing newline or spaces: trim everything.
   const raw = (opts.apiKey ?? env.VHYXVOID_API_KEY ?? "").trim();
-  const token = raw.includes(".") ? raw : raw && env.VHYXVOID_SECRET ? `${raw}.${env.VHYXVOID_SECRET.trim()}` : "";
+  const secret = (env.VHYXVOID_SECRET ?? "").trim();
+  const token = raw.includes(".") ? raw : raw && secret ? `${raw}.${secret}` : "";
   if (!/^vhyxvoid_(dev|live)_[0-9a-f]+\.[0-9a-f]{64}$/.test(token)) {
-    throw new UsageError("An API key is needed: --api-key <keyId>.<secret>, or VHYXVOID_API_KEY and VHYXVOID_SECRET. Create one under API keys with the scopes this command needs.");
+    if (!raw) throw new UsageError("An API key is needed: --api-key <keyId>.<secret>, or VHYXVOID_API_KEY and VHYXVOID_SECRET. Create one under API keys with the scopes this command needs.");
+    if (/^vhyxvoid_(dev|live)_[0-9a-f]+$/.test(raw) && !secret) throw new UsageError("VHYXVOID_API_KEY holds a key ID only: also set VHYXVOID_SECRET, or give <keyId>.<secret>.");
+    throw new UsageError("The API key isn't in the <keyId>.<secret> form (vhyxvoid_dev_… or vhyxvoid_live_…, a dot, then the 64-character secret shown when the key was created).");
   }
-  const origin = (opts.apiUrl ?? env.VHYXVOID_API_URL ?? "https://api.vhyxvoid.com").replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+  // An empty setting (a blank CI input) means the default.
+  const url = (opts.apiUrl ?? env.VHYXVOID_API_URL ?? "").trim() || "https://api.vhyxvoid.com";
+  if (!/^https?:\/\/[^\s/]+/i.test(url)) throw new UsageError(`The API URL must start with https:// (or http://): "${url}"`);
+  const origin = url.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
   return { apiUrl: `${origin}/api/v1`, token };
 }
 
@@ -88,13 +95,18 @@ export class PlatformClient {
       throw new PlatformError(`Cannot reach ${this.creds.apiUrl}: ${(err as Error).message}`, 0);
     }
     const text = await res.text();
-    let json: { message?: string; data?: T } | null = null;
+    let json: { message?: string; data?: T; errors?: Array<{ path?: unknown[]; message?: string }> } | null = null;
     try {
       json = JSON.parse(text);
     } catch {
       /* not JSON */
     }
-    if (!res.ok) throw new PlatformError(json?.message ?? `${method} ${path} failed (${res.status})`, res.status, Number(res.headers.get("retry-after")) || undefined);
+    if (!res.ok) {
+      // Validation errors carry the field: "Invalid request data (text: Too big…)".
+      const first = json?.errors?.[0];
+      const detail = first?.message ? ` (${[...(first.path ?? [])].join(".") || "body"}: ${first.message})` : "";
+      throw new PlatformError((json?.message ?? `${method} ${path} failed (${res.status})`) + detail, res.status, Number(res.headers.get("retry-after")) || undefined);
+    }
     return (json?.data ?? json) as T;
   }
 
@@ -126,12 +138,20 @@ export async function findSpec(client: PlatformClient, accountId: string, ref: s
   return s;
 }
 
-function readText(file: string): string {
+/** API docs take up to 5 MB of text; collection files (Postman, HAR…) up to 10 MB. */
+const SPEC_FILE_BYTES = 5_000_000;
+const COLLECTION_FILE_BYTES = 10_000_000;
+
+function readText(file: string, maxBytes = SPEC_FILE_BYTES): string {
+  let buf: Buffer;
   try {
-    return fs.readFileSync(file, "utf8");
+    buf = fs.readFileSync(file);
   } catch (err) {
     throw new UsageError(`Cannot read ${file}: ${(err as NodeJS.ErrnoException).code ?? (err as Error).message}`);
   }
+  if (buf.length > maxBytes) throw new UsageError(`${file} is ${(buf.length / 1_000_000).toFixed(1)} MB; the platform takes files up to ${maxBytes / 1_000_000} MB here`);
+  if (buf.includes(0)) throw new UsageError(`${file} isn't a text file (YAML or JSON)`);
+  return buf.toString("utf8");
 }
 
 /** Problems in the file and its changes against the spec's latest published version. */
@@ -283,7 +303,7 @@ export function folderByPath(folders: ReadonlyArray<{ id: string; name: string; 
 export async function pushCollection(client: PlatformClient, file: string, ref: string) {
   const me = await client.whoami();
   const { c } = await findCollection(client, me.accountId, ref);
-  const parsed = await client.request<{ collection: { name: string; description?: string; auth: unknown; variables: unknown[]; folders: unknown[]; requests: unknown[] } }>("POST", `/api-client/${me.accountId}/parse`, { document: readText(file) });
+  const parsed = await client.request<{ collection: { name: string; description?: string; auth: unknown; variables: unknown[]; folders: unknown[]; requests: unknown[] } }>("POST", `/api-client/${me.accountId}/parse`, { document: readText(file, COLLECTION_FILE_BYTES) });
   const current = await client.request<{ version: number }>("GET", `/api-client/${me.accountId}/collections/${c.id}`);
   const col = parsed.collection;
   await client.request("PUT", `/api-client/${me.accountId}/collections/${c.id}`, { auth: col.auth, variables: col.variables, folders: col.folders, requests: col.requests, expectedVersion: current.version });

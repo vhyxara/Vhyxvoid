@@ -57,6 +57,7 @@ import {
   type ResourceRedis,
 } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { lockedCreate } from "../shared/createLock";
 import type { HubClient } from "../shared/hubClient";
 
 const params = z.object({ accountId: z.string().uuid() });
@@ -231,7 +232,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     });
   });
 
-  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:write", apiDoc: { summary: "Create a mock API", description: "On a tunnel label: blank, from a template, or from a document (OpenAPI, Postman, Mockoon, HAR or a VhyxVoid export). Owners and admins.", body: createBody, status: 201 }, rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId", { onRequest: [fastify.userAuthGuard], bodyLimit: 6 * 1024 * 1024, config: { apiKeyScope: "mocks:write", apiDoc: { summary: "Create a mock API", description: "On a tunnel label: blank, from a template, or from a document (OpenAPI, Postman, Mockoon, HAR or a VhyxVoid export). Owners and admins.", body: createBody, status: 201 }, rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId } = params.parse(request.params);
     const body = createBody.parse(request.body ?? {});
     const m = await admin(request, accountId);
@@ -260,21 +261,25 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     const problem = problemOf(def, lim.maxEndpoints);
     if (problem) throw new ValidationError(problem);
     try {
-      const row = (await db.mockApi.create({
-        data: {
-          accountId,
-          label: body.label,
-          name: body.name,
-          description,
-          mode: def.mode,
-          cors: def.cors,
-          latencyMs: def.latencyMs,
-          endpoints: endpoints as never,
-          resources: resources as never,
-          createdById: m.userId,
-          updatedById: m.userId,
-        },
-      })) as Row;
+      const row = await lockedCreate(prisma, accountId, "mockApi", async (tx: typeof db) => {
+        const now = await tx.mockApi.count({ where: { accountId } });
+        if (now >= lim.maxMocks) throw new PlanLimitExceededError({ limit: lim.maxMocks, current: now, limitKey: "maxMockApis", plan: lim.plan });
+        return (await tx.mockApi.create({
+          data: {
+            accountId,
+            label: body.label,
+            name: body.name,
+            description,
+            mode: def.mode,
+            cors: def.cors,
+            latencyMs: def.latencyMs,
+            endpoints: endpoints as never,
+            resources: resources as never,
+            createdById: m.userId,
+            updatedById: m.userId,
+          },
+        })) as Row;
+      });
       await invalidate(accountId, row.label);
       return successResponse(reply, "Mock API created", 201, full(row, m.slug));
     } catch (err) {
@@ -290,7 +295,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return successResponse(reply, "Success", 200, { ...full(await find(accountId, id), m.slug), canManage: m.level >= RoleLevel.ADMIN, maxEndpoints: lim.maxEndpoints, enabledOnPlatform: lim.enabled });
   });
 
-  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:write", apiDoc: { summary: "Save a mock API", description: "Changes any of its fields; endpoints and resources replace the current ones. Pass expectedVersion to refuse a save over a newer one (409). Owners and admins.", body: saveBody }, rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.put("/:accountId/:id", { onRequest: [fastify.userAuthGuard], bodyLimit: 5 * 1024 * 1024, config: { apiKeyScope: "mocks:write", apiDoc: { summary: "Save a mock API", description: "Changes any of its fields; endpoints and resources replace the current ones. Pass expectedVersion to refuse a save over a newer one (409). Owners and admins.", body: saveBody }, rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = saveBody.parse(request.body ?? {});
     const m = await admin(request, accountId);
@@ -396,7 +401,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     return reply.type("application/json; charset=utf-8").send(JSON.stringify(doc, null, 2));
   });
 
-  fastify.post("/:accountId/:id/try", { onRequest: [fastify.userAuthGuard], config: { apiKeyScope: "mocks:read", apiDoc: { summary: "Try a request against a mock", description: "What the mock answers to this method, path, headers and body, with the saved definition or the one given.", body: tryBody }, rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+  fastify.post("/:accountId/:id/try", { onRequest: [fastify.userAuthGuard], bodyLimit: 5 * 1024 * 1024, config: { apiKeyScope: "mocks:read", apiDoc: { summary: "Try a request against a mock", description: "What the mock answers to this method, path, headers and body, with the saved definition or the one given.", body: tryBody }, rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { accountId, id } = idParams.parse(request.params);
     const body = tryBody.parse(request.body ?? {});
     await member(request, accountId);

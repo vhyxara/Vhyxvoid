@@ -12,6 +12,7 @@ import { PrismaUnitOfWork } from "@/modules/identity/infrastructure/prisma/Prism
 import { NotificationService } from "@/modules/notification/application/use-cases";
 import { NotificationType } from "@/modules/notification/domain/enums";
 import { CheckPlanLimitsService } from "@/modules/billing/domain/services/CheckPlanLimits.service";
+import { lockForCreate } from "@/modules/platform/shared/createLock";
 
 export class AcceptInvitationUseCase {
   constructor(
@@ -33,6 +34,7 @@ export class AcceptInvitationUseCase {
 
     return this.uow.execute(
       async ({
+        prisma,
         invitationRepository,
         membershipRepository,
         afterCommit,
@@ -79,6 +81,9 @@ export class AcceptInvitationUseCase {
         // accepting is about to become one; pending invitations don't
         // matter here, only whether there's room for one more real member
         // right now).
+        // Parallel invites/accepts for this workspace queue here, so each
+        // counts the members and invitations the ones before it added.
+        if ((prisma as Partial<typeof prisma> | undefined)?.$executeRaw) await lockForCreate(prisma, invitation.accountId, "member");
         const currentMemberCount = await membershipRepository.count(
           invitation.accountId,
         );

@@ -12,6 +12,7 @@ import {
 } from "@/core/constant/apikey.constant";
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { Prisma } from "@/generated/prisma";
+import { lockedCreate } from "@/modules/platform/shared/createLock";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 import type {
   ApiKeyFilters,
@@ -108,6 +109,19 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
       orderBy: { createdAt: "desc" },
     });
     return data.map((d) => this.toEntity(d));
+  }
+
+  // Saves a new key unless the account already has `max` active keys; the
+  // count and the insert hold the account's lock, so parallel creates can't
+  // all pass. Returns the active count when it refuses, else null.
+  async createWithinLimit(key: ApiKey, max: number): Promise<number | null> {
+    const accountId = key.toPersistence().accountId;
+    return lockedCreate(this.prisma, accountId, "apiKey", async (tx) => {
+      const active = await tx.apiKey.count({ where: { accountId, status: ApiKeyStatus.ACTIVE } });
+      if (active >= max) return active;
+      await new PrismaApiKeyRepository(tx).save(key);
+      return null;
+    });
   }
 
   async countActiveByAccount(accountId: string): Promise<number> {

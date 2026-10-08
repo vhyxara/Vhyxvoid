@@ -16,6 +16,7 @@ import { successResponse } from "@/core/utils/response.util";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { MONITOR_INTERVALS, currentPlanOverrides, getEffectivePlanLimitsForAccount, nextMonitorRun, uptimeSummary } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { lockedCreate } from "../shared/createLock";
 import { runMonitor } from "./monitors.worker";
 
 const params = z.object({ accountId: z.string().uuid() });
@@ -115,9 +116,13 @@ export async function monitorRoutes(fastify: FastifyInstance) {
     if (count >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: count, limitKey: "maxMonitors", plan: lim.plan });
     if (body.intervalMinutes < lim.minInterval) throw new ValidationError(`Your plan runs monitors every ${lim.minInterval} minutes at most`);
     await checkRefs(accountId, body);
-    const row = await db.apiMonitor.create({
-      data: { accountId, name: body.name, collectionId: body.collectionId, environmentId: body.environmentId ?? null, folderId: body.folderId ?? null, intervalMinutes: body.intervalMinutes, enabled: body.enabled ?? true, nextRunAt: new Date(), createdById: m.userId },
-      include: { collection: { select: { name: true } } },
+    const row = await lockedCreate(prisma, accountId, "apiMonitor", async (tx: typeof db) => {
+      const now = await tx.apiMonitor.count({ where: { accountId } });
+      if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxMonitors", plan: lim.plan });
+      return tx.apiMonitor.create({
+        data: { accountId, name: body.name, collectionId: body.collectionId, environmentId: body.environmentId ?? null, folderId: body.folderId ?? null, intervalMinutes: body.intervalMinutes, enabled: body.enabled ?? true, nextRunAt: new Date(), createdById: m.userId },
+        include: { collection: { select: { name: true } } },
+      });
     });
     return successResponse(reply, "Monitor created", 201, view(row));
   });

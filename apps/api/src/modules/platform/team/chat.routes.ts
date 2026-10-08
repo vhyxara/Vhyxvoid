@@ -30,6 +30,7 @@ import { ConflictError, ForbiddenError, NotFoundError, PlanLimitExceededError, V
 import { successResponse } from "@/core/utils/response.util";
 import { TEAM_BOUNDS, channelNameProblem, excerpt, mentionsOf, plainText, refsInText, type TeamRef } from "@vhyxvoid/shared";
 import { cardKey, resolveCards, teamContext, type Db, type Member } from "./team.shared";
+import { lockedCreate } from "../shared/createLock";
 
 const params = z.object({ accountId: z.string().uuid() });
 const chParams = params.extend({ cid: z.string().uuid() });
@@ -180,8 +181,12 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     const valid = new Set((await db.accountMember.findMany({ where: { accountId, userId: { in: b.memberIds } }, select: { userId: true } })).map((x: { userId: string }) => x.userId));
     let ch: Channel;
     try {
-      ch = await db.teamChannel.create({
-        data: { accountId, name: b.name, topic: b.topic, isPrivate: b.isPrivate, refKind: b.refKind && b.refId ? b.refKind : null, refId: b.refKind && b.refId ? b.refId : null, createdById: m.userId, members: { create: [...new Set([m.userId, ...valid])].map((userId) => ({ userId: userId as string, accountId })) } },
+      ch = await lockedCreate(t.prisma, accountId, "teamChannel", async (tx: Db) => {
+        const now = await tx.teamChannel.count({ where: { accountId, kind: "CHANNEL" } });
+        if (now >= lim.maxChannels) throw new PlanLimitExceededError({ limit: lim.maxChannels, current: now, limitKey: "maxTeamChannels", plan: lim.plan });
+        return tx.teamChannel.create({
+          data: { accountId, name: b.name, topic: b.topic, isPrivate: b.isPrivate, refKind: b.refKind && b.refId ? b.refKind : null, refId: b.refKind && b.refId ? b.refId : null, createdById: m.userId, members: { create: [...new Set([m.userId, ...valid])].map((userId) => ({ userId: userId as string, accountId })) } },
+        });
       });
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError(`#${b.name} already exists`);

@@ -33,6 +33,7 @@ import {
   type TeamRef,
 } from "@vhyxvoid/shared";
 import { cardKey, resolveCards, teamContext, type Db } from "./team.shared";
+import { lockedCreate } from "../shared/createLock";
 
 const params = z.object({ accountId: z.string().uuid() });
 const numParams = params.extend({ n: z.coerce.number().int().min(1) });
@@ -170,33 +171,32 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     if (count >= lim.maxIssues) throw new PlanLimitExceededError({ limit: lim.maxIssues, current: count, limitKey: "maxTeamIssues", plan: lim.plan });
     await assignable(accountId, b.assigneeId);
     const refs = refsFrom(accountId, b.links, b.body);
-    let issue: Issue | null = null;
-    for (let attempt = 0; attempt < 5 && !issue; attempt++) {
-      const last = await db.teamIssue.findFirst({ where: { accountId }, orderBy: { number: "desc" }, select: { number: true } });
-      try {
-        issue = (await db.teamIssue.create({
-          data: {
-            accountId,
-            number: (last?.number ?? 0) + 1,
-            title: b.title,
-            body: b.body,
-            status: b.status,
-            priority: b.priority,
-            assigneeId: b.assigneeId,
-            labels: b.labels,
-            dueDate: b.dueDate ? new Date(b.dueDate) : null,
-            refs: refs as never,
-            rank: rankBetween(await lastRank(accountId, b.status), null),
-            createdById: m.userId,
-            closedAt: CLOSED.includes(b.status) ? new Date() : null,
-            events: { create: { accountId, actorId: m.userId, kind: "created" } },
-          },
-        })) as Issue;
-      } catch (err) {
-        if ((err as { code?: string }).code !== "P2002") throw err; // two issues at once: take the next number
-      }
-    }
-    if (!issue) throw new ValidationError("Could not number the issue; try again");
+    const rank = rankBetween(await lastRank(accountId, b.status), null);
+    // The count and the next number are read under the workspace's lock, so
+    // parallel creates queue up and each takes the following number.
+    const issue = await lockedCreate(t.prisma, accountId, "teamIssue", async (tx: Db) => {
+      const now = await tx.teamIssue.count({ where: { accountId } });
+      if (now >= lim.maxIssues) throw new PlanLimitExceededError({ limit: lim.maxIssues, current: now, limitKey: "maxTeamIssues", plan: lim.plan });
+      const last = await tx.teamIssue.findFirst({ where: { accountId }, orderBy: { number: "desc" }, select: { number: true } });
+      return (await tx.teamIssue.create({
+        data: {
+          accountId,
+          number: (last?.number ?? 0) + 1,
+          title: b.title,
+          body: b.body,
+          status: b.status,
+          priority: b.priority,
+          assigneeId: b.assigneeId,
+          labels: b.labels,
+          dueDate: b.dueDate ? new Date(b.dueDate) : null,
+          refs: refs as never,
+          rank,
+          createdById: m.userId,
+          closedAt: CLOSED.includes(b.status) ? new Date() : null,
+          events: { create: { accountId, actorId: m.userId, kind: "created" } },
+        },
+      })) as Issue;
+    });
     await notifyAssignee(accountId, m.userId, issue);
     await notifyMentions(accountId, m.userId, issue, "");
     await t.emit(accountId, "issue", { number: issue.number });

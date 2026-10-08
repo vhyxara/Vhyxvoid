@@ -18,6 +18,7 @@ import { successResponse } from "@/core/utils/response.util";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { currentPlanOverrides, getEffectivePlanLimitsForAccount, newVerificationToken, validateCustomHostname } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { lockedCreate } from "../shared/createLock";
 import type { HubClient } from "../shared/hubClient";
 import { domainStatus, type DomainRow, type DomainService } from "./domains.service";
 
@@ -99,8 +100,10 @@ export async function domainRoutes(fastify: FastifyInstance, opts: { hub: HubCli
     }
     let row: DomainRow;
     try {
-      row = (await prisma.customDomain.create({
-        data: { accountId, hostname: v.hostname, label: body.label, verificationToken: newVerificationToken(), createdById: getUserContext(request).id },
+      row = (await lockedCreate(prisma, accountId, "customDomain", async (tx) => {
+        const now = await tx.customDomain.count({ where: { accountId } });
+        if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxCustomDomains", plan: lim.plan });
+        return tx.customDomain.create({ data: { accountId, hostname: v.hostname, label: body.label, verificationToken: newVerificationToken(), createdById: getUserContext(request).id } });
       })) as DomainRow;
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError("This workspace already has that hostname");

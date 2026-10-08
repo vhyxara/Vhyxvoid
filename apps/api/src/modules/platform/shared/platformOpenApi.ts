@@ -22,7 +22,7 @@ export type ApiDoc = {
   file?: string;
 };
 
-export type CollectedRoute = { method: string; url: string; scope: string; doc?: ApiDoc };
+export type CollectedRoute = { method: string; url: string; scope: string; doc?: ApiDoc; /** The route's bodyLimit, when it sets one (fastify's default is 1 MiB). */ bodyLimit?: number };
 
 /** Collects API-key routes as they are registered; add `onRoute` before registering them. */
 export function platformRouteCollector() {
@@ -34,7 +34,7 @@ export function platformRouteCollector() {
       if (!config.apiKeyScope) return;
       for (const method of [opts.method].flat()) {
         if (method === "HEAD" || method === "OPTIONS") continue;
-        routes.push({ method: String(method).toUpperCase(), url: opts.url, scope: config.apiKeyScope, doc: config.apiDoc });
+        routes.push({ method: String(method).toUpperCase(), url: opts.url, scope: config.apiKeyScope, doc: config.apiDoc, ...(opts.bodyLimit ? { bodyLimit: opts.bodyLimit } : {}) });
       }
     },
   };

@@ -27,6 +27,8 @@ export interface ApiKeyRepository {
   ): Promise<ApiKey[]>;
 
   countActiveByAccount(accountId: string): Promise<number>; // plan limit check
+  // Count-and-save under a lock (parallel creates); null when saved.
+  createWithinLimit?(key: ApiKey, max: number): Promise<number | null>;
 
   // Bulk operations
   revokeAllByAccount(

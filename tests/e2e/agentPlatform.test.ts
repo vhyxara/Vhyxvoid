@@ -40,7 +40,16 @@ describe("credentials", () => {
     expect(credentials({}, { VHYXVOID_API_KEY: KEY, VHYXVOID_SECRET: SECRET, VHYXVOID_API_URL: "http://localhost:9100/" })).toEqual({ apiUrl: "http://localhost:9100/api/v1", token: `${KEY}.${SECRET}` });
     expect(credentials({ apiUrl: "https://api.x.dev/api/v1" }, { VHYXVOID_API_KEY: `${KEY}.${SECRET}` }).apiUrl).toBe("https://api.x.dev/api/v1");
     expect(() => credentials({}, { VHYXVOID_API_KEY: KEY })).toThrow(UsageError);
-    expect(() => credentials({ apiKey: "nope" }, {})).toThrow(/API key is needed/);
+    expect(() => credentials({ apiKey: "nope" }, {})).toThrow(/isn't in the <keyId>.<secret> form/);
+    expect(() => credentials({}, {})).toThrow(/API key is needed/);
+    expect(() => credentials({}, { VHYXVOID_API_KEY: KEY })).toThrow(/key ID only/);
+    // CI secrets with stray whitespace and newlines still work.
+    expect(credentials({}, { VHYXVOID_API_KEY: `  ${KEY}.${SECRET}\n` }).token).toBe(`${KEY}.${SECRET}`);
+    expect(credentials({}, { VHYXVOID_API_KEY: KEY, VHYXVOID_SECRET: `${SECRET}\r\n` }).token).toBe(`${KEY}.${SECRET}`);
+    // API URLs: trimmed, blank means the default, a scheme is required.
+    expect(credentials({}, { VHYXVOID_API_KEY: `${KEY}.${SECRET}`, VHYXVOID_API_URL: " https://api.x.dev/api/v1/ " }).apiUrl).toBe("https://api.x.dev/api/v1");
+    expect(credentials({}, { VHYXVOID_API_KEY: `${KEY}.${SECRET}`, VHYXVOID_API_URL: "" }).apiUrl).toBe("https://api.vhyxvoid.com/api/v1");
+    expect(() => credentials({}, { VHYXVOID_API_KEY: `${KEY}.${SECRET}`, VHYXVOID_API_URL: "api.x.dev" })).toThrow(/must start with https:\/\//);
   });
 });
 
@@ -98,6 +107,22 @@ describe("spec check and push", () => {
     api = fakeApi({ ...routes([]), "POST /api/v1/specs/acc-1/s1/publish": () => ({ status: 409, message: "Nothing changed since version 2" }) });
     r = await pushSpec(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f), file, "s1", { publish: true });
     expect(r.message).toBe("Nothing to publish: Nothing changed since version 2");
+  });
+});
+
+describe("files and API errors", () => {
+  it("refuses binary and over-size files before sending; validation errors name the field", async () => {
+    const bin = path.join(dir, "binary.yaml");
+    fs.writeFileSync(bin, Buffer.from([0x6f, 0x70, 0x00, 0x01]));
+    const big = path.join(dir, "big.yaml");
+    fs.writeFileSync(big, "a".repeat(5_000_001));
+    const api = fakeApi({ ...whoami, ...specs });
+    const client = new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, api.f);
+    await expect(checkSpec(client, bin, "shop")).rejects.toThrow(/isn't a text file/);
+    await expect(checkSpec(client, big, "shop")).rejects.toThrow(/5\.0 MB; the platform takes files up to 5 MB here/);
+    expect(api.calls.some((c) => c.url.endsWith("/preview"))).toBe(false);
+    const f = (async () => new Response(JSON.stringify({ success: false, message: "Invalid request data", errors: [{ path: ["text"], message: "Too big: expected string to have <=5000000 characters" }] }), { status: 400 })) as unknown as typeof fetch;
+    await expect(new PlatformClient({ apiUrl: "https://api.test/api/v1", token: "t" }, f).request("POST", "/x")).rejects.toThrow("Invalid request data (text: Too big: expected string to have <=5000000 characters)");
   });
 });
 

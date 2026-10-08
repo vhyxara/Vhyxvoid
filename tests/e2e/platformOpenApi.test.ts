@@ -11,7 +11,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { validateSpec } from "../../packages/shared/src";
-import { buildPlatformOpenApi, platformRouteCollector } from "../../apps/api/src/modules/platform/shared/platformOpenApi";
+import { buildPlatformOpenApi, jsonSchemaOf, platformRouteCollector } from "../../apps/api/src/modules/platform/shared/platformOpenApi";
 import { platformApiRoutes } from "../../apps/api/src/modules/platform/shared/platformApi.routes";
 import { mockRoutes } from "../../apps/api/src/modules/platform/mocks/mocks.routes";
 import { apiClientRoutes } from "../../apps/api/src/modules/platform/apiclient/apiClient.routes";
@@ -74,6 +74,20 @@ describe("the platform API's OpenAPI document", () => {
     expect(doc.paths["/api/v1/platform/whoami"].get["x-required-scope"]).toBeNull();
     // Dashboard-only routes are not in it.
     expect(doc.paths["/api/v1/specs/{accountId}/{id}/sharing"]).toBeUndefined();
+  });
+
+  it("every route's body limit lets through the largest text its schema allows", () => {
+    // A schema allowing 10 MB behind fastify's default 1 MiB limit answers 413 before validation (seen 2026-10-08 on /parse).
+    const longest = (schema: unknown): number => {
+      if (!schema || typeof schema !== "object") return 0;
+      const own = typeof (schema as { maxLength?: unknown }).maxLength === "number" ? (schema as { maxLength: number }).maxLength : 0;
+      return Math.max(own, ...Object.values(schema as Record<string, unknown>).map(longest));
+    };
+    const tooSmall = collector.routes
+      .filter((r) => r.doc?.body)
+      .map((r) => ({ route: `${r.method} ${r.url}`, needs: longest(jsonSchemaOf(r.doc!.body!)), limit: r.bodyLimit ?? 1024 * 1024 }))
+      .filter((x) => x.needs > x.limit);
+    expect(tooSmall).toEqual([]);
   });
 
   it("passes the platform's own OpenAPI validator", () => {

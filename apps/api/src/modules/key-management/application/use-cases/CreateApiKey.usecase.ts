@@ -103,7 +103,17 @@ export class CreateApiKeyUseCase {
     });
     // console.log('6. API key entity created:', key);
     // 5. Persist
-    await apiKeyRepository.save(key);
+    if (limits.maxApiKeys !== Infinity && apiKeyRepository.createWithinLimit) {
+      // Counted again under the account's lock: parallel creates all passed the check above.
+      const refused = await apiKeyRepository.createWithinLimit(key, limits.maxApiKeys);
+      if (refused !== null) {
+        throw new ForbiddenError(
+          `API key limit reached (${limits.maxApiKeys}). Revoke an existing key or upgrade your plan.`,
+        );
+      }
+    } else {
+      await apiKeyRepository.save(key);
+    }
     // Warm the cache so the first gateway request hits it, not the database.
     await cacheService.set(
       key.keyId,

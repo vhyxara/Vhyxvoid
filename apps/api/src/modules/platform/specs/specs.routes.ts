@@ -46,6 +46,7 @@ import {
   type MockApiDefinition,
 } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
+import { lockedCreate } from "../shared/createLock";
 import type { HubClient } from "../shared/hubClient";
 import { errorsOf, hashDocsPassword, parseSpecText, specToText } from "./specDocs";
 
@@ -224,19 +225,26 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
       text = specToText(starterSpec(body.name), "yaml");
     }
     const base = body.slug ?? specSlugFrom(body.name);
-    let row: Row | null = null;
-    for (let i = 0; i < 20 && !row; i++) {
-      const s = i === 0 ? base : `${base.slice(0, 46)}-${i + 1}`;
+    // Under the lock, the free slug is picked by reading the taken ones: a
+    // failed insert would end the transaction.
+    const row = await lockedCreate(prisma, accountId, "apiSpec", async (tx: typeof db) => {
+      const now = await tx.apiSpec.count({ where: { accountId } });
+      if (now >= lim.maxSpecs) throw new PlanLimitExceededError({ limit: lim.maxSpecs, current: now, limitKey: "maxApiSpecs", plan: lim.plan });
+      const candidates = [base, ...Array.from({ length: 19 }, (_, i) => `${base.slice(0, 46)}-${i + 2}`)];
+      const taken = new Set((await tx.apiSpec.findMany({ where: { accountId, slug: { in: candidates } }, select: { slug: true } })).map((r: { slug: string }) => r.slug));
+      if (body.slug && taken.has(body.slug)) throw new ConflictError(`This workspace already has docs at /${body.slug}`);
+      const slug = candidates.find((c) => !taken.has(c));
+      if (!slug) throw new ConflictError("Pick another slug");
       try {
-        row = (await db.apiSpec.create({
-          data: { accountId, name: body.name, slug: s, description: body.description ?? "", draftText: text, draftFormat: format, tryMockId: body.mockId ?? null, createdById: m.userId, updatedById: m.userId },
+        return (await tx.apiSpec.create({
+          data: { accountId, name: body.name, slug, description: body.description ?? "", draftText: text, draftFormat: format, tryMockId: body.mockId ?? null, createdById: m.userId, updatedById: m.userId },
         })) as Row;
       } catch (err) {
-        if ((err as { code?: string }).code !== "P2002") throw err;
-        if (body.slug) throw new ConflictError(`This workspace already has docs at /${body.slug}`);
+        // A rename to this slug got there first.
+        if ((err as { code?: string }).code === "P2002") throw new ConflictError("Pick another slug");
+        throw err;
       }
-    }
-    if (!row) throw new ConflictError("Pick another slug");
+    });
     return successResponse(reply, "API spec created", 201, summary(row, null, m.workspace));
   });
 
