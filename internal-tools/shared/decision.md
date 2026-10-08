@@ -1019,3 +1019,17 @@ Follow-up to phase 7, decision 5. `POST /api-client/:acc/collections/:id/run` (u
 
 **Status:** active.
 
+### 2026-10-08 — Edge-case sweep; plan limits hold under parallel creates (session upbeat-cannon)
+
+A sweep of every API route (7,599 requests with malformed params, bodies and queries, as owner, API key, admin and anonymous), a cross-workspace probe (317 requests with another workspace's ids, as a user and as a `*` key), a member-role probe, cross-workspace references inside bodies, the CLI with bad files and credentials, and a concurrency probe. Cross-workspace access and references were all refused; member permissions matched the documented rules. Fixed (tests/e2e/edgeCases.test.ts, parallelCreates.test.ts, agentPlatform.test.ts, platformOpenApi.test.ts):
+
+1. **A text/plain POST to the Stripe webhook ended the API process** (fastify-raw-body's runFirst and the text parser read the stream together; the throw was outside any handler). The webhook now answers 415 to anything but JSON and 400 without a signature, before reading the body.
+2. **NUL characters and unpaired surrogates reached Postgres (500s).** A global preValidation hook (core/middleware/unsafe-text.middleware.ts) answers 400 naming the field, in params, query, body and keys.
+3. **Audit-log paging** took negative and fractional values (500); now integers in range.
+4. **The API key use cases were scoped to their own plugin**, so the usage endpoint outside it always answered 500; the plugin is wrapped in fastify-plugin.
+5. **Body limits below schema limits:** routes taking documents or files (/parse, collection create and save, snippets, mock create, save and try) had fastify's 1 MB bodyLimit while their schemas allow 5–10 MB; raised to match, and a test compares every key route's limit with its schema.
+6. **Plan limits did not hold under parallel requests** (12 at once on Free: 10 collections, 10 specs, 11 API keys; limit 3), and 7 of 12 parallel issue creates failed numbering. Every count-then-create now recounts and inserts in a transaction holding `pg_advisory_xact_lock(hashtextextended('create:<kind>:<accountId>', 0))` (platform/shared/createLock.ts); invites and accepts take it inside their unit of work. Chosen over SERIALIZABLE transactions (retries everywhere) and over database constraints (limits are per plan and per override). Issue numbers are taken under the same lock; spec slugs are chosen from the taken ones because a failed insert ends the transaction. The early check stays, so a request over the limit is refused before parsing a document.
+7. **CLI:** credentials and the URL are trimmed; a key ID without its secret, a malformed key, a file over the platform's size and a binary file each get their own message (exit 2); API validation errors show the first problem.
+
+**Status:** active.
+
