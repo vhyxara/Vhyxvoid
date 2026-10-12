@@ -175,8 +175,8 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     // The count and the next number are read under the workspace's lock, so
     // parallel creates queue up and each takes the following number.
     const issue = await lockedCreate(t.prisma, accountId, "teamIssue", async (tx: Db) => {
-      const now = await tx.teamIssue.count({ where: { accountId } });
-      if (now >= lim.maxIssues) throw new PlanLimitExceededError({ limit: lim.maxIssues, current: now, limitKey: "maxTeamIssues", plan: lim.plan });
+      const [now, fresh] = await Promise.all([tx.teamIssue.count({ where: { accountId } }), t.limits(accountId, tx)]);
+      if (now >= fresh.maxIssues) throw new PlanLimitExceededError({ limit: fresh.maxIssues, current: now, limitKey: "maxTeamIssues", plan: fresh.plan });
       const last = await tx.teamIssue.findFirst({ where: { accountId }, orderBy: { number: "desc" }, select: { number: true } });
       return (await tx.teamIssue.create({
         data: {
@@ -315,7 +315,8 @@ export async function teamIssueRoutes(fastify: FastifyInstance) {
     const m = await t.member(request, accountId);
     const i = await find(accountId, n);
     if (!m.isAdmin && i.createdById !== m.userId) throw new ForbiddenError("Only the creator and owners/admins can delete an issue");
-    await db.$transaction([db.teamComment.deleteMany({ where: { targetKind: "issue", targetId: i.id } }), db.teamIssue.delete({ where: { id: i.id } })]);
+    // The issue first: a comment being added holds a share lock on it (comments.routes.ts).
+    await db.$transaction([db.teamIssue.delete({ where: { id: i.id } }), db.teamComment.deleteMany({ where: { targetKind: "issue", targetId: i.id } })]);
     await t.emit(accountId, "issue", { number: n, deleted: true });
     return successResponse(reply, `Deleted #${n}`, 200, { number: n });
   });

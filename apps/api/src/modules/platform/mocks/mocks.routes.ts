@@ -56,7 +56,7 @@ import {
   type MockResource,
   type ResourceRedis,
 } from "@vhyxvoid/shared";
-import { prismaOf } from "../shared/http";
+import { prismaOf, staleOrGone } from "../shared/http";
 import { lockedCreate } from "../shared/createLock";
 import type { HubClient } from "../shared/hubClient";
 
@@ -174,8 +174,8 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     if (m.level < RoleLevel.ADMIN) throw new ForbiddenError("Only owners and admins can change mock APIs");
     return m;
   }
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.mockApis"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.mockApis"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     const fin = (n: number, cap: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : cap);
     return { enabled: Boolean(enabled), maxMocks: fin(l.maxMockApis, 10_000), maxEndpoints: fin(l.maxMockEndpoints, 1000), plan: l.plan };
   }
@@ -262,8 +262,8 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     if (problem) throw new ValidationError(problem);
     try {
       const row = await lockedCreate(prisma, accountId, "mockApi", async (tx: typeof db) => {
-        const now = await tx.mockApi.count({ where: { accountId } });
-        if (now >= lim.maxMocks) throw new PlanLimitExceededError({ limit: lim.maxMocks, current: now, limitKey: "maxMockApis", plan: lim.plan });
+        const [now, fresh] = await Promise.all([tx.mockApi.count({ where: { accountId } }), limits(accountId, tx)]);
+        if (now >= fresh.maxMocks) throw new PlanLimitExceededError({ limit: fresh.maxMocks, current: now, limitKey: "maxMockApis", plan: fresh.plan });
         return (await tx.mockApi.create({
           data: {
             accountId,
@@ -332,7 +332,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
           updatedById: m.userId,
         },
       });
-      if (res.count === 0) throw new ConflictError("Someone saved this mock at the same moment. Reload and try again.");
+      if (res.count === 0) await staleOrGone(db.mockApi.findFirst({ where: { id, accountId }, select: { id: true } }), "mock");
       row = await find(accountId, id);
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError(`This workspace already has a mock API with the label "${body.label}"`);
@@ -347,7 +347,13 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     const { accountId, id } = idParams.parse(request.params);
     await admin(request, accountId);
     const row = await find(accountId, id);
-    await db.mockApi.delete({ where: { id: row.id } });
+    // Docs whose try-it used this mock stop offering it. Under the "mockRefs"
+    // lock that spec creates and sharing saves take (specs.routes.ts), so one
+    // can't point at the mock between this and the delete.
+    await lockedCreate(prisma, accountId, "mockRefs", async (tx: typeof db & { apiSpec: any }) => {
+      await tx.apiSpec.updateMany({ where: { accountId, tryMockId: row.id }, data: { tryMockId: null } });
+      await tx.mockApi.delete({ where: { id: row.id } });
+    });
     await invalidate(accountId, row.label);
     // The data goes too (it would expire after 30 idle days anyway).
     if (redis) for (const r of definitionOf(row).resources ?? []) await new RedisResourceStore(redis).reset(resourceStoreKey(row.id, r.id)).catch(() => undefined);
@@ -376,7 +382,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
       where: { id, accountId, version: existing.version },
       data: { endpoints: endpoints as never, resources: resources as never, version: { increment: 1 }, updatedById: m.userId },
     });
-    if (res.count === 0) throw new ConflictError("Someone saved this mock at the same moment. Reload and try again.");
+    if (res.count === 0) await staleOrGone(db.mockApi.findFirst({ where: { id, accountId }, select: { id: true } }), "mock");
     await invalidate(accountId, existing.label);
     const row = await find(accountId, id);
     return successResponse(reply, `Imported ${added.length} endpoint${added.length === 1 ? "" : "s"}`, 200, {
@@ -483,7 +489,7 @@ export async function mockRoutes(fastify: FastifyInstance, opts: { hub: HubClien
       where: { id, accountId, version: existing.version },
       data: { endpoints: endpoints as never, version: { increment: 1 }, updatedById: m.userId },
     });
-    if (res.count === 0) throw new ConflictError("Someone saved this mock at the same moment. Reload and try again.");
+    if (res.count === 0) await staleOrGone(db.mockApi.findFirst({ where: { id, accountId }, select: { id: true } }), "mock");
     await invalidate(accountId, existing.label);
     const row = await find(accountId, id);
     return successResponse(reply, `Recorded ${added.length} endpoint${added.length === 1 ? "" : "s"}`, 200, {

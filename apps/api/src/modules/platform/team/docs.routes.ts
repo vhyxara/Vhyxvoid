@@ -24,7 +24,8 @@ import { ConflictError, ForbiddenError, NotFoundError, PlanLimitExceededError, V
 import { successResponse } from "@/core/utils/response.util";
 import { TEAM_BOUNDS, diffLines, diffStats, docOutline, mentionsOf, plainText, refsInText } from "@vhyxvoid/shared";
 import { cardKey, resolveCards, teamContext, type Db } from "./team.shared";
-import { lockedCreate } from "../shared/createLock";
+import { lockedCreate, lockForCreate } from "../shared/createLock";
+import { staleOrGone } from "../shared/http";
 
 const params = z.object({ accountId: z.string().uuid() });
 const idParams = params.extend({ id: z.string().uuid() });
@@ -44,9 +45,13 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     if (!d) throw new NotFoundError("Document not found");
     return d;
   }
-  async function folder(accountId: string, id: string | null | undefined): Promise<Folder | null> {
+  // Everything that puts a doc or folder into a folder, and folder deletes,
+  // hold this workspace's "folderTree" lock and look the folder up again
+  // inside it (with `tx`): otherwise a doc created while its folder is being
+  // deleted keeps the deleted folder's id and drops out of the tree.
+  async function folder(accountId: string, id: string | null | undefined, client: Db = db): Promise<Folder | null> {
     if (!id) return null;
-    const f = (await db.teamFolder.findFirst({ where: { id, accountId } })) as Folder | null;
+    const f = (await client.teamFolder.findFirst({ where: { id, accountId } })) as Folder | null;
     if (!f) throw new NotFoundError("Folder not found");
     return f;
   }
@@ -80,12 +85,14 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
       t.limits(accountId),
     ]);
     const names = await t.names(docs.map((d: Doc) => d.updatedById).filter(Boolean));
+    const folderIds = new Set(folders.map((f: Folder) => f.id));
     return successResponse(reply, "Success", 200, {
       enabled: lim.enabled && lim.maxChannels > 0,
       limits: { maxDocs: lim.maxDocs, docs: docs.length },
       canManage: m.isAdmin,
-      folders,
-      docs: docs.map((d: Doc) => ({ ...d, updatedBy: d.updatedById ? (names[d.updatedById] ?? "Former member") : null })),
+      // Rows from before the folderTree lock can point at a deleted folder: shown at the top.
+      folders: folders.map((f: Folder) => (f.parentId && !folderIds.has(f.parentId) ? { ...f, parentId: null } : f)),
+      docs: docs.map((d: Doc) => ({ ...d, folderId: d.folderId && folderIds.has(d.folderId) ? d.folderId : null, updatedBy: d.updatedById ? (names[d.updatedById] ?? "Former member") : null })),
     });
   });
 
@@ -95,7 +102,8 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     await t.member(request, accountId);
     await t.writable(accountId);
     await folder(accountId, b.parentId);
-    const f = await lockedCreate(t.prisma, accountId, "teamFolder", async (tx: Db) => {
+    const f = await lockedCreate(t.prisma, accountId, "folderTree", async (tx: Db) => {
+      await folder(accountId, b.parentId, tx);
       if ((await tx.teamFolder.count({ where: { accountId } })) >= 500) throw new ValidationError("At most 500 folders");
       return tx.teamFolder.create({ data: { accountId, name: b.name, parentId: b.parentId ?? null } });
     });
@@ -116,7 +124,17 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
       for (let at: string | null | undefined = b.parentId, i = 0; at && i < 600; at = parent.get(at), i++) if (at === fid) throw new ValidationError("A folder can't go inside itself");
       await folder(accountId, b.parentId);
     }
-    const f = await db.teamFolder.update({ where: { id: fid }, data: { ...(b.name ? { name: b.name } : {}), ...(b.parentId !== undefined ? { parentId: b.parentId } : {}) } });
+    const f = await lockedCreate(t.prisma, accountId, "folderTree", async (tx: Db) => {
+      if (!(await folder(accountId, fid, tx))) throw new NotFoundError("Folder not found");
+      if (b.parentId) {
+        await folder(accountId, b.parentId, tx);
+        // Checked again under the lock: two moves at once could make a cycle.
+        const all = (await tx.teamFolder.findMany({ where: { accountId }, select: { id: true, parentId: true } })) as Folder[];
+        const parent = new Map(all.map((x) => [x.id, x.parentId]));
+        for (let at: string | null | undefined = b.parentId, i = 0; at && i < 600; at = parent.get(at), i++) if (at === fid) throw new ValidationError("A folder can't go inside itself");
+      }
+      return tx.teamFolder.update({ where: { id: fid }, data: { ...(b.name ? { name: b.name } : {}), ...(b.parentId !== undefined ? { parentId: b.parentId } : {}) } });
+    });
     await t.emit(accountId, "doc", { folders: true });
     return successResponse(reply, "Saved", 200, f);
   });
@@ -125,12 +143,14 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     const { accountId, fid } = folderParams.parse(request.params);
     await t.member(request, accountId);
     await t.writable(accountId);
-    const f = (await folder(accountId, fid))!;
-    await db.$transaction([
-      db.teamDoc.updateMany({ where: { accountId, folderId: fid }, data: { folderId: f.parentId } }),
-      db.teamFolder.updateMany({ where: { accountId, parentId: fid }, data: { parentId: f.parentId } }),
-      db.teamFolder.delete({ where: { id: fid } }),
-    ]);
+    await folder(accountId, fid);
+    await lockedCreate(t.prisma, accountId, "folderTree", async (tx: Db) => {
+      const f = await folder(accountId, fid, tx);
+      if (!f) throw new NotFoundError("Folder not found");
+      await tx.teamDoc.updateMany({ where: { accountId, folderId: fid }, data: { folderId: f.parentId } });
+      await tx.teamFolder.updateMany({ where: { accountId, parentId: fid }, data: { parentId: f.parentId } });
+      await tx.teamFolder.delete({ where: { id: fid } });
+    });
     await t.emit(accountId, "doc", { folders: true });
     return successResponse(reply, "Folder removed; its contents moved up", 200, { id: fid });
   });
@@ -145,8 +165,12 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     if (count >= lim.maxDocs) throw new PlanLimitExceededError({ limit: lim.maxDocs, current: count, limitKey: "maxTeamDocs", plan: lim.plan });
     await folder(accountId, b.folderId);
     const d = await lockedCreate(t.prisma, accountId, "teamDoc", async (tx: Db) => {
-      const now = await tx.teamDoc.count({ where: { accountId } });
-      if (now >= lim.maxDocs) throw new PlanLimitExceededError({ limit: lim.maxDocs, current: now, limitKey: "maxTeamDocs", plan: lim.plan });
+      const [now, fresh] = await Promise.all([tx.teamDoc.count({ where: { accountId } }), t.limits(accountId, tx)]);
+      if (now >= fresh.maxDocs) throw new PlanLimitExceededError({ limit: fresh.maxDocs, current: now, limitKey: "maxTeamDocs", plan: fresh.plan });
+      if (b.folderId) {
+        await lockForCreate(tx, accountId, "folderTree");
+        await folder(accountId, b.folderId, tx);
+      }
       return (await tx.teamDoc.create({ data: { accountId, title: b.title, body: b.body, folderId: b.folderId ?? null, createdById: m.userId, updatedById: m.userId } })) as Doc;
     });
     await snapshot(d, m.userId);
@@ -189,11 +213,18 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     const before = await find(accountId, id);
     if (b.expectedVersion !== undefined && b.expectedVersion !== before.version) throw new ConflictError("Someone saved this document after you opened it. Reload to see their changes; copy yours first.");
     if (b.folderId !== undefined) await folder(accountId, b.folderId);
-    const res = await db.teamDoc.updateMany({
-      where: { id, accountId, version: before.version },
-      data: { ...(b.title !== undefined ? { title: b.title } : {}), ...(b.body !== undefined ? { body: b.body } : {}), ...(b.folderId !== undefined ? { folderId: b.folderId } : {}), version: { increment: 1 }, updatedById: m.userId },
-    });
-    if (!res.count) throw new ConflictError("Someone saved this document at the same moment. Reload and try again.");
+    const save = (client: Db) =>
+      client.teamDoc.updateMany({
+        where: { id, accountId, version: before.version },
+        data: { ...(b.title !== undefined ? { title: b.title } : {}), ...(b.body !== undefined ? { body: b.body } : {}), ...(b.folderId !== undefined ? { folderId: b.folderId } : {}), version: { increment: 1 }, updatedById: m.userId },
+      });
+    const res = b.folderId
+      ? await lockedCreate(t.prisma, accountId, "folderTree", async (tx: Db) => {
+          await folder(accountId, b.folderId, tx);
+          return save(tx);
+        })
+      : await save(db);
+    if (!res.count) await staleOrGone(db.teamDoc.findFirst({ where: { id, accountId }, select: { id: true } }), "document");
     const d = await find(accountId, id);
     const number = await snapshot(d, m.userId);
     if (b.body !== undefined) await notifyMentions(accountId, m.userId, d, before.body);
@@ -206,7 +237,8 @@ export async function teamDocRoutes(fastify: FastifyInstance) {
     const m = await t.member(request, accountId);
     const d = await find(accountId, id);
     if (!m.isAdmin && d.createdById !== m.userId) throw new ForbiddenError("Only the author and owners/admins can delete a document");
-    await db.$transaction([db.teamComment.deleteMany({ where: { targetKind: "doc", targetId: id } }), db.teamDoc.delete({ where: { id } })]);
+    // The doc first: a comment being added holds a share lock on it (comments.routes.ts).
+    await db.$transaction([db.teamDoc.delete({ where: { id } }), db.teamComment.deleteMany({ where: { targetKind: "doc", targetId: id } })]);
     await t.emit(accountId, "doc", { docId: id, deleted: true });
     return successResponse(reply, "Deleted", 200, { id });
   });

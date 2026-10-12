@@ -61,8 +61,8 @@ export async function loadTestRoutes(fastify: FastifyInstance) {
     if (!m) throw new ForbiddenError("You do not have access to this account");
     return { userId: user.id, slug: m.account.slug as string | null };
   }
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.performance"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.performance"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     const fin = (n: number, cap: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : cap);
     return { enabled: Boolean(enabled), maxVus: fin(l.maxLoadTestVus, 1000), maxSeconds: fin(l.maxLoadTestSeconds, 3600), maxRps: fin(l.maxLoadTestRps, 10_000), perDay: fin(l.loadTestsPerDay, 100_000), plan: l.plan };
   }
@@ -128,8 +128,8 @@ export async function loadTestRoutes(fastify: FastifyInstance) {
     if (runningHere() >= maxConcurrent()) throw new AppError("The load-test runners are busy; try again in a minute", 503, "SERVICE_UNAVAILABLE");
     // One running test per workspace and the daily count hold for parallel starts too.
     const row = await lockedCreate(prisma, accountId, "loadTest", async (tx: typeof db) => {
-      const today = await tx.loadTest.count({ where: { accountId, startedAt: { gte: dayStart() } } });
-      if (today >= lim.perDay) throw new PlanLimitExceededError({ limit: lim.perDay, current: today, limitKey: "loadTestsPerDay", plan: lim.plan });
+      const [today, fresh] = await Promise.all([tx.loadTest.count({ where: { accountId, startedAt: { gte: dayStart() } } }), limits(accountId, tx)]);
+      if (today >= fresh.perDay) throw new PlanLimitExceededError({ limit: fresh.perDay, current: today, limitKey: "loadTestsPerDay", plan: fresh.plan });
       if (await tx.loadTest.count({ where: { accountId, status: "RUNNING" } })) throw new ConflictError("A load test is already running in this workspace. Wait for it or cancel it.");
       return tx.loadTest.create({ data: { accountId, name: body.name, target: body.target, config: config as never, status: "RUNNING", instance: loadTestInstance, createdById: m.userId } });
     });

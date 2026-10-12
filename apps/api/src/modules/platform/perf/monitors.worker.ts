@@ -36,9 +36,13 @@ export async function runMonitor(prisma: PrismaClient, m: Monitor, now = Date.no
   const db = prisma as unknown as { apiCollection: any; apiEnvironment: any; apiMonitor: any; apiMonitorResult: any };
   const col = await db.apiCollection.findFirst({ where: { id: m.collectionId, accountId: m.accountId } });
   const env = m.environmentId ? await db.apiEnvironment.findFirst({ where: { id: m.environmentId, accountId: m.accountId } }) : null;
+  // Environment deletes are refused while a monitor uses one; a monitor saved
+  // before that check can still name a deleted one. Running it without its
+  // variables would fail confusingly, so the run fails and says why.
+  const envGone = Boolean(m.environmentId) && !env;
   let report: RunReport;
-  if (!col) {
-    report = { collection: "(deleted)", startedAt: new Date(now).toISOString(), durationMs: 0, total: 0, passed: 0, failed: 0, errored: 0, skipped: 0, assertions: { passed: 0, failed: 0 }, results: [] };
+  if (!col || envGone) {
+    report = { collection: col?.name ?? "(deleted)", startedAt: new Date(now).toISOString(), durationMs: 0, total: 0, passed: 0, failed: 0, errored: 0, skipped: 0, assertions: { passed: 0, failed: 0 }, results: [] };
   } else {
     const collection: ApiCollection = { name: col.name, description: col.description, auth: (col.auth as ApiAuth) ?? { type: "none" }, variables: arr<ApiVariable>(col.variables), folders: arr<ApiFolder>(col.folders), requests: arr<ApiRequest>(col.requests) };
     const environment = env ? arr<ApiVariable>(env.variables).map((v) => (v.secret ? { ...v, value: decryptSecret(v.value) } : v)) : undefined;
@@ -52,7 +56,7 @@ export async function runMonitor(prisma: PrismaClient, m: Monitor, now = Date.no
     });
   }
   const ok = report.total > 0 && report.failed === 0 && report.errored === 0;
-  const problem = col ? firstProblem(report) : "The collection was deleted";
+  const problem = !col ? "The collection was deleted" : envGone ? "The monitor's environment was deleted; pick another in its settings" : firstProblem(report);
   // Failure reports keep what explains the failure; response previews are cut.
   const stored = ok ? null : { ...report, results: report.results.map((r) => ({ ...r, responsePreview: r.responsePreview?.slice(0, 1000) })) };
   await db.apiMonitorResult.create({ data: { monitorId: m.id, accountId: m.accountId, at: new Date(now), ok, total: report.total, passed: report.passed, failed: report.failed, errored: report.errored, durationMs: report.durationMs, report: stored as never } });

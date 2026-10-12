@@ -39,6 +39,16 @@ const clientErrorStatus = (error: unknown): number | undefined => {
     : undefined;
 };
 
+// Matched by name and code, not instanceof: tests and scripts can load a
+// second copy of the generated client.
+const prismaClientStatus = (error: unknown): { status: number; code: string; message: string } | undefined => {
+  const e = error as { name?: unknown; code?: unknown } | null;
+  if (!e || e.name !== "PrismaClientKnownRequestError" || typeof e.code !== "string") return undefined;
+  if (e.code === "P2025" || e.code === "P2003") return { status: 404, code: e.code, message: "Not found. It may have just been deleted." };
+  if (e.code === "P2002") return { status: 409, code: e.code, message: "That already exists. Reload and try again." };
+  return undefined;
+};
+
 export const errorHandler = (
   error: unknown,
   request: FastifyRequest,
@@ -63,6 +73,25 @@ export const errorHandler = (
       message: "Invalid request data",
       data: null,
       errors: error.issues.map((e) => ({ path: e.path, message: e.message })),
+      requestId,
+    });
+  }
+
+  // A row deleted while this request was using it: an update or delete finds
+  // nothing (P2025), or an insert points at a parent that is gone (P2003).
+  // Run one after the other, these requests answer 404 from the route's own
+  // lookup; at the same time they reach the database and used to be 500s
+  // (found 2026-10-12: deleting a channel while posting to it, a collection
+  // while starting a run, an issue while editing it, and double deletes). A
+  // unique violation a route didn't anticipate (P2002) is a conflict.
+  const prismaStatus = prismaClientStatus(error);
+  if (prismaStatus) {
+    console.warn(`[db ${prismaStatus.code}] ${request.method} ${request.url} (requestId=${requestId}) answered ${prismaStatus.status}`);
+    return reply.status(prismaStatus.status).send({
+      success: false,
+      code: CLIENT_ERROR_CODES[prismaStatus.status],
+      message: prismaStatus.message,
+      data: null,
       requestId,
     });
   }

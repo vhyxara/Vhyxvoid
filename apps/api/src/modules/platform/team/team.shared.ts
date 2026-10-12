@@ -29,8 +29,9 @@ export function teamContext(fastify: FastifyInstance) {
     return { userId: user.id, level: m.roleLevel, isAdmin: m.roleLevel >= RoleLevel.ADMIN, accountName: m.account?.name ?? "your workspace" };
   }
 
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.teamSpace"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  // `client`: a transaction re-reading the plan under a create lock (createLock.ts).
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.teamSpace"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     const fin = (n: number, cap: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : cap);
     return {
       enabled: Boolean(enabled),

@@ -29,6 +29,6 @@ export async function lockedCreate<T, D = Tx>(prisma: unknown, accountId: string
 }
 
 /** Takes the same lock inside a transaction the caller already holds. */
-export async function lockForCreate(tx: Tx, accountId: string, kind: string): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`create:${kind}:${accountId}`}, 0))`;
+export async function lockForCreate(tx: unknown, accountId: string, kind: string): Promise<void> {
+  await (tx as Tx).$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`create:${kind}:${accountId}`}, 0))`;
 }

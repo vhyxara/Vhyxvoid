@@ -58,8 +58,8 @@ export async function domainRoutes(fastify: FastifyInstance, opts: { hub: HubCli
     records: opts.domains.records(d, target),
   });
 
-  async function limits(accountId: string) {
-    const l = await getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides());
+  async function limits(accountId: string, client: unknown = prisma) {
+    const l = await getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides());
     const max = l.customDomains ? (Number.isFinite(l.maxCustomDomains) ? l.maxCustomDomains : 10_000) : 0;
     return { plan: l.plan, max };
   }
@@ -101,8 +101,8 @@ export async function domainRoutes(fastify: FastifyInstance, opts: { hub: HubCli
     let row: DomainRow;
     try {
       row = (await lockedCreate(prisma, accountId, "customDomain", async (tx) => {
-        const now = await tx.customDomain.count({ where: { accountId } });
-        if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxCustomDomains", plan: lim.plan });
+        const [now, fresh] = await Promise.all([tx.customDomain.count({ where: { accountId } }), limits(accountId, tx)]);
+        if (now >= fresh.max) throw new PlanLimitExceededError({ limit: fresh.max, current: now, limitKey: "maxCustomDomains", plan: fresh.plan });
         return tx.customDomain.create({ data: { accountId, hostname: v.hostname, label: body.label, verificationToken: newVerificationToken(), createdById: getUserContext(request).id } });
       })) as DomainRow;
     } catch (err) {

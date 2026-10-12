@@ -103,12 +103,13 @@ export class CreateApiKeyUseCase {
     });
     // console.log('6. API key entity created:', key);
     // 5. Persist
-    if (limits.maxApiKeys !== Infinity && apiKeyRepository.createWithinLimit) {
-      // Counted again under the account's lock: parallel creates all passed the check above.
-      const refused = await apiKeyRepository.createWithinLimit(key, limits.maxApiKeys);
+    if (apiKeyRepository.createWithinLimit) {
+      // Counted, and the plan read, again under the account's lock: parallel
+      // creates all passed the check above, and the plan may have changed.
+      const refused = await apiKeyRepository.createWithinLimit(key);
       if (refused !== null) {
         throw new ForbiddenError(
-          `API key limit reached (${limits.maxApiKeys}). Revoke an existing key or upgrade your plan.`,
+          `API key limit reached (${refused}). Revoke an existing key or upgrade your plan.`,
         );
       }
     } else {

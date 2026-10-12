@@ -67,8 +67,8 @@ export async function alertRoutes(fastify: FastifyInstance, opts: { alerts: Aler
     const err = validateWebhookUrl(url);
     if (err) throw new ValidationError(`Webhook URL: ${err}`);
   }
-  async function maxRules(accountId: string) {
-    const l = await getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides());
+  async function maxRules(accountId: string, client: unknown = prisma) {
+    const l = await getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides());
     return { plan: l.plan, max: Number.isFinite(l.maxAlertRules) ? l.maxAlertRules : 10_000 };
   }
 
@@ -105,8 +105,8 @@ export async function alertRoutes(fastify: FastifyInstance, opts: { alerts: Aler
     const b = normalise(raw.type, raw);
     checkWebhook(b.webhookUrl);
     const rule = await lockedCreate(prisma, accountId, "alertRule", async (tx) => {
-      const now = await tx.alertRule.count({ where: { accountId } });
-      if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxAlertRules", plan: lim.plan });
+      const [now, fresh] = await Promise.all([tx.alertRule.count({ where: { accountId } }), maxRules(accountId, tx)]);
+      if (now >= fresh.max) throw new PlanLimitExceededError({ limit: fresh.max, current: now, limitKey: "maxAlertRules", plan: fresh.plan });
       return tx.alertRule.create({
         data: {
           accountId,

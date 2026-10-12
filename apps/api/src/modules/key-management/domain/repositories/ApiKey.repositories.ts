@@ -13,6 +13,7 @@ import {
 import { PrismaTransactionalClient } from "@/core/types/core/prisma";
 import { Prisma } from "@/generated/prisma";
 import { lockedCreate } from "@/modules/platform/shared/createLock";
+import { SubscriptionPlanLimitService } from "@/modules/key-management/domain/repositories/SubscriptionPlanLimitService.repositories";
 import { ApiKey } from "@/modules/key-management/domain/entities/apiKey.entities";
 import type {
   ApiKeyFilters,
@@ -111,14 +112,19 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
     return data.map((d) => this.toEntity(d));
   }
 
-  // Saves a new key unless the account already has `max` active keys; the
-  // count and the insert hold the account's lock, so parallel creates can't
-  // all pass. Returns the active count when it refuses, else null.
-  async createWithinLimit(key: ApiKey, max: number): Promise<number | null> {
+  // Saves a new key unless the account already has its plan's number of
+  // active keys (or `max`, when given); the count, the plan and the insert are
+  // read under the account's lock, so neither parallel creates nor a downgrade
+  // committed while this one waited get past it. Returns the active count
+  // when it refuses, else null.
+  async createWithinLimit(key: ApiKey, max?: number): Promise<number | null> {
     const accountId = key.toPersistence().accountId;
     return lockedCreate(this.prisma, accountId, "apiKey", async (tx) => {
-      const active = await tx.apiKey.count({ where: { accountId, status: ApiKeyStatus.ACTIVE } });
-      if (active >= max) return active;
+      const [active, limit] = await Promise.all([
+        tx.apiKey.count({ where: { accountId, status: ApiKeyStatus.ACTIVE } }),
+        max ?? new SubscriptionPlanLimitService(tx).getLimitsForAccount(accountId).then((l) => l.maxApiKeys),
+      ]);
+      if (active >= limit) return active;
       await new PrismaApiKeyRepository(tx).save(key);
       return null;
     });

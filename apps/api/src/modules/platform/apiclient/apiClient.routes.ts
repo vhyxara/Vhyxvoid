@@ -61,7 +61,7 @@ import {
   type MockApiDefinition,
   type SnippetLanguage,
 } from "@vhyxvoid/shared";
-import { prismaOf } from "../shared/http";
+import { prismaOf, staleOrGone } from "../shared/http";
 import { guardedSend } from "./runner";
 import { decryptSecret, encryptSecret } from "./secrets";
 import { lockedCreate } from "../shared/createLock";
@@ -178,8 +178,9 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     if (!m || m.roleLevel < RoleLevel.MEMBER) throw new ForbiddenError("You do not have access to this account");
     return { level: m.roleLevel as number, slug: m.account.slug as string | null, userId: user.id };
   }
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.apiClient"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  // `client`: a transaction re-reading the plan under a create lock (createLock.ts).
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.apiClient"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     const fin = (n: number, cap: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : cap);
     return { enabled: Boolean(enabled), maxCollections: fin(l.maxApiCollections, 100_000), maxRequests: fin(l.maxApiCollectionRequests, 5000), sendsPerMinute: fin(l.apiClientSendsPerMinute, 100_000), plan: l.plan };
   }
@@ -333,8 +334,9 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     const problem = apiCollectionProblem(collection, lim.maxRequests);
     if (problem) throw new ValidationError(problem);
     const row = await lockedCreate(prisma, accountId, "apiCollection", async (tx: typeof db) => {
-      const now = await tx.apiCollection.count({ where: { accountId } });
-      if (now >= lim.maxCollections) throw new PlanLimitExceededError({ limit: lim.maxCollections, current: now, limitKey: "maxApiCollections", plan: lim.plan });
+      // Counted and limited again under the lock: other creates, or a downgrade, may have committed meanwhile.
+      const [now, fresh] = await Promise.all([tx.apiCollection.count({ where: { accountId } }), limits(accountId, tx)]);
+      if (now >= fresh.maxCollections) throw new PlanLimitExceededError({ limit: fresh.maxCollections, current: now, limitKey: "maxApiCollections", plan: fresh.plan });
       return (await tx.apiCollection.create({
         data: { accountId, name: collection.name, description: collection.description ?? "", auth: collection.auth as never, variables: collection.variables as never, folders: collection.folders as never, requests: collection.requests as never, createdById: m.userId, updatedById: m.userId },
       })) as CollectionRow;
@@ -383,7 +385,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
       where: { id, accountId, version: existing.version },
       data: { name: next.name, description: next.description ?? "", auth: next.auth as never, variables: next.variables as never, folders: next.folders as never, requests: next.requests as never, version: { increment: 1 }, updatedById: m.userId },
     });
-    if (updated.count === 0) throw new ConflictError("Someone saved this collection at the same moment. Reload and try again.");
+    if (updated.count === 0) await staleOrGone(db.apiCollection.findFirst({ where: { id, accountId }, select: { id: true } }), "collection");
     return successResponse(reply, "Collection saved", 200, collectionFull(await findCollection(accountId, id)));
   });
 
@@ -536,7 +538,7 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     const variables = body.variables ? storeVariables(body.variables, arr<StoredVar>(existing.variables)) : arr<StoredVar>(existing.variables);
     try {
       const updated = await db.apiEnvironment.updateMany({ where: { id, accountId, version: existing.version }, data: { name: body.name ?? existing.name, variables: variables as never, version: { increment: 1 }, updatedById: m.userId } });
-      if (updated.count === 0) throw new ConflictError("Someone saved this environment at the same moment. Reload and try again.");
+      if (updated.count === 0) await staleOrGone(db.apiEnvironment.findFirst({ where: { id, accountId }, select: { id: true } }), "environment");
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError(`There is already an environment called "${body.name}"`);
       throw err;
@@ -548,7 +550,13 @@ export async function apiClientRoutes(fastify: FastifyInstance) {
     const { accountId, id } = idParams.parse(request.params);
     await member(request, accountId);
     await findEnv(accountId, id);
-    await db.apiEnvironment.delete({ where: { id } });
+    // Monitors keep an environment's id without a foreign key: refuse while one
+    // uses it, under the lock monitor saves take (monitors.routes.ts).
+    await lockedCreate(prisma, accountId, "envRefs", async (tx: typeof db & { apiMonitor: any }) => {
+      const users = await tx.apiMonitor.findMany({ where: { accountId, environmentId: id }, select: { name: true }, take: 4 });
+      if (users.length) throw new ConflictError(`Monitors use this environment (${users.map((u: { name: string }) => `"${u.name}"`).join(", ")}). Change or delete them first.`);
+      await tx.apiEnvironment.delete({ where: { id } });
+    });
     return successResponse(reply, "Environment deleted", 200, { id });
   });
 

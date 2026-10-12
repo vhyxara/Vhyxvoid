@@ -70,8 +70,17 @@ export async function teamCommentRoutes(fastify: FastifyInstance) {
     const tg = await resolveTarget(accountId, b.target);
     if (b.anchor && tg.kind !== "doc") throw new ValidationError("Only document comments can point at a heading");
     const mentions = mentionsOf(b.body);
-    const c = (await db.teamComment.create({ data: { accountId, targetKind: tg.kind, targetId: tg.id, anchor: b.anchor ?? null, authorId: m.userId, body: b.body, mentions } })) as Comment;
-    if (tg.kind === "issue") await db.teamIssueEvent.create({ data: { issueId: tg.id, accountId, actorId: m.userId, kind: "comment", to: c.id } });
+    // The target row is share-locked while the comment is inserted, and the
+    // delete routes remove the target before its comments: a delete running
+    // at the same time either waits and then removes this comment too, or
+    // goes first and this answers 404, instead of leaving it orphaned.
+    const c = (await t.prisma.$transaction(async (tx) => {
+      const live = tg.kind === "doc" ? await tx.$queryRaw<unknown[]>`SELECT 1 FROM team_docs WHERE id = ${tg.id} FOR SHARE` : await tx.$queryRaw<unknown[]>`SELECT 1 FROM team_issues WHERE id = ${tg.id} FOR SHARE`;
+      if (!live.length) throw new NotFoundError(tg.kind === "doc" ? "Document not found" : "Issue not found");
+      const row = await tx.teamComment.create({ data: { accountId, targetKind: tg.kind, targetId: tg.id, anchor: b.anchor ?? null, authorId: m.userId, body: b.body, mentions } });
+      if (tg.kind === "issue") await tx.teamIssueEvent.create({ data: { issueId: tg.id, accountId, actorId: m.userId, kind: "comment", to: row.id } });
+      return row;
+    })) as Comment;
     const names = await t.names([m.userId, ...mentions]);
     const text = plainText(b.body, names);
     await t.notify(accountId, m.userId, mentions, { type: "TEAM_MENTION", title: `${names[m.userId]} mentioned you in a comment on ${tg.title}`, body: text, path: tg.path, metadata: { commentId: c.id } });

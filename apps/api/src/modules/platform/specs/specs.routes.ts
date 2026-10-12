@@ -45,8 +45,8 @@ import {
   type DnsResolverLike,
   type MockApiDefinition,
 } from "@vhyxvoid/shared";
-import { prismaOf } from "../shared/http";
-import { lockedCreate } from "../shared/createLock";
+import { prismaOf, staleOrGone } from "../shared/http";
+import { lockedCreate, lockForCreate } from "../shared/createLock";
 import type { HubClient } from "../shared/hubClient";
 import { errorsOf, hashDocsPassword, parseSpecText, specToText } from "./specDocs";
 
@@ -123,8 +123,8 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     if (m.level < RoleLevel.ADMIN) throw new ForbiddenError("Only owners and admins can change how docs are shared");
     return m;
   }
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.apiDocs"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.apiDocs"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     return { enabled: Boolean(enabled), maxSpecs: Number.isFinite(l.maxApiSpecs) ? Math.max(0, Math.floor(l.maxApiSpecs)) : 10_000, protectedDocs: Boolean(l.protectedDocs), customDomains: Boolean(l.docsCustomDomains), plan: l.plan };
   }
   async function usable(accountId: string) {
@@ -228,8 +228,13 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     // Under the lock, the free slug is picked by reading the taken ones: a
     // failed insert would end the transaction.
     const row = await lockedCreate(prisma, accountId, "apiSpec", async (tx: typeof db) => {
-      const now = await tx.apiSpec.count({ where: { accountId } });
-      if (now >= lim.maxSpecs) throw new PlanLimitExceededError({ limit: lim.maxSpecs, current: now, limitKey: "maxApiSpecs", plan: lim.plan });
+      const [now, fresh] = await Promise.all([tx.apiSpec.count({ where: { accountId } }), limits(accountId, tx)]);
+      if (now >= fresh.maxSpecs) throw new PlanLimitExceededError({ limit: fresh.maxSpecs, current: now, limitKey: "maxApiSpecs", plan: fresh.plan });
+      if (body.mockId) {
+        // Its try-it points at the mock: checked again under the mock deletes' lock.
+        await lockForCreate(tx, accountId, "mockRefs");
+        if (!(await tx.mockApi.findFirst({ where: { id: body.mockId, accountId }, select: { id: true } }))) throw new NotFoundError("Mock API not found");
+      }
       const candidates = [base, ...Array.from({ length: 19 }, (_, i) => `${base.slice(0, 46)}-${i + 2}`)];
       const taken = new Set((await tx.apiSpec.findMany({ where: { accountId, slug: { in: candidates } }, select: { slug: true } })).map((r: { slug: string }) => r.slug));
       if (body.slug && taken.has(body.slug)) throw new ConflictError(`This workspace already has docs at /${body.slug}`);
@@ -298,7 +303,7 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
           updatedById: m.userId,
         },
       });
-      if (res.count === 0) throw new ConflictError("Someone saved this spec at the same moment. Reload and try again.");
+      if (res.count === 0) await staleOrGone(db.apiSpec.findFirst({ where: { id, accountId }, select: { id: true } }), "spec");
     } catch (err) {
       if ((err as { code?: string }).code === "P2002") throw new ConflictError(`This workspace already has docs at /${body.slug}`);
       throw err;
@@ -412,11 +417,15 @@ export async function specRoutes(fastify: FastifyInstance, opts: { hub: HubClien
     }
     if (body.password !== undefined) data.passwordHash = hashDocsPassword(r.id, body.password);
     if (body.visibility === "PASSWORD" && !r.passwordHash && body.password === undefined) throw new ValidationError("Set a password to protect the docs");
-    if (body.tryMockId !== undefined) {
-      if (body.tryMockId && !(await db.mockApi.findFirst({ where: { id: body.tryMockId, accountId }, select: { id: true } }))) throw new NotFoundError("Mock API not found");
-      data.tryMockId = body.tryMockId;
-    }
-    const updated = (await db.apiSpec.update({ where: { id }, data })) as Row;
+    if (body.tryMockId !== undefined) data.tryMockId = body.tryMockId;
+    const updated = (
+      body.tryMockId
+        ? await lockedCreate(prisma, accountId, "mockRefs", async (tx: typeof db) => {
+            if (!(await tx.mockApi.findFirst({ where: { id: body.tryMockId, accountId }, select: { id: true } }))) throw new NotFoundError("Mock API not found");
+            return tx.apiSpec.update({ where: { id }, data });
+          })
+        : await db.apiSpec.update({ where: { id }, data })
+    ) as Row;
     if (updated.customDomain) await opts.hub.invalidateDomain(updated.customDomain);
     return successResponse(reply, "Sharing updated", 200, sharing(updated, m.workspace));
   });

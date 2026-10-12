@@ -182,8 +182,8 @@ export async function teamChatRoutes(fastify: FastifyInstance) {
     let ch: Channel;
     try {
       ch = await lockedCreate(t.prisma, accountId, "teamChannel", async (tx: Db) => {
-        const now = await tx.teamChannel.count({ where: { accountId, kind: "CHANNEL" } });
-        if (now >= lim.maxChannels) throw new PlanLimitExceededError({ limit: lim.maxChannels, current: now, limitKey: "maxTeamChannels", plan: lim.plan });
+        const [now, fresh] = await Promise.all([tx.teamChannel.count({ where: { accountId, kind: "CHANNEL" } }), t.limits(accountId, tx)]);
+        if (now >= fresh.maxChannels) throw new PlanLimitExceededError({ limit: fresh.maxChannels, current: now, limitKey: "maxTeamChannels", plan: fresh.plan });
         return tx.teamChannel.create({
           data: { accountId, name: b.name, topic: b.topic, isPrivate: b.isPrivate, refKind: b.refKind && b.refId ? b.refKind : null, refId: b.refKind && b.refId ? b.refId : null, createdById: m.userId, members: { create: [...new Set([m.userId, ...valid])].map((userId) => ({ userId: userId as string, accountId })) } },
         });

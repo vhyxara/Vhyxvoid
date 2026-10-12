@@ -1,6 +1,7 @@
 // Small helpers shared by the platform module's routes.
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { ConflictError, NotFoundError } from "@/core/errors/error.format";
 import type { PrismaClient } from "@/generated/prisma";
 import { getAdminContext, getAuditMetadata } from "@/modules/identity/infrastructure/middleware/AdminRoute.middleware";
 
@@ -72,4 +73,13 @@ export const rangeQuerySchema = z.object({
 
 export function since(days: number): Date {
   return new Date(Date.now() - days * 86_400_000);
+}
+
+/**
+ * A versioned save (updateMany on id + version) changed nothing: someone saved
+ * first (409), or the row was deleted meanwhile (404, not "someone saved").
+ */
+export async function staleOrGone(stillThere: Promise<unknown>, what: string, conflict = `Someone saved this ${what} at the same moment. Reload and try again.`): Promise<never> {
+  if (!(await stillThere)) throw new NotFoundError(`This ${what} was deleted`);
+  throw new ConflictError(conflict);
 }

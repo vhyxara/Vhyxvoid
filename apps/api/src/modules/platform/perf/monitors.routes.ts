@@ -16,7 +16,7 @@ import { successResponse } from "@/core/utils/response.util";
 import { getUserContext } from "@/modules/identity/infrastructure/middleware/UserRoute.middleware";
 import { MONITOR_INTERVALS, currentPlanOverrides, getEffectivePlanLimitsForAccount, nextMonitorRun, uptimeSummary } from "@vhyxvoid/shared";
 import { prismaOf } from "../shared/http";
-import { lockedCreate } from "../shared/createLock";
+import { lockedCreate, lockForCreate } from "../shared/createLock";
 import { runMonitor } from "./monitors.worker";
 
 const params = z.object({ accountId: z.string().uuid() });
@@ -49,17 +49,20 @@ export async function monitorRoutes(fastify: FastifyInstance) {
     if (!m.admin) throw new ForbiddenError("Only owners and admins can change monitors");
     return m;
   }
-  async function limits(accountId: string) {
-    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.performance"), getEffectivePlanLimitsForAccount(prisma as never, accountId, await currentPlanOverrides())]);
+  async function limits(accountId: string, client: unknown = prisma) {
+    const [enabled, l] = await Promise.all([fastify.platformSettings.get("features.performance"), getEffectivePlanLimitsForAccount(client as never, accountId, await currentPlanOverrides())]);
     const fin = (n: number, cap: number) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : cap);
     return { enabled: Boolean(enabled), max: fin(l.maxMonitors, 10_000), minInterval: Math.max(1, fin(l.minMonitorIntervalMinutes, 1)), plan: l.plan };
   }
-  async function checkRefs(accountId: string, b: { collectionId?: string; environmentId?: string | null; folderId?: string | null }, current?: { collectionId: string }) {
+  // A monitor that names an environment is saved under the workspace's
+  // "envRefs" lock, which environment deletes take too, so a delete can't slip
+  // between this check and the save and leave the monitor pointing at nothing.
+  async function checkRefs(accountId: string, b: { collectionId?: string; environmentId?: string | null; folderId?: string | null }, current?: { collectionId: string }, client: typeof db = db) {
     const collectionId = b.collectionId ?? current?.collectionId;
-    const col = collectionId ? await db.apiCollection.findFirst({ where: { id: collectionId, accountId }, select: { folders: true } }) : null;
+    const col = collectionId ? await client.apiCollection.findFirst({ where: { id: collectionId, accountId }, select: { folders: true } }) : null;
     if (!col) throw new ValidationError("Pick a collection of this workspace");
     if (b.folderId && !(Array.isArray(col.folders) && col.folders.some((f: { id: string }) => f.id === b.folderId))) throw new ValidationError("That folder is not in the collection");
-    if (b.environmentId && !(await db.apiEnvironment.findFirst({ where: { id: b.environmentId, accountId }, select: { id: true } }))) throw new ValidationError("Pick an environment of this workspace");
+    if (b.environmentId && !(await client.apiEnvironment.findFirst({ where: { id: b.environmentId, accountId }, select: { id: true } }))) throw new ValidationError("Pick an environment of this workspace");
   }
   const view = (m: any, uptime24h?: number | null) => ({
     id: m.id,
@@ -117,8 +120,13 @@ export async function monitorRoutes(fastify: FastifyInstance) {
     if (body.intervalMinutes < lim.minInterval) throw new ValidationError(`Your plan runs monitors every ${lim.minInterval} minutes at most`);
     await checkRefs(accountId, body);
     const row = await lockedCreate(prisma, accountId, "apiMonitor", async (tx: typeof db) => {
-      const now = await tx.apiMonitor.count({ where: { accountId } });
-      if (now >= lim.max) throw new PlanLimitExceededError({ limit: lim.max, current: now, limitKey: "maxMonitors", plan: lim.plan });
+      const [now, fresh] = await Promise.all([tx.apiMonitor.count({ where: { accountId } }), limits(accountId, tx)]);
+      if (now >= fresh.max) throw new PlanLimitExceededError({ limit: fresh.max, current: now, limitKey: "maxMonitors", plan: fresh.plan });
+      if (body.intervalMinutes < fresh.minInterval) throw new ValidationError(`Your plan runs monitors every ${fresh.minInterval} minutes at most`);
+      if (body.environmentId) {
+        await lockForCreate(tx, accountId, "envRefs");
+        await checkRefs(accountId, body, undefined, tx);
+      }
       return tx.apiMonitor.create({
         data: { accountId, name: body.name, collectionId: body.collectionId, environmentId: body.environmentId ?? null, folderId: body.folderId ?? null, intervalMinutes: body.intervalMinutes, enabled: body.enabled ?? true, nextRunAt: new Date(), createdById: m.userId },
         include: { collection: { select: { name: true } } },
@@ -170,16 +178,23 @@ export async function monitorRoutes(fastify: FastifyInstance) {
     if (body.intervalMinutes !== undefined && body.intervalMinutes < lim.minInterval) throw new ValidationError(`Your plan runs monitors every ${lim.minInterval} minutes at most`);
     if (body.collectionId || body.environmentId || body.folderId) await checkRefs(accountId, body, cur);
     const intervalMinutes = body.intervalMinutes ?? cur.intervalMinutes;
-    const row = await db.apiMonitor.update({
-      where: { id },
-      data: {
-        ...body,
-        ...(body.collectionId && !("folderId" in body) ? { folderId: null } : {}),
-        // Switched on, or a new interval: next check on the new schedule.
-        ...(body.enabled === true && !cur.enabled ? { nextRunAt: new Date() } : body.intervalMinutes !== undefined ? { nextRunAt: nextMonitorRun(intervalMinutes, Date.now()) } : {}),
-      },
-      include: { collection: { select: { name: true } } },
-    });
+    const update = (client: typeof db) =>
+      client.apiMonitor.update({
+        where: { id },
+        data: {
+          ...body,
+          ...(body.collectionId && !("folderId" in body) ? { folderId: null } : {}),
+          // Switched on, or a new interval: next check on the new schedule.
+          ...(body.enabled === true && !cur.enabled ? { nextRunAt: new Date() } : body.intervalMinutes !== undefined ? { nextRunAt: nextMonitorRun(intervalMinutes, Date.now()) } : {}),
+        },
+        include: { collection: { select: { name: true } } },
+      });
+    const row = body.environmentId
+      ? await lockedCreate(prisma, accountId, "envRefs", async (tx: typeof db) => {
+          await checkRefs(accountId, body, cur, tx);
+          return update(tx);
+        })
+      : await update(db);
     return successResponse(reply, "Monitor saved", 200, view(row));
   });
 
