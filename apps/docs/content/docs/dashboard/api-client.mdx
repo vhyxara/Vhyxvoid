@@ -3,7 +3,7 @@ title: API client
 description: Send requests from the browser with no CORS trouble, keep them in shared collections, add checks without code, and run whole collections here or in CI.
 verified:
   date: "2026-10-07"
-  commit: 58daf44
+  commit: 5c59cb1
   packages: {}
 sources:
   - packages/shared/src/apiClient.ts
@@ -73,7 +73,7 @@ Built-in values are `{{$uuid}}`, `{{$timestamp}}` (Unix seconds), `{{$isoTimesta
 - the API never sends it back: the dashboard shows that a value is set, and you can only replace it;
 - it appears as `{{name}}` in code snippets, in the **Sent** view, in your history and in exports.
 
-A workspace can have up to 50 environments.
+A workspace can have up to 50 environments. An environment a [monitor](/dashboard/performance) uses can't be deleted; change the monitor to another environment, or delete it, first.
 
 ## The response
 

@@ -1033,3 +1033,30 @@ A sweep of every API route (7,599 requests with malformed params, bodies and que
 
 **Status:** active.
 
+### 2026-10-12 — Deletes racing with writes; downgrades racing with creates (session upbeat-cannon)
+
+Follow-up to 2026-10-08's sweep. Probes: each parent (collection, environment, monitor, channel, message, doc, folder, issue, spec, mock, alert) deleted while 2–5 dependent writes run, 8 rounds at staggered offsets, plus double deletes; then the database checked for rows pointing at nothing; then downgrades (account limit overrides lowered) during 30 parallel creates, and every documented "keeps working after a downgrade" promise checked live. Regression tests: tests/e2e/deleteRaces.test.ts.
+
+1. **Prisma P2025/P2003 → 404, P2002 → 409, in the global error handler.** 98 of the probe's writes answered 500: an update finding nothing, or an insert whose parent was gone. Mapped centrally (by error name and code, not instanceof) rather than per route, because every route can lose a race. One after the other, the same requests already answered 404 from the route's own lookup. `core/errors/prisma-error-mapper.ts` existed but was never called; it is left unused.
+2. **References without a foreign key are guarded by locks, not constraints.** Comments (targetKind/targetId), doc folders, monitor environments and docs try-it mocks are plain ids. Adding foreign keys would mean a polymorphic split (comments) or a migration that fails on existing orphans. Instead:
+   - a comment share-locks its target row, and doc/issue deletes remove the target before its comments;
+   - folder changes take the workspace's `folderTree` advisory lock;
+   - monitor saves that name an environment, and environment deletes, take `envRefs`;
+   - spec creates from a mock, try-it changes and mock deletes take `mockRefs`.
+3. **An environment a monitor uses can't be deleted** (409 naming up to four monitors). This was a gap even without a race: the monitor silently ran without its variables. Chosen over clearing the monitor's environment, which would change its results without telling anyone. A monitor that still names a deleted environment fails its run with "The monitor's environment was deleted".
+4. **Deleting a mock clears try-it on docs that used it.** Before, the public page offered try-it and then failed with "The mock API behind try-it is gone".
+5. **Existing dangling references:** migration 20261012120000_clear_dangling_refs moves stray docs and folders to the top level, deletes orphan comments and clears dangling tryMockId. The doc list also shows a doc or folder whose folder is gone at the top level.
+6. **A versioned save that changes nothing answers 404 when the row is gone** (`staleOrGone` in shared/http.ts), and 409 only when someone else saved.
+7. **Lock holders re-read the plan with their transaction.** Creates queued behind the lock used the limits they read before queuing: 17 issues were created after a downgrade to 3 had committed. Each route's `limits(accountId, client)` now takes the transaction. Feature-flag and plan-override settings come from the 30-second settings cache, which the request's own earlier read has just warmed, so the holder never needs a second pooled connection. API keys: `createWithinLimit` reads the plan's maxApiKeys inside the lock. Member invites and accepts already read limits after taking their lock.
+8. **Downgrade promises verified live:**
+   - access rules keep protecting tunnels (also on an offline mock with the same label);
+   - password-protected docs stay protected, and re-saving sharing as it is keeps them so;
+   - mocks keep answering;
+   - monitors keep their interval and can be renamed and switched off and on, while a shorter interval is refused;
+   - over-limit collections stay listed and editable, and new collections, specs and mocks get 402;
+   - changing an access rule or setting a new docs password is refused, while removing a rule or making docs public is allowed.
+   
+   No change was needed.
+
+**Status:** active.
+

@@ -3,7 +3,7 @@ title: Performance
 description: Per-endpoint speed and errors from real traffic, load tests against your own tunnels and mocks, and monitors that run your API collections on a schedule.
 verified:
   date: "2026-10-07"
-  commit: 58daf44
+  commit: 5c59cb1
   packages: {}
 sources:
   - packages/shared/src/perf.ts
@@ -114,7 +114,7 @@ Some rules:
 
 ## Monitors
 
-A monitor runs one of your [API client](/dashboard/api-client) collections (or one folder of it) every 1, 5, 10, 15, 30 or 60 minutes. You can pick an environment, whose secrets are used. A check **passes** when every request answers and every check in the collection passes.
+A monitor runs one of your [API client](/dashboard/api-client) collections (or one folder of it) every 1, 5, 10, 15, 30 or 60 minutes. You can pick an environment, whose secrets are used; it can't be deleted while a monitor uses it. A check **passes** when every request answers and every check in the collection passes.
 
 For each monitor you see:
 

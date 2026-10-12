@@ -3,7 +3,7 @@ title: API docs
 description: Write an OpenAPI spec in a form or as YAML, publish versions with a breaking-change report, and share rendered docs with try-it and code samples, publicly, behind a password or on your own domain.
 verified:
   date: "2026-10-07"
-  commit: 58daf44
+  commit: 5c59cb1
   packages: {}
 sources:
   - packages/shared/src/apiSpec.ts
@@ -96,7 +96,7 @@ The shared page shows:
 
 **Try it on the shared page** can go one of two ways:
 
-- **To a mock API** you pick. Readers' requests go to that mock, through VhyxVoid, and never to another host. They count toward your usage like any request to the mock. Each reader can send up to 30 a minute.
+- **To a mock API** you pick. Readers' requests go to that mock, through VhyxVoid, and never to another host. They count toward your usage like any request to the mock. Each reader can send up to 30 a minute. Deleting the mock turns try-it off for these docs.
 - **Without a mock**, the reader's browser sends the request straight to the server URL. Your API must then allow cross-origin requests (CORS) from the docs page.
 
 ### Your own domain
