@@ -10,6 +10,8 @@ export type LandingContent = {
   stats: Array<{ value: string; label: string }>;
   features: { title: string; subtitle: string; items: Array<{ icon: string; title: string; body: string }> };
   steps: { title: string; items: Array<{ title: string; body: string; code: string }> };
+  /** The animated trip of one request, from the caller to your app and back. Each stage is a stop on the map. */
+  journey?: { title: string; subtitle: string; stages: Array<{ node: string; title: string; body: string }> };
   diagram?: { title: string; subtitle: string; source: string };
   useCases?: { title: string; items: Array<{ title: string; body: string }> };
   faq: { title: string; items: Array<{ q: string; a: string }> };

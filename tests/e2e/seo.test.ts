@@ -193,3 +193,15 @@ describe.skipIf(!url)("seo", { timeout: 30_000 }, () => {
     expect(chained.issues.some((i: any) => i.code === "redirect_chain" && i.path === p("/c-a"))).toBe(true);
   });
 });
+
+describe("landing content saved before the journey", () => {
+  it("gets the built-in journey when opened for editing", async () => {
+    const { withNewSections } = await import("../../apps/api/src/modules/platform/content/content.service");
+    const old = withNewSections({ kind: "landing", data: { hero: {} } }) as { data: { journey?: { stages: unknown[] } } };
+    expect(old.data.journey?.stages.length).toBeGreaterThan(1);
+    const custom = { kind: "landing", data: { journey: { title: "Mine", subtitle: "", stages: [] } } };
+    expect(withNewSections(custom)).toBe(custom);
+    const page = { kind: "page", data: { body: "x" } };
+    expect(withNewSections(page)).toBe(page);
+  });
+});

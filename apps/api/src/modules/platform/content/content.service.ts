@@ -198,7 +198,7 @@ export class ContentService {
       include: { revisions: { orderBy: { version: "desc" }, take: 20, select: { id: true, version: true, title: true, note: true, createdAt: true, createdById: true } } },
     });
     if (!row) throw new NotFoundError("Content entry not found");
-    return row;
+    return withNewSections(row);
   }
 
   async create(input: { slug: string; kind: string; title: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null }, adminId: string) {
@@ -306,4 +306,16 @@ export class ContentService {
     if (kind === "page") return { body: "", showInFooter: false, footerGroup: "company" };
     return DEFAULT_CONTENT.find((d) => d.kind === kind)?.data ?? {};
   }
+}
+
+/**
+ * Landing sections added after an entry was saved (the journey) are filled
+ * in from the built-in content when the entry is opened for editing, so the
+ * editor shows them; the website shows the built-in one until it is published.
+ */
+export function withNewSections<T extends { kind: string; data: unknown }>(row: T): T {
+  const data = row.data as Record<string, unknown> | null;
+  if (row.kind !== "landing" || !data || typeof data !== "object" || "journey" in data) return row;
+  const journey = (defaultEntry("home")?.data as { journey?: unknown } | undefined)?.journey;
+  return journey ? { ...row, data: { ...data, journey } } : row;
 }

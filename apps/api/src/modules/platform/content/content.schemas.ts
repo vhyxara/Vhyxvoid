@@ -26,6 +26,13 @@ export const landingSchema = z.object({
     title: text(120),
     items: z.array(z.object({ title: text(80), body: text(300), code: text(400).default("") })).max(6),
   }),
+  journey: z
+    .object({
+      title: text(120),
+      subtitle: text(400).default(""),
+      stages: z.array(z.object({ node: text(20), title: text(80), body: text(400) })).min(2).max(8),
+    })
+    .optional(),
   diagram: z
     .object({ title: text(120), subtitle: text(300).default(""), source: text(4000) })
     .optional(),

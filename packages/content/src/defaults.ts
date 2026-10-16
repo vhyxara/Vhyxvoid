@@ -44,6 +44,18 @@ const home: LandingContent = {
       { title: "Share the URL", body: "Point webhooks, phones and teammates at your stable HTTPS address.", code: "curl https://acme-7f3k2q9a--api.vhyxvoid.com/health" },
     ],
   },
+  journey: {
+    title: "Follow a request through the void",
+    subtitle: "One call to your public URL, step by step. Your machine never opens a port: the agent dials out, and everything travels back through that one connection.",
+    stages: [
+      { node: "Caller", title: "Someone calls your URL", body: "A Stripe webhook, a phone on 4G or a teammate's browser sends POST https://acme--api.vhyxvoid.com/webhooks/stripe. To them it is an ordinary HTTPS API." },
+      { node: "Edge", title: "TLS ends at the edge", body: "The edge terminates HTTPS with a valid certificate (your own domain works too) and passes the request to the hub over the private network." },
+      { node: "Hub", title: "The hub finds your tunnel", body: "The hostname maps to your live agent. Your access and traffic rules run here: allowlists, mocks, delays, rate limits. The request is kept for the inspector so you can replay it later." },
+      { node: "Tunnel", title: "Through the void", body: "The request rides the one outbound WebSocket your agent opened, signed and multiplexed with every other request in flight. No inbound port, no firewall change." },
+      { node: "Agent", title: "The agent replays it locally", body: "On your laptop the agent sends the same method, path, headers and body to localhost:3000, exactly as the caller sent it." },
+      { node: "Your app", title: "The answer goes home", body: "Your app responds and the reply streams back along the same path, chunked, SSE and WebSockets included. Total detour: typically under 50 ms." },
+    ],
+  },
   diagram: {
     title: "How a request reaches your laptop",
     subtitle: "The agent keeps one outbound connection open. Nothing on your machine listens to the internet.",
