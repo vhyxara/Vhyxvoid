@@ -157,9 +157,9 @@ export function validateStripePrices(value: unknown): string | undefined {
 export const SETTING_DEFINITIONS = {
   "general.productName": { group: "general", label: "Product name", description: "Shown in page titles, emails and the dashboard.", type: "string", default: "VhyxVoid", public: true, maxLength: 60 },
   "general.tagline": { group: "general", label: "Tagline", description: "One line under the product name.", type: "string", default: "Your localhost, on the internet. Instantly.", public: true, maxLength: 140 },
-  "general.statusPageUrl": { group: "general", label: "Status page URL", description: "Linked from the footer when set.", type: "url", default: "", public: true },
-  "general.twitterUrl": { group: "general", label: "X / Twitter URL", description: "Footer link when set.", type: "url", default: "", public: true },
-  "general.githubUrl": { group: "general", label: "GitHub URL", description: "Footer link when set.", type: "url", default: "", public: true },
+  "general.statusPageUrl": { group: "general", label: "Status page URL", description: "Linked from the built-in footer when set; a published footer menu (Website content) has its own links.", type: "url", default: "", public: true },
+  "general.twitterUrl": { group: "general", label: "X / Twitter URL", description: "A link in the built-in footer when set; a published footer menu has its own links.", type: "url", default: "", public: true },
+  "general.githubUrl": { group: "general", label: "GitHub URL", description: "A link in the built-in footer when set; a published footer menu has its own links.", type: "url", default: "", public: true },
 
   "maintenance.enabled": { group: "maintenance", label: "Maintenance mode", description: "Users get a maintenance page and the user API answers 503. Admin panel, public pages, webhooks and running tunnels keep working.", type: "boolean", default: false, public: true },
   "maintenance.message": { group: "maintenance", label: "Maintenance message", description: "Shown to users while maintenance mode is on.", type: "text", default: "We're doing some scheduled maintenance and will be back shortly.", public: true, maxLength: 500 },
