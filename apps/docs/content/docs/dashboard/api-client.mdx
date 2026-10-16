@@ -3,7 +3,7 @@ title: API client
 description: Send requests from the browser with no CORS trouble, keep them in shared collections, add checks without code, and run whole collections here or in CI.
 verified:
   date: "2026-10-07"
-  commit: 5c59cb1
+  commit: 8ad02e0
   packages: {}
 sources:
   - packages/shared/src/apiClient.ts
@@ -167,7 +167,7 @@ To run the collection as it is saved in the workspace instead of a file, use `vh
 Requests leave from the platform, not your computer, so they can reach **public addresses only**:
 
 - Private, loopback, link-local and cloud metadata addresses are refused.
-- So are names such as `localhost` and `*.internal`.
+- So are names such as `localhost`, `*.local` and `*.internal`, and IPv6 forms that carry an IPv4 address (6to4, Teredo, NAT64).
 - The check runs again for every address a name resolves to, at connect time, so a DNS answer can't change after the check.
 
 To test a server on your machine, either:
