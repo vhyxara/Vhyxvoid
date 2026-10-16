@@ -1,0 +1,158 @@
+---
+title: SEO
+description: Control how the website appears in search results and link previews from the admin console. Covers site-wide defaults, per-address titles and descriptions, redirects, missing addresses, and the audit.
+verified:
+  date: "2026-10-16"
+  commit: f5d0139
+  packages: {}
+sources:
+  - packages/content/src/seo.ts
+  - packages/shared/src/settings.ts
+  - apps/api/src/modules/platform/seo/seo.service.ts
+  - apps/api/src/modules/platform/seo/seo.routes.ts
+  - apps/api/src/modules/platform/seo/seo.public.routes.ts
+  - apps/admin/src/views/seo/SeoView.tsx
+  - apps/web/src/views/seo/seo.ts
+  - apps/web/src/views/seo/redirects.ts
+  - apps/web/src/proxy.ts
+  - apps/web/src/app/robots.ts
+  - apps/web/src/app/sitemap.ts
+  - apps/web/src/app/api/og/route.tsx
+---
+
+**SEO** in the console controls how the website shows up in search results and in link previews (Slack, X, LinkedIn…). Changes reach the website on the next request when the website refresh is set up (see [Deployment](/operators/deployment)). Otherwise they show within a minute.
+
+## Overview
+
+The first tab scores the site out of 100 and lists what to fix, most important first. Each item has a **Fix** button that opens the right place. The checks:
+
+- **Site**:
+  - indexing switched off;
+  - no site address;
+  - no default description;
+  - no share image at all;
+  - no Search Console verification;
+  - no organization logo.
+- **Each live, indexable address**:
+  - no description of its own;
+  - a title over 60 characters, or a description over 160 or under 50 (search engines cut long ones off);
+  - the same title or description as another address;
+  - a blog cover image without alt text.
+- **Redirects**:
+  - chains (A → B → C, point A straight at C);
+  - a redirect away from an address that is a live page.
+- **Missing addresses**: asked for 3 or more times, with no redirect.
+
+It also links to Google's Rich Results Test and PageSpeed Insights for the live site, and to its sitemap and robots.txt.
+
+## Site defaults
+
+| Setting | What it does |
+| --- | --- |
+| Site address | The public origin, e.g. `https://www.vhyxvoid.com`. Used for canonical links, the sitemap, the RSS feed and share images. Empty: the website's `SITE_URL`, else the address of each request. Set it in production. |
+| Title template | How page titles are built: `%s` is the page's title, e.g. `%s — VhyxVoid` (the default) or `%s \| VhyxVoid tunnels`. The home page uses its own title as is. |
+| Default description | For pages without one of their own. |
+| Default share image | A 1200×630 image for link previews of pages without their own. |
+| Generate share images | On (the default): pages without an image get one generated from their title and the product name (`/api/og`). |
+| X / Twitter handle | Credited on previews in X. |
+| Let search engines index the site | Off: every page says noindex, robots.txt disallows everything and the sitemap is empty. For staging copies, and before launch. |
+| Paths crawlers should skip | Extra `Disallow` lines in robots.txt. The signed-in app, password and invitation pages are always disallowed. |
+| Google, Bing, Yandex codes | The site verification tags of each search console. Paste only the code from `content="…"`. |
+| Organization logo, Other profiles | Who runs the site, for knowledge panels. The X and GitHub URLs from General are added to the profiles automatically. |
+
+The screen previews the home page as a search result and as a shared link while you type.
+
+### Launch checklist
+
+1. Set **Site address** to the production origin.
+2. Write the **Default description**.
+3. Check that **Let search engines index the site** is on.
+4. Verify the site in [Google Search Console](https://search.google.com/search-console) (HTML tag method) and in Bing Webmaster Tools.
+5. Submit `<site>/sitemap.xml` in both.
+6. Work through the Overview until nothing says *Fix now* or *Should fix*.
+
+## Pages
+
+Pages lists every public address of the website:
+
+- the fixed pages: home, pricing, blog, support, sign-in and sign-up;
+- every CMS page, published or not;
+- every live blog post;
+- every blog category with live posts.
+
+For each one it shows the title and description in use, where they come from (the page itself, the site default, or an override), and its issues.
+
+**Edit SEO** sets an override for one address:
+
+- title;
+- description;
+- share image;
+- **Hide from search engines** (noindex, and left out of the sitemap).
+
+Empty fields keep what the page says. The fields show the page's own text greyed out, with search-result and link-preview previews. **Remove override** goes back to the page's own text.
+
+An override wins over the SEO fields in **Website content** and **Blog**. Use those for everyday editing, and overrides for the fixed pages and one-off corrections.
+
+## Redirects
+
+A redirect sends visitors and search engines from an old address to a new one.
+
+- **Permanent (301)** tells search engines the page has moved and to carry its ranking over.
+- **Temporary (302)** says it will come back.
+
+Addresses:
+
+- **Old address**: a path on the site. It is matched without its trailing slash, query string or language prefix (`/fr/old` matches `/old`). End it with `/*` to cover everything under it.
+- **New address**: a path on the site or a full `https://` URL. With a `/*` old address, a `/*` target keeps the rest of the path: `/docs/*` → `/guides/*` sends `/docs/a/b` to `/guides/a/b`.
+- The query string is kept, so campaign parameters survive. The language prefix is kept for site paths.
+- Old addresses ending in `.html`, `.php` or similar work too, for moving from another site. Images, scripts and other files don't go through redirects.
+
+The console refuses redirects that can't work:
+
+- redirecting the home page;
+- a target equal to its source;
+- anything that would loop, including through other redirects;
+- a chain longer than 10.
+
+**Import…** takes many redirects at once, one per line: old address, new address, and optionally `302` for a temporary one. Separate them with spaces, commas or tabs, so a pasted spreadsheet works. Lines starting with `#` are skipped. An old address that already has a redirect gets the new target. Lines that can't be used are listed with the reason; the rest are saved.
+
+Each redirect counts how often it is used, so you can tell when an old one can go.
+
+## Not found
+
+The website reports every address that answered "not found", with how often and the last page that linked to it. That covers unknown paths, missing blog posts, and missing categories and tags.
+
+- Addresses with real visitors (old links, mistyped shared URLs): **Redirect…** opens a new redirect with the address filled in.
+- Bot probes (`/wp-admin`, `/.env`…): **Dismiss** them.
+- Search engine crawlers are counted too: a crawler asking for an old address is exactly what a redirect should catch.
+
+Creating a redirect removes its address from the list. The list keeps the 5000 most recent addresses.
+
+Reporting, and redirect counts, need the website refresh to be set up (`REVALIDATE_SECRET` on the website and `WEB_REVALIDATE_SECRET` on the API, the same value).
+
+## What the website does
+
+These follow the settings above, without any setup:
+
+- **Every public page** gets:
+  - a title through the template, and a description;
+  - a canonical link on the site address, without the language prefix or query string, so `/fr/pricing` and `/pricing?utm_source=x` count as `/pricing`;
+  - Open Graph and Twitter card tags with a share image.
+- **Not search results**: the signed-in app, password, email-check and invitation pages are always noindex. Blog tag pages are noindex too, since they repeat the category pages.
+- **Structured data** (schema.org):
+  - `Organization` and `WebSite` on the home page;
+  - `FAQPage` from the FAQ of the landing and pricing pages;
+  - `BreadcrumbList` on CMS pages and blog posts;
+  - `BlogPosting` on blog posts.
+- **`/sitemap.xml`**: the fixed pages, published CMS pages, live posts and categories, minus hidden addresses.
+- **`/robots.txt`**: points at the sitemap.
+- **`/manifest.webmanifest`**: the product name and colours.
+
+## Who can do what
+
+| Ability | Allows |
+| --- | --- |
+| `seo.read` | View the audit, page overrides, redirects and missing addresses |
+| `seo.update` | Change page overrides and redirects, and dismiss missing addresses |
+
+Site defaults are settings: changing them needs the settings abilities, like any other setting.

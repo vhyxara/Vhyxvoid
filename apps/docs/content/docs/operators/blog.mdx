@@ -3,7 +3,7 @@ title: Blog
 description: Write, schedule and publish blog posts; organise them with categories and tags that are created as you type; and what the website shows at /blog.
 verified:
   date: "2026-10-16"
-  commit: 37600c1
+  commit: f5d0139
   packages: {}
 sources:
   - apps/api/src/modules/platform/blog/blog.routes.ts
@@ -80,7 +80,7 @@ Post pages carry Open Graph and Twitter tags (title, description, cover image) a
 
 Post bodies are markdown shown with raw HTML switched off, like site pages: a post can't run scripts.
 
-Feeds, the sitemap and canonical links need the website's public address: set `SITE_URL` on the website (see [Deployment](/operators/deployment)). Without it, the address of the incoming request is used.
+Feeds, the sitemap and canonical links need the website's public address: set **Site address** on the [SEO](/operators/seo) screen (or `SITE_URL` on the website). Without either, the address of the incoming request is used. The SEO screen can also override a post's title, description and image, or hide it from search engines.
 
 ## Who can do what
 

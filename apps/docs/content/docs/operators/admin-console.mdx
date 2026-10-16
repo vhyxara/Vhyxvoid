@@ -2,8 +2,8 @@
 title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
-  date: "2026-10-06"
-  commit: 37600c1
+  date: "2026-10-16"
+  commit: f5d0139
   packages: {}
 sources:
   - apps/admin/src/views/tunnels/TunnelsView.tsx
@@ -53,7 +53,7 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 
 **Plans & pricing**: free or paid mode, the default plan, each plan's limits and the Stripe price of each paid plan (see [plans and billing](/operators/plans-and-billing)).
 
-**Settings**, **Content** and **Messages** are covered in the [settings reference](/operators/settings-reference) and [site content](/operators/content).
+**Settings**, **Website content**, **Messages**, **Blog** and **SEO** are covered in the [settings reference](/operators/settings-reference), [site content](/operators/content), [blog](/operators/blog) and [SEO](/operators/seo).
 
 ## Admins, roles and abilities
 
@@ -108,3 +108,5 @@ To give a support engineer read-only access, create a role with the `*.read` abi
 | `blog.update` | Write and edit blog posts; create, rename and merge categories and tags |
 | `blog.publish` | Publish, schedule and unpublish blog posts |
 | `blog.delete` | Delete blog posts, categories and tags |
+| `seo.read` | View SEO: the audit, page overrides, redirects and missing addresses |
+| `seo.update` | Change SEO: page overrides, redirects, and dismiss missing addresses |

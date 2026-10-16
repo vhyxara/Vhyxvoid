@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-16"
-  commit: 37600c1
+  commit: f5d0139
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -122,3 +122,23 @@ Turn product features on or off.
 | `features.mockApis` | boolean | `true` | yes | Mock APIs. Customers can create hosted mock APIs that answer at a tunnel label's URL with no agent running (endpoints, response rules, templating, OpenAPI import). How many is the plan limits maxMockApis and maxMockEndpoints. Off: the hub stops answering from mocks. |
 | `features.alerts` | boolean | `true` | yes | Alerts. Customers can create alert rules (tunnel offline, error rate, usage, inbox, domains) delivered by email, in-app and webhook. |
 | `features.feedbackEnabled` | boolean | `true` | yes | Feedback form. Let signed-in users send feedback from the dashboard. |
+
+## SEO
+
+How the website appears in search results and link previews. Edited on the SEO screen.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `seo.siteUrl` | url | `""` | yes | Site address. The website's public address, e.g. https://www.vhyxvoid.com. Used for canonical links, the sitemap, feeds and share images. Empty: the website's SITE_URL, else the address of each request. |
+| `seo.titleTemplate` | string | `""` | yes | Title template. How page titles are built; %s is the page's own title. Empty: "%s — &lt;product name&gt;". The home page uses its title as is. |
+| `seo.defaultDescription` | text | `""` | yes | Default description. For pages without a description of their own. Around 150 characters show in search results. |
+| `seo.defaultImage` | url | `""` | yes | Default share image. Shown in link previews (Slack, X, LinkedIn…) for pages without an image of their own. 1200×630. Empty: an image is generated with the page title. |
+| `seo.generatedImages` | boolean | `true` | yes | Generate share images. Pages without an image get one made from their title and the product name. Off: they use the default share image, or none. |
+| `seo.twitterHandle` | string | `""` | yes | X / Twitter handle. The site's account, e.g. @vhyxvoid, credited on link previews in X. |
+| `seo.indexing` | boolean | `true` | yes | Let search engines index the site. Off: every page says noindex and robots.txt asks crawlers to stay out. For staging copies, or before launch. |
+| `seo.robotsDisallow` | stringList | `[]` | yes | Paths crawlers should skip. Added to robots.txt as Disallow lines, e.g. /internal. The signed-in app is always excluded. |
+| `seo.organizationLogo` | url | `""` | yes | Organization logo. A square logo (at least 112×112) for search engines' knowledge panels. Empty: none is declared. |
+| `seo.socialProfiles` | text | `""` | yes | Other profiles. One URL per line (LinkedIn, YouTube…), declared as the organization's profiles. The X and GitHub URLs under General are included automatically. |
+| `seo.googleVerification` | string | `""` | yes | Google Search Console code. The content of the google-site-verification meta tag Search Console gives you (just the code). |
+| `seo.bingVerification` | string | `""` | yes | Bing Webmaster code. The content of the msvalidate.01 meta tag (just the code). |
+| `seo.yandexVerification` | string | `""` | yes | Yandex Webmaster code. The content of the yandex-verification meta tag (just the code). |

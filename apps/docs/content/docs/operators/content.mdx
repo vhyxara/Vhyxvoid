@@ -3,7 +3,7 @@ title: Site content
 description: Edit the landing page, pricing, pages such as About, Contact and Privacy, and the footer menu; publish, roll back, and read contact form messages.
 verified:
   date: "2026-10-16"
-  commit: 37600c1
+  commit: f5d0139
   packages: {}
 sources:
   - apps/api/src/modules/platform/content/content.schemas.ts
@@ -41,6 +41,8 @@ The editor works like a word processor: headings, bold, italic, strikethrough, i
 Pages are stored as markdown, and the website shows them with raw HTML switched off. So a page can't run scripts or embed other sites, and colours and fonts follow the website's design rather than the page. Links can go to `https://`, `mailto:`, a path on the site (`/pricing`) or a section (`#faq`).
 
 Pages that used to live at `/p/<slug>` redirect permanently to `/<slug>`. A path with no page answers a real 404.
+
+Each entry has a search title and description for search results and link previews. The [SEO](/operators/seo) screen shows how every page does in search, can override those per address, and lists the missing addresses visitors hit, so you can redirect them.
 
 ### Contact form
 

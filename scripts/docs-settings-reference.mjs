@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 const require = createRequire(import.meta.url)
 const s = require('../packages/shared/dist/settings.js')
 const groups = Object.keys(s.SETTING_GROUPS)
-const esc = v => String(v).replace(/[|{}]/g, c => '\\' + c)
+const esc = v => String(v).replace(/[|{}<>]/g, c => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '\\' + c))
 let out = ''
 let g = null
 for (const [key, d] of Object.entries(s.SETTING_DEFINITIONS).sort((a, b) => groups.indexOf(a[1].group) - groups.indexOf(b[1].group))) {
