@@ -71,3 +71,12 @@ describe('stat counting', () => {
     expect(splitStat('Free')).toBeNull()
   })
 })
+
+describe('the landing shell', () => {
+  it('knows the landing page in every language, and nothing else', async () => {
+    const { isLandingPath } = await import('./MarketingShell')
+
+    expect(['/', '', '/fr', '/en/'].map(isLandingPath)).toEqual([true, true, true, true])
+    expect(['/pricing', '/fr/pricing', '/blog', '/about'].map(isLandingPath)).toEqual([false, false, false, false])
+  })
+})

@@ -1,13 +1,17 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 import { MarketingLayout } from '@vhyxui/blocks'
 import { Button } from '@vhyxui/react'
 
 import type { FooterMenu } from '@vhyxvoid/content'
+
+import { routing } from '@/i18n/routing'
 
 import type { Bootstrap } from './publicApi'
 import styles from './marketing.module.css'
@@ -39,6 +43,13 @@ export function footerColumns(menu: FooterMenu) {
     .map(c => ({ title: c.title, links: c.links.map(l => (l.external ? { label: l.label, href: l.href, external: true } : { label: l.label, href: l.href })) }))
 }
 
+/** The landing page (/, or /fr…): its navbar and footer join the page's dark "void" look. */
+export function isLandingPath(pathname: string) {
+  const parts = pathname.split('/').filter(Boolean)
+
+  return parts.length === 0 || (parts.length === 1 && (routing.locales as readonly string[]).includes(parts[0]))
+}
+
 export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; children: ReactNode }) {
   const s = bootstrap.settings
   const name = s['general.productName'] || 'VhyxVoid'
@@ -47,8 +58,27 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
   const group = (g: string) => bootstrap.footer.filter(f => f.group === g).map(f => ({ label: f.title, href: `/${f.slug}` }))
   const external = (label: string, href?: string) => (href ? [{ label, href, external: true }] : [])
 
+  const landing = isLandingPath(usePathname() ?? '')
+
+  // The mobile menu opens in a layer outside this wrapper (a portal under
+  // <body>); while the landing page is shown the document is dark too, and the
+  // site theme comes back when the visitor leaves it.
+  useEffect(() => {
+    if (!landing) return
+    const html = document.documentElement
+    const before = html.dataset.theme
+
+    html.dataset.theme = 'dark'
+
+    return () => {
+      if (before) html.dataset.theme = before
+    }
+  }, [landing])
+
+  // On the landing page the shell takes the dark theme's tokens whatever the
+  // site theme (they are scoped by [data-theme], so this subtree opts in).
   return (
-    <>
+    <div {...(landing ? { 'data-theme': 'dark', 'data-brand': 'vhyxvoid', className: styles.voidShell } : {})}>
       <AnnouncementBanner settings={s} />
       <MarketingLayout
         navbar={{
@@ -102,6 +132,6 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
       >
         {children}
       </MarketingLayout>
-    </>
+    </div>
   )
 }

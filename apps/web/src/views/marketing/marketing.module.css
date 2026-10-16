@@ -150,3 +150,36 @@
 .contactRow > * { min-width: 0; }
 /* Off-screen, not display:none: some bots skip hidden fields. */
 .contactTrap { position: absolute; inset-inline-start: -10000px; inline-size: 1px; block-size: 1px; overflow: hidden; }
+
+/* ── The landing page's shell (MarketingShell on /): dark glass over the void ── */
+.voidShell { background: #04040b; color: #ecebff; }
+.voidShell :global(header) {
+  background: rgba(4, 4, 11, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-block-end: 1px solid rgba(167, 139, 250, 0.16);
+}
+.voidShell :global(header nav a) { color: #c9c8e6; transition: color 0.2s; }
+.voidShell :global(header nav a:hover) { color: #fff; }
+/* Same pills as the landing page's own buttons (void.module.css btnPrimary / btnGhost). */
+.voidShell :global(header a[data-variant='primary']),
+:global(html):has(.voidShell) :global([data-side] a[data-variant='primary']) {
+  border: 0;
+  border-radius: 999px;
+  padding-inline: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg, #7c3aed, #a855f7, #22d3ee, #a855f7, #7c3aed);
+  background-size: 200% 100%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 6px 24px -6px rgba(139, 92, 246, 0.85);
+  animation: voidShimmer 6s linear infinite;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.voidShell :global(header a[data-variant='primary']:hover) { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 10px 30px -6px rgba(139, 92, 246, 0.95); }
+.voidShell :global(header a[data-variant='ghost']) { border-radius: 999px; color: #ecebff; }
+.voidShell :global(header a[data-variant='ghost']:hover) { background: rgba(139, 92, 246, 0.14); }
+.voidShell :global(footer) { background: #04040b; border-block-start: 1px solid rgba(167, 139, 250, 0.16); }
+@keyframes voidShimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .voidShell :global(header a[data-variant='primary']) { animation: none; }
+}
