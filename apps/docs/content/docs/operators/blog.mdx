@@ -1,0 +1,92 @@
+---
+title: Blog
+description: Write, schedule and publish blog posts; organise them with categories and tags that are created as you type; and what the website shows at /blog.
+verified:
+  date: "2026-10-16"
+  commit: 37600c1
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/blog/blog.routes.ts
+  - apps/api/src/modules/platform/blog/blog.public.routes.ts
+  - apps/api/src/modules/platform/blog/blog.service.ts
+  - apps/api/src/modules/platform/public/public.routes.ts
+  - apps/admin/src/views/blog/BlogPostEditorView.tsx
+  - apps/admin/src/views/blog/BlogTaxonomyView.tsx
+  - apps/admin/src/views/blog/TagInput.tsx
+  - apps/web/src/views/blog/BlogViews.tsx
+  - apps/web/src/app/blog/rss.xml/route.ts
+  - apps/web/src/app/sitemap.ts
+---
+
+The blog is written under **Blog** in the console and shown on the website at `/blog`. The navbar shows *Blog* once at least one post is live.
+
+## Writing a post
+
+**New post** asks for a title and opens the editor as a draft. Only admins see drafts. The editor has four tabs:
+
+- **Write**: the title and the body, in the same rich text editor as [site pages](/operators/content), plus images: **Image** takes an address (`https://…` or a path on the site such as `/images/diagram.png`) and a description for screen readers. Images are linked, not uploaded; host them on the site or a CDN.
+- **Details**:
+  - The **excerpt** is shown in the blog list and in link previews. Left empty, the start of the post is used.
+  - The **category** and **tags** are described below.
+  - The **author** name defaults to yours.
+  - **Feature** puts the post at the top of the blog: the newest featured post leads.
+  - The **cover image** is shown on the post, in the list and in link previews. Images of 1200×630 work everywhere.
+- **Address & SEO**: the address (`/blog/<slug>`, made from the title), a search title and description, and a preview of the search result.
+- **Publishing**: schedule, back to draft, delete.
+
+Reading time is worked out from the body (200 words a minute).
+
+Saving sends only the fields you changed. If another admin saved the post after you opened it, your save is refused with a message to reload, so nobody's changes are lost.
+
+## Categories and tags
+
+A post has at most one category and up to 10 tags. You don't have to set them up first:
+
+- Type a category name, or pick one from the suggestions. A name that doesn't exist yet becomes a new category when you save.
+- Type a tag and press Enter or a comma, or pick a suggestion. New tags are created on save the same way.
+- Names are matched ignoring case and extra spaces: `guides` is the existing *Guides*, not a second category. The editor switches to the existing spelling.
+
+**Categories & tags** lists both, with how many posts use each. There you can:
+
+- add one ahead of time;
+- rename it, change its address (`/blog/category/<slug>`, `/blog/tag/<slug>`) or give a category a description, shown at the top of its page;
+- **merge** a duplicate tag into another (`JS` into `JavaScript`): its posts get the other tag, then it is deleted;
+- delete one: its posts stay, without that category or tag.
+
+## Publishing
+
+- **Publish now** makes the post live, dated now. A post needs a title and a body to publish.
+- **Schedule** picks a later time in your time zone. The post is listed as *Scheduled* and appears on the site at that time, within a minute. A past date publishes now but keeps that date, for posts moved from another blog.
+- **Back to draft** takes a live post off the site; its address answers 404 until you publish it again.
+- Saved changes to a live post show straight away.
+
+Every change refreshes the website on the next request when the website refresh is set up (see [Deployment](/operators/deployment)). Otherwise changes show within a minute.
+
+Changing the address of a live post keeps the old one working: it redirects permanently to the new address, so links and search results don't break. The editor lists the old addresses.
+
+## On the website
+
+| Address | Shows |
+| --- | --- |
+| `/blog` | The featured post, then all posts, newest first, 12 per page, with category links |
+| `/blog/<slug>` | The post, with its category, tags, reading time and up to 3 related posts (same category or a shared tag) |
+| `/blog/category/<slug>` | Posts in a category, with its description |
+| `/blog/tag/<slug>` | Posts with a tag. Not indexed by search engines, since these pages repeat the category pages |
+| `/blog/rss.xml` | The newest 20 posts as an RSS feed |
+| `/sitemap.xml` | The site's pages, published CMS pages, posts and categories, for search engines |
+| `/robots.txt` | Points search engines at the sitemap and keeps them out of the signed-in app |
+
+Post pages carry Open Graph and Twitter tags (title, description, cover image) and schema.org `BlogPosting` data, so search results and link previews show the date, author and image.
+
+Post bodies are markdown shown with raw HTML switched off, like site pages: a post can't run scripts.
+
+Feeds, the sitemap and canonical links need the website's public address: set `SITE_URL` on the website (see [Deployment](/operators/deployment)). Without it, the address of the incoming request is used.
+
+## Who can do what
+
+| Ability | Allows |
+| --- | --- |
+| `blog.read` | View posts, categories and tags |
+| `blog.update` | Write and edit posts; create, rename and merge categories and tags |
+| `blog.publish` | Publish, schedule and unpublish posts |
+| `blog.delete` | Delete posts, categories and tags |

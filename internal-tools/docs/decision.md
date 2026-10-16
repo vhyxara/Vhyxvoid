@@ -245,3 +245,24 @@
 **Decision:** (1) Timeout wording is stated per version, not replaced: 1.0.20+ waits for the hub's per-request budget (hub timeout minus 2 s, so 118 s on the default), 1.0.19 and earlier 28 s, and a hub that predates the configurable timeout still sends 28 s (it sent 30 s minus 2 s). The 502 text is documented as `timeout of <n>ms exceeded` with `118000` as the default example, checked against the published agent with a 5 s budget. (2) The WS pages say the burst/ordering/close/cleanup fixes are released in agent 1.0.20 and next/middleware 1.0.5, but say the fix has a hub half that the page cannot check, and keep the subprotocol and early-message problems listed as unfixed. (3) The SDK's 30 s (`createClient`, `TunnelClient` 1.1.0) is now called out as the shortest limit for users on the new agent. (4) `verified.commit` was repointed to 377c924 only on pages whose sources the bump commit touched (only `package.json` files, no code); pages unaffected keep their commit.
 **Rationale:** old agent versions stay installed for a long time and the in-process wrappers only pick the fix up on republish, so a bare "fixed" would mislead anyone on 1.0.19/1.0.4. The hub half is unverified against production; claiming it would repeat the over-claiming the earlier WS entry avoids. **Limit:** the hub-half hedge should be removed once someone confirms the deployed hub commit; the SDK `TunnelClient` figures still say 30 s until the next SDK release.
 **Status:** active
+
+---
+
+### 2026-10-16 — Contact form captcha is Cloudflare Turnstile; the blog finds or creates categories and tags by name
+
+**Decided by:** Claude Code (user asked for a captcha and a blog whose categories and tags are reused, or created when missing)
+**Context:** The contact form had a honeypot and a per-address limit only. The site had no blog.
+**Options considered:** captcha: Turnstile, hCaptcha, reCAPTCHA, a home-made question. Taxonomy: a fixed list admins manage first, or names typed in the post.
+**Decision:**
+- **Captcha:** Turnstile, off until both halves are set (API `TURNSTILE_SECRET_KEY`, public setting `support.captchaSiteKey`). The API fails closed (503) when Cloudflare can't be reached.
+- **Taxonomy:**
+  - Posts send category and tag *names*. The API upserts by `slugify(name)` inside the save's transaction (tags with `createMany skipDuplicates`), so case and spacing variants and concurrent saves reuse one row.
+  - A Categories & tags screen covers the tidy-up: rename, re-address, describe, merge tags, delete.
+- **Post saves** send only the changed fields. The update schema has no zod defaults: an earlier version applied `.default()`s under `.partial()` and wiped a post's body on a slug-only save; a test now covers it.
+- **Renamed posts:** a published post's renamed slug goes to `previousSlugs` and the website answers it with a permanent redirect.
+- **Scheduling** is `publishedAt` in the future, with no job. The website's 60 s fetch revalidation is what makes a scheduled post appear, "within a minute".
+**Rationale:**
+- Turnstile is free, mostly invisible and has documented test keys.
+- Find-or-create removes the "set up taxonomy first" step the user wanted gone.
+- A scheduler would be one more moving part for something the cache already bounds.
+**Status:** active

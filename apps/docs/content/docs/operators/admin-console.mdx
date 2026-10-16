@@ -3,7 +3,7 @@ title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
   date: "2026-10-06"
-  commit: b324b97
+  commit: 37600c1
   packages: {}
 sources:
   - apps/admin/src/views/tunnels/TunnelsView.tsx
@@ -104,3 +104,7 @@ To give a support engineer read-only access, create a role with the `*.read` abi
 | `content.delete` | Delete website content |
 | `contact.read` | Read messages sent through the website contact form |
 | `contact.update` | Mark contact messages read, archive and delete them |
+| `blog.read` | View blog posts, categories and tags |
+| `blog.update` | Write and edit blog posts; create, rename and merge categories and tags |
+| `blog.publish` | Publish, schedule and unpublish blog posts |
+| `blog.delete` | Delete blog posts, categories and tags |

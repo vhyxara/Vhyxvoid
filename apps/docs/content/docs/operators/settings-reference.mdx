@@ -2,8 +2,8 @@
 title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
-  date: "2026-10-07"
-  commit: b324b97
+  date: "2026-10-16"
+  commit: 37600c1
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -101,6 +101,7 @@ Where users get help.
 | --- | --- | --- | --- | --- |
 | `support.email` | email | `"support@vhyxvoid.com"` | yes | Support email. Shown on the website and in emails. |
 | `support.docsUrl` | url | `"/docs"` | yes | Documentation URL. Where 'Docs' links go. |
+| `support.captchaSiteKey` | string | `""` | yes | Captcha site key. Cloudflare Turnstile site key for the contact form. The form shows the check when this is set; the API requires it when its TURNSTILE_SECRET_KEY is set. Set both, from the same Turnstile widget. |
 | `support.contactForm` | boolean | `true` | yes | Contact form. Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead. |
 
 ## Features

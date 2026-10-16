@@ -3,7 +3,7 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-07"
-  commit: b324b97
+  commit: 37600c1
   packages: {}
 sources:
   - apps/api/src/modules/platform/ai/aiModel.ts
@@ -62,6 +62,7 @@ All images run as the unprivileged `node` user on Node 24.
 | `ANTHROPIC_API_KEY` | for AI assist | Anthropic API key for [AI assist](/dashboard/ai-assist). Without it, AI assist reports that it isn't set up and everything else works. |
 | `VHYXVOID_AI_MODEL` | no | The Claude model for AI assist (default `claude-opus-5-5`). |
 | `WEB_REVALIDATE_URL`, `WEB_REVALIDATE_SECRET` | recommended | Where the API tells the website to refresh after content or settings change (`http://web:3000/api/revalidate`), and the secret shared with the website's `REVALIDATE_SECRET`. Without them a published change shows within 60 seconds instead of at once. docker-compose.yml passes `WEB_REVALIDATE_SECRET` from the `.env` next to it to both containers. |
+| `TURNSTILE_SECRET_KEY` | recommended | Cloudflare Turnstile secret key: the API then requires the contact form's human check. Set the **Captcha site key** setting (Support) from the same Turnstile widget so the website shows the check. Unset: no captcha; the hidden field and the per-address limit still apply. |
 
 ### Hub (`apps/hub/.env.production`)
 
@@ -90,6 +91,7 @@ All images run as the unprivileged `node` user on Node 24.
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL_LIVE` | build | Public API base URL used by the browser. |
 | `API_INTERNAL_URL` | runtime | API base URL used for server rendering (inside Compose: `http://api:9000/api/v1`). Falls back to the public one. |
+| `SITE_URL` | runtime | The website's public address (`https://www.vhyxvoid.com`), for the RSS feed, sitemap and canonical links. Unset: the address of the incoming request is used. |
 | `REVALIDATE_SECRET` | runtime | Turns on `POST /api/revalidate`, which the API calls after a content change (same value as the API's `WEB_REVALIDATE_SECRET`). Unset: the route answers 404 and pages refresh within 60 seconds. |
 
 ### Admin console (`admin`)
@@ -97,7 +99,7 @@ All images run as the unprivileged `node` user on Node 24.
 | Variable | When | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_ADMIN_API_URL` | build | `https://admin.vhyxvoid.com/api/v1`: the admin API through the admin host. |
-| `NEXT_PUBLIC_SITE_URL` | build | Website origin, for "view on site" links from the content editor. |
+| `NEXT_PUBLIC_SITE_URL` | build | Website origin, for "view on site" links and the search preview in the content and blog editors. |
 
 ## First start
 

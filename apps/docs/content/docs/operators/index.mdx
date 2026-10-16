@@ -2,8 +2,8 @@
 title: Running VhyxVoid
 description: What runs where, and what an operator can change without a developer.
 verified:
-  date: "2026-10-07"
-  commit: b324b97
+  date: "2026-10-16"
+  commit: 37600c1
   packages: {}
 sources:
   - apps/api/src/modules/platform/platform.plugin.ts
@@ -33,8 +33,9 @@ This section is for the people who run VhyxVoid: deploying it, configuring it, a
 - **Traffic**: live platform traffic and the busiest accounts on the dashboard.
 - **Billing**: subscriptions, invoices and payment status from Stripe, per account.
 - **Logs**: user audit log, admin audit log (CSV export), and system health.
-- **Settings**: maintenance mode, announcement banner, sign-up policy, trial length, checkout switch, plan limits, tunnel switches, support links, feature switches. See the [settings reference](/operators/settings-reference).
+- **Settings**: maintenance mode, announcement banner, sign-up policy, trial length, checkout switch, plan limits, tunnel switches, support links, the contact form captcha, feature switches. See the [settings reference](/operators/settings-reference).
 - **Website content**: the landing page, pricing page, any number of pages (about, contact, terms, privacy) in a rich text editor, and the footer menu, with drafts, publishing and revision history. **Messages** holds what visitors send through a page's contact form. See [site content](/operators/content).
+- **Blog**: posts with drafts, scheduling, featured posts and SEO fields, organised by categories and tags that are created as you type. See [blog](/operators/blog).
 - **Admins and roles**: invite admins, give them roles built from abilities, reset an admin's password.
 
 Changes to settings reach every API and hub process within 30 seconds. Published content reaches the website on the next request when the website refresh is set up (`WEB_REVALIDATE_SECRET`, see [deployment](/operators/deployment)), otherwise within a minute.
