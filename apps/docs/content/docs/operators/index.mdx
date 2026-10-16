@@ -3,7 +3,7 @@ title: Running VhyxVoid
 description: What runs where, and what an operator can change without a developer.
 verified:
   date: "2026-10-07"
-  commit: "b0ae506"
+  commit: b324b97
   packages: {}
 sources:
   - apps/api/src/modules/platform/platform.plugin.ts
@@ -34,7 +34,7 @@ This section is for the people who run VhyxVoid: deploying it, configuring it, a
 - **Billing**: subscriptions, invoices and payment status from Stripe, per account.
 - **Logs**: user audit log, admin audit log (CSV export), and system health.
 - **Settings**: maintenance mode, announcement banner, sign-up policy, trial length, checkout switch, plan limits, tunnel switches, support links, feature switches. See the [settings reference](/operators/settings-reference).
-- **Content**: landing page, pricing page and any number of markdown pages (terms, privacy, about) with drafts, publishing and revision history. See [site content](/operators/content).
+- **Website content**: the landing page, pricing page, any number of pages (about, contact, terms, privacy) in a rich text editor, and the footer menu, with drafts, publishing and revision history. **Messages** holds what visitors send through a page's contact form. See [site content](/operators/content).
 - **Admins and roles**: invite admins, give them roles built from abilities, reset an admin's password.
 
-Changes to settings reach every API and hub process within 30 seconds. Published content reaches the website within a minute.
+Changes to settings reach every API and hub process within 30 seconds. Published content reaches the website on the next request when the website refresh is set up (`WEB_REVALIDATE_SECRET`, see [deployment](/operators/deployment)), otherwise within a minute.

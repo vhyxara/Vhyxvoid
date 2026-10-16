@@ -1060,3 +1060,17 @@ Follow-up to 2026-10-08's sweep. Probes: each parent (collection, environment, m
 
 **Status:** active.
 
+### 2026-10-16 — Website pages: rich text stored as markdown, footer menu, clean URLs, contact form (session upbeat-cannon)
+
+Asked for: admin-managed pages (about, contact, privacy…) with a rich text editor, a dynamic route for them, and a footer whose links (to those pages or anywhere) are added and reordered by drag and drop. The CMS already had page entries (markdown at /p/<slug>, draft/publish/revisions) and a footer built from per-page flags; this extends it rather than adding a second system.
+
+1. **Backend-driven, server-rendered, cached by tag.** Content stays in Postgres and is edited in the admin panel; the website renders it on the server and caches the API reads 60 s under the tag `cms`. Static files would need a deploy per edit; client-side fetching would hurt SEO and add a request per view.
+2. **Rich text editor that stores markdown (TipTap 3.31.3 + @tiptap/markdown).** Not HTML: the site already renders markdown with raw HTML off, so admin content can't inject scripts, no server-side HTML sanitizer is needed, and revisions diff as text. The cost is no colours/fonts, which legal/about/contact pages don't need. Round-trip tests (apps/admin RichTextEditor.test.ts) guard against loss. Autolink is off: with it, TipTap makes links inclusive, so text typed after a link joined it (found in the browser check).
+3. **Contact form as an editor node**, serialized as a line holding only `{{contact-form}}` (CONTACT_FORM_MARKER). Inserting the marker as text would be backslash-escaped by the markdown serializer.
+4. **Footer menu = one content entry (kind and slug `footer`)** with columns of links (page by slug, or URL; https, mailto or a site path; "//host" refused). It reuses draft/publish/revisions instead of a new table. Page links resolve on the server and drop out while the page isn't live. Until one is published the API serves the built-in footer (the old construction, settings links included); the first draft is a copy of it, so switching loses nothing. `footer` stays in /public/bootstrap beside the new `footerMenu` for websites deployed before this. Drag and drop: dnd-kit, keyboard included; moving between columns is a select, not a drag.
+5. **Clean URLs through the existing catch-all route.** Next matches real routes first, so a CMS page can never hide one; the API also refuses slugs whose first segment is a route or locale (RESERVED_PAGE_SLUGS). /p/<slug> 308-redirects. The catch-all now calls notFound(), so unknown paths answer 404 instead of a 200 "soft 404".
+6. **On-demand refresh.** After publish/unpublish/delete/settings save the API POSTs the website's /api/revalidate (secret shared via WEB_REVALIDATE_SECRET / REVALIDATE_SECRET), which runs revalidateTag("cms", { expire: 0 }). Measured on a production build: a publish showed on the next request (~100 ms); a draft save didn't. Off when unset (60 s fallback). /api is excluded from the i18n middleware.
+7. **Contact messages** are stored (contact_messages), emailed to support.email with Reply-To, triaged under Messages (abilities contact.read / contact.update, auto-added on boot). Spam: honeypot (answered 202, dropped) and 5 per 10 minutes per IP; captcha left for if spam gets through. Setting support.contactForm switches it off (pages show the support address).
+
+**Status:** active.
+

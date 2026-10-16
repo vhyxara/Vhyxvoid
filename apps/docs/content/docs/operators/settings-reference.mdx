@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-07"
-  commit: "b0ae506"
+  commit: b324b97
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -24,9 +24,9 @@ Product name and public links.
 | --- | --- | --- | --- | --- |
 | `general.productName` | string | `"VhyxVoid"` | yes | Product name. Shown in page titles, emails and the dashboard. |
 | `general.tagline` | string | see admin panel | yes | Tagline. One line under the product name. |
-| `general.statusPageUrl` | url | `""` | yes | Status page URL. Linked from the footer when set. |
-| `general.twitterUrl` | url | `""` | yes | X / Twitter URL. Footer link when set. |
-| `general.githubUrl` | url | `""` | yes | GitHub URL. Footer link when set. |
+| `general.statusPageUrl` | url | `""` | yes | Status page URL. Linked from the built-in footer when set; a published footer menu (Website content) has its own links. |
+| `general.twitterUrl` | url | `""` | yes | X / Twitter URL. A link in the built-in footer when set; a published footer menu has its own links. |
+| `general.githubUrl` | url | `""` | yes | GitHub URL. A link in the built-in footer when set; a published footer menu has its own links. |
 
 ## Maintenance
 
@@ -101,6 +101,7 @@ Where users get help.
 | --- | --- | --- | --- | --- |
 | `support.email` | email | `"support@vhyxvoid.com"` | yes | Support email. Shown on the website and in emails. |
 | `support.docsUrl` | url | `"/docs"` | yes | Documentation URL. Where 'Docs' links go. |
+| `support.contactForm` | boolean | `true` | yes | Contact form. Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead. |
 
 ## Features
 
