@@ -126,6 +126,7 @@ const LANDING = [
   /^\/contact/,
   /^\/about/,
   /^\/support/,
+  /^\/blog/,
   /^\/p\//,
   /^\/api-docs\//,
   /^\/api-docs-host\//

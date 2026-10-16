@@ -8,16 +8,18 @@
 //
 // Each message is stored and emailed to the support email setting, with the
 // sender as Reply-To. Spam: a hidden "website" field that people never fill
-// (a filled one is answered as if sent and dropped), and the rate limit.
+// (a filled one is answered as if sent and dropped), the rate limit, and a
+// Cloudflare Turnstile captcha when TURNSTILE_SECRET_KEY is set (captcha.ts).
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-import { NotFoundError, ServiceUnavailableError } from "@/core/errors/error.format";
+import { NotFoundError, ServiceUnavailableError, ValidationError } from "@/core/errors/error.format";
 import { successResponse } from "@/core/utils/response.util";
 import { buildEmailService } from "@/modules/notification/infrastructure/email/ResendEmailService";
 import { escapeHtml } from "@/modules/notification/infrastructure/email/templates";
 import type { IEmailService } from "@/modules/notification/domain/services/IEmailService.notification";
 import { audit, page, pageQuerySchema, prismaOf, skipTake } from "../shared/http";
+import { verifyCaptcha } from "./captcha";
 
 export const contactBody = z.object({
   name: z.string().trim().min(1, "Enter your name").max(100),
@@ -27,6 +29,8 @@ export const contactBody = z.object({
   page: z.string().trim().max(80).default(""),
   /** Honeypot: hidden from people, filled by bots. */
   website: z.string().max(200).optional(),
+  /** Cloudflare Turnstile token (captcha.ts); required when TURNSTILE_SECRET_KEY is set. */
+  captchaToken: z.string().max(4096).optional(),
 });
 
 let mailer: IEmailService | null = null;
@@ -43,6 +47,11 @@ export async function publicContactRoutes(fastify: FastifyInstance) {
     if (!(await fastify.platformSettings.get("support.contactForm"))) throw new ServiceUnavailableError("The contact form is switched off. Email us instead.");
     // Bots fill every field; people never see this one. Answer as if sent.
     if (b.website) return successResponse(reply, "Message sent", 202, { id: null });
+    const captcha = await verifyCaptcha(b.captchaToken, request.ip);
+    if (!captcha.ok) {
+      if (captcha.reason === "unavailable") throw new ServiceUnavailableError("We couldn't check that you're human just now. Try again in a minute.");
+      throw new ValidationError(captcha.reason === "missing" ? "Complete the check that you're human, then send again." : "The check that you're human failed or expired. Try it again, then send.");
+    }
     const row = await prisma.contactMessage.create({
       data: { name: b.name, email: b.email, subject: b.subject, message: b.message, page: b.page, ip: request.ip, userAgent: String(request.headers["user-agent"] ?? "").slice(0, 300) },
     });

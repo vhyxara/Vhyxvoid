@@ -59,6 +59,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
             { label: 'Features', href: '/#features' },
             { label: 'How it works', href: '/#how-it-works' },
             { label: 'Pricing', href: '/pricing' },
+            ...(bootstrap.blog?.posts ? [{ label: 'Blog', href: '/blog' }] : []),
             { label: 'Docs', href: docs }
           ],
           actions: (

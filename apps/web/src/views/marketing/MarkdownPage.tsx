@@ -28,7 +28,7 @@ export function splitAtContactForm(body: string): Array<{ kind: 'markdown'; text
  * A CMS markdown page. Raw HTML in the markdown is not rendered
  * (react-markdown default), so admin content can't run scripts.
  */
-export function MarkdownPage({ body, slug = '', contact }: { body: string; slug?: string; contact?: { enabled: boolean; supportEmail: string } }) {
+export function MarkdownPage({ body, slug = '', contact }: { body: string; slug?: string; contact?: { enabled: boolean; supportEmail: string; captchaSiteKey?: string } }) {
   return (
     <section className={styles.section}>
       <article className={styles.prose}>
@@ -38,7 +38,7 @@ export function MarkdownPage({ body, slug = '', contact }: { body: string; slug?
               {part.text}
             </ReactMarkdown>
           ) : (
-            <ContactForm key={i} page={slug} enabled={contact?.enabled ?? true} supportEmail={contact?.supportEmail ?? 'support@vhyxvoid.com'} />
+            <ContactForm key={i} page={slug} enabled={contact?.enabled ?? true} supportEmail={contact?.supportEmail ?? 'support@vhyxvoid.com'} captchaSiteKey={contact?.captchaSiteKey || undefined} />
           )
         )}
       </article>

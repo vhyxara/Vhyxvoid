@@ -1914,3 +1914,78 @@ model AiDraft {
   @@index([accountId, createdAt])
   @@map("ai_drafts")
 }
+
+/// A blog post (admin panel → Blog). Visible on the website when PUBLISHED and
+/// publishedAt has passed (a future publishedAt is a scheduled post).
+model BlogPost {
+  id             String         @id @default(uuid())
+  slug           String         @unique
+  /// Slugs this post had before; links to them redirect to the current one.
+  previousSlugs  String[]       @default([])
+  title          String
+  excerpt        String         @default("")
+  /// Markdown, rendered on the website with raw HTML off.
+  body           String         @default("")
+  coverImageUrl  String?
+  coverImageAlt  String         @default("")
+  status         BlogPostStatus @default(DRAFT)
+  publishedAt    DateTime?
+  featured       Boolean        @default(false)
+  authorName     String         @default("")
+  categoryId     String?
+  seoTitle       String?
+  seoDescription String?
+  readingMinutes Int            @default(1)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  category BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags     BlogPostTag[]
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@map("blog_posts")
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// A post's one category. Created on the fly when a post names a new one.
+model BlogCategory {
+  id          String     @id @default(uuid())
+  slug        String     @unique
+  name        String
+  description String     @default("")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  posts       BlogPost[]
+
+  @@map("blog_categories")
+}
+
+/// A tag; a post has any number. Created on the fly when a post names a new one.
+model BlogTag {
+  id        String        @id @default(uuid())
+  slug      String        @unique
+  name      String
+  createdAt DateTime      @default(now())
+  posts     BlogPostTag[]
+
+  @@map("blog_tags")
+}
+
+model BlogPostTag {
+  postId String
+  tagId  String
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("blog_post_tags")
+}
+

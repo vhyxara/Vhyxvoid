@@ -44,7 +44,7 @@ const NotFoundPage = async ({ params }: Props) => {
 
     return (
       <MarketingShell bootstrap={bootstrap}>
-        <MarkdownPage body={entry.data.body} slug={entry.slug} contact={{ enabled: s['support.contactForm'] !== false, supportEmail: s['support.email'] || 'support@vhyxvoid.com' }} />
+        <MarkdownPage body={entry.data.body} slug={entry.slug} contact={{ enabled: s['support.contactForm'] !== false, supportEmail: s['support.email'] || 'support@vhyxvoid.com', captchaSiteKey: s['support.captchaSiteKey'] || undefined }} />
       </MarketingShell>
     )
   }

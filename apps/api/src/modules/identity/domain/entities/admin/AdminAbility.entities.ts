@@ -263,4 +263,8 @@ export const SYSTEM_ABILITIES = {
   CONTENT_DELETE: { action: 'content.delete', category: 'content', description: 'Delete website content' },
   CONTACT_READ: { action: 'contact.read', category: 'content', description: 'Read messages sent through the website contact form' },
   CONTACT_UPDATE: { action: 'contact.update', category: 'content', description: 'Mark contact messages read, archive and delete them' },
+  BLOG_READ: { action: 'blog.read', category: 'content', description: 'View blog posts, categories and tags' },
+  BLOG_UPDATE: { action: 'blog.update', category: 'content', description: 'Write and edit blog posts; create, rename and merge categories and tags' },
+  BLOG_PUBLISH: { action: 'blog.publish', category: 'content', description: 'Publish, schedule and unpublish blog posts' },
+  BLOG_DELETE: { action: 'blog.delete', category: 'content', description: 'Delete blog posts, categories and tags' },
 };

@@ -293,3 +293,48 @@ export type ContactMessage = {
   createdAt: string
   updatedAt: string
 }
+
+export type BlogState = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED'
+export type BlogTaxon = { id: string; slug: string; name: string }
+export type BlogPostRow = {
+  id: string
+  slug: string
+  title: string
+  status: 'DRAFT' | 'PUBLISHED'
+  state: BlogState
+  publishedAt: string | null
+  featured: boolean
+  updatedAt: string
+  authorName: string
+  coverImageUrl: string | null
+  category: { id: string; name: string } | null
+  tags: Array<{ id: string; name: string }>
+}
+export type BlogPostDetail = BlogPostRow & {
+  previousSlugs: string[]
+  excerpt: string
+  body: string
+  coverImageAlt: string
+  seoTitle: string | null
+  seoDescription: string | null
+  readingMinutes: number
+  category: BlogTaxon | null
+  tags: BlogTaxon[]
+}
+export type BlogPostInput = {
+  title?: string
+  slug?: string
+  excerpt?: string
+  body?: string
+  coverImageUrl?: string | null
+  coverImageAlt?: string
+  category?: string | null
+  tags?: string[]
+  featured?: boolean
+  authorName?: string
+  seoTitle?: string | null
+  seoDescription?: string | null
+  expectedUpdatedAt?: string
+}
+export type BlogCategoryRow = BlogTaxon & { description: string; postCount: number; createdAt: string }
+export type BlogTagRow = BlogTaxon & { postCount: number; createdAt: string }

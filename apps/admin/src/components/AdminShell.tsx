@@ -10,6 +10,7 @@ import { AppShell, type SidebarNavGroup } from '@vhyxui/blocks'
 import {
   ActivityIcon,
   BadgeCheckIcon,
+  BookOpenIcon,
   BuildingIcon,
   CreditCardIcon,
   FileTextIcon,
@@ -25,6 +26,7 @@ import {
   ShieldIcon,
   SunIcon,
   GlobeIcon,
+  HashIcon,
   TagIcon,
   UserLockIcon,
   UsersIcon
@@ -61,6 +63,8 @@ const NAV: Array<{ label: string; items: Array<{ label: string; href: string; ic
     items: [
       { label: 'Plans & pricing', href: '/plans', icon: <TagIcon /> },
       { label: 'Website content', href: '/content', icon: <FileTextIcon /> },
+      { label: 'Blog', href: '/blog', icon: <BookOpenIcon /> },
+      { label: 'Categories & tags', href: '/blog/taxonomy', icon: <HashIcon /> },
       { label: 'Messages', href: '/messages', icon: <MessageSquareIcon /> },
       { label: 'Settings', href: '/settings', icon: <SettingsIcon /> },
       { label: 'Logs', href: '/logs', icon: <ActivityIcon /> }
@@ -117,12 +121,14 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const { theme, setTheme } = useAdminTheme()
   const [pwOpen, setPwOpen] = useState(false)
 
+  // The longest matching href wins, so /blog/taxonomy lights "Categories & tags", not "Blog".
+  const activeHref = NAV.flatMap(g => g.items.map(i => i.href))
+    .filter(href => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0]
+
   const nav: SidebarNavGroup[] = NAV.map(group => ({
     label: group.label,
-    items: group.items.map(item => ({
-      ...item,
-      active: pathname === item.href || pathname.startsWith(`${item.href}/`)
-    }))
+    items: group.items.map(item => ({ ...item, active: item.href === activeHref }))
   }))
 
   const signOut = async () => {

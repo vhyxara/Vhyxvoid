@@ -25,6 +25,24 @@ vi.mock('@vhyxui/react', () => {
 })
 
 vi.mock('next/cache', () => ({ revalidateTag: vi.fn() }))
+// Cloudflare's widget needs their script; a button that hands back a token stands in.
+vi.mock('./Turnstile', async () => {
+  const { forwardRef, useImperativeHandle } = await import('react')
+  const reset = vi.fn()
+
+  return {
+    turnstileReset: reset,
+    Turnstile: forwardRef(function FakeTurnstile({ onToken }: { onToken: (t: string | null) => void }, ref) {
+      useImperativeHandle(ref, () => ({ reset: () => (reset(), onToken(null)) }))
+
+      return (
+        <button type='button' onClick={() => onToken('tok-1')}>
+          I am human
+        </button>
+      )
+    })
+  }
+})
 vi.mock('server-only', () => ({}))
 
 import { revalidateTag } from 'next/cache'
@@ -127,5 +145,50 @@ describe('ContactForm', () => {
     render(<ContactForm page='contact' enabled={false} supportEmail='help@example.com' />)
     expect(screen.getByText('help@example.com')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+})
+
+describe('ContactForm with a captcha', () => {
+  const fill = () => {
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ada@example.com' } })
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Hello there, friends.' } })
+  }
+
+  it('asks for the check first, then sends its token; a refused send asks for a fresh one', async () => {
+    const turnstile = (await import('./Turnstile')) as unknown as { turnstileReset: ReturnType<typeof vi.fn> }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'The check that you\'re human failed or expired.' }), { status: 400 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 202 }))
+
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ContactForm page='contact' enabled supportEmail='help@example.com' captchaSiteKey='site-key' />)
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    expect(await screen.findByText(/Complete the check/)).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'I am human' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    expect(await screen.findByText(/failed or expired/)).toBeTruthy()
+    expect(JSON.parse((fetchMock.mock.calls[0] as any)[1].body)).toMatchObject({ captchaToken: 'tok-1' })
+    expect(turnstile.turnstileReset).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'I am human' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => expect(screen.getByText(/Thanks, Ada/)).toBeTruthy())
+  })
+
+  it('without a site key there is no check and no token', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 202 }))
+
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ContactForm page='contact' enabled supportEmail='help@example.com' />)
+    expect(screen.queryByRole('button', { name: 'I am human' })).toBeNull()
+    fill()
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    expect(JSON.parse((fetchMock.mock.calls[0] as any)[1].body).captchaToken).toBeUndefined()
   })
 })

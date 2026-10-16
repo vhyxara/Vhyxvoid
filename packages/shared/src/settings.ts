@@ -192,6 +192,7 @@ export const SETTING_DEFINITIONS = {
 
   "support.email": { group: "support", label: "Support email", description: "Shown on the website and in emails.", type: "email", default: "support@vhyxvoid.com", public: true },
   "support.docsUrl": { group: "support", label: "Documentation URL", description: "Where 'Docs' links go.", type: "url", default: "/docs", public: true },
+  "support.captchaSiteKey": { group: "support", label: "Captcha site key", description: "Cloudflare Turnstile site key for the contact form. The form shows the check when this is set; the API requires it when its TURNSTILE_SECRET_KEY is set. Set both, from the same Turnstile widget.", type: "string", default: "", public: true },
   "support.contactForm": { group: "support", label: "Contact form", description: "Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead.", type: "boolean", default: true, public: true },
 
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },

@@ -14,6 +14,7 @@ import { EditorContent, Node, useEditor, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import { TableKit } from '@tiptap/extension-table'
+import Image from '@tiptap/extension-image'
 
 import { Button, Text, TextareaField, TextField } from '@vhyxui/react'
 
@@ -47,9 +48,16 @@ export const ContactFormBlock = Node.create({
 export const pageExtensions = () => [
   StarterKit.configure({ underline: false, link: { openOnClick: false, autolink: false, defaultProtocol: 'https' }, heading: { levels: [1, 2, 3, 4] } }),
   TableKit.configure({ table: { resizable: false } }),
+  // Images by URL (https or a site path), stored as markdown ![alt](src). No base64: pages stay small.
+  Image.configure({ inline: false, allowBase64: false }),
   ContactFormBlock,
   Markdown
 ]
+
+/** Image sources the website shows: https and paths on the site. */
+export function imageProblem(src: string): string | null {
+  return /^(https:\/\/\S+|\/(?![/\\])\S*)$/i.test(src.trim()) ? null : 'Use an https:// address or a path starting with /'
+}
 
 /** Links the website renders: http(s), mailto:, and paths on the site (not "//host"). */
 export function linkProblem(href: string): string | null {
@@ -117,9 +125,49 @@ function LinkBar({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   )
 }
 
-export function RichTextEditor({ value, onChange }: { value: string; onChange: (markdown: string) => void }) {
+function ImageBar({ editor, onClose }: { editor: Editor; onClose: () => void }) {
+  const [src, setSrc] = useState('')
+  const [alt, setAlt] = useState('')
+  const problem = src ? imageProblem(src) : null
+
+  const apply = () => {
+    if (!src.trim() || problem) return
+    editor.chain().focus().setImage({ src: src.trim(), alt: alt.trim() }).run()
+    onClose()
+  }
+
+  return (
+    <div className='rte-linkbar'>
+      <TextField name='rte-image-src' label='Image address' size='sm' placeholder='https://… or /images/…' value={src} onChange={e => setSrc(e.target.value)} error={problem ?? undefined} autoFocus />
+      <TextField
+        name='rte-image-alt'
+        label='Description (alt text)'
+        size='sm'
+        hint='What the image shows, for screen readers and search engines.'
+        value={alt}
+        onChange={e => setAlt(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            apply()
+          }
+        }}
+      />
+      <Button size='sm' onClick={apply} disabled={!src.trim() || !!problem}>
+        Insert image
+      </Button>
+      <Button size='sm' variant='ghost' onClick={onClose}>
+        Cancel
+      </Button>
+    </div>
+  )
+}
+
+/** `contactForm`: offer the contact form block (CMS pages; not blog posts). */
+export function RichTextEditor({ value, onChange, contactForm = true, label = 'Page content' }: { value: string; onChange: (markdown: string) => void; contactForm?: boolean; label?: string }) {
   const [source, setSource] = useState(false)
   const [linking, setLinking] = useState(false)
+  const [imaging, setImaging] = useState(false)
   const last = useRef(value)
 
   const editor = useEditor({
@@ -127,7 +175,7 @@ export function RichTextEditor({ value, onChange }: { value: string; onChange: (
     content: value,
     contentType: 'markdown',
     immediatelyRender: false,
-    editorProps: { attributes: { class: 'rte-body markdown-preview', 'aria-label': 'Page content' } },
+    editorProps: { attributes: { class: 'rte-body markdown-preview', 'aria-label': label } },
     onUpdate: ({ editor: e }) => {
       const md = e.getMarkdown()
 
@@ -193,9 +241,14 @@ export function RichTextEditor({ value, onChange }: { value: string; onChange: (
         <Tool label='Divider' disabled={source} onClick={run(c => c.setHorizontalRule())}>
           —
         </Tool>
-        <Tool label='Contact form' disabled={source || hasForm} onClick={run(c => c.insertContent({ type: 'contactForm' }))}>
-          + Contact form
+        <Tool label='Image' disabled={source} onClick={() => (setImaging(i => !i), setLinking(false))}>
+          Image
         </Tool>
+        {contactForm && (
+          <Tool label='Contact form' disabled={source || hasForm} onClick={run(c => c.insertContent({ type: 'contactForm' }))}>
+            + Contact form
+          </Tool>
+        )}
         <span className='rte-sep' />
         <Tool label='Undo' disabled={source || !editor.can().undo()} onClick={run(c => c.undo())}>
           ↶
@@ -231,11 +284,12 @@ export function RichTextEditor({ value, onChange }: { value: string; onChange: (
         </div>
       )}
       {linking && !source && <LinkBar editor={editor} onClose={() => setLinking(false)} />}
+      {imaging && !source && <ImageBar editor={editor} onClose={() => setImaging(false)} />}
       {source ? (
         <TextareaField
           name='body-markdown'
           label='Markdown'
-          hint={`Raw HTML is not shown on the website. A line holding only ${CONTACT_FORM_MARKER} places the contact form.`}
+          hint={contactForm ? `Raw HTML is not shown on the website. A line holding only ${CONTACT_FORM_MARKER} places the contact form.` : 'Raw HTML is not shown on the website.'}
           rows={24}
           value={value}
           onChange={e => onChange(e.target.value)}

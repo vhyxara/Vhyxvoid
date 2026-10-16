@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Editor } from '@tiptap/react'
 
-import { linkProblem, pageExtensions } from './RichTextEditor'
+import { imageProblem, linkProblem, pageExtensions } from './RichTextEditor'
 
 const roundTrip = (md: string) => {
   const editor = new Editor({ extensions: pageExtensions(), content: md, contentType: 'markdown' })
@@ -59,6 +59,14 @@ describe('the page editor stores markdown', () => {
     const out = roundTrip('Hello <script>alert(1)</script> <img src=x onerror=alert(1)>')
 
     expect(out).not.toMatch(/<script>|<img/)
+  })
+
+  it('keeps images with their description', () => {
+    const out = roundTrip('Before\n\n![Dashboard screenshot](https://example.com/shot.png)\n\nAfter')
+
+    expect(out).toContain('![Dashboard screenshot](https://example.com/shot.png)')
+    for (const ok of ['https://example.com/a.png', '/images/a.png']) expect(imageProblem(ok), ok).toBeNull()
+    for (const bad of ['http://example.com/a.png', 'data:image/png;base64,AAAA', 'javascript:x', '//evil/a.png']) expect(imageProblem(bad), bad).toBeTruthy()
   })
 
   it('accepts links the website can render, refuses the rest', () => {

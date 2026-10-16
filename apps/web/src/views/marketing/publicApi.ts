@@ -27,6 +27,7 @@ export type PublicSettings = Record<string, unknown> & {
   'support.email'?: string
   'support.docsUrl'?: string
   'support.contactForm'?: boolean
+  'support.captchaSiteKey'?: string
   'general.statusPageUrl'?: string
   'general.twitterUrl'?: string
   'general.githubUrl'?: string
@@ -38,6 +39,8 @@ export type Bootstrap = {
   footer: Array<{ slug: string; title: string; group: string }>
   /** The footer as the site renders it (absent from APIs before the footer menu). */
   footerMenu?: FooterMenu
+  /** How many posts the blog shows (absent from APIs before the blog). */
+  blog?: { posts: number }
 }
 
 export const CMS_TAG = 'cms'
@@ -90,4 +93,74 @@ export async function getContent<T>(slug: string): Promise<PublishedContent<T> |
 
 export async function getPlans(): Promise<PublicPlans | null> {
   return get<PublicPlans>('/public/plans')
+}
+
+// ── Blog ──
+
+export type BlogTaxon = { slug: string; name: string }
+
+export type BlogSummary = {
+  slug: string
+  title: string
+  excerpt: string
+  coverImageUrl: string | null
+  coverImageAlt: string
+  publishedAt: string
+  updatedAt: string
+  readingMinutes: number
+  authorName: string
+  featured: boolean
+  category: BlogTaxon | null
+  tags: BlogTaxon[]
+}
+
+export type BlogPost = BlogSummary & { body: string; seoTitle: string | null; seoDescription: string | null }
+
+export type BlogList = {
+  items: BlogSummary[]
+  /** The newest featured post, on page 1 of the unfiltered list only. */
+  featured: BlogSummary | null
+  category: (BlogTaxon & { description: string }) | null
+  tag: BlogTaxon | null
+  meta: { page: number; limit: number; total: number; totalPages: number }
+}
+
+export type BlogTaxonomy = { categories: Array<BlogTaxon & { description: string; count: number }>; tags: Array<BlogTaxon & { count: number }> }
+
+/** null: an unknown category or tag, or the API is down. */
+export async function getBlogPosts(q: { page?: number; limit?: number; category?: string; tag?: string } = {}): Promise<BlogList | null> {
+  const qs = new URLSearchParams()
+
+  for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') qs.set(k, String(v))
+
+  return get<BlogList>(`/public/blog/posts${qs.size ? `?${qs}` : ''}`)
+}
+
+/** The post, or where an old address of it moved to. */
+export async function getBlogPost(slug: string): Promise<{ post: BlogPost; related: BlogSummary[] } | { redirect: string } | null> {
+  return get(`/public/blog/posts/${encodeURIComponent(slug)}`)
+}
+
+export async function getBlogTaxonomy(): Promise<BlogTaxonomy> {
+  return (await get<BlogTaxonomy>('/public/blog/taxonomy')) ?? { categories: [], tags: [] }
+}
+
+/**
+ * The website's own address, for feeds, sitemaps and canonical links: SITE_URL,
+ * else the address this request came in on.
+ */
+export async function siteUrl(): Promise<string> {
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '')
+  const { headers } = await import('next/headers')
+  const h = await headers()
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:4000'
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
+
+  return `${proto}://${host}`
+}
+
+export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[] }
+
+export async function getSitemap(): Promise<SitemapData> {
+  return (await get<SitemapData>('/public/sitemap')) ?? { pages: [], posts: [], categories: [], tags: [] }
 }

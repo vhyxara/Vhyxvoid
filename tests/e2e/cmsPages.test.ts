@@ -170,6 +170,51 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
     expect((await call("GET", `/admin/contact-messages/${row!.id}`)).status).toBe(404);
   });
 
+  it("with a captcha secret set, a message needs a token Cloudflare accepts", async () => {
+    // A stand-in for Cloudflare's siteverify: token "good" passes, anything else fails.
+    const seen: string[] = [];
+    const cf = http.createServer((r, res) => {
+      let body = "";
+      r.on("data", (c) => (body += c));
+      r.on("end", () => {
+        seen.push(body);
+        const token = new URLSearchParams(body).get("response");
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(token === "good" ? { success: true } : { success: false, "error-codes": ["invalid-input-response"] }));
+      });
+    });
+    await new Promise<void>((r) => cf.listen(0, "127.0.0.1", r));
+    process.env.TURNSTILE_SECRET_KEY = "test-secret";
+    process.env.TURNSTILE_VERIFY_URL = `http://127.0.0.1:${(cf.address() as AddressInfo).port}/siteverify`;
+    try {
+      const msg = { name: "Cap", email: "cap@cms.test", message: "Testing the human check here." };
+      const missing = await call("POST", "/public/contact", msg, { "x-forwarded-for": "198.51.100.20" });
+      expect(missing.status).toBe(400);
+      expect(missing.body.message).toMatch(/Complete the check/);
+      const bad = await call("POST", "/public/contact", { ...msg, captchaToken: "bad" }, { "x-forwarded-for": "198.51.100.20" });
+      expect(bad.status).toBe(400);
+      expect(bad.body.message).toMatch(/failed or expired/);
+      const good = await call("POST", "/public/contact", { ...msg, captchaToken: "good" }, { "x-forwarded-for": "198.51.100.21" });
+      expect(good.status).toBe(202);
+      // The secret, the token and the visitor's address went to Cloudflare.
+      const last = new URLSearchParams(seen.at(-1));
+      expect([last.get("secret"), last.get("response"), last.get("remoteip")]).toEqual(["test-secret", "good", "198.51.100.21"]);
+      expect(await prisma.contactMessage.count({ where: { email: "cap@cms.test" } })).toBe(1);
+      // Honeypot submissions are dropped before Cloudflare is asked.
+      const before = seen.length;
+      expect((await call("POST", "/public/contact", { ...msg, website: "x" }, { "x-forwarded-for": "198.51.100.22" })).status).toBe(202);
+      expect(seen.length).toBe(before);
+      // Cloudflare unreachable: refused, not let through.
+      await new Promise<void>((r) => cf.close(() => r()));
+      const down = await call("POST", "/public/contact", { ...msg, captchaToken: "good" }, { "x-forwarded-for": "198.51.100.23" });
+      expect(down.status).toBe(503);
+    } finally {
+      delete process.env.TURNSTILE_SECRET_KEY;
+      delete process.env.TURNSTILE_VERIFY_URL;
+      cf.close();
+    }
+  });
+
   it("drops bot submissions quietly, validates, rate limits and can be switched off", async () => {
     const ip = { "x-forwarded-for": "198.51.100.8" };
     const bot = await call("POST", "/public/contact", { name: "Bot", email: "bot@cms.test", message: "Buy things now please", website: "http://spam" }, ip);

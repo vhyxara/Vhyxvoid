@@ -1,10 +1,13 @@
 // /api/v1/public — unauthenticated, cacheable reads for the website and apps.
 import type { FastifyInstance } from "fastify";
 import { Plan } from "@vhyxvoid/shared";
+import { Prisma } from "@/generated/prisma";
 import { effectivePlanLimits } from "@vhyxvoid/shared";
 import { NotFoundError } from "@/core/errors/error.format";
 import { successResponse } from "@/core/utils/response.util";
 import { slugSchema } from "../content/content.schemas";
+import { prismaOf } from "../shared/http";
+import { visibleWhere } from "../blog/blog.service";
 
 const serializeLimits = (o: object) => JSON.parse(JSON.stringify(o, (_k, v) => (v === Infinity ? null : v)));
 
@@ -19,8 +22,14 @@ export async function publicRoutes(fastify: FastifyInstance) {
    */
   fastify.get("/bootstrap", async (_request, reply) => {
     cache(reply);
-    const [settings, footer, footerMenu] = await Promise.all([fastify.platformSettings.publicValues(), fastify.platformContent.footerLinks(), fastify.platformContent.footerMenu()]);
-    return successResponse(reply, "Success", 200, { settings, footer, footerMenu });
+    const [settings, footer, footerMenu, blogPosts] = await Promise.all([
+      fastify.platformSettings.publicValues(),
+      fastify.platformContent.footerLinks(),
+      fastify.platformContent.footerMenu(),
+      // The navbar shows "Blog" once there is something to read.
+      prismaOf(fastify).blogPost.count({ where: visibleWhere() }).catch(() => 0),
+    ]);
+    return successResponse(reply, "Success", 200, { settings, footer, footerMenu, blog: { posts: blogPosts } });
   });
 
   fastify.get("/settings", async (_request, reply) => {
@@ -36,6 +45,29 @@ export async function publicRoutes(fastify: FastifyInstance) {
     if (!entry) throw new NotFoundError("Page not found");
     cache(reply, 60);
     return successResponse(reply, "Success", 200, entry);
+  });
+
+  /**
+   * Every public address the CMS and blog own, with when it last changed, for
+   * the website's sitemap.xml. Pages are kind "page" (landing and pricing are
+   * fixed routes the website lists itself).
+   */
+  fastify.get("/sitemap", async (_request, reply) => {
+    const prisma = prismaOf(fastify);
+    const visible = visibleWhere();
+    const [pages, posts, categories, tags] = await Promise.all([
+      prisma.contentEntry.findMany({ where: { kind: "page", status: "PUBLISHED", publishedData: { not: Prisma.DbNull } }, select: { slug: true, publishedAt: true, updatedAt: true }, orderBy: { slug: "asc" }, take: 5000 }),
+      prisma.blogPost.findMany({ where: visible, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" }, take: 5000 }),
+      prisma.blogCategory.findMany({ where: { posts: { some: visible } }, select: { slug: true }, orderBy: { slug: "asc" } }),
+      prisma.blogTag.findMany({ where: { posts: { some: { post: visible } } }, select: { slug: true }, orderBy: { slug: "asc" } }),
+    ]);
+    cache(reply, 300);
+    return successResponse(reply, "Success", 200, {
+      pages: pages.map((p) => ({ slug: p.slug, updatedAt: p.publishedAt ?? p.updatedAt })),
+      posts,
+      categories: categories.map((c) => c.slug),
+      tags: tags.map((t) => t.slug),
+    });
   });
 
   /** Plan limits as they apply right now (admin overrides included), for pricing pages. */

@@ -3,22 +3,27 @@
 // The contact form a CMS page shows where its markdown has a {{contact-form}}
 // line. Posts to the API's public /contact (stored, emailed to support, and
 // listed in the admin panel's Messages). The hidden "website" field is a trap
-// for bots; people never see it.
-import { useState, type FormEvent } from 'react'
+// for bots; people never see it. With a captcha site key (setting
+// support.captchaSiteKey) the form also shows Cloudflare's Turnstile check.
+import { useRef, useState, type FormEvent } from 'react'
 
 import { Alert, Button, TextField, TextareaField } from '@vhyxui/react'
 
 import styles from './marketing.module.css'
+import { Turnstile, type TurnstileHandle } from './Turnstile'
 
 type Errors = Partial<Record<'name' | 'email' | 'subject' | 'message', string>>
 
 const API = (process.env.NEXT_PUBLIC_API_URL_LIVE ?? '').replace(/\/$/, '')
 
-export function ContactForm({ page, enabled, supportEmail }: { page: string; enabled: boolean; supportEmail: string }) {
+export function ContactForm({ page, enabled, supportEmail, captchaSiteKey }: { page: string; enabled: boolean; supportEmail: string; captchaSiteKey?: string }) {
   const [values, setValues] = useState({ name: '', email: '', subject: '', message: '', website: '' })
   const [errors, setErrors] = useState<Errors>({})
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle')
   const [problem, setProblem] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaBroken, setCaptchaBroken] = useState(false)
+  const captcha = useRef<TurnstileHandle>(null)
 
   if (!enabled) {
     return (
@@ -47,6 +52,13 @@ export function ContactForm({ page, enabled, supportEmail }: { page: string; ena
     if (values.message.trim().length < 10) local.message = 'Write at least a sentence'
     setErrors(local)
     if (Object.keys(local).length) return
+
+    if (captchaSiteKey && !captchaToken) {
+      setProblem(captchaBroken ? `The human check could not load. Check your connection or write to ${supportEmail}.` : 'Complete the check that you\'re human, then send again.')
+
+      return
+    }
+
     setState('sending')
     setProblem('')
 
@@ -54,10 +66,12 @@ export function ContactForm({ page, enabled, supportEmail }: { page: string; ena
       const res = await fetch(`${API}/public/contact`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...values, page })
+        body: JSON.stringify({ ...values, page, ...(captchaToken ? { captchaToken } : {}) })
       })
 
       if (res.ok) return setState('sent')
+      // A token works once: get a fresh one for the next try.
+      captcha.current?.reset()
       const body = (await res.json().catch(() => null)) as { message?: string; errors?: Array<{ path: string[]; message: string }> } | null
 
       if (res.status === 400 && body?.errors?.length) {
@@ -83,6 +97,7 @@ export function ContactForm({ page, enabled, supportEmail }: { page: string; ena
       </div>
       <TextField name='contact-subject' label='Subject' value={values.subject} onChange={set('subject')} error={errors.subject} optional />
       <TextareaField name='contact-message' label='Message' rows={6} value={values.message} onChange={set('message')} error={errors.message} required />
+      {captchaSiteKey && <Turnstile ref={captcha} siteKey={captchaSiteKey} onToken={setCaptchaToken} onError={() => setCaptchaBroken(true)} />}
       <div className={styles.contactTrap} aria-hidden='true'>
         <label htmlFor='contact-website'>Website</label>
         <input id='contact-website' name='website' tabIndex={-1} autoComplete='off' value={values.website} onChange={set('website')} />

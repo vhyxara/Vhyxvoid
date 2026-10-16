@@ -22,7 +22,12 @@ import type {
   UserRow,
   BillingSetup,
   CustomDomainRow,
-  ContactMessage
+  ContactMessage,
+  BlogCategoryRow,
+  BlogPostDetail,
+  BlogPostInput,
+  BlogPostRow,
+  BlogTagRow
 } from './types'
 
 const list = <T>(url: string) => (params: ListParams = {}) =>
@@ -88,6 +93,23 @@ export const platformService = {
   contactMessages: list<ContactMessage>('/admin/contact-messages'),
   setContactStatus: (id: string, status: ContactMessage['status']) => patch<ContactMessage>(`/admin/contact-messages/${id}`, { status }),
   deleteContactMessage: (id: string) => del(`/admin/contact-messages/${id}`),
+
+  blogPosts: list<BlogPostRow>('/admin/blog/posts'),
+  blogPost: (id: string) => get<BlogPostDetail>(`/admin/blog/posts/${id}`),
+  createBlogPost: (body: BlogPostInput & { title: string }) => post<BlogPostDetail>('/admin/blog/posts', body),
+  saveBlogPost: (id: string, body: BlogPostInput) => put<BlogPostDetail>(`/admin/blog/posts/${id}`, body),
+  publishBlogPost: (id: string, publishAt?: string) => post<BlogPostDetail>(`/admin/blog/posts/${id}/publish`, publishAt ? { publishAt } : {}),
+  unpublishBlogPost: (id: string) => post<BlogPostDetail>(`/admin/blog/posts/${id}/unpublish`),
+  deleteBlogPost: (id: string) => del(`/admin/blog/posts/${id}`),
+  blogCategories: () => get<BlogCategoryRow[]>('/admin/blog/categories'),
+  blogTags: () => get<BlogTagRow[]>('/admin/blog/tags'),
+  createBlogCategory: (body: { name: string; slug?: string; description?: string }) => post<BlogCategoryRow>('/admin/blog/categories', body),
+  updateBlogCategory: (id: string, body: { name?: string; slug?: string; description?: string }) => patch<BlogCategoryRow>(`/admin/blog/categories/${id}`, body),
+  deleteBlogCategory: (id: string) => del<{ id: string }>(`/admin/blog/categories/${id}`),
+  createBlogTag: (body: { name: string; slug?: string }) => post<BlogTagRow>('/admin/blog/tags', body),
+  updateBlogTag: (id: string, body: { name?: string; slug?: string }) => patch<BlogTagRow>(`/admin/blog/tags/${id}`, body),
+  deleteBlogTag: (id: string) => del<{ id: string }>(`/admin/blog/tags/${id}`),
+  mergeBlogTag: (id: string, into: string) => post<{ into: string; posts: number }>(`/admin/blog/tags/${id}/merge`, { into }),
 
   setAdminPassword: (adminId: string, newPassword: string) => post(`/admin/identity/users/${adminId}/password`, { newPassword })
 }
