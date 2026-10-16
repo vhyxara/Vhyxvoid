@@ -6,9 +6,8 @@
 // that. Every redirect hop is checked again. API_CLIENT_ALLOW_PRIVATE=1 (never
 // in production) lets local development reach 127.0.0.1.
 import dns from "node:dns";
-import { isIP } from "node:net";
 import { sendHttp, type ApiResponse, type BuiltRequest, type LookupFn } from "@vhyxvoid/shared";
-import { isPrivateAddress } from "../alerts/webhook";
+import { isPrivateAddress, isPrivateHost } from "../alerts/webhook";
 
 export const allowPrivateTargets = () => process.env.NODE_ENV !== "production" && process.env.API_CLIENT_ALLOW_PRIVATE === "1";
 
@@ -25,8 +24,7 @@ const guardedLookup: LookupFn = (hostname, options, cb) => {
 /** Refusal message for a URL, or undefined. */
 export function targetProblem(u: URL): string | undefined {
   if (allowPrivateTargets()) return undefined;
-  const host = u.hostname.replace(/^\[|\]$/g, "");
-  if ((isIP(host) && isPrivateAddress(host)) || /^(localhost|.*\.localhost|.*\.local|.*\.internal|metadata\.google\.internal)$/i.test(host)) {
+  if (isPrivateHost(u.hostname)) {
     return "That address is private; the API client sends to public addresses only. To test a local server, use `vhyxvoid test` on your machine or open a tunnel to it.";
   }
   return undefined;

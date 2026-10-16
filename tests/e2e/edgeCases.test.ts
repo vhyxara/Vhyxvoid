@@ -78,3 +78,68 @@ describe("paging and plugin scope", () => {
     expect((ApiKeyPlugins as unknown as Record<symbol, unknown>)[Symbol.for("skip-override")]).toBe(true);
   });
 });
+
+// 2026-10-16: URL forms that reach the platform's own network. IPv4-compatible,
+// IPv4-translated, 6to4 and Teredo IPv6 literals passed the address check, and
+// a trailing dot ("localhost.") passed the name check (the connect-time lookup
+// still refused those names; the message was the confusing one).
+describe("private targets for the API client, monitors and alert webhooks", () => {
+  it("are refused in every spelling", async () => {
+    const { isPrivateHost, validateWebhookUrl } = await import("../../apps/api/src/modules/platform/alerts/webhook");
+    const { targetProblem } = await import("../../apps/api/src/modules/platform/apiclient/runner");
+    const saved = { a: process.env.API_CLIENT_ALLOW_PRIVATE, b: process.env.ALERT_WEBHOOK_ALLOW_PRIVATE };
+    delete process.env.API_CLIENT_ALLOW_PRIVATE;
+    delete process.env.ALERT_WEBHOOK_ALLOW_PRIVATE;
+    try {
+      const refused = ["http://127.0.0.1/", "http://2130706433/", "http://0x7f000001/", "http://127.1/", "http://0/", "http://[::1]/", "http://[::ffff:127.0.0.1]/", "http://[::127.0.0.1]/", "http://[::ffff:0:7f00:1]/", "http://[2002:7f00:1::]/", "http://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/", "http://[64:ff9b::a9fe:a9fe]/", "http://169.254.169.254/", "http://[fd00::1]/", "http://[fe80::1]/", "http://localhost./", "http://LOCALHOST/", "http://foo.localhost/", "http://metadata.google.internal./", "http://router.home.arpa/", "http://printer.local/"];
+      for (const s of refused) {
+        expect(isPrivateHost(new URL(s).hostname), s).toBe(true);
+        expect(targetProblem(new URL(s)), s).toBeTruthy();
+        expect(validateWebhookUrl(s), s).toBeTruthy();
+      }
+      for (const s of ["https://example.com/", "https://93.184.216.34/", "https://[2606:4700:4700::1111]/", "https://[2001:4860:4860::8888]/", "https://hooks.slack.com/services/x"]) {
+        expect(isPrivateHost(new URL(s).hostname), s).toBe(false);
+        expect(targetProblem(new URL(s)), s).toBeUndefined();
+      }
+    } finally {
+      if (saved.a !== undefined) process.env.API_CLIENT_ALLOW_PRIVATE = saved.a;
+      if (saved.b !== undefined) process.env.ALERT_WEBHOOK_ALLOW_PRIVATE = saved.b;
+    }
+  });
+});
+
+// 2026-10-16: tunnels and mocks serve customer pages on subdomains of the
+// platform's site, so in production the refresh cookies carry the __Host-
+// prefix: a cookie planted from a subdomain with Domain=<site> can't use it.
+describe("refresh cookies can't be planted from a tunnel subdomain", () => {
+  it("are __Host- prefixed, Secure, Path=/ and domain-less in production; plain in development", async () => {
+    const { setRefreshCookie, getRefreshCookie, refreshCookieSpec } = await import("../../apps/api/src/core/utils/auth.util");
+    const cookie = req("@fastify/cookie");
+    const env = process.env.NODE_ENV;
+    try {
+      for (const mode of ["production", "development"]) {
+        process.env.NODE_ENV = mode;
+        const f = Fastify();
+        await f.register(cookie);
+        f.get("/set", async (_r: any, reply: any) => (setRefreshCookie(reply, "tok"), { ok: true }));
+        f.get("/get", async (r: any) => ({ token: getRefreshCookie(r) ?? null }));
+        const set = String((await f.inject({ method: "GET", url: "/set" })).headers["set-cookie"]);
+        if (mode === "production") {
+          expect(set).toMatch(/^__Host-refresh_token=tok;/);
+          expect(set).toMatch(/Path=\//);
+          expect(set).toMatch(/Secure/);
+          expect(set).not.toMatch(/Domain=/i);
+          expect((await f.inject({ method: "GET", url: "/get", headers: { cookie: "refresh_token=planted" } })).json().token).toBeNull();
+          expect((await f.inject({ method: "GET", url: "/get", headers: { cookie: "__Host-refresh_token=tok" } })).json().token).toBe("tok");
+        } else {
+          expect(set).toMatch(/^refresh_token=tok;.*Path=\/api\/v1\/auth/);
+        }
+        await f.close();
+      }
+      process.env.NODE_ENV = "production";
+      expect(refreshCookieSpec("vv_admin_rt", "/api/v1/admin/identity/auth")).toEqual({ name: "__Host-vv_admin_rt", path: "/", secure: true });
+    } finally {
+      process.env.NODE_ENV = env;
+    }
+  });
+});

@@ -3,22 +3,37 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { REFRESH_COOKIE_NAME, TTL } from "@/core/constant/ttl.constant";
 
+/**
+ * Name and path of a refresh-token cookie. In production it carries the
+ * `__Host-` prefix, which needs Secure, Path=/ and no Domain: tunnels and
+ * mock APIs serve customers' pages on subdomains of the same site, and from
+ * there a plain cookie can be planted with `Domain=<site>` ("cookie
+ * tossing"), logging a signed-out visitor into the planter's session.
+ * Browsers refuse a `__Host-` cookie that has a Domain or comes from another
+ * host. Without HTTPS (local development) the prefix can't be set, so the
+ * plain name and the narrow path are used.
+ */
+export function refreshCookieSpec(base: string, devPath: string): { name: string; path: string; secure: boolean } {
+  return process.env.NODE_ENV === "production" ? { name: `__Host-${base}`, path: "/", secure: true } : { name: base, path: devPath, secure: false };
+}
+const userCookie = () => refreshCookieSpec(REFRESH_COOKIE_NAME, "/api/v1/auth");
+
 export function setRefreshCookie(reply: FastifyReply, token: string) {
-  reply.setCookie(REFRESH_COOKIE_NAME, token, {
+  const c = userCookie();
+  reply.setCookie(c.name, token, {
     httpOnly: true, // JS cannot read this — XSS-proof
-    secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+    secure: c.secure, // HTTPS only in prod
     sameSite: "strict", // CSRF protection
-    path: "/api/v1/auth", // Cookie only sent to auth endpoints — minimises exposure
+    path: c.path, // dev: auth endpoints only; prod: "/" (required by __Host-)
     maxAge: TTL.REFRESH_TOKEN_MS / 1000, // seconds
   });
 }
 
 export function clearRefreshCookie(reply: FastifyReply) {
-  reply.clearCookie(REFRESH_COOKIE_NAME, {
-    path: "/api/v1/auth",
-  });
+  const c = userCookie();
+  reply.clearCookie(c.name, { path: c.path, secure: c.secure });
 }
 
 export function getRefreshCookie(request: FastifyRequest): string | undefined {
-  return request.cookies[REFRESH_COOKIE_NAME];
+  return request.cookies[userCookie().name];
 }

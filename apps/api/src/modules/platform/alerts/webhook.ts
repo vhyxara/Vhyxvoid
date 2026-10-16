@@ -16,7 +16,15 @@ for (const [addr, prefix] of [
   ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12],
   ["192.0.0.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["224.0.0.0", 4], ["240.0.0.0", 4],
 ] as const) PRIVATE.addSubnet(addr, prefix, "ipv4");
-for (const [addr, prefix] of [["::", 128], ["::1", 128], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8], ["64:ff9b::", 96]] as const) PRIVATE.addSubnet(addr, prefix, "ipv6");
+// IPv6: unspecified, loopback and the IPv4-compatible block (::/96), unique
+// local, link-local, multicast, and the ranges that carry an IPv4 address a
+// gateway may translate (NAT64, IPv4-translated ::ffff:0:a.b.c.d, 6to4,
+// Teredo), plus discard-only and documentation. Mapped ::ffff:a.b.c.d is
+// handled by BlockList as IPv4.
+for (const [addr, prefix] of [
+  ["::", 96], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8], ["64:ff9b::", 96], ["64:ff9b:1::", 48],
+  ["::ffff:0:0:0", 96], ["2002::", 16], ["2001::", 32], ["100::", 64], ["2001:db8::", 32],
+] as const) PRIVATE.addSubnet(addr, prefix, "ipv6");
 
 const allowPrivate = () => process.env.NODE_ENV !== "production" && process.env.ALERT_WEBHOOK_ALLOW_PRIVATE === "1";
 
@@ -27,6 +35,18 @@ export function isPrivateAddress(ip: string): boolean {
   if (type === 4) return PRIVATE.check(ip, "ipv4");
   if (type === 6) return PRIVATE.check(ip, "ipv6");
   return true;
+}
+
+/**
+ * A URL host (as `URL.hostname` gives it) that is private by its literal
+ * address or by its name. Names are checked again at connect time, against
+ * what they resolve to; this gives the clear message early. Trailing dots
+ * ("localhost.") are the same name.
+ */
+export function isPrivateHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").replace(/\.+$/, "");
+  if (isIP(host)) return isPrivateAddress(host);
+  return /^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.home\.arpa)$/i.test(host);
 }
 
 /** Validation for the dashboard; returns an error message or undefined. */
@@ -41,9 +61,7 @@ export function validateWebhookUrl(raw: string): string | undefined {
   if (u.protocol !== "https:" && !(u.protocol === "http:" && !production)) return "Use an https:// URL";
   if (u.username || u.password) return "Leave credentials out of the URL";
   if (u.port && !["443", "8443"].includes(u.port) && production) return "Use the standard HTTPS port";
-  const host = u.hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host) && isPrivateAddress(host) && !allowPrivate()) return "That address is not reachable from the internet";
-  if (/^(localhost|.*\.local|.*\.internal)$/i.test(host) && !allowPrivate()) return "That address is not reachable from the internet";
+  if (isPrivateHost(u.hostname) && !allowPrivate()) return "That address is not reachable from the internet";
   return undefined;
 }
 

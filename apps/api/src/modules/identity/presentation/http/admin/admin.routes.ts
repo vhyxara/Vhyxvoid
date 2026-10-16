@@ -1,5 +1,6 @@
 // identity/presentation/routes/admin/adminRoutes.ts
 
+import { refreshCookieSpec } from "@/core/utils/auth.util";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AdminTTL } from "@/core/constant/ttl.constant";
 import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/crypto/BcryptPasswordHasher";
@@ -42,13 +43,16 @@ import { NotFoundError, UnauthorizedError, ValidationError } from "@/core/errors
 // `x-admin-token-transport: body`.
 const ADMIN_REFRESH_COOKIE = "vv_admin_rt";
 const ADMIN_COOKIE_PATH = "/api/v1/admin/identity/auth";
+// __Host- prefixed in production (see refreshCookieSpec).
+const adminCookie = () => refreshCookieSpec(ADMIN_REFRESH_COOKIE, ADMIN_COOKIE_PATH);
 
 function deliverAdminTokens<T extends { refreshToken: string }>(request: FastifyRequest, reply: FastifyReply, result: T) {
-  reply.setCookie(ADMIN_REFRESH_COOKIE, result.refreshToken, {
+  const c = adminCookie();
+  reply.setCookie(c.name, result.refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: c.secure,
     sameSite: "strict",
-    path: ADMIN_COOKIE_PATH,
+    path: c.path,
     maxAge: Math.floor(AdminTTL.ADMIN_REFRESH_TOKEN_TTL_MS / 1000),
   });
   if (request.headers["x-admin-token-transport"] === "body") return result;
@@ -57,7 +61,8 @@ function deliverAdminTokens<T extends { refreshToken: string }>(request: Fastify
 }
 
 function clearAdminCookie(reply: FastifyReply) {
-  reply.clearCookie(ADMIN_REFRESH_COOKIE, { path: ADMIN_COOKIE_PATH });
+  const c = adminCookie();
+  reply.clearCookie(c.name, { path: c.path, secure: c.secure });
 }
 
 // ===== SCHEMAS =====
@@ -98,7 +103,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
    */
   fastify.post("/auth/refresh", async (request, reply) => {
     const input = refreshTokenSchema.parse(request.body ?? {});
-    const token = input.refreshToken ?? request.cookies?.[ADMIN_REFRESH_COOKIE];
+    const token = input.refreshToken ?? request.cookies?.[adminCookie().name];
     if (!token) throw new UnauthorizedError("No refresh token");
 
     const useCase = fastify.adminRefreshTokenUseCase;
@@ -123,7 +128,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       const admin = getAdminContext(request);
 
       // Revoke the refresh session (body for scripts, cookie for browsers).
-      const refreshToken = input.refreshToken ?? request.cookies?.[ADMIN_REFRESH_COOKIE];
+      const refreshToken = input.refreshToken ?? request.cookies?.[adminCookie().name];
       clearAdminCookie(reply);
       if (refreshToken) {
         const tokenHash = TokenHasher.hash(refreshToken);

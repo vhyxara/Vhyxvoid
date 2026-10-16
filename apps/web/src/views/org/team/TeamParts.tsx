@@ -29,6 +29,10 @@ import { getAccessToken } from '@/api/domain/identity/store/auth.store'
 import { teamKeys, teamService, type Person, type TeamCard } from '@/api/infrastructure/services/team.service'
 import { anchorer, insertMention, mentionQuery, toStored, withMentionLinks } from './teamForm'
 
+
+/** A path in this app. "//host" and "/\host" are other sites to a browser, not paths. */
+export const isAppPath = (url: string) => url.startsWith('/') && !/^\/[\/\\]/.test(url)
+
 export const muted: CSSProperties = { color: 'var(--vhyx-color-text-muted)' }
 export const mono: CSSProperties = { fontFamily: 'var(--vhyx-font-mono, ui-monospace, monospace)', fontSize: 13 }
 
@@ -225,7 +229,7 @@ export function RichText({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         urlTransform={url =>
-          url.startsWith('mention:') || url.startsWith('/') || /^https?:|^mailto:/i.test(url) ? url : ''
+          url.startsWith('mention:') || isAppPath(url) || /^https?:|^mailto:/i.test(url) ? url : ''
         }
         components={{
           a: ({ href, children }) => {
@@ -239,7 +243,7 @@ export function RichText({
               )
             }
 
-            if (href?.startsWith('/')) return <Link href={href}>{children}</Link>
+            if (href && isAppPath(href)) return <Link href={href}>{children}</Link>
 
             return (
               <a href={href} target='_blank' rel='noreferrer noopener'>
