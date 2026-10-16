@@ -3,7 +3,7 @@ title: Site content
 description: Edit the landing page, pricing, pages such as About, Contact and Privacy, and the footer menu; publish, roll back, and read contact form messages.
 verified:
   date: "2026-10-16"
-  commit: f5d0139
+  commit: 7e8b6e1
   packages: {}
 sources:
   - apps/api/src/modules/platform/content/content.schemas.ts
@@ -25,7 +25,7 @@ Public pages are content entries edited under **Website content** in the console
 
 | Kind | Slug | What it renders |
 | --- | --- | --- |
-| Landing page | `home` | The home page: hero and terminal sample, stats, features, steps, request-flow diagram, use cases, FAQ, closing call to action. |
+| Landing page | `home` | The home page: hero (with an animated wormhole and the terminal sample), stats, the journey of a request (the stops a request passes on its way to your app, played one by one), features, steps, an optional sequence diagram, use cases, FAQ, closing call to action. Landing content saved before the journey existed shows the built-in journey; the editor fills it in, ready to change, and publishing makes it yours. |
 | Pricing page | `pricing` | Plan cards and FAQ. Plan *limits* in the comparison table come live from the plan settings, so they never disagree with what is enforced. |
 | Page | anything else, e.g. `about`, `contact`, `legal/privacy` | A page at `/<slug>`, written in the rich text editor. |
 | Footer menu | `footer` | The footer of every page: columns of links, in order. |
