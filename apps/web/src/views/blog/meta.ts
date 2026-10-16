@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { getBootstrap, siteUrl } from '@/views/marketing/publicApi'
+import { pageMetadata } from '@/views/seo/seo'
 
 /** A page number from ?page=, or null when it isn't one. */
 export function pageParam(raw: string | string[] | undefined): number | null {
@@ -10,20 +10,17 @@ export function pageParam(raw: string | string[] | undefined): number | null {
   return Number.isInteger(n) && n >= 1 && n <= 10_000 ? n : null
 }
 
-/** Metadata every blog page shares: absolute URLs, the canonical address and the RSS feed. */
-export async function blogMetadata({ title, description, path, page = 1, extra }: { title: string; description?: string; path: string; page?: number; extra?: Metadata }): Promise<Metadata> {
-  const [site, { settings }] = await Promise.all([siteUrl(), getBootstrap()])
-  const product = settings['general.productName'] || 'VhyxVoid'
+/**
+ * Metadata every blog page shares: the site's SEO rules (views/seo/seo.ts),
+ * a canonical address that keeps ?page=, and the RSS feed.
+ */
+export async function blogMetadata({ title, description, path, page = 1, image, imageAlt, noindex, type, extra }: { title: string; description?: string | null; path: string; page?: number; image?: string | null; imageAlt?: string; noindex?: boolean; type?: 'website' | 'article'; extra?: Metadata }): Promise<Metadata> {
   const canonical = page > 1 ? `${path}?page=${page}` : path
-  const full = `${title}${page > 1 ? ` (page ${page})` : ''} — ${product}`
+  const meta = await pageMetadata({ path, title: page > 1 ? `${title} (page ${page})` : title, description, image, imageAlt, noindex, type, extra })
 
   return {
-    metadataBase: new URL(site),
-    title: full,
-    description,
-    alternates: { canonical, types: { 'application/rss+xml': [{ url: '/blog/rss.xml', title: `${product} blog` }] } },
-    openGraph: { type: 'website', title: full, description, url: canonical, siteName: product },
-    twitter: { card: 'summary_large_image', title: full, description },
-    ...extra
+    ...meta,
+    alternates: { canonical, types: { 'application/rss+xml': [{ url: '/blog/rss.xml', title: 'Blog' }] } },
+    openGraph: { ...meta.openGraph, url: canonical }
   }
 }

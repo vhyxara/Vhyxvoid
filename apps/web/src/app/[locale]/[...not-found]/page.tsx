@@ -12,7 +12,9 @@ import type { PageContent } from '@vhyxvoid/content'
 
 import { MarkdownPage } from '@/views/marketing/MarkdownPage'
 import { MarketingShell } from '@/views/marketing/MarketingShell'
-import { getBootstrap, getContent } from '@/views/marketing/publicApi'
+import { getBootstrap, getContent, siteUrl } from '@/views/marketing/publicApi'
+import { JsonLd, breadcrumbJsonLd } from '@/views/seo/JsonLd'
+import { pageMetadata, reportNotFound } from '@/views/seo/seo'
 
 type Props = { params: Promise<{ 'not-found': string[] }> }
 
@@ -32,24 +34,26 @@ async function cmsPage(params: Props['params']) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const entry = await cmsPage(params)
 
-  return entry ? { title: entry.seoTitle || `${entry.title} — VhyxVoid`, description: entry.seoDescription ?? undefined } : {}
+  return entry ? pageMetadata({ path: `/${entry.slug}`, title: entry.seoTitle || entry.title, description: entry.seoDescription }) : { title: 'Page not found', robots: { index: false } }
 }
 
 const NotFoundPage = async ({ params }: Props) => {
   const entry = await cmsPage(params)
 
   if (entry) {
-    const bootstrap = await getBootstrap()
+    const [bootstrap, site] = await Promise.all([getBootstrap(), siteUrl()])
     const s = bootstrap.settings
 
     return (
       <MarketingShell bootstrap={bootstrap}>
+        <JsonLd data={breadcrumbJsonLd(site, [{ name: 'Home', path: '/' }, { name: entry.title, path: `/${entry.slug}` }])} />
         <MarkdownPage body={entry.data.body} slug={entry.slug} contact={{ enabled: s['support.contactForm'] !== false, supportEmail: s['support.email'] || 'support@vhyxvoid.com', captchaSiteKey: s['support.captchaSiteKey'] || undefined }} />
       </MarketingShell>
     )
   }
 
-  // A real 404 status, rendered by ../not-found.tsx.
+  // A real 404 status, rendered by ../not-found.tsx; the address goes to the SEO screen's Not found list.
+  await reportNotFound(`/${((await params)['not-found'] ?? []).join('/')}`)
   notFound()
 }
 

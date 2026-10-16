@@ -53,11 +53,13 @@ import VhyxUIToastRegion from '@/libs/components/VhyxUIToastRegion'
 
 // Util Imports
 import { getSystemMode } from '@core/utils/serverHelpers'
+import { siteMetadata } from '@/views/seo/seo'
 
-export const metadata = {
-  title: 'VhyxVoid — Secure Localhost Tunnels',
-  description:
-    'VhyxVoid is a developer-focused tunneling platform for securely exposing localhost to the internet. Create fast, reliable tunnels in seconds and share local apps through the void.'
+// Site-wide defaults from the admin SEO screen: title template, description,
+// verification codes, and noindex everywhere when indexing is switched off.
+// Each public page adds its own (views/seo/seo.ts pageMetadata).
+export async function generateMetadata() {
+  return siteMetadata()
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

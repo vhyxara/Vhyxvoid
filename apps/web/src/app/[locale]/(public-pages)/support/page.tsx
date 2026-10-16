@@ -1,7 +1,12 @@
+import type { Metadata } from 'next'
+
 import { SupportView } from '@/views/marketing/SupportView'
 import { getBootstrap } from '@/views/marketing/publicApi'
+import { routeMetadata } from '@/views/seo/seo'
 
-export const metadata = { title: 'Support — VhyxVoid' }
+export async function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('/support')
+}
 
 export default async function SupportPage() {
   const { settings } = await getBootstrap()

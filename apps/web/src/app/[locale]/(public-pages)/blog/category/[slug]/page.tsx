@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { BlogIndexView } from '@/views/blog/BlogViews'
 import { blogMetadata, pageParam } from '@/views/blog/meta'
 import { getBlogPosts, getBlogTaxonomy } from '@/views/marketing/publicApi'
+import { reportNotFound } from '@/views/seo/seo'
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string | string[] }> }
 
@@ -28,7 +29,10 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function CategoryPage(props: Props) {
   const [hit, taxonomy] = await Promise.all([load(props), getBlogTaxonomy()])
 
-  if (!hit) notFound()
+  if (!hit) {
+    await reportNotFound(`/blog/category/${(await props.params).slug}`)
+    notFound()
+  }
 
   return (
     <BlogIndexView

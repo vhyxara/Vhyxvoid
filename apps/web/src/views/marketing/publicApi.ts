@@ -31,6 +31,19 @@ export type PublicSettings = Record<string, unknown> & {
   'general.statusPageUrl'?: string
   'general.twitterUrl'?: string
   'general.githubUrl'?: string
+  'seo.siteUrl'?: string
+  'seo.titleTemplate'?: string
+  'seo.defaultDescription'?: string
+  'seo.defaultImage'?: string
+  'seo.generatedImages'?: boolean
+  'seo.twitterHandle'?: string
+  'seo.indexing'?: boolean
+  'seo.robotsDisallow'?: string[]
+  'seo.organizationLogo'?: string
+  'seo.socialProfiles'?: string
+  'seo.googleVerification'?: string
+  'seo.bingVerification'?: string
+  'seo.yandexVerification'?: string
 }
 
 export type Bootstrap = {
@@ -146,10 +159,14 @@ export async function getBlogTaxonomy(): Promise<BlogTaxonomy> {
 }
 
 /**
- * The website's own address, for feeds, sitemaps and canonical links: SITE_URL,
- * else the address this request came in on.
+ * The website's own address, for feeds, sitemaps and canonical links: the
+ * SEO screen's site address, else SITE_URL, else the address this request
+ * came in on.
  */
 export async function siteUrl(): Promise<string> {
+  const { settings } = await getBootstrap()
+
+  if (settings['seo.siteUrl']) return settings['seo.siteUrl'].replace(/\/$/, '')
   if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '')
   const { headers } = await import('next/headers')
   const h = await headers()
@@ -159,8 +176,18 @@ export async function siteUrl(): Promise<string> {
   return `${proto}://${host}`
 }
 
-export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[] }
+export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[]; hidden?: string[] }
 
 export async function getSitemap(): Promise<SitemapData> {
-  return (await get<SitemapData>('/public/sitemap')) ?? { pages: [], posts: [], categories: [], tags: [] }
+  return (await get<SitemapData>('/public/sitemap')) ?? { pages: [], posts: [], categories: [], tags: [], hidden: [] }
 }
+
+export type SeoOverride = { path: string; title: string | null; description: string | null; imageUrl: string | null; noindex: boolean }
+export type SeoData = { pages: SeoOverride[]; redirects: Array<{ from: string; to: string; permanent: boolean }> }
+
+/** Per-address SEO set on the admin SEO screen, and the redirects. */
+export async function getSeo(): Promise<SeoData> {
+  return (await get<SeoData>('/public/seo')) ?? { pages: [], redirects: [] }
+}
+
+export const API_BASE = API

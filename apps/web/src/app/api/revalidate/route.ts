@@ -1,5 +1,5 @@
 // POST /api/revalidate — the API calls this after an admin publishes,
-// unpublishes or deletes content or saves settings, so the site shows the
+// unpublishes or deletes content, saves settings or changes SEO, so the site shows the
 // change at once instead of after its 60-second cache
 // (apps/api/src/modules/platform/content/revalidate.ts).
 //
@@ -11,6 +11,7 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 
 import { CMS_TAG } from '@/views/marketing/publicApi'
+import { markRedirectsStale } from '@/views/seo/redirects'
 
 const ALLOWED_TAGS = new Set([CMS_TAG])
 
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
 
   // expire: 0: the next request renders fresh content, rather than serving the cached copy once more.
   for (const tag of tags) revalidateTag(tag, { expire: 0 })
+  // Redirects are kept by the proxy, outside Next's cache: fetch them again on the next request.
+  markRedirectsStale()
 
   return NextResponse.json({ revalidated: tags })
 }

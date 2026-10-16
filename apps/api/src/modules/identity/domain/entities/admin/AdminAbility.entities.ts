@@ -267,4 +267,6 @@ export const SYSTEM_ABILITIES = {
   BLOG_UPDATE: { action: 'blog.update', category: 'content', description: 'Write and edit blog posts; create, rename and merge categories and tags' },
   BLOG_PUBLISH: { action: 'blog.publish', category: 'content', description: 'Publish, schedule and unpublish blog posts' },
   BLOG_DELETE: { action: 'blog.delete', category: 'content', description: 'Delete blog posts, categories and tags' },
+  SEO_READ: { action: 'seo.read', category: 'content', description: 'View SEO: the audit, page overrides, redirects and missing addresses' },
+  SEO_UPDATE: { action: 'seo.update', category: 'content', description: 'Change SEO: page overrides, redirects, and dismiss missing addresses' },
 };

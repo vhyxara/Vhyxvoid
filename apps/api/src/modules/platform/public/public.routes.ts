@@ -61,11 +61,14 @@ export async function publicRoutes(fastify: FastifyInstance) {
       prisma.blogCategory.findMany({ where: { posts: { some: visible } }, select: { slug: true }, orderBy: { slug: "asc" } }),
       prisma.blogTag.findMany({ where: { posts: { some: { post: visible } } }, select: { slug: true }, orderBy: { slug: "asc" } }),
     ]);
+    // Addresses the SEO screen hides from search engines stay out of the sitemap too.
+    const hidden = new Set((await prisma.seoPage.findMany({ where: { noindex: true }, select: { path: true } })).map((p) => p.path));
     cache(reply, 300);
     return successResponse(reply, "Success", 200, {
-      pages: pages.map((p) => ({ slug: p.slug, updatedAt: p.publishedAt ?? p.updatedAt })),
-      posts,
-      categories: categories.map((c) => c.slug),
+      pages: pages.filter((p) => !hidden.has(`/${p.slug}`)).map((p) => ({ slug: p.slug, updatedAt: p.publishedAt ?? p.updatedAt })),
+      posts: posts.filter((p) => !hidden.has(`/blog/${p.slug}`)),
+      hidden: [...hidden],
+      categories: categories.map((c) => c.slug).filter((s) => !hidden.has(`/blog/category/${s}`)),
       tags: tags.map((t) => t.slug),
     });
   });

@@ -338,3 +338,27 @@ export type BlogPostInput = {
 }
 export type BlogCategoryRow = BlogTaxon & { description: string; postCount: number; createdAt: string }
 export type BlogTagRow = BlogTaxon & { postCount: number; createdAt: string }
+
+// ── SEO ──
+export type SeoIssue = { level: 'error' | 'warning' | 'info'; code: string; message: string; path?: string; fix?: 'defaults' | 'pages' | 'redirects' | 'not-found' }
+export type SeoAudit = {
+  score: number
+  counts: { error: number; warning: number; info: number }
+  issues: SeoIssue[]
+  pages: { total: number; live: number; noindex: number; withOverride: number }
+  redirects: number
+}
+export type SeoPageRow = {
+  path: string
+  kind: 'route' | 'page' | 'post' | 'category'
+  label: string
+  editHref: string | null
+  live: boolean
+  own: { title: string; description: string; image: string }
+  override: { id: string; title: string | null; description: string | null; imageUrl: string | null; noindex: boolean; updatedAt: string } | null
+  effective: { title: string; description: string; image: string; noindex: boolean; titleFrom: 'override' | 'page' | 'default'; descriptionFrom: 'override' | 'page' | 'default' }
+  issues: SeoIssue[]
+}
+export type SeoLimits = { title: number; description: number; descriptionMin: number }
+export type SeoRedirectRow = { id: string; fromPath: string; toUrl: string; permanent: boolean; hits: number; lastHitAt: string | null; note: string; createdAt: string; updatedAt: string }
+export type SeoNotFoundRow = { id: string; path: string; hits: number; referrer: string | null; firstAt: string; lastAt: string }

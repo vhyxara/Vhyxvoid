@@ -1,15 +1,16 @@
 // Next Imports
 import type { Metadata } from 'next'
 
+import { routeMetadata } from '@/views/seo/seo'
+
 // Component Imports
 
 // Server Action Imports
 import { getSystemMode } from '@core/utils/serverHelpers'
 import Register from '@/views/auth/Register'
 
-export const metadata: Metadata = {
-  title: 'Register',
-  description: 'Create an account'
+export async function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('/register')
 }
 
 const RegisterPage = async () => {

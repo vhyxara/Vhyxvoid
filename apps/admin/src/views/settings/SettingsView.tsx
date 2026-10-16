@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { PageHeader, SettingsSection } from '@vhyxui/blocks'
-import { Alert, Badge, Button, Input, SelectField, Skeleton, Switch, Text, TextareaField, toast } from '@vhyxui/react'
+import { Alert, Badge, Button, Input, SelectField, Skeleton, Switch, Text, Textarea, TextareaField, toast } from '@vhyxui/react'
 
 import { platformKeys, useSettings } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
@@ -13,12 +13,43 @@ import type { SettingView } from '@/api/platform/types'
 import { formatDate } from '@/components/ui/format'
 import { useQueryClient } from '@tanstack/react-query'
 
-// Edited on the Plans & pricing page instead.
-const PLANS_PAGE_GROUPS = new Set(['billing', 'plans'])
+// Edited on the Plans & pricing and SEO screens instead.
+const PLANS_PAGE_GROUPS = new Set(['billing', 'plans', 'seo'])
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
-function SettingInput({ s, value, onChange }: { s: SettingView; value: unknown; onChange: (v: unknown) => void }) {
+/**
+ * One entry per line. The text is kept as typed (blank lines included, so
+ * Enter starts a new line); the setting gets the trimmed, non-empty lines.
+ */
+function StringListInput({ s, value, onChange }: { s: SettingView; value: unknown; onChange: (v: unknown) => void }) {
+  const list = Array.isArray(value) ? (value as string[]) : []
+  const [text, setText] = useState(list.join('\n'))
+  const clean = (t: string) => t.split('\n').map(v => v.trim()).filter(Boolean)
+
+  // Saved, discarded or reset elsewhere: show the new list.
+  useEffect(() => {
+    if (!same(clean(text), list)) setText(list.join('\n'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(list)])
+
+  return (
+    <Textarea
+      name={s.key}
+      aria-label={`${s.label} (one per line)`}
+      placeholder='One per line'
+      rows={3}
+      value={text}
+      onChange={e => {
+        setText(e.target.value)
+        onChange(clean(e.target.value))
+      }}
+      style={{ inlineSize: '100%' }}
+    />
+  )
+}
+
+export function SettingInput({ s, value, onChange }: { s: SettingView; value: unknown; onChange: (v: unknown) => void }) {
   switch (s.type) {
     case 'boolean':
       return <Switch checked={Boolean(value)} onCheckedChange={onChange} aria-label={s.label} />
@@ -37,19 +68,11 @@ function SettingInput({ s, value, onChange }: { s: SettingView; value: unknown; 
       )
     case 'enum':
       return <SelectField name={s.key} label={s.label} size='sm' value={String(value)} onValueChange={onChange} options={(s.options ?? []).map(o => ({ value: o, label: o }))} />
+    // The setting's label is shown beside the input, so the textareas carry it as aria-label only.
     case 'text':
-      return <TextareaField name={s.key} label={s.label} rows={3} value={String(value ?? '')} onChange={e => onChange(e.target.value)} />
+      return <Textarea name={s.key} aria-label={s.label} rows={3} maxLength={s.maxLength} value={String(value ?? '')} onChange={e => onChange(e.target.value)} style={{ inlineSize: '100%' }} />
     case 'stringList':
-      return (
-        <TextareaField
-          name={s.key}
-          label={s.label}
-          hint='One per line.'
-          rows={3}
-          value={Array.isArray(value) ? value.join('\n') : ''}
-          onChange={e => onChange(e.target.value.split('\n').map(v => v.trim()).filter(Boolean))}
-        />
-      )
+      return <StringListInput s={s} value={value} onChange={onChange} />
     default:
       return <Input aria-label={s.label} type={s.type === 'email' ? 'email' : s.type === 'url' ? 'url' : 'text'} value={String(value ?? '')} maxLength={s.maxLength} onChange={e => onChange(e.target.value)} size='sm' />
   }
@@ -142,7 +165,7 @@ export function SettingsView() {
 
       <Alert variant='info' title='Billing, pricing and plan limits'>
         Free or paid mode, the default plan, plan limits and Stripe prices are on{' '}
-        <Link href='/plans'>Plans &amp; pricing</Link>.
+        <Link href='/plans'>Plans &amp; pricing</Link>. Search engine and link preview settings are on <Link href='/seo'>SEO</Link>.
       </Alert>
 
       {Object.entries(byGroup).filter(([group]) => !PLANS_PAGE_GROUPS.has(group)).map(([group, settings]) => (

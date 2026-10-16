@@ -10,6 +10,10 @@ import { getSystemMode } from '@core/utils/serverHelpers'
 
 type Props = ChildrenType
 
+// Password resets, email checks and invitations aren't search results. Sign-in,
+// sign-up and public API docs say otherwise on their own pages.
+export const metadata = { robots: { index: false, follow: false } }
+
 const Layout = async (props: Props) => {
   const { children } = props
 

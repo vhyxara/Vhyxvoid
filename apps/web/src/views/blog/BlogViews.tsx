@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import type { BlogList, BlogPost, BlogSummary, BlogTaxonomy } from '@/views/marketing/publicApi'
+import { JsonLd, breadcrumbJsonLd, scriptJson } from '@/views/seo/JsonLd'
 import styles from './blog.module.css'
 
 export const formatPostDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
@@ -167,13 +168,17 @@ export function postJsonLd(post: BlogPost, site: string) {
   }
 }
 
-/** JSON for a <script> tag: "<" escaped so a title can't close the tag. */
-export const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c')
+export { scriptJson }
 
 export function BlogPostView({ post, related, site }: { post: BlogPost; related: BlogSummary[]; site: string }) {
   return (
     <section className={styles.page}>
-      <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: scriptJson(postJsonLd(post, site)) }} />
+      <JsonLd
+        data={[
+          postJsonLd(post, site),
+          breadcrumbJsonLd(site, [{ name: 'Home', path: '/' }, { name: 'Blog', path: '/blog' }, ...(post.category ? [{ name: post.category.name, path: `/blog/category/${post.category.slug}` }] : []), { name: post.title, path: `/blog/${post.slug}` }])
+        ]}
+      />
       <article>
         <div className={styles.narrow}>
           <ol className={styles.crumbs}>

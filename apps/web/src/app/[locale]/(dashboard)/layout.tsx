@@ -17,6 +17,9 @@ import { getSystemMode } from '@core/utils/serverHelpers'
 import { AuthGuard } from '@/api/domain/identity/guard/AuthGuard'
 import { FeedbackButton } from '@/views/feedback/FeedbackButton'
 
+// The signed-in app is never a search result.
+export const metadata = { robots: { index: false, follow: false } }
+
 // Step 3 of the VhyxUI migration replaced VerticalLayout/Navigation/Navbar/
 // VerticalFooter (the vendored @menu + @layouts Vuexy nav system) with
 // DashboardShell (new, VhyxUI-based). LayoutWrapper is KEPT — it turned out

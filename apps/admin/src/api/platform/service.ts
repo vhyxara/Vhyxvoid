@@ -27,7 +27,12 @@ import type {
   BlogPostDetail,
   BlogPostInput,
   BlogPostRow,
-  BlogTagRow
+  BlogTagRow,
+  SeoAudit,
+  SeoLimits,
+  SeoNotFoundRow,
+  SeoPageRow,
+  SeoRedirectRow
 } from './types'
 
 const list = <T>(url: string) => (params: ListParams = {}) =>
@@ -93,6 +98,18 @@ export const platformService = {
   contactMessages: list<ContactMessage>('/admin/contact-messages'),
   setContactStatus: (id: string, status: ContactMessage['status']) => patch<ContactMessage>(`/admin/contact-messages/${id}`, { status }),
   deleteContactMessage: (id: string) => del(`/admin/contact-messages/${id}`),
+
+  seoAudit: () => get<SeoAudit>('/admin/seo/audit'),
+  seoPages: () => get<{ items: SeoPageRow[]; limits: SeoLimits }>('/admin/seo/pages'),
+  saveSeoPage: (body: { path: string; title?: string; description?: string; imageUrl?: string; noindex: boolean }) => put<unknown>('/admin/seo/pages', body),
+  seoRedirects: list<SeoRedirectRow>('/admin/seo/redirects'),
+  createSeoRedirect: (body: { from: string; to: string; permanent: boolean; note?: string }) => post<SeoRedirectRow>('/admin/seo/redirects', body),
+  updateSeoRedirect: (id: string, body: { from?: string; to?: string; permanent?: boolean; note?: string }) => patch<SeoRedirectRow>(`/admin/seo/redirects/${id}`, body),
+  deleteSeoRedirect: (id: string) => del(`/admin/seo/redirects/${id}`),
+  importSeoRedirects: (lines: string) => post<{ created: number; updated: number; errors: Array<{ line: number; message: string }> }>('/admin/seo/redirects/bulk', { lines }),
+  seoNotFound: list<SeoNotFoundRow>('/admin/seo/not-found'),
+  dismissSeoNotFound: (id: string) => del(`/admin/seo/not-found/${id}`),
+  clearSeoNotFound: () => del<{ count: number }>('/admin/seo/not-found'),
 
   blogPosts: list<BlogPostRow>('/admin/blog/posts'),
   blogPost: (id: string) => get<BlogPostDetail>(`/admin/blog/posts/${id}`),

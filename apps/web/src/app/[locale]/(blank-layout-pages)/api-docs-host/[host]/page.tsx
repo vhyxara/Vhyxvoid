@@ -6,7 +6,8 @@ import { DocsByHost } from '@/views/apidocs/PublicDocsView'
 // (the hub sets x-vhyxvoid-docs-host; see src/proxy.ts).
 type Props = { params: Promise<{ host: string }> }
 
-export const metadata: Metadata = { title: 'API docs' }
+// Customers' public API docs may be found by search engines.
+export const metadata: Metadata = { title: 'API docs', robots: { index: true, follow: true } }
 
 export default async function Page({ params }: Props) {
   const { host } = await params

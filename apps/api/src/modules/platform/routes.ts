@@ -10,6 +10,8 @@ import { adminContentRoutes, adminSettingsRoutes } from "./admin/admin.settings-
 import { adminContactRoutes, publicContactRoutes } from "./contact/contact.routes";
 import { adminBlogRoutes } from "./blog/blog.routes";
 import { publicBlogRoutes } from "./blog/blog.public.routes";
+import { adminSeoRoutes } from "./seo/seo.routes";
+import { publicSeoRoutes } from "./seo/seo.public.routes";
 import { publicRoutes } from "./public/public.routes";
 import { inspectorRoutes } from "./inspector/inspector.routes";
 import { tunnelAccessRoutes } from "./tunnel-access/tunnelAccess.routes";
@@ -74,6 +76,8 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(adminContactRoutes, { prefix: "/api/v1/admin/contact-messages" });
   await server.register(adminBlogRoutes, { prefix: "/api/v1/admin/blog" });
   await server.register(publicBlogRoutes, { prefix: "/api/v1/public/blog" });
+  await server.register(adminSeoRoutes, { prefix: "/api/v1/admin/seo" });
+  await server.register(publicSeoRoutes, { prefix: "/api/v1/public/seo" });
   await server.register(inspectorRoutes, { prefix: "/api/v1/inspector", hub });
   await server.register(tunnelAccessRoutes, { prefix: "/api/v1/tunnel-access", hub });
   await server.register(inboxRoutes, { prefix: "/api/v1/inbox", hub });

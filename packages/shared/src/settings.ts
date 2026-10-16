@@ -30,7 +30,7 @@ export interface SettingDefinition {
   validate?: (value: unknown) => string | undefined;
 }
 
-export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features";
+export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo";
 
 export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: string }> = {
   general: { label: "General", description: "Product name and public links." },
@@ -42,6 +42,7 @@ export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: 
   tunnels: { label: "Tunnels", description: "Tunnel behaviour for every account." },
   support: { label: "Support", description: "Where users get help." },
   features: { label: "Features", description: "Turn product features on or off." },
+  seo: { label: "SEO", description: "How the website appears in search results and link previews. Edited on the SEO screen." },
 };
 
 // ── Plan limit overrides ──────────────────────────────────────────────────────
@@ -195,6 +196,20 @@ export const SETTING_DEFINITIONS = {
   "support.captchaSiteKey": { group: "support", label: "Captcha site key", description: "Cloudflare Turnstile site key for the contact form. The form shows the check when this is set; the API requires it when its TURNSTILE_SECRET_KEY is set. Set both, from the same Turnstile widget.", type: "string", default: "", public: true },
   "support.contactForm": { group: "support", label: "Contact form", description: "Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead.", type: "boolean", default: true, public: true },
 
+  "seo.siteUrl": { group: "seo", label: "Site address", description: "The website's public address, e.g. https://www.vhyxvoid.com. Used for canonical links, the sitemap, feeds and share images. Empty: the website's SITE_URL, else the address of each request.", type: "url", default: "", public: true, maxLength: 200, validate: (v) => (v === "" || /^https?:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(String(v)) ? undefined : "Just the origin, e.g. https://www.example.com (no path)") },
+  "seo.titleTemplate": { group: "seo", label: "Title template", description: "How page titles are built; %s is the page's own title. Empty: \"%s — <product name>\". The home page uses its title as is.", type: "string", default: "", public: true, maxLength: 80, validate: (v) => (v === "" || String(v).includes("%s") ? undefined : "Must contain %s, where the page title goes") },
+  "seo.defaultDescription": { group: "seo", label: "Default description", description: "For pages without a description of their own. Around 150 characters show in search results.", type: "text", default: "", public: true, maxLength: 300 },
+  "seo.defaultImage": { group: "seo", label: "Default share image", description: "Shown in link previews (Slack, X, LinkedIn…) for pages without an image of their own. 1200×630. Empty: an image is generated with the page title.", type: "url", default: "", public: true, maxLength: 500 },
+  "seo.generatedImages": { group: "seo", label: "Generate share images", description: "Pages without an image get one made from their title and the product name. Off: they use the default share image, or none.", type: "boolean", default: true, public: true },
+  "seo.twitterHandle": { group: "seo", label: "X / Twitter handle", description: "The site's account, e.g. @vhyxvoid, credited on link previews in X.", type: "string", default: "", public: true, maxLength: 16, validate: (v) => (v === "" || /^@?[A-Za-z0-9_]{1,15}$/.test(String(v)) ? undefined : "An X handle such as @vhyxvoid") },
+  "seo.indexing": { group: "seo", label: "Let search engines index the site", description: "Off: every page says noindex and robots.txt asks crawlers to stay out. For staging copies, or before launch.", type: "boolean", default: true, public: true },
+  "seo.robotsDisallow": { group: "seo", label: "Paths crawlers should skip", description: "Added to robots.txt as Disallow lines, e.g. /internal. The signed-in app is always excluded.", type: "stringList", default: [], public: true, validate: (v) => ((v as string[]).every((p) => /^\/[^\s]*$/.test(p) && p.length <= 200) ? undefined : "Each entry is a path starting with /, e.g. /internal") },
+  "seo.organizationLogo": { group: "seo", label: "Organization logo", description: "A square logo (at least 112×112) for search engines' knowledge panels. Empty: none is declared.", type: "url", default: "", public: true, maxLength: 500 },
+  "seo.socialProfiles": { group: "seo", label: "Other profiles", description: "One URL per line (LinkedIn, YouTube…), declared as the organization's profiles. The X and GitHub URLs under General are included automatically.", type: "text", default: "", public: true, maxLength: 2000, validate: (v) => (String(v).split(/\n/).map((l) => l.trim()).filter(Boolean).every((l) => /^https:\/\/\S+$/.test(l)) ? undefined : "One https:// URL per line") },
+  "seo.googleVerification": { group: "seo", label: "Google Search Console code", description: "The content of the google-site-verification meta tag Search Console gives you (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
+  "seo.bingVerification": { group: "seo", label: "Bing Webmaster code", description: "The content of the msvalidate.01 meta tag (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
+  "seo.yandexVerification": { group: "seo", label: "Yandex Webmaster code", description: "The content of the yandex-verification meta tag (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
+
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
@@ -256,6 +271,8 @@ export function validateSettingValue(key: string, value: unknown): { ok: true; v
       if (!Array.isArray(value) || value.some((v) => typeof v !== "string")) return { ok: false, error: "Must be a list of text values" };
       const cleaned = [...new Set(value.map((v: string) => v.trim().toLowerCase()).filter(Boolean))];
       if (cleaned.length > 500) return { ok: false, error: "At most 500 entries" };
+      const listErr = def.validate?.(cleaned);
+      if (listErr) return { ok: false, error: listErr };
       return { ok: true, value: cleaned };
     }
     case "json": {

@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 import createMiddleware from 'next-intl/middleware'
 
 import { routing } from '@/i18n/routing'
+import { redirectFor, redirectRules, reportRedirectHit } from '@/views/seo/redirects'
 
 // ── Route classification ───────────────────────────────────────────────────
 // With localePrefix: 'as-needed', default locale (en) has NO prefix.
@@ -146,7 +147,7 @@ const intlMiddleware = createMiddleware(routing)
 
 // ── Middleware ────────────────────────────────────────────────────────────
 
-export default function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // A customer's docs domain, forwarded by the hub (apps/hub DocsDomain.handler):
@@ -165,6 +166,17 @@ export default function middleware(request: NextRequest) {
   // it would rewrite /docs to /en/docs, and the docs rewrite would no longer match.
   if (process.env.DOCS_ORIGIN_RESOLVED && (pathname === '/docs' || pathname.startsWith('/docs/'))) {
     return NextResponse.next()
+  }
+
+  // 0b. Redirects set on the admin SEO screen (old addresses, moved pages).
+  const seg = pathname.split('/')[1]
+  const locale = (routing.locales as readonly string[]).includes(seg) ? seg : undefined
+  const moved = redirectFor(await redirectRules(), pathname, request.nextUrl.search, locale)
+
+  if (moved) {
+    reportRedirectHit(moved.from)
+
+    return NextResponse.redirect(new URL(moved.location, request.url), moved.status)
   }
 
   // 1. Rewrite bare backend-generated paths to default locale
@@ -221,5 +233,7 @@ export default function middleware(request: NextRequest) {
 
 export const config = {
   // /api/* are the site's own route handlers (revalidate), not locale pages.
-  matcher: ['/((?!api/|_next|_vercel|.*\\..*).*)', '/']
+  // Static files (by extension) skip the proxy. Other dotted paths, such as an
+  // old site's /about.html or /index.php, go through it so they can be redirected.
+  matcher: ['/((?!api/|_next|_vercel|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|txt|xml|json|webmanifest|woff2?|ttf|otf|eot|mp4|webm|mp3|pdf|zip)$).*)', '/']
 }

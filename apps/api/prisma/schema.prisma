@@ -1989,3 +1989,54 @@ model BlogPostTag {
   @@map("blog_post_tags")
 }
 
+
+/// SEO set by an admin for one address of the website (SEO screen → Pages).
+/// Empty fields keep what the page itself says (its content, post or code).
+model SeoPage {
+  id          String   @id @default(uuid())
+  /// A site path such as "/", "/pricing", "/about" or "/blog/my-post".
+  path        String   @unique
+  title       String?
+  description String?
+  imageUrl    String?
+  /// Keep this address out of search results (and the sitemap).
+  noindex     Boolean  @default(false)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("seo_pages")
+}
+
+/// An old address the website answers with a redirect (SEO screen → Redirects).
+model SeoRedirect {
+  id          String    @id @default(uuid())
+  /// A site path, matched exactly; ending in "/*" matches everything under it.
+  fromPath    String    @unique
+  /// A site path or an https URL. With a "/*" source, a "/*" target keeps the rest of the path.
+  toUrl       String
+  permanent   Boolean   @default(true)
+  hits        Int       @default(0)
+  lastHitAt   DateTime?
+  note        String    @default("")
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("seo_redirects")
+}
+
+/// Addresses visitors asked for that don't exist, reported by the website,
+/// so an admin can redirect them (SEO screen → Not found).
+model SeoNotFound {
+  id        String   @id @default(uuid())
+  path      String   @unique
+  hits      Int      @default(1)
+  referrer  String?
+  firstAt   DateTime @default(now())
+  lastAt    DateTime @default(now())
+
+  @@index([lastAt])
+  @@index([hits])
+  @@map("seo_not_found")
+}
