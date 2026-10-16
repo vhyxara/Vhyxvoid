@@ -12,11 +12,15 @@ export async function publicRoutes(fastify: FastifyInstance) {
   const cache = (reply: { header(k: string, v: string): unknown }, seconds = 30) =>
     reply.header("Cache-Control", `public, max-age=${seconds}, stale-while-revalidate=${seconds * 4}`);
 
-  /** Everything the site shell needs in one request: public settings + footer links. */
+  /**
+   * Everything the site shell needs in one request: public settings and the
+   * footer menu. `footer` (pages flagged for the footer) is what websites from
+   * before the footer menu read; current ones use `footerMenu`.
+   */
   fastify.get("/bootstrap", async (_request, reply) => {
     cache(reply);
-    const [settings, footer] = await Promise.all([fastify.platformSettings.publicValues(), fastify.platformContent.footerLinks()]);
-    return successResponse(reply, "Success", 200, { settings, footer });
+    const [settings, footer, footerMenu] = await Promise.all([fastify.platformSettings.publicValues(), fastify.platformContent.footerLinks(), fastify.platformContent.footerMenu()]);
+    return successResponse(reply, "Success", 200, { settings, footer, footerMenu });
   });
 
   fastify.get("/settings", async (_request, reply) => {

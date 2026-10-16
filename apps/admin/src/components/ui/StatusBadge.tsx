@@ -6,6 +6,8 @@ type Variant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'outline'
 
 const MAP: Record<string, Variant> = {
   ACTIVE: 'success',
+  NEW: 'info',
+  READ: 'outline',
   CONNECTED: 'success',
   PUBLISHED: 'success',
   PAID: 'success',

@@ -1066,6 +1066,32 @@ model ContentEntry {
   @@map("content_entries")
 }
 
+/// A message sent through the website's contact form (a {{contact-form}} block
+/// on a CMS page). Read and triaged in the admin panel's Messages screen.
+model ContactMessage {
+  id        String               @id @default(uuid())
+  name      String
+  email     String
+  subject   String               @default("")
+  message   String
+  /// Slug of the page the form was on.
+  page      String               @default("")
+  status    ContactMessageStatus @default(NEW)
+  ip        String?
+  userAgent String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@map("contact_messages")
+}
+
+enum ContactMessageStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
 /// Snapshot of an entry each time it is published (for history and rollback).
 model ContentRevision {
   id          String   @id @default(uuid())

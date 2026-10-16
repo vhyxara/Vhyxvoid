@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { MarketingLayout } from '@vhyxui/blocks'
 import { Button } from '@vhyxui/react'
 
+import type { FooterMenu } from '@vhyxvoid/content'
+
 import type { Bootstrap } from './publicApi'
 import styles from './marketing.module.css'
 
@@ -30,12 +32,19 @@ export function AnnouncementBanner({ settings }: { settings: Bootstrap['settings
   )
 }
 
+/** Footer menu columns for the footer component; empty columns are left out. */
+export function footerColumns(menu: FooterMenu) {
+  return menu.columns
+    .filter(c => c.links.length > 0)
+    .map(c => ({ title: c.title, links: c.links.map(l => (l.external ? { label: l.label, href: l.href, external: true } : { label: l.label, href: l.href })) }))
+}
+
 export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; children: ReactNode }) {
   const s = bootstrap.settings
   const name = s['general.productName'] || 'VhyxVoid'
   const docs = s['support.docsUrl'] || '/docs'
   const signups = s['auth.signupsEnabled'] !== false
-  const group = (g: string) => bootstrap.footer.filter(f => f.group === g).map(f => ({ label: f.title, href: `/p/${f.slug}` }))
+  const group = (g: string) => bootstrap.footer.filter(f => f.group === g).map(f => ({ label: f.title, href: `/${f.slug}` }))
   const external = (label: string, href?: string) => (href ? [{ label, href, external: true }] : [])
 
   return (
@@ -69,20 +78,24 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
           brand: <Brand name={name} />,
           tagline: s['general.tagline'] || 'Your localhost, on the internet. Instantly.',
           linkAs: Link as any,
-          columns: [
-            { title: 'Product', links: [{ label: 'Features', href: '/#features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Docs', href: docs }, ...group('product')] },
-            {
-              title: 'Company',
-              links: [
-                { label: 'Support', href: '/support' },
-                ...external('Status', s['general.statusPageUrl']),
-                ...external('GitHub', s['general.githubUrl']),
-                ...external('X / Twitter', s['general.twitterUrl']),
-                ...group('company')
-              ]
-            },
-            { title: 'Legal', links: group('legal') }
-          ],
+          // The footer menu edited in the admin panel; an API from before it
+          // sends none, and then the footer is built as it used to be.
+          columns: bootstrap.footerMenu
+            ? footerColumns(bootstrap.footerMenu)
+            : [
+                { title: 'Product', links: [{ label: 'Features', href: '/#features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Docs', href: docs }, ...group('product')] },
+                {
+                  title: 'Company',
+                  links: [
+                    { label: 'Support', href: '/support' },
+                    ...external('Status', s['general.statusPageUrl']),
+                    ...external('GitHub', s['general.githubUrl']),
+                    ...external('X / Twitter', s['general.twitterUrl']),
+                    ...group('company')
+                  ]
+                },
+                { title: 'Legal', links: group('legal') }
+              ],
           legal: `© ${new Date().getFullYear()} ${name}. All rights reserved.`
         }}
       >

@@ -58,16 +58,53 @@ export const pricingSchema = z.object({
 });
 
 export const pageSchema = z.object({
-  /** Markdown. Rendered with a safe subset (no raw HTML). */
+  /** Markdown. Rendered with a safe subset (no raw HTML). A line holding only
+   * {{contact-form}} renders the contact form there. */
   body: z.string().max(100_000),
+  /** Used only until a footer menu is published (the built-in footer). */
   showInFooter: z.boolean().default(false),
   footerGroup: z.enum(["product", "company", "legal"]).default("legal"),
+});
+
+// A footer link's href: an http(s) URL, mailto:, or a path on this site
+// ("/pricing", "/#features"). "//host" and "/\host" are other sites to a
+// browser, so they are refused as paths.
+const footerHref = text(500).refine((v) => /^(https?:\/\/[^\s]+|mailto:[^\s]+|\/(?![\/\\])[^\s]*)$/i.test(v), "Use https://…, mailto:… or a path starting with /");
+const itemId = z.string().trim().min(1).max(40);
+
+export const footerSchema = z.object({
+  columns: z
+    .array(
+      z.object({
+        id: itemId,
+        title: text(40),
+        links: z
+          .array(
+            z
+              .object({
+                id: itemId,
+                label: text(60).min(1, "Give the link a label"),
+                type: z.enum(["page", "url"]),
+                slug: text(80).optional(),
+                href: footerHref.optional(),
+                newTab: z.boolean().default(false),
+              })
+              .superRefine((l, ctx) => {
+                if (l.type === "page" && !l.slug) ctx.addIssue({ code: "custom", path: ["slug"], message: "Pick a page" });
+                if (l.type === "url" && !l.href) ctx.addIssue({ code: "custom", path: ["href"], message: "Enter a URL" });
+              }),
+          )
+          .max(12),
+      }),
+    )
+    .max(6),
 });
 
 export const CONTENT_KINDS = {
   landing: { label: "Landing page", schema: landingSchema },
   pricing: { label: "Pricing page", schema: pricingSchema },
   page: { label: "Page (markdown)", schema: pageSchema },
+  footer: { label: "Footer menu", schema: footerSchema },
 } as const;
 
 export type ContentKind = keyof typeof CONTENT_KINDS;

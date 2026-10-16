@@ -25,7 +25,7 @@ export default fp(
   async function platformPlugin(fastify: FastifyInstance) {
     const prisma = prismaOf(fastify);
     const settings = new SettingsService(prisma);
-    const content = new ContentService(prisma);
+    const content = new ContentService(prisma, settings);
     fastify.decorate("platformSettings", settings);
     fastify.decorate("platformContent", content);
 

@@ -5,25 +5,23 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-
 import { PageHeader } from '@vhyxui/blocks'
-import { Alert, Button, Grid, SelectField, Skeleton, Switch, Table, Tabs, Text, TextareaField, TextField, toast } from '@vhyxui/react'
+import { Alert, Button, Skeleton, Switch, Table, Tabs, Text, TextareaField, TextField, toast } from '@vhyxui/react'
 
 import { usePlatformDetail, usePlatformMutation } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import { ReasonDialog } from '@/components/ui/ReasonDialog'
-import { Section } from '@/components/ui/Section'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@/components/ui/format'
+import { FooterEditor } from './FooterEditor'
+import { RichTextEditor } from './RichTextEditor'
 import { StructuredEditor } from './StructuredEditor'
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
+/** Where an entry shows on the website (the footer shows on every page; the homepage is a good place to look). */
 function publicPath(kind: string, slug: string) {
-  if (slug === 'home') return '/'
-  if (kind === 'page') return `/p/${slug}`
+  if (slug === 'home' || kind === 'footer') return '/'
 
   return `/${slug}`
 }
@@ -107,28 +105,14 @@ export function ContentEditorView({ id }: { id: string }) {
 
         <Tabs.Content value='content'>
           {entry.kind === 'page' ? (
-            <Grid minChildWidth='24rem' gap={4}>
-              <div className='flex flex-col gap-3'>
-                <TextareaField name='body' label='Markdown' rows={24} value={data.body ?? ''} onChange={e => setData({ ...data, body: e.target.value })} style={{ fontFamily: 'var(--vhyx-font-mono, monospace)' }} />
-                <label className='flex items-center gap-2'>
-                  <Switch checked={!!data.showInFooter} onCheckedChange={c => setData({ ...data, showInFooter: c })} aria-label='Show in footer' />
-                  <Text size='sm'>Link from the website footer</Text>
-                </label>
-                <SelectField
-                  name='footerGroup'
-                  label='Footer column'
-                  size='sm'
-                  value={data.footerGroup ?? 'company'}
-                  onValueChange={v => setData({ ...data, footerGroup: v })}
-                  options={[{ value: 'product', label: 'Product' }, { value: 'company', label: 'Company' }, { value: 'legal', label: 'Legal' }]}
-                />
-              </div>
-              <Section title='Preview'>
-                <article className='markdown-preview' style={{ maxBlockSize: '70vh', overflow: 'auto' }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.body ?? ''}</ReactMarkdown>
-                </article>
-              </Section>
-            </Grid>
+            <div className='flex flex-col gap-3'>
+              <RichTextEditor value={data.body ?? ''} onChange={body => setData((d: any) => ({ ...d, body }))} />
+              <Text size='sm' tone='muted'>
+                To link this page from the website footer, add it in <Link href='/content'>Website content → Footer menu</Link>.
+              </Text>
+            </div>
+          ) : entry.kind === 'footer' ? (
+            <FooterEditor value={data} onChange={setData} />
           ) : (
             <div className='flex flex-col gap-3'>
               <label className='flex items-center gap-2'>
@@ -221,7 +205,7 @@ export function ContentEditorView({ id }: { id: string }) {
           open
           onOpenChange={o => !o && setConfirm(null)}
           title={`Publish "${entry.title}"?`}
-          description='The website shows this version within a minute. The note is optional.'
+          description='The website shows this version straight away (within a minute if the website refresh is not set up). The note is optional.'
           confirmLabel='Publish'
           requireReason={false}
           onConfirm={() => publish.mutateAsync('').then(() => toast.success('Published'))}

@@ -17,6 +17,8 @@ export async function adminSettingsRoutes(fastify: FastifyInstance) {
     const admin = getAdminContext(request);
     const { before, after } = await fastify.platformSettings.update(changes, admin.id);
     await audit(fastify, request, { action: "settings.updated", targetType: "SystemSetting", targetId: Object.keys(changes).join(","), before, after });
+    // The site shell (banner, footer, links) reads settings: refresh it now.
+    fastify.platformContent.invalidate("a settings change");
     return successResponse(reply, "Settings saved", 200, await fastify.platformSettings.list());
   });
 }

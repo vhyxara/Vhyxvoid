@@ -16,7 +16,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@/components/ui/format'
 import { useListState } from '@/components/ui/useListState'
 
-const KIND_LABEL: Record<string, string> = { landing: 'Landing page', pricing: 'Pricing page', page: 'Page' }
+const KIND_LABEL: Record<string, string> = { landing: 'Landing page', pricing: 'Pricing page', page: 'Page', footer: 'Footer menu' }
 
 function NewPageDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter()
@@ -32,7 +32,7 @@ function NewPageDialog({ open, onClose }: { open: boolean; onClose: () => void }
         <Dialog.Overlay />
         <Dialog.Content>
           <Dialog.Title>New page</Dialog.Title>
-          <Dialog.Description>A markdown page at /p/&lt;slug&gt; on the website, e.g. About, Security or a legal page.</Dialog.Description>
+          <Dialog.Description>A page at /&lt;slug&gt; on the website, e.g. About, Contact or a legal page. Slugs the website already uses (login, pricing, docs…) are refused.</Dialog.Description>
           <div className='flex flex-col gap-3 mbs-3'>
             <TextField name='title' label='Title' value={title} onChange={e => setTitle(e.target.value)} autoFocus />
             <TextField name='slug' label='Slug' hint='Lowercase letters, digits, - and /' value={slug || auto} onChange={e => setSlug(e.target.value)} />
@@ -73,7 +73,7 @@ export function ContentListView() {
     <div className='flex flex-col gap-6'>
       <PageHeader
         title='Website content'
-        description='Edit the landing page, pricing and other pages. Changes go live when you publish.'
+        description='Edit the landing page, pricing, pages and the footer menu. Changes go live when you publish.'
         actions={[
           <Button key='n' onClick={() => setNewOpen(true)}>
             New page
@@ -82,7 +82,7 @@ export function ContentListView() {
       />
 
       {available.length > 0 && (
-        <Alert variant='info' title='Built-in pages using default content'>
+        <Alert variant='info' title='Built-in content you can customize'>
           <div className='flex flex-wrap items-center gap-2 mbs-2'>
             {available.map(e => (
               <Button
@@ -131,7 +131,7 @@ export function ContentListView() {
               <div className='flex flex-col'>
                 <Link href={`/content/${r.id}`}>{r.title}</Link>
                 <Text size='xs' tone='muted'>
-                  /{r.slug === 'home' ? '' : r.kind === 'page' ? `p/${r.slug}` : r.slug}
+                  {r.slug === 'home' ? '/' : r.kind === 'footer' ? 'Footer of every page' : `/${r.slug}`}
                 </Text>
               </div>
             )

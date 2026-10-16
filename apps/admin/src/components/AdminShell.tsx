@@ -61,6 +61,7 @@ const NAV: Array<{ label: string; items: Array<{ label: string; href: string; ic
     items: [
       { label: 'Plans & pricing', href: '/plans', icon: <TagIcon /> },
       { label: 'Website content', href: '/content', icon: <FileTextIcon /> },
+      { label: 'Messages', href: '/messages', icon: <MessageSquareIcon /> },
       { label: 'Settings', href: '/settings', icon: <SettingsIcon /> },
       { label: 'Logs', href: '/logs', icon: <ActivityIcon /> }
     ]

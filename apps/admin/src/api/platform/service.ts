@@ -21,7 +21,8 @@ import type {
   UserDetail,
   UserRow,
   BillingSetup,
-  CustomDomainRow
+  CustomDomainRow,
+  ContactMessage
 } from './types'
 
 const list = <T>(url: string) => (params: ListParams = {}) =>
@@ -83,6 +84,10 @@ export const platformService = {
   unpublishContent: (id: string, archive = false) => post<ContentDetail>(`/admin/content/${id}/unpublish`, { archive }),
   restoreRevision: (id: string, revisionId: string) => post(`/admin/content/${id}/revisions/${revisionId}/restore`),
   deleteContent: (id: string) => del(`/admin/content/${id}`),
+
+  contactMessages: list<ContactMessage>('/admin/contact-messages'),
+  setContactStatus: (id: string, status: ContactMessage['status']) => patch<ContactMessage>(`/admin/contact-messages/${id}`, { status }),
+  deleteContactMessage: (id: string) => del(`/admin/contact-messages/${id}`),
 
   setAdminPassword: (adminId: string, newPassword: string) => post(`/admin/identity/users/${adminId}/password`, { newPassword })
 }

@@ -261,4 +261,6 @@ export const SYSTEM_ABILITIES = {
   CONTENT_UPDATE: { action: 'content.update', category: 'content', description: 'Create and edit website content drafts' },
   CONTENT_PUBLISH: { action: 'content.publish', category: 'content', description: 'Publish and unpublish website content' },
   CONTENT_DELETE: { action: 'content.delete', category: 'content', description: 'Delete website content' },
+  CONTACT_READ: { action: 'contact.read', category: 'content', description: 'Read messages sent through the website contact form' },
+  CONTACT_UPDATE: { action: 'contact.update', category: 'content', description: 'Mark contact messages read, archive and delete them' },
 };

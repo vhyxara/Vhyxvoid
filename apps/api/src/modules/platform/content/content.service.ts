@@ -2,6 +2,11 @@ import type { PrismaClient, ContentEntry } from "@/generated/prisma";
 import { ConflictError, NotFoundError, ValidationError } from "@/core/errors/error.format";
 import { CONTENT_KINDS, isContentKind, type ContentKind } from "./content.schemas";
 import { DEFAULT_CONTENT, defaultEntry } from "./content.defaults";
+import { FOOTER_SLUG, isReservedPageSlug, pagePath, type FooterContent, type FooterMenu } from "@vhyxvoid/content";
+import { notifyWebsite } from "./revalidate";
+
+/** The settings the built-in footer reads (SettingsService.get). */
+type SettingsReader = { get(key: "support.docsUrl" | "general.statusPageUrl" | "general.githubUrl" | "general.twitterUrl"): Promise<unknown> };
 
 export type PublicContent = {
   slug: string;
@@ -36,8 +41,19 @@ function parseData(kind: string, data: unknown) {
  */
 export class ContentService {
   private readonly publicCache = new Map<string, { at: number; value: PublicContent | null }>();
+  private footerCache: { at: number; value: FooterMenu } | null = null;
 
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly settings?: SettingsReader,
+  ) {}
+
+  /** After any change: drop cached reads here and on the website. */
+  invalidate(reason: string) {
+    this.publicCache.clear();
+    this.footerCache = null;
+    notifyWebsite(reason);
+  }
 
   // ── Public ────────────────────────────────────────────────────────────────
 
@@ -87,6 +103,69 @@ export class ContentService {
     return links;
   }
 
+  /**
+   * The footer the site renders. The published "footer" entry when there is
+   * one (links to pages that aren't live are left out), else the built-in
+   * footer: fixed product/company links, the Status/GitHub/X settings, and
+   * pages flagged "show in footer". Cached 30 s; any content change clears it.
+   */
+  async footerMenu(): Promise<FooterMenu> {
+    if (this.footerCache && Date.now() - this.footerCache.at < 30_000) return this.footerCache.value;
+    const row = await this.prisma.contentEntry.findUnique({ where: { slug: FOOTER_SLUG } });
+    let value: FooterMenu;
+    if (row && row.kind === "footer" && row.status === "PUBLISHED" && row.publishedData) {
+      const data = row.publishedData as FooterContent;
+      const columns: FooterMenu["columns"] = [];
+      for (const col of data.columns ?? []) {
+        const links: FooterMenu["columns"][number]["links"] = [];
+        for (const l of col.links ?? []) {
+          if (l.type === "page") {
+            const page = l.slug ? await this.getPublished(l.slug) : null;
+            if (page && page.kind === "page") links.push({ label: l.label, href: pagePath(page.slug), external: !!l.newTab });
+          } else if (l.href) {
+            links.push({ label: l.label, href: l.href, external: !!l.newTab });
+          }
+        }
+        if (links.length || col.title) columns.push({ title: col.title, links });
+      }
+      value = { columns, custom: true };
+    } else {
+      value = { columns: await this.builtInFooter(), custom: false };
+    }
+    this.footerCache = { at: Date.now(), value };
+    return value;
+  }
+
+  /** Today's footer, before an admin publishes their own. */
+  private async builtInFooter(): Promise<FooterMenu["columns"]> {
+    const setting = async (k: Parameters<SettingsReader["get"]>[0]) => {
+      const v = this.settings ? await this.settings.get(k).catch(() => "") : "";
+      return typeof v === "string" ? v : "";
+    };
+    const [docs, status, github, twitter, pages] = await Promise.all([setting("support.docsUrl"), setting("general.statusPageUrl"), setting("general.githubUrl"), setting("general.twitterUrl"), this.footerLinks()]);
+    const group = (g: string) => pages.filter((p) => p.group === g).map((p) => ({ label: p.title, href: pagePath(p.slug), external: false }));
+    const ext = (label: string, href: string) => (href ? [{ label, href, external: true }] : []);
+    return [
+      { title: "Product", links: [{ label: "Features", href: "/#features", external: false }, { label: "Pricing", href: "/pricing", external: false }, { label: "Docs", href: docs || "/docs", external: false }, ...group("product")] },
+      { title: "Company", links: [{ label: "Support", href: "/support", external: false }, ...ext("Status", status), ...ext("GitHub", github), ...ext("X / Twitter", twitter), ...group("company")] },
+      { title: "Legal", links: group("legal") },
+    ];
+  }
+
+  /** The built-in footer as an editable footer entry: the first draft of a custom one. */
+  private async footerDraft(): Promise<FooterContent> {
+    const pages = new Map((await this.footerLinks()).map((p) => [pagePath(p.slug), p.slug]));
+    let n = 0;
+    const id = () => `l${++n}`;
+    return {
+      columns: (await this.builtInFooter()).map((c, i) => ({
+        id: `c${i + 1}`,
+        title: c.title,
+        links: c.links.map((l) => (pages.has(l.href) ? { id: id(), label: l.label, type: "page" as const, slug: pages.get(l.href), newTab: false } : { id: id(), label: l.label, type: "url" as const, href: l.href, newTab: l.external })),
+      })),
+    };
+  }
+
   // ── Admin ─────────────────────────────────────────────────────────────────
 
   async list(q: { kind?: string; status?: string; search?: string; skip: number; take: number }) {
@@ -108,6 +187,8 @@ export class ContentService {
     // Built-in entries an admin hasn't created yet, so they can be edited.
     const existing = new Set((await this.prisma.contentEntry.findMany({ select: { slug: true } })).map((r) => r.slug));
     const available = DEFAULT_CONTENT.filter((d) => !existing.has(d.slug)).map((d) => ({ slug: d.slug, kind: d.kind, title: d.title }));
+    // The footer menu starts as a copy of the built-in footer (footerDraft).
+    if (!existing.has(FOOTER_SLUG)) available.push({ slug: FOOTER_SLUG, kind: "footer", title: "Footer menu" });
     return { items, total, available };
   }
 
@@ -122,8 +203,11 @@ export class ContentService {
 
   async create(input: { slug: string; kind: string; title: string; data?: unknown; seoTitle?: string | null; seoDescription?: string | null }, adminId: string) {
     if (!isContentKind(input.kind)) throw new ValidationError(`Unknown content kind "${input.kind}"`);
+    if ((input.kind === "footer") !== (input.slug === FOOTER_SLUG)) throw new ValidationError(`The footer menu is the one entry with slug "${FOOTER_SLUG}"`);
+    if (input.kind === "page" && isReservedPageSlug(input.slug)) throw new ValidationError(`"/${input.slug.split("/")[0]}" is one of the website's own addresses; pick another slug`);
     const def = defaultEntry(input.slug);
-    const data = parseData(input.kind, input.data ?? (def && def.kind === input.kind ? def.data : this.emptyData(input.kind)));
+    const initial = input.data ?? (def && def.kind === input.kind ? def.data : input.kind === "footer" ? await this.footerDraft() : this.emptyData(input.kind));
+    const data = parseData(input.kind, initial);
     try {
       return await this.prisma.contentEntry.create({
         data: {
@@ -190,7 +274,7 @@ export class ContentService {
         data: { entryId: id, version, title: row.title, data: data as object, note: note ?? null, createdById: adminId },
       }),
     ]);
-    this.publicCache.delete(row.slug);
+    this.invalidate(`publishing ${row.slug}`);
     return updated;
   }
 
@@ -199,7 +283,7 @@ export class ContentService {
     const row = await this.prisma.contentEntry.findUnique({ where: { id } });
     if (!row) throw new NotFoundError("Content entry not found");
     const updated = await this.prisma.contentEntry.update({ where: { id }, data: { status, updatedById: adminId } });
-    this.publicCache.delete(row.slug);
+    this.invalidate(`unpublishing ${row.slug}`);
     return { before: row, after: updated };
   }
 
@@ -214,7 +298,7 @@ export class ContentService {
     const row = await this.prisma.contentEntry.findUnique({ where: { id } });
     if (!row) throw new NotFoundError("Content entry not found");
     await this.prisma.contentEntry.delete({ where: { id } });
-    this.publicCache.delete(row.slug);
+    this.invalidate(`deleting ${row.slug}`);
     return row;
   }
 

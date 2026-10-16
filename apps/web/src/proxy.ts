@@ -219,5 +219,6 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next|_vercel|.*\\..*).*)', '/']
+  // /api/* are the site's own route handlers (revalidate), not locale pages.
+  matcher: ['/((?!api/|_next|_vercel|.*\\..*).*)', '/']
 }

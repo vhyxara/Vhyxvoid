@@ -279,3 +279,17 @@ export type CustomDomainRow = {
   account: { id: string; name: string; slug: string }
 }
 
+
+export type ContactMessage = {
+  id: string
+  name: string
+  email: string
+  subject: string
+  message: string
+  page: string
+  status: 'NEW' | 'READ' | 'ARCHIVED'
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
+  updatedAt: string
+}

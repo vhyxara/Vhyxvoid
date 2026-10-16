@@ -143,3 +143,10 @@
 @media (max-width: 900px) {
   .heroGrid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Contact form block on CMS pages ({{contact-form}}). */
+.contactForm { display: grid; gap: 1rem; margin-block: 1.5rem 2rem; }
+.contactRow { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.contactRow > * { min-width: 0; }
+/* Off-screen, not display:none: some bots skip hidden fields. */
+.contactTrap { position: absolute; inset-inline-start: -10000px; inline-size: 1px; block-size: 1px; overflow: hidden; }

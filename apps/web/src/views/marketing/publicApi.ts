@@ -1,11 +1,13 @@
 import 'server-only'
 
-import { defaultEntry, type PublishedContent } from '@vhyxvoid/content'
+import { defaultEntry, type FooterMenu, type PublishedContent } from '@vhyxvoid/content'
 
 // Server-side reads of the API's public endpoints for the marketing pages.
-// Cached by Next for 60 s (the admin panel's publish shows up within a
-// minute). If the API is unreachable the site still renders: content falls
-// back to the built-in defaults (packages/content) and settings to safe values.
+// Cached by Next for 60 s under the "cms" tag: when an admin publishes, the
+// API calls /api/revalidate, which expires the tag at once (the 60 s is the
+// fallback when that call is not configured). If the API is unreachable the
+// site still renders: content falls back to the built-in defaults
+// (packages/content) and settings to safe values.
 
 const API = (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL_LIVE ?? 'http://localhost:9000/api/v1').replace(/\/$/, '')
 
@@ -24,12 +26,21 @@ export type PublicSettings = Record<string, unknown> & {
   'billing.trialDays'?: number
   'support.email'?: string
   'support.docsUrl'?: string
+  'support.contactForm'?: boolean
   'general.statusPageUrl'?: string
   'general.twitterUrl'?: string
   'general.githubUrl'?: string
 }
 
-export type Bootstrap = { settings: PublicSettings; footer: Array<{ slug: string; title: string; group: string }> }
+export type Bootstrap = {
+  settings: PublicSettings
+  /** Pages flagged for the footer; what APIs from before the footer menu send. */
+  footer: Array<{ slug: string; title: string; group: string }>
+  /** The footer as the site renders it (absent from APIs before the footer menu). */
+  footerMenu?: FooterMenu
+}
+
+export const CMS_TAG = 'cms'
 
 export type PublicPlans = {
   /** free: launch mode, nothing can be bought. paid: Stripe checkout is live. */
@@ -43,7 +54,7 @@ export type PublicPlans = {
 
 async function get<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${API}${path}`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(4000) })
+    const res = await fetch(`${API}${path}`, { next: { revalidate: 60, tags: [CMS_TAG] }, signal: AbortSignal.timeout(4000) })
 
     if (!res.ok) return null
     const body = (await res.json()) as { data?: T }

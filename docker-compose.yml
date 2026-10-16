@@ -9,6 +9,12 @@ services:
     restart: unless-stopped
     env_file:
       - ./apps/api/.env.production # ← contains PRIVATE_KEY_B64 already
+    environment:
+      # After a content change the API asks the website to refresh at once
+      # (apps/web app/api/revalidate). Set WEB_REVALIDATE_SECRET in the .env
+      # next to this file; empty leaves it off (the site refreshes within 60 s).
+      WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL:-http://web:3000/api/revalidate}
+      WEB_REVALIDATE_SECRET: ${WEB_REVALIDATE_SECRET:-}
     ports:
       - "127.0.0.1:9000:9000"
     networks:
@@ -70,6 +76,8 @@ services:
     environment:
       # Server-side rendering talks to the API over the Docker network.
       API_INTERNAL_URL: http://api:9000/api/v1
+      # Same value as the API's: lets it refresh the site after content changes.
+      REVALIDATE_SECRET: ${WEB_REVALIDATE_SECRET:-}
     ports:
       - "127.0.0.1:3000:3000"
     networks:
