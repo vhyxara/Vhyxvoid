@@ -159,3 +159,15 @@ body {
 .author-row img, .author-row > span[aria-hidden] { inline-size: 32px; block-size: 32px; border-radius: 50%; object-fit: cover; flex: none; }
 .author-row > span[aria-hidden] { display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--vhyx-color-accent); }
 .author-row > span:last-child { display: flex; flex-direction: column; }
+.emails-layout { display: grid; gap: 20px; grid-template-columns: 15rem minmax(0, 1fr); align-items: start; }
+.emails-list { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 80px; }
+.emails-list button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 0.9rem; color: var(--vhyx-color-text); text-align: start; cursor: pointer; }
+.emails-list button:hover { background: var(--vhyx-color-bg-muted, var(--vhyx-color-surface)); }
+.emails-list button[aria-current='true'] { background: var(--vhyx-color-accent-subtle); color: var(--vhyx-color-accent); font-weight: 600; }
+.emails-editor { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: start; }
+.email-preview { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 80px; }
+.email-preview iframe { inline-size: 100%; block-size: 34rem; margin-block-start: 8px; border: 1px solid var(--vhyx-color-border); border-radius: 12px; background: #f4f4f5; }
+.email-var { padding: 2px 8px; border: 1px solid var(--vhyx-color-border); border-radius: 6px; background: var(--vhyx-color-surface); font: 0.78rem/1.6 var(--vhyx-font-mono, ui-monospace, monospace); color: var(--vhyx-color-text); cursor: pointer; }
+.email-var:hover { border-color: var(--vhyx-color-accent); }
+@media (max-width: 1200px) { .emails-editor { grid-template-columns: minmax(0, 1fr); } .email-preview { position: static; } }
+@media (max-width: 800px) { .emails-layout { grid-template-columns: minmax(0, 1fr); } .emails-list { position: static; flex-direction: row; flex-wrap: wrap; } }

@@ -8,6 +8,7 @@ import { SYSTEM_ABILITIES } from "@/modules/identity/domain/entities/admin/Admin
 import { SettingsService } from "./settings/settings.service";
 import { ContentService } from "./content/content.service";
 import { prismaOf } from "./shared/http";
+import { setEmailOverrides } from "@/modules/notification/infrastructure/email/templates";
 
 /**
  * Paths that stay up during maintenance: the admin panel and its auth, public
@@ -28,6 +29,17 @@ export default fp(
     const content = new ContentService(prisma, settings);
     fastify.decorate("platformSettings", settings);
     fastify.decorate("platformContent", content);
+
+    // The email wording set in the admin panel (Emails), kept current in the templates.
+    const refreshEmails = () =>
+      settings
+        .get("emails.overrides")
+        .then(setEmailOverrides)
+        .catch(() => {});
+    void refreshEmails();
+    const emailsTimer = setInterval(refreshEmails, 30_000);
+    emailsTimer.unref();
+    fastify.addHook("onClose", async () => clearInterval(emailsTimer));
 
     // New abilities ship with the code: add any missing rows on boot, so a
     // deploy never needs a manual seed step. Existing rows are untouched.

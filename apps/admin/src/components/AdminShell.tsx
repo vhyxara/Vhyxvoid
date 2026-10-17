@@ -30,6 +30,7 @@ import {
   HashIcon,
   ImagesIcon,
   MailIcon,
+  MailCheckIcon,
   RocketIcon,
   UserPenIcon,
   TagIcon,
@@ -76,6 +77,7 @@ const NAV: Array<{ label: string; items: Array<{ label: string; href: string; ic
       { label: 'SEO', href: '/seo', icon: <SearchCheckIcon /> },
       { label: 'Messages', href: '/messages', icon: <MessageSquareIcon /> },
       { label: 'Newsletter', href: '/newsletter', icon: <MailIcon /> },
+      { label: 'Emails', href: '/emails', icon: <MailCheckIcon /> },
       { label: 'Settings', href: '/settings', icon: <SettingsIcon /> },
       { label: 'Logs', href: '/logs', icon: <ActivityIcon /> }
     ]

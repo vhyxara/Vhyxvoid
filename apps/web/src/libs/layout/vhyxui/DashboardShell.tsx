@@ -15,10 +15,14 @@ import { SiteNotices } from './SiteNotices'
 export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className={styles.root}>
+      {/* Keyboard users jump past the sidebar and the top bar. */}
+      <a href='#main-content' className='skip-link'>
+        Skip to content
+      </a>
       <DashboardSidebar />
       <div className={styles.contentColumn}>
         <DashboardTopbar />
-        <main className={styles.content}>
+        <main id='main-content' tabIndex={-1} className={styles.content}>
           <SiteNotices>{children}</SiteNotices>
         </main>
         <DashboardFooter />

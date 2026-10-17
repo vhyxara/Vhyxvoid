@@ -18,6 +18,7 @@ export * from "./planResolver";
 export * from "./accountStatus";
 export * from "./publicUsage";
 export * from "./settings";
+export * from "./emails";
 export * from "./inspector";
 export * from "./tunnelAccess";
 export * from "./inbox";

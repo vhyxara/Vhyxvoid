@@ -11,6 +11,7 @@
 
 import { Plan, PLAN_LIMITS, type PlanLimits } from "./planLimits";
 import { isValidVersion } from "./agentFleet";
+import { validateEmailOverrides, type EmailOverrides } from "./emails";
 
 export type SettingType = "boolean" | "number" | "string" | "text" | "enum" | "url" | "email" | "stringList" | "json" | "image" | "color";
 
@@ -30,7 +31,7 @@ export interface SettingDefinition {
   validate?: (value: unknown) => string | undefined;
 }
 
-export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics" | "newsletter" | "brand";
+export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics" | "newsletter" | "brand" | "emails";
 
 export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: string }> = {
   general: { label: "General", description: "Product name and public links." },
@@ -46,6 +47,7 @@ export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: 
   analytics: { label: "Analytics and cookies", description: "Visitor analytics on the marketing website (not the signed-in app), and the cookie consent banner." },
   newsletter: { label: "Newsletter", description: "The email sign-up form on the website. Subscribers are listed under Newsletter." },
   brand: { label: "Brand", description: "Logo, browser icon and accent colour of the website and the dashboard." },
+  emails: { label: "Emails", description: "The words of the emails people get. Edited on the Emails screen." },
 };
 
 // ── Plan limit overrides ──────────────────────────────────────────────────────
@@ -199,6 +201,8 @@ export const SETTING_DEFINITIONS = {
   "tunnels.newAgentsEnabled": { group: "tunnels", label: "Accept new agent connections", description: "When off, the hub refuses new agent registrations (running tunnels stay up). For incidents.", type: "boolean", default: true, public: false },
 
   "support.email": { group: "support", label: "Support email", description: "Shown on the website and in emails.", type: "email", default: "support@vhyxvoid.com", public: true },
+  "support.securityContact": { group: "support", label: "Security contact", description: "Where security researchers report vulnerabilities, published in /.well-known/security.txt: an email address or an https:// page. Empty: the support email.", type: "string", default: "", public: true, maxLength: 200, validate: (v) => (v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v)) || /^https:\/\/\S+$/.test(String(v)) ? undefined : "An email address or an https:// address") },
+  "support.securityPolicyUrl": { group: "support", label: "Security policy", description: "Optional: a page describing how you handle vulnerability reports (scope, safe harbour), linked from security.txt.", type: "url", default: "", public: true, maxLength: 300 },
   "support.docsUrl": { group: "support", label: "Documentation URL", description: "Where 'Docs' links go.", type: "url", default: "/docs", public: true },
   "support.captchaSiteKey": { group: "support", label: "Captcha site key", description: "Cloudflare Turnstile site key for the contact form. The form shows the check when this is set; the API requires it when its TURNSTILE_SECRET_KEY is set. Set both, from the same Turnstile widget.", type: "string", default: "", public: true },
   "support.contactForm": { group: "support", label: "Contact form", description: "Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead.", type: "boolean", default: true, public: true },
@@ -232,6 +236,8 @@ export const SETTING_DEFINITIONS = {
   "brand.faviconUrl": { group: "brand", label: "Browser icon (favicon)", description: "The icon in browser tabs, bookmarks and on phones' home screens. A square PNG, 512×512 or larger. Empty: the built-in icon.", type: "image", default: "", public: true, maxLength: 500 },
   "brand.accentColor": { group: "brand", label: "Accent colour", description: "The colour of buttons, links and highlights on the website and in the dashboard, e.g. #7c3aed. Pick one that reads well on dark backgrounds. Empty: the built-in violet.", type: "color", default: "", public: true },
 
+  "emails.overrides": { group: "emails", label: "Email wording", description: "Your wording for emails such as Verify email address and Reset password: subject, heading, text, button and note per email, with {{variables}}. An empty field uses the built-in wording. Edited on the Emails screen.", type: "json", default: {}, public: false, validate: validateEmailOverrides },
+
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
@@ -262,7 +268,9 @@ export type SettingValue<K extends SettingKey> = K extends "plans.overrides"
   ? PlanOverridesSetting
   : K extends "billing.stripePrices"
     ? StripePricesSetting
-    : ValueOf<(typeof SETTING_DEFINITIONS)[K]>;
+    : K extends "emails.overrides"
+      ? EmailOverrides
+      : ValueOf<(typeof SETTING_DEFINITIONS)[K]>;
 
 export function isSettingKey(key: string): key is SettingKey {
   return Object.prototype.hasOwnProperty.call(SETTING_DEFINITIONS, key);

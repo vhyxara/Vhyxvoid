@@ -15,7 +15,7 @@ import { ImageField } from '@/views/media/MediaPicker'
 import { useQueryClient } from '@tanstack/react-query'
 
 // Edited on the Plans & pricing and SEO screens instead.
-const PLANS_PAGE_GROUPS = new Set(['billing', 'plans', 'seo'])
+const PLANS_PAGE_GROUPS = new Set(['billing', 'plans', 'seo', 'emails'])
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 

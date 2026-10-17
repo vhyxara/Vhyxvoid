@@ -92,6 +92,10 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
 
   return (
     <div data-theme='dark' data-brand='vhyxvoid' className={styles.voidShell}>
+      {/* Keyboard users jump past the navbar (and the announcement banner). */}
+      <a href='#main-content' className='skip-link'>
+        Skip to content
+      </a>
       {!landing && <SiteBackdrop />}
       <Analytics settings={s} />
       <AnnouncementBanner settings={s} />
@@ -145,7 +149,9 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
           legal: `© ${new Date().getFullYear()} ${name}. All rights reserved.`
         }}
       >
-        {children}
+        <div id='main-content' tabIndex={-1} className={styles.mainTarget}>
+          {children}
+        </div>
         <NewsletterBand settings={s} />
       </MarketingLayout>
     </div>

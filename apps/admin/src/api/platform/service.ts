@@ -29,6 +29,8 @@ import type {
   BlogPostRow,
   BlogTagRow,
   MediaAsset,
+  EditableEmail,
+  EmailFields,
   BlogAuthor,
   BlogAuthorInput,
   ChangelogEntry,
@@ -161,6 +163,11 @@ export const platformService = {
   createChangelog: (body: ChangelogInput & { title: string }) => post<ChangelogEntry>('/admin/changelog', body),
   updateChangelog: (id: string, body: ChangelogInput) => patch<ChangelogEntry>(`/admin/changelog/${id}`, body),
   deleteChangelog: (id: string) => del(`/admin/changelog/${id}`),
+
+  emails: () => get<EditableEmail[]>('/admin/emails'),
+  saveEmail: (key: string, fields: Partial<EmailFields>) => put<{ key: string; override: Partial<EmailFields> }>(`/admin/emails/${key}`, fields),
+  previewEmail: (key: string, fields: Partial<EmailFields>) => post<{ subject: string; html: string; text: string }>(`/admin/emails/${key}/preview`, { fields }),
+  testEmail: (key: string, fields: Partial<EmailFields>) => post<{ to: string }>(`/admin/emails/${key}/test`, { fields }),
 
   setAdminPassword: (adminId: string, newPassword: string) => post(`/admin/identity/users/${adminId}/password`, { newPassword })
 }

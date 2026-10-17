@@ -318,6 +318,17 @@ export type ChangelogEntry = {
 }
 export type ChangelogInput = Partial<Pick<ChangelogEntry, 'version' | 'title' | 'body' | 'kinds' | 'status'>> & { publishedAt?: string | null }
 
+export type EmailFields = { subject: string; heading: string; body: string; button: string; note: string }
+export type EditableEmail = {
+  key: string
+  label: string
+  description: string
+  variables: Record<string, string>
+  defaults: EmailFields
+  override: Partial<EmailFields>
+  edited: boolean
+}
+
 export type BlogState = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED'
 export type BlogTaxon = { id: string; slug: string; name: string }
 export type BlogPostRow = {

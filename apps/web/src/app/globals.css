@@ -222,3 +222,26 @@ code {
   background-color: rgb(var(--mui-palette-info-mainChannel) / 0.08);
   border: 0;
 }
+
+/* "Skip to content": the first stop of the Tab key on every page, shown only when focused. */
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--vhyx-color-accent, #7c3aed);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.15s;
+}
+.skip-link:focus-visible {
+  transform: none;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+#main-content:focus { outline: none; }

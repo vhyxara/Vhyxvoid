@@ -420,3 +420,4 @@
   color: #052e2b;
   background: #5eead4;
 }
+.mainTarget:focus { outline: none; }

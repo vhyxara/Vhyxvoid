@@ -2,6 +2,8 @@
 // Typed email template builders — no HTML string soup.
 // Each function returns { subject, html, text } ready to pass to IEmailService.
 
+import { emailFields, fillPlaceholders, type EditableEmailKey, type EmailFields, type EmailOverrides } from "@vhyxvoid/shared";
+
 export interface EmailContent {
   subject: string;
   html: string;
@@ -23,6 +25,57 @@ function escapeFields<T extends object>(params: T): T {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(params)) out[k] = typeof v === "string" ? escapeHtml(v) : v;
   return out as T;
+}
+
+// ── Wording set in the admin panel (Emails) ──────────────────────────────────
+// The emails listed in packages/shared emails.ts can be reworded in the admin
+// panel. The API keeps the current overrides here (refreshed from the
+// `emails.overrides` setting by the platform plugin); an email nobody edited
+// is sent exactly as the builder below makes it.
+
+let overrides: EmailOverrides = {};
+
+export function setEmailOverrides(next: EmailOverrides | null | undefined) {
+  overrides = next ?? {};
+}
+
+/** Paragraphs from blank-line-separated text; **bold** allowed; everything else escaped. */
+function richParagraphs(text: string, vars: Record<string, string>): string {
+  return text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => para(inline(p, vars)))
+    .join("");
+}
+
+function inline(text: string, vars: Record<string, string>): string {
+  return fillPlaceholders(escapeHtml(text), vars, escapeHtml)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
+}
+
+/** An editable email as its fields say (the admin's wording where set), in the standard layout. */
+export function renderEditableEmail(key: EditableEmailKey, vars: Record<string, string>, fields: EmailFields): EmailContent {
+  const all: Record<string, string> = { productName: APP_NAME, supportEmail: SUPPORT_EMAIL, ...vars };
+  const plain = (t: string) => fillPlaceholders(t, all).replace(/\*\*([^*]+)\*\*/g, "$1");
+  const subject = plain(fields.subject);
+  const html = layout(
+    heading(inline(fields.heading, all)) +
+      richParagraphs(fields.body, all) +
+      (fields.button && all.url ? button(inline(fields.button, all), escapeHtml(all.url)) : "") +
+      (fields.note ? smallNote(inline(fields.note, all)) : ""),
+    escapeHtml(plain(fields.heading)),
+  );
+  const text = [plain(fields.body), fields.button && all.url ? `${plain(fields.button)}: ${all.url}` : "", fields.note ? plain(fields.note) : "", `— ${APP_NAME}`].filter(Boolean).join("\n\n");
+  return { subject, html, text };
+}
+
+/** The built email, or the admin's wording of it when they changed it. */
+function editable(key: EditableEmailKey, vars: Record<string, string>, built: EmailContent): EmailContent {
+  const o = overrides[key];
+  if (!o || !Object.values(o).some((v) => typeof v === "string" && v.trim())) return built;
+  return renderEditableEmail(key, vars, emailFields(key, overrides));
 }
 
 // ── Shared layout ─────────────────────────────────────────────────────────────
@@ -142,7 +195,7 @@ export function emailVerification(params: {
     `This link expires in ${params.expiresInHours ?? 24} hours.\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("emailVerification", { firstName: params.firstName || "there", url: params.verifyUrl, hours: String(params.expiresInHours ?? 24) }, { subject, html, text });
 }
 
 /**
@@ -175,7 +228,7 @@ export function accountInvitation(params: {
     `This invitation expires in ${params.expiresInDays ?? 3} days.\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("accountInvitation", { inviterName: params.inviterName, accountName: params.accountName, role: params.roleLabel, url: params.inviteUrl, days: String(params.expiresInDays ?? 3) }, { subject, html, text });
 }
 
 /**
@@ -216,7 +269,7 @@ export function paymentFailed(params: {
     `${params.billingPortalUrl}\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("paymentFailed", { firstName: params.firstName || "there", accountName: params.accountName, amount: params.amountFormatted, graceEnds: graceDateStr, url: params.billingPortalUrl }, { subject, html, text });
 }
 
 /**
@@ -335,7 +388,7 @@ export function trialEnding(params: {
     `Add a payment method: ${params.upgradeUrl}\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("trialEnding", { firstName: params.firstName || "there", accountName: params.accountName, trialEnds: trialEndStr, daysLeft: String(params.daysLeft), url: params.upgradeUrl }, { subject, html, text });
 }
 
 /**
@@ -401,7 +454,7 @@ export function passwordResetRequest(params: {
     `If you didn't request this, ignore this email.\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("passwordResetRequest", { firstName: params.firstName || "there", url: params.resetUrl, hours: String(params.expiresInHours ?? 1) }, { subject, html, text });
 }
 
 /**
@@ -434,7 +487,7 @@ export function finishSignup(params: {
     `Choose your password to finish:\n${params.url}\n\n` +
     `This link expires in ${hours} hours. If you didn't try to sign up, ignore this email.\n\n` +
     `— ${APP_NAME}`;
-  return { subject, html, text };
+  return editable("finishSignup", { firstName: params.firstName || "there", url: params.url, hours: String(hours) }, { subject, html, text });
 }
 
 /**
@@ -464,7 +517,7 @@ export function passwordResetSuccess(params: {
     `If you did not make this change, contact support immediately: ${SUPPORT_EMAIL}\n\n` +
     `— ${APP_NAME}`;
 
-  return { subject, html, text };
+  return editable("passwordResetSuccess", { firstName: params.firstName || "there", url: `mailto:${SUPPORT_EMAIL}` }, { subject, html, text });
 }
 
 /**
@@ -604,7 +657,7 @@ export function newsletterConfirm(params: { confirmUrl: string; productName?: st
     "Confirm your subscription",
   );
   const text = `Someone (hopefully you) asked to get ${name} product updates and new blog posts at this address.\n\nConfirm: ${params.confirmUrl}\n\nIf it wasn't you, ignore this email. The link works for 7 days.\n— ${name}`;
-  return { subject, html, text };
+  return editable("newsletterConfirm", { url: params.confirmUrl, ...(params.productName ? { productName: params.productName } : {}) }, { subject, html, text });
 }
 
 /** A blog post sent to newsletter subscribers. */
