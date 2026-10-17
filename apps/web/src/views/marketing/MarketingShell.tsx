@@ -14,6 +14,7 @@ import type { FooterMenu } from '@vhyxvoid/content'
 import { routing } from '@/i18n/routing'
 
 import type { Bootstrap } from './publicApi'
+import { SiteBackdrop } from './void/SiteBackdrop'
 import styles from './marketing.module.css'
 
 function Brand({ name }: { name: string }) {
@@ -43,7 +44,7 @@ export function footerColumns(menu: FooterMenu) {
     .map(c => ({ title: c.title, links: c.links.map(l => (l.external ? { label: l.label, href: l.href, external: true } : { label: l.label, href: l.href })) }))
 }
 
-/** The landing page (/, or /fr…): its navbar and footer join the page's dark "void" look. */
+/** The landing page (/, or /fr…), which brings its own starfield. */
 export function isLandingPath(pathname: string) {
   const parts = pathname.split('/').filter(Boolean)
 
@@ -60,11 +61,12 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
 
   const landing = isLandingPath(usePathname() ?? '')
 
-  // The mobile menu opens in a layer outside this wrapper (a portal under
-  // <body>); while the landing page is shown the document is dark too, and the
-  // site theme comes back when the visitor leaves it.
+  // The marketing site is the void: dark whatever the site theme (the theme
+  // tokens are scoped by [data-theme], so this subtree opts in). The mobile
+  // menu opens in a layer outside this wrapper (a portal under <body>), so the
+  // document is dark too while a marketing page is shown; the site theme comes
+  // back in the dashboard.
   useEffect(() => {
-    if (!landing) return
     const html = document.documentElement
     const before = html.dataset.theme
 
@@ -73,12 +75,11 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
     return () => {
       if (before) html.dataset.theme = before
     }
-  }, [landing])
+  }, [])
 
-  // On the landing page the shell takes the dark theme's tokens whatever the
-  // site theme (they are scoped by [data-theme], so this subtree opts in).
   return (
-    <div {...(landing ? { 'data-theme': 'dark', 'data-brand': 'vhyxvoid', className: styles.voidShell } : {})}>
+    <div data-theme='dark' data-brand='vhyxvoid' className={styles.voidShell}>
+      {!landing && <SiteBackdrop />}
       <AnnouncementBanner settings={s} />
       <MarketingLayout
         navbar={{

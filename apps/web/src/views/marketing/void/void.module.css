@@ -497,3 +497,49 @@
   .orbit, .beam, .disk { display: none; }
   .typed { inline-size: auto; }
 }
+
+/* ── The backdrop of the other marketing pages (SiteBackdrop) ── */
+.backdrop {
+  position: absolute;
+  inset: 0 0 auto;
+  block-size: min(75vh, 720px);
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  mask-image: linear-gradient(#000 40%, transparent);
+  -webkit-mask-image: linear-gradient(#000 40%, transparent);
+}
+.backdropNebula {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(45% 60% at 50% 0%, rgba(124, 58, 237, 0.26), transparent 70%),
+    radial-gradient(30% 40% at 85% 20%, rgba(34, 211, 238, 0.08), transparent 70%),
+    radial-gradient(30% 40% at 12% 30%, rgba(232, 121, 249, 0.07), transparent 70%);
+}
+
+/* ── 404 (VoidNotFound) ── */
+.lost { position: relative; display: grid; place-items: center; min-block-size: calc(100vh - 140px); padding: 4rem 1.25rem; overflow: hidden; text-align: center; color: var(--vhyx-color-text, #ecebff); --violet-2: #a78bfa; --line-2: rgba(167, 139, 250, 0.32); --muted: #a3a3c2; --ink: #ecebff; --cyan: #22d3ee; --ease: cubic-bezier(0.22, 1, 0.36, 1); }
+.lostInner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; max-inline-size: 40rem; }
+.lostPortal { position: relative; inline-size: 220px; block-size: 92px; margin-block-end: -1rem; }
+.lostRing { position: absolute; inset: 0; border-radius: 50%; border: 1.5px dashed rgba(167, 139, 250, 0.5); animation: lostWarp 6s linear infinite; }
+.lostCore { position: absolute; inset-inline-start: 50%; inset-block-start: 50%; inline-size: 46px; block-size: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: radial-gradient(circle, #000 55%, #1b0b3a 70%, transparent 72%); box-shadow: 0 0 40px 8px rgba(139, 92, 246, 0.55); }
+@keyframes lostWarp { from { transform: scale(1.4); opacity: 0; } 30% { opacity: 1; } to { transform: scale(0.3); opacity: 0; } }
+.lostCode {
+  margin: 0;
+  font-size: clamp(6rem, 22vw, 11rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  background: linear-gradient(100deg, #c4b5fd, #8b5cf6 35%, #e879f9 60%, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.45));
+  animation: lostFloat 6s ease-in-out infinite;
+}
+@keyframes lostFloat { 50% { transform: translateY(-10px) rotate(-1deg); } }
+.lostTitle { margin: 0.5rem 0 1rem; font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; }
+.lostPath { padding: 0.1em 0.45em; border-radius: 6px; font-size: 0.9em; color: #ddd6fe; background: rgba(139, 92, 246, 0.14); border: 1px solid rgba(167, 139, 250, 0.25); overflow-wrap: anywhere; }
+.lost .actions { margin-block-start: 2rem; }
+@media (prefers-reduced-motion: reduce) { .lostRing, .lostCode { animation: none; } }

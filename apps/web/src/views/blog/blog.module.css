@@ -98,3 +98,5 @@
 .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 2.5rem 0; padding: 0; list-style: none; }
 .related { margin-block-start: 4rem; padding-block-start: 2.5rem; border-block-start: 1px solid var(--vhyx-color-border); }
 .relatedTitle { font-size: 1.4rem; font-weight: 700; margin: 0 0 1.25rem; }
+.body a.chip { color: #c4b5fd; text-decoration: none; }
+.body a.chip:hover { color: #fff; border-color: #a78bfa; }
