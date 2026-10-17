@@ -136,3 +136,18 @@ describe("maintenance mode and sign-up policy", () => {
     expect(domainMatches("a@notcorp.com", ["corp.com"])).toBe(false);
   });
 });
+
+describe("brand settings", () => {
+  it("take images as https:// or site paths and colours as #rrggbb", () => {
+    expect(validateSettingValue("brand.logoUrl", "/media/a/logo.png")).toEqual({ ok: true, value: "/media/a/logo.png" });
+    expect(validateSettingValue("brand.logoUrl", "https://cdn.example.com/logo.svg").ok).toBe(true);
+    expect(validateSettingValue("brand.logoUrl", "").ok).toBe(true);
+    expect(validateSettingValue("brand.logoUrl", "http://cdn.example.com/logo.png").ok).toBe(false);
+    expect(validateSettingValue("brand.faviconUrl", "//evil.test/x.png").ok).toBe(false);
+    expect(validateSettingValue("brand.faviconUrl", "javascript:alert(1)").ok).toBe(false);
+    expect(validateSettingValue("brand.accentColor", "#0EA5E9")).toEqual({ ok: true, value: "#0ea5e9" });
+    expect(validateSettingValue("brand.accentColor", "").ok).toBe(true);
+    expect(validateSettingValue("brand.accentColor", "red").ok).toBe(false);
+    expect(validateSettingValue("brand.accentColor", "#fff;}body{").ok).toBe(false);
+  });
+});

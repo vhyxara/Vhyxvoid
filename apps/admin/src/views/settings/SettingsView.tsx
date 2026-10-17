@@ -11,6 +11,7 @@ import { platformKeys, useSettings } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { SettingView } from '@/api/platform/types'
 import { formatDate } from '@/components/ui/format'
+import { ImageField } from '@/views/media/MediaPicker'
 import { useQueryClient } from '@tanstack/react-query'
 
 // Edited on the Plans & pricing and SEO screens instead.
@@ -49,6 +50,23 @@ function StringListInput({ s, value, onChange }: { s: SettingView; value: unknow
   )
 }
 
+/** A colour picker plus the hex value; empty means "the built-in colour". */
+function ColorInput({ s, value, onChange }: { s: SettingView; value: string; onChange: (v: string) => void }) {
+  const fallback = typeof s.default === 'string' && s.default ? s.default : '#7c3aed'
+
+  return (
+    <div className='flex items-center gap-2'>
+      <input type='color' aria-label={`${s.label}: pick`} value={/^#[0-9a-f]{6}$/i.test(value) ? value : fallback} onChange={e => onChange(e.target.value)} className='color-swatch' />
+      <Input aria-label={s.label} value={value} placeholder='Built-in' maxLength={7} onChange={e => onChange(e.target.value.trim())} size='sm' style={{ maxInlineSize: 120 }} />
+      {value && (
+        <Button size='xs' variant='ghost' onClick={() => onChange('')}>
+          Use built-in
+        </Button>
+      )}
+    </div>
+  )
+}
+
 export function SettingInput({ s, value, onChange }: { s: SettingView; value: unknown; onChange: (v: unknown) => void }) {
   switch (s.type) {
     case 'boolean':
@@ -73,6 +91,10 @@ export function SettingInput({ s, value, onChange }: { s: SettingView; value: un
       return <Textarea name={s.key} aria-label={s.label} rows={3} maxLength={s.maxLength} value={String(value ?? '')} onChange={e => onChange(e.target.value)} style={{ inlineSize: '100%' }} />
     case 'stringList':
       return <StringListInput s={s} value={value} onChange={onChange} />
+    case 'image':
+      return <ImageField name={s.key} label={s.label} value={String(value ?? '')} onChange={onChange} />
+    case 'color':
+      return <ColorInput s={s} value={String(value ?? '')} onChange={onChange} />
     default:
       return <Input aria-label={s.label} type={s.type === 'email' ? 'email' : s.type === 'url' ? 'url' : 'text'} value={String(value ?? '')} maxLength={s.maxLength} onChange={e => onChange(e.target.value)} size='sm' />
   }

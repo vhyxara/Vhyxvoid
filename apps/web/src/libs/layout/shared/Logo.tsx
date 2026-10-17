@@ -21,6 +21,7 @@ import type { VerticalNavContextProps } from '@menu/contexts/verticalNavContext'
 // Hook Imports
 import useVerticalNav from '@menu/hooks/useVerticalNav'
 import { useSettings } from '@core/hooks/useSettings'
+import { usePublicBootstrap } from '@/api/application/hooks/usePublicSite'
 
 type LogoTextProps = {
   isHovered?: VerticalNavContextProps['isHovered']
@@ -101,6 +102,10 @@ const Logo = ({ color }: { color?: CSSProperties['color'] }) => {
   // Hooks
   const { isHovered, transitionDuration, isBreakpointReached } = useVerticalNav()
   const { settings } = useSettings()
+  // Settings › Brand in the admin panel: a logo of your own replaces the built-in one.
+  const brand = usePublicBootstrap().data?.settings
+  const customLogo = typeof brand?.['brand.logoUrl'] === 'string' ? brand['brand.logoUrl'] : ''
+  const productName = typeof brand?.['general.productName'] === 'string' && brand['general.productName'] ? brand['general.productName'] : 'VhyxVoid'
 
   // Vars
   const { layout } = settings
@@ -119,6 +124,22 @@ const Logo = ({ color }: { color?: CSSProperties['color'] }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHovered, layout, isBreakpointReached])
+
+  if (customLogo) {
+    return (
+      <div className='flex items-center'>
+        {/* eslint-disable-next-line @next/next/no-img-element -- an admin-chosen address, not a build-time asset */}
+        <img src={customLogo} alt={brand?.['brand.logoOnly'] ? productName : ''} style={{ blockSize: 40, inlineSize: 'auto', maxInlineSize: 180, objectFit: 'contain' }} />
+        {!brand?.['brand.logoOnly'] && (
+          <LogoText ref={logoTextRef} color={color} isHovered={isHovered} isCollapsed={layout === 'collapsed'} transitionDuration={transitionDuration} isBreakpointReached={isBreakpointReached}>
+            <span className='text-xl font-black tracking-wide' style={{ color: color ?? 'var(--vhyx-color-text)' }}>
+              {productName}
+            </span>
+          </LogoText>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className='flex items-center'>

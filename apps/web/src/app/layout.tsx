@@ -54,6 +54,8 @@ import VhyxUIToastRegion from '@/libs/components/VhyxUIToastRegion'
 // Util Imports
 import { getSystemMode } from '@core/utils/serverHelpers'
 import { siteMetadata } from '@/views/seo/seo'
+import { getBootstrap } from '@/views/marketing/publicApi'
+import { brandAccentCss } from '@/views/marketing/brandStyle'
 
 // Site-wide defaults from the admin SEO screen: title template, description,
 // verification codes, and noindex everywhere when indexing is switched off.
@@ -63,7 +65,9 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const systemMode = await getSystemMode()
+  const [systemMode, { settings }] = await Promise.all([getSystemMode(), getBootstrap()])
+  // Settings › Brand › Accent colour (a validated #rrggbb, so safe to inline).
+  const accent = brandAccentCss(settings['brand.accentColor'])
 
   return (
     <html
@@ -73,6 +77,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-theme={systemMode}
       suppressHydrationWarning
     >
+      {accent && (
+        <head>
+          <style id='brand-accent' dangerouslySetInnerHTML={{ __html: accent }} />
+        </head>
+      )}
       <body className='flex is-full min-bs-full flex-auto flex-col'>
         <VhyxUIToastRegion>{children}</VhyxUIToastRegion>
       </body>

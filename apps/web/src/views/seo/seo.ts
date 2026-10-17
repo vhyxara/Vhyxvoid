@@ -100,7 +100,10 @@ export async function siteMetadata(): Promise<Metadata> {
       yandex: settings['seo.yandexVerification'] || undefined,
       other: Object.keys(other).length ? other : undefined
     },
-    openGraph: { siteName: product, type: 'website' }
+    openGraph: { siteName: product, type: 'website' },
+    // Settings › Brand › Browser icon, else the built-in one (public/favicon.ico;
+    // not app/favicon.ico, which Next would always add next to the custom one).
+    icons: settings['brand.faviconUrl'] ? { icon: [{ url: settings['brand.faviconUrl'] }], apple: [{ url: settings['brand.faviconUrl'] }] } : { icon: [{ url: '/favicon.ico' }] }
   }
 }
 

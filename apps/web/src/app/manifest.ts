@@ -15,7 +15,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: '/',
     display: 'browser',
     background_color: '#0b0b12',
-    theme_color: '#7c3aed',
-    icons: [{ src: '/favicon.ico', sizes: 'any', type: 'image/x-icon' }]
+    theme_color: settings['brand.accentColor'] || '#7c3aed',
+    icons: settings['brand.faviconUrl'] ? [{ src: settings['brand.faviconUrl'], sizes: 'any' }] : [{ src: '/favicon.ico', sizes: 'any', type: 'image/x-icon' }]
   }
 }

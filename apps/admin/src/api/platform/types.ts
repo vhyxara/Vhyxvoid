@@ -211,7 +211,7 @@ export type SettingView = {
   group: string
   label: string
   description: string
-  type: 'boolean' | 'number' | 'string' | 'text' | 'enum' | 'url' | 'email' | 'stringList' | 'json'
+  type: 'boolean' | 'number' | 'string' | 'text' | 'enum' | 'url' | 'email' | 'stringList' | 'json' | 'image' | 'color'
   value: unknown
   default: unknown
   isDefault: boolean

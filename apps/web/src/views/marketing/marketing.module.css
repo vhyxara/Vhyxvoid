@@ -20,6 +20,8 @@
 .banner a { color: inherit; font-weight: 600; text-decoration: underline; }
 
 .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; letter-spacing: -0.01em; }
+/* Settings › Brand › Logo: as tall as the built-in mark, as wide as it needs. */
+.logoImg { display: block; block-size: 1.75rem; inline-size: auto; max-inline-size: 10rem; object-fit: contain; }
 .logo {
   inline-size: 1.6rem;
   block-size: 1.6rem;
@@ -196,13 +198,13 @@
   padding-inline: 1.15rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(90deg, #7c3aed, #a855f7, #22d3ee, #a855f7, #7c3aed);
+  background: linear-gradient(90deg, var(--brand-accent-deep, #7c3aed), var(--brand-accent-mid, #a855f7), #22d3ee, var(--brand-accent-mid, #a855f7), var(--brand-accent-deep, #7c3aed));
   background-size: 200% 100%;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 6px 24px -6px rgba(139, 92, 246, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 6px 24px -6px var(--brand-glow, rgba(139, 92, 246, 0.85));
   animation: voidShimmer 6s linear infinite;
   transition: transform 0.25s, box-shadow 0.25s;
 }
-.voidShell :global(:is(a, button)[data-variant='primary']:hover:not(:disabled)) { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 10px 30px -6px rgba(139, 92, 246, 0.95); }
+.voidShell :global(:is(a, button)[data-variant='primary']:hover:not(:disabled)) { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 10px 30px -6px var(--brand-glow, rgba(139, 92, 246, 0.95)); }
 .voidShell :global(:is(a, button)[data-variant='outline']),
 .voidShell :global(:is(a, button)[data-variant='secondary']) {
   border-radius: 999px;
@@ -276,7 +278,7 @@
 .consentActions button { padding: 0.5rem 1rem; border-radius: 999px; font: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
 .consentGhost { color: #ecebff; background: transparent; border: 1px solid rgba(167, 139, 250, 0.35); }
 .consentGhost:hover { background: rgba(139, 92, 246, 0.14); }
-.consentAccept { color: #fff; border: 0; background: linear-gradient(90deg, #7c3aed, #a855f7); }
+.consentAccept { color: #fff; border: 0; background: linear-gradient(90deg, var(--brand-accent-deep, #7c3aed), var(--brand-accent-mid, #a855f7)); }
 .consentActions button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .consent { animation: none; } }
 
@@ -403,8 +405,8 @@
 }
 .billingSwitch button[aria-checked='true'] {
   color: #fff;
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  box-shadow: 0 6px 20px -8px rgba(139, 92, 246, 0.9);
+  background: linear-gradient(135deg, var(--brand-accent, #8b5cf6), var(--brand-accent-deep, #6d28d9));
+  box-shadow: 0 6px 20px -8px var(--brand-glow, rgba(139, 92, 246, 0.9));
 }
 .billingSwitch button:focus-visible {
   outline: 2px solid #a78bfa;

@@ -53,6 +53,10 @@ export type PublicSettings = Record<string, unknown> & {
   'newsletter.enabled'?: boolean
   'newsletter.title'?: string
   'newsletter.description'?: string
+  'brand.logoUrl'?: string
+  'brand.logoOnly'?: boolean
+  'brand.faviconUrl'?: string
+  'brand.accentColor'?: string
 }
 
 export type Bootstrap = {

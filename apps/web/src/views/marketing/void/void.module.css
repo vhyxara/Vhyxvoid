@@ -9,8 +9,9 @@
   --faint: #6e6e8f;
   --line: rgba(167, 139, 250, 0.16);
   --line-2: rgba(167, 139, 250, 0.32);
-  --violet: #8b5cf6;
-  --violet-2: #a78bfa;
+  /* Settings › Brand › Accent colour replaces the violet (views/marketing/brandStyle.ts). */
+  --violet: var(--brand-accent, #8b5cf6);
+  --violet-2: var(--brand-accent-light, #a78bfa);
   --cyan: #22d3ee;
   --pink: #e879f9;
   --blue: #60a5fa;
@@ -82,12 +83,12 @@
 }
 .btnPrimary {
   color: #fff;
-  background: linear-gradient(90deg, #7c3aed, #a855f7, #22d3ee, #a855f7, #7c3aed);
+  background: linear-gradient(90deg, var(--brand-accent-deep, #7c3aed), var(--brand-accent-mid, #a855f7), #22d3ee, var(--brand-accent-mid, #a855f7), var(--brand-accent-deep, #7c3aed));
   background-size: 200% 100%;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 10px 40px -8px rgba(139, 92, 246, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 10px 40px -8px var(--brand-glow, rgba(139, 92, 246, 0.8));
   animation: shimmer 6s linear infinite;
 }
-.btnPrimary:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 16px 50px -6px rgba(139, 92, 246, 0.95); }
+.btnPrimary:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 16px 50px -6px var(--brand-glow, rgba(139, 92, 246, 0.95)); }
 .btnPrimary span { transition: transform 0.25s var(--ease); }
 .btnPrimary:hover span { transform: translateX(4px); }
 .btnGhost { color: var(--ink); border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(8px); }

@@ -19,11 +19,12 @@ import { Analytics, COOKIE_SETTINGS_HASH, needsConsent } from './Analytics'
 import { NewsletterBand } from './Newsletter'
 import styles from './marketing.module.css'
 
-function Brand({ name }: { name: string }) {
+/** The logo from Settings › Brand (or the built-in mark) and the product name. */
+function Brand({ name, logo, logoOnly }: { name: string; logo?: string; logoOnly?: boolean }) {
   return (
     <span className={styles.brand}>
-      <span className={styles.logo} aria-hidden />
-      {name}
+      {logo ? <img src={logo} alt={logoOnly ? name : ''} className={styles.logoImg} /> : <span className={styles.logo} aria-hidden />}
+      {!(logo && logoOnly) && name}
     </span>
   )
 }
@@ -96,7 +97,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
       <AnnouncementBanner settings={s} />
       <MarketingLayout
         navbar={{
-          brand: <Brand name={name} />,
+          brand: <Brand name={name} logo={s['brand.logoUrl']} logoOnly={s['brand.logoOnly']} />,
           brandHref: '/',
           linkAs: Link as any,
           links: [
@@ -120,7 +121,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
           )
         }}
         footer={{
-          brand: <Brand name={name} />,
+          brand: <Brand name={name} logo={s['brand.logoUrl']} logoOnly={s['brand.logoOnly']} />,
           tagline: s['general.tagline'] || 'Your localhost, on the internet. Instantly.',
           linkAs: Link as any,
           // The footer menu edited in the admin panel; an API from before it

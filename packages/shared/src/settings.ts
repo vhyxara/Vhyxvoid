@@ -12,7 +12,7 @@
 import { Plan, PLAN_LIMITS, type PlanLimits } from "./planLimits";
 import { isValidVersion } from "./agentFleet";
 
-export type SettingType = "boolean" | "number" | "string" | "text" | "enum" | "url" | "email" | "stringList" | "json";
+export type SettingType = "boolean" | "number" | "string" | "text" | "enum" | "url" | "email" | "stringList" | "json" | "image" | "color";
 
 export interface SettingDefinition {
   group: SettingGroup;
@@ -30,7 +30,7 @@ export interface SettingDefinition {
   validate?: (value: unknown) => string | undefined;
 }
 
-export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics" | "newsletter";
+export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics" | "newsletter" | "brand";
 
 export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: string }> = {
   general: { label: "General", description: "Product name and public links." },
@@ -45,6 +45,7 @@ export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: 
   seo: { label: "SEO", description: "How the website appears in search results and link previews. Edited on the SEO screen." },
   analytics: { label: "Analytics and cookies", description: "Visitor analytics on the marketing website (not the signed-in app), and the cookie consent banner." },
   newsletter: { label: "Newsletter", description: "The email sign-up form on the website. Subscribers are listed under Newsletter." },
+  brand: { label: "Brand", description: "Logo, browser icon and accent colour of the website and the dashboard." },
 };
 
 // ── Plan limit overrides ──────────────────────────────────────────────────────
@@ -226,6 +227,11 @@ export const SETTING_DEFINITIONS = {
   "newsletter.title": { group: "newsletter", label: "Form title", description: "The heading above the sign-up form.", type: "string", default: "Get product updates", public: true, maxLength: 80 },
   "newsletter.description": { group: "newsletter", label: "Form text", description: "One line under the heading: what subscribers get and how often.", type: "string", default: "New features and posts, about once a month. Unsubscribe any time.", public: true, maxLength: 200 },
 
+  "brand.logoUrl": { group: "brand", label: "Logo", description: "Shown in the website's navbar and footer and in the dashboard, next to the product name. A square or wide image with a transparent background, at least 64 px tall. Empty: the built-in logo.", type: "image", default: "", public: true, maxLength: 500 },
+  "brand.logoOnly": { group: "brand", label: "Logo only", description: "Hide the product name next to the logo, for a logo that already contains the name.", type: "boolean", default: false, public: true },
+  "brand.faviconUrl": { group: "brand", label: "Browser icon (favicon)", description: "The icon in browser tabs, bookmarks and on phones' home screens. A square PNG, 512×512 or larger. Empty: the built-in icon.", type: "image", default: "", public: true, maxLength: 500 },
+  "brand.accentColor": { group: "brand", label: "Accent colour", description: "The colour of buttons, links and highlights on the website and in the dashboard, e.g. #7c3aed. Pick one that reads well on dark backgrounds. Empty: the built-in violet.", type: "color", default: "", public: true },
+
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
   "features.customDomains": { group: "features", label: "Custom domains", description: "Customers can serve a tunnel on their own hostname. Needs the edge (Caddy) and a target hostname under Tunnels.", type: "boolean", default: true, public: true },
@@ -301,6 +307,9 @@ export function validateSettingValue(key: string, value: unknown): { ok: true; v
       if (def.maxLength !== undefined && v.length > def.maxLength) return { ok: false, error: `At most ${def.maxLength} characters` };
       if (def.type === "url" && v && !/^(https?:\/\/[^\s]+|\/[^\s]*)$/i.test(v)) return { ok: false, error: "Must be an http(s) URL or a path starting with /" };
       if (def.type === "email" && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { ok: false, error: "Must be an email address" };
+      if (def.type === "image" && v && !/^(https:\/\/\S+|\/(?!\/)\S*)$/i.test(v)) return { ok: false, error: "Must be an https:// address or a path on the site (/media/…)" };
+      if (def.type === "color" && v && !/^#[0-9a-f]{6}$/i.test(v)) return { ok: false, error: "Must be a colour like #7c3aed" };
+      if (def.type === "color") return { ok: true, value: v.toLowerCase() };
       const err = def.validate?.(v);
       if (err) return { ok: false, error: err };
       return { ok: true, value: v };
