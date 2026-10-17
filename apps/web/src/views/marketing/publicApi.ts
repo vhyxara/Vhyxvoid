@@ -141,7 +141,7 @@ export type BlogList = {
 export type BlogTaxonomy = { categories: Array<BlogTaxon & { description: string; count: number }>; tags: Array<BlogTaxon & { count: number }> }
 
 /** null: an unknown category or tag, or the API is down. */
-export async function getBlogPosts(q: { page?: number; limit?: number; category?: string; tag?: string } = {}): Promise<BlogList | null> {
+export async function getBlogPosts(q: { page?: number; limit?: number; category?: string; tag?: string; q?: string } = {}): Promise<BlogList | null> {
   const qs = new URLSearchParams()
 
   for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') qs.set(k, String(v))

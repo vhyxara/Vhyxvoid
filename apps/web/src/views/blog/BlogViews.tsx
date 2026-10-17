@@ -9,12 +9,21 @@ import remarkGfm from 'remark-gfm'
 
 import type { BlogList, BlogPost, BlogSummary, BlogTaxonomy } from '@/views/marketing/publicApi'
 import { JsonLd, breadcrumbJsonLd, scriptJson } from '@/views/seo/JsonLd'
+import { PostToc, ShareBar } from './PostExtras'
+import { headingsOf, rehypeHeadingIds } from './toc'
 import styles from './blog.module.css'
 
 export const formatPostDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
 
-/** A link to a page of a list, keeping page 1 at the bare address. */
-export const pageHref = (base: string, page: number) => (page <= 1 ? base : `${base}?page=${page}`)
+/** A link to a page of a list, keeping page 1 at the bare address (and the search, if any). */
+export function pageHref(base: string, page: number, q?: string) {
+  const qs = new URLSearchParams()
+
+  if (q) qs.set('q', q)
+  if (page > 1) qs.set('page', String(page))
+
+  return qs.size ? `${base}?${qs}` : base
+}
 
 function Meta({ post }: { post: BlogSummary }) {
   return (
@@ -55,13 +64,13 @@ export function PostCard({ post, featured = false }: { post: BlogSummary; featur
   )
 }
 
-function Pager({ base, page, totalPages }: { base: string; page: number; totalPages: number }) {
+function Pager({ base, page, totalPages, q }: { base: string; page: number; totalPages: number; q?: string }) {
   if (totalPages <= 1) return null
 
   return (
     <nav className={styles.pager} aria-label='Pages'>
       {page > 1 ? (
-        <Link href={pageHref(base, page - 1)} rel='prev'>
+        <Link href={pageHref(base, page - 1, q)} rel='prev'>
           ← Newer
         </Link>
       ) : (
@@ -71,7 +80,7 @@ function Pager({ base, page, totalPages }: { base: string; page: number; totalPa
         Page {page} of {totalPages}
       </span>
       {page < totalPages ? (
-        <Link href={pageHref(base, page + 1)} rel='next'>
+        <Link href={pageHref(base, page + 1, q)} rel='next'>
           Older →
         </Link>
       ) : (
@@ -88,7 +97,8 @@ export function BlogIndexView({
   title,
   description,
   eyebrow,
-  activeCategory
+  activeCategory,
+  search
 }: {
   list: BlogList | null
   taxonomy: BlogTaxonomy
@@ -98,6 +108,8 @@ export function BlogIndexView({
   description?: string
   eyebrow?: { label: string; href: string }
   activeCategory?: string
+  /** What the reader searched for (on /blog), if anything. */
+  search?: string
 }) {
   const featured = list?.featured ?? null
   const items = (list?.items ?? []).filter(p => p.slug !== featured?.slug)
@@ -114,7 +126,18 @@ export function BlogIndexView({
           )}
           <h1 className={styles.title}>{title}</h1>
           {description && <p className={styles.lead}>{description}</p>}
+          {base === '/blog' && (
+            <form action='/blog' method='get' role='search' className={styles.search}>
+              <input type='search' name='q' defaultValue={search} placeholder='Search posts' aria-label='Search posts' maxLength={100} />
+              <button type='submit'>Search</button>
+            </form>
+          )}
         </header>
+        {search && (
+          <p className={styles.searchNote} role='status'>
+            {list?.meta.total ? list.meta.total === 1 ? '1 post matches' : `${list.meta.total} posts match` : 'Nothing matches'} “{search}”. <Link href='/blog'>Clear the search</Link>
+          </p>
+        )}
         {taxonomy.categories.length > 0 && (
           <ul className={styles.chips} aria-label='Categories'>
             <li>
@@ -139,9 +162,9 @@ export function BlogIndexView({
             ))}
           </div>
         ) : (
-          !featured && <p className={styles.empty}>{list ? 'No posts here yet. Check back soon.' : 'The blog could not be loaded. Try again in a moment.'}</p>
+          !featured && <p className={styles.empty}>{!list ? 'The blog could not be loaded. Try again in a moment.' : search ? 'Try other words, or browse the categories above.' : 'No posts here yet. Check back soon.'}</p>
         )}
-        {list && <Pager base={base} page={page} totalPages={list.meta.totalPages} />}
+        {list && <Pager base={base} page={page} totalPages={list.meta.totalPages} q={search} />}
       </div>
     </section>
   )
@@ -171,6 +194,8 @@ export function postJsonLd(post: BlogPost, site: string) {
 export { scriptJson }
 
 export function BlogPostView({ post, related, site }: { post: BlogPost; related: BlogSummary[]; site: string }) {
+  const toc = headingsOf(post.body)
+
   return (
     <section className={styles.page}>
       <JsonLd
@@ -198,8 +223,11 @@ export function BlogPostView({ post, related, site }: { post: BlogPost; related:
           </header>
         </div>
         {post.coverImageUrl && <img src={post.coverImageUrl} alt={post.coverImageAlt} className={styles.postCover} />}
-        <div className={`${styles.narrow} ${styles.body}`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
+        <div className={`${styles.narrow} ${styles.body} ${styles.bodyWrap}`}>
+          {toc.length >= 3 && <PostToc items={toc} />}
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHeadingIds]}>
+            {post.body}
+          </ReactMarkdown>
           {post.tags.length > 0 && (
             <ul className={styles.tags} aria-label='Tags'>
               {post.tags.map(t => (
@@ -211,6 +239,7 @@ export function BlogPostView({ post, related, site }: { post: BlogPost; related:
               ))}
             </ul>
           )}
+          <ShareBar url={`${site}/blog/${post.slug}`} title={post.title} />
         </div>
       </article>
       {related.length > 0 && (

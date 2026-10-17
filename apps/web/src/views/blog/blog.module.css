@@ -100,3 +100,36 @@
 .relatedTitle { font-size: 1.4rem; font-weight: 700; margin: 0 0 1.25rem; }
 .body a.chip { color: #c4b5fd; text-decoration: none; }
 .body a.chip:hover { color: #fff; border-color: #a78bfa; }
+
+/* Search (BlogIndexView) */
+.search { display: flex; gap: 0.5rem; margin-block-start: 1.5rem; max-inline-size: 30rem; }
+.search input { flex: 1; min-inline-size: 0; padding: 0.7rem 1rem; border-radius: 999px; font: inherit; color: var(--vhyx-color-text); background: var(--vhyx-color-surface); border: 1px solid var(--vhyx-color-border-strong, var(--vhyx-color-border)); }
+.search input:focus { outline: 2px solid #22d3ee; outline-offset: 1px; }
+.search button { padding: 0.7rem 1.2rem; border-radius: 999px; border: 0; font: inherit; font-weight: 600; color: #fff; cursor: pointer; background: linear-gradient(90deg, #7c3aed, #a855f7); }
+.searchNote { margin: -0.5rem 0 1.5rem; color: var(--vhyx-color-text-muted); }
+.searchNote a { color: #c4b5fd; }
+
+/* Table of contents (PostToc): beside the text when there is room, folded above it otherwise */
+.bodyWrap { position: relative; }
+.tocSide { display: none; }
+.tocFold { margin-block: 0 2rem; padding: 0.8rem 1rem; border-radius: 12px; border: 1px solid var(--vhyx-color-border); background: var(--vhyx-color-surface); font-size: 0.95rem; }
+.tocFold summary { cursor: pointer; font-weight: 600; }
+.tocFold[open] summary { margin-block-end: 0.5rem; }
+.tocTitle { margin: 0 0 0.6rem; font: 600 0.72rem/1 var(--vhyx-font-mono, ui-monospace, monospace); letter-spacing: 0.16em; text-transform: uppercase; color: #a78bfa; }
+.tocList, .body .tocList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.tocList li[data-depth='3'] { padding-inline-start: 0.9rem; }
+.tocList a { display: block; padding: 0.25rem 0.6rem; border-inline-start: 2px solid transparent; color: var(--vhyx-color-text-muted); text-decoration: none; font-size: 0.88rem; line-height: 1.4; transition: color 0.2s, border-color 0.2s; }
+.tocList a:hover { color: var(--vhyx-color-text); }
+.tocList a[aria-current] { color: #fff; border-inline-start-color: #8b5cf6; }
+@media (min-width: 1280px) {
+  .tocFold { display: none; }
+  .tocSide { display: block; position: absolute; inset-block: 0; inset-inline-start: calc(100% + 3rem); inline-size: 14rem; }
+  .tocSticky { position: sticky; inset-block-start: 96px; max-block-size: calc(100vh - 120px); overflow-y: auto; }
+}
+.body h2, .body h3 { scroll-margin-block-start: 96px; }
+
+/* Share (ShareBar) */
+.share { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-block-start: 2rem; padding-block-start: 1.5rem; border-block-start: 1px solid var(--vhyx-color-border); }
+.shareLabel { margin-inline-end: 0.25rem; font: 600 0.72rem/1 var(--vhyx-font-mono, ui-monospace, monospace); letter-spacing: 0.16em; text-transform: uppercase; color: #a78bfa; }
+.share .chip { cursor: pointer; font: inherit; font-size: 0.85rem; padding: 0.35rem 0.8rem; }
+.body .share a.chip { color: var(--vhyx-color-text); text-decoration: none; }
