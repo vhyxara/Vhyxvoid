@@ -318,14 +318,20 @@ export class ContentService {
   }
 }
 
+/** Landing sections added after the first release; entries saved before them don't have them. */
+const NEW_LANDING_SECTIONS = ["journey", "logos", "showcase", "testimonials"] as const;
+
 /**
- * Landing sections added after an entry was saved (the journey) are filled
- * in from the built-in content when the entry is opened for editing, so the
- * editor shows them; the website shows the built-in one until it is published.
+ * Landing sections added after an entry was saved (the journey, logos,
+ * showcase, testimonials) are filled in from the built-in content when the
+ * entry is opened for editing, so the editor shows them. The website shows the
+ * built-in journey until it is published; the others start empty and hidden.
  */
 export function withNewSections<T extends { kind: string; data: unknown }>(row: T): T {
   const data = row.data as Record<string, unknown> | null;
-  if (row.kind !== "landing" || !data || typeof data !== "object" || "journey" in data) return row;
-  const journey = (defaultEntry("home")?.data as { journey?: unknown } | undefined)?.journey;
-  return journey ? { ...row, data: { ...data, journey } } : row;
+  if (row.kind !== "landing" || !data || typeof data !== "object") return row;
+  const missing = NEW_LANDING_SECTIONS.filter((k) => !(k in data));
+  if (!missing.length) return row;
+  const defaults = (defaultEntry("home")?.data ?? {}) as Record<string, unknown>;
+  return { ...row, data: { ...data, ...Object.fromEntries(missing.filter((k) => defaults[k] !== undefined).map((k) => [k, defaults[k]])) } };
 }

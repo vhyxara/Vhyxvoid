@@ -2,11 +2,30 @@
 
 import { Button, Input, Switch, Text, Textarea } from '@vhyxui/react'
 
+import { ImageField } from '@/views/media/MediaPicker'
+
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
 
-const LONG_KEYS = /^(body|subtitle|description|a|source)$/
+const LONG_KEYS = /^(body|subtitle|description|a|source|quote)$/
 
-const humanize = (k: string) => k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())
+const humanize = (k: string) => k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()).replace(/ Url$/, '')
+
+/** Image addresses get the media library picker. */
+const IMAGE_KEYS = /^(imageUrl|avatarUrl)$/
+
+/** Help under fields whose format isn't obvious. */
+const HINTS: Record<string, string> = {
+  videoUrl: 'A YouTube or Vimeo link, or an https:// address of a video file (.mp4, .webm). Empty: no video.',
+  avatarUrl: 'Optional: a square photo. Without one, the initials are shown.',
+  href: 'Optional: where the logo links to.'
+}
+
+/** What "Add item" adds to a list that is still empty (keyed by "<parent>.<list>"). */
+const ITEM_SHAPES: Record<string, Json> = {
+  'logos.items': { name: '', imageUrl: '', href: '' },
+  'testimonials.items': { quote: '', name: '', role: '', avatarUrl: '' },
+  'showcase.images': { imageUrl: '', alt: '', caption: '' }
+}
 
 /** An empty value shaped like `sample` (for "Add item"). */
 function blankLike(sample: Json): Json {
@@ -28,7 +47,7 @@ export function StructuredEditor({ value, onChange, path = [] }: { value: Json; 
   const label = path.length ? humanize(path[path.length - 1]) : ''
 
   if (Array.isArray(value)) {
-    const sample = value[0] ?? ''
+    const sample = value[0] ?? ITEM_SHAPES[path.slice(-2).join('.')] ?? ''
     const move = (from: number, to: number) => {
       if (to < 0 || to >= value.length) return
       const next = [...value]
@@ -112,15 +131,23 @@ export function StructuredEditor({ value, onChange, path = [] }: { value: Json; 
   }
 
   const str = value === null || value === undefined ? '' : String(value)
+  const key = path[path.length - 1] ?? ''
+
+  if (IMAGE_KEYS.test(key)) return <ImageField name={id} label={label} value={str} onChange={onChange} hint={HINTS[key]} />
   const long = LONG_KEYS.test(path[path.length - 1] ?? '') || str.length > 80 || str.includes('\n')
 
   return (
     <label htmlFor={id} className='flex flex-col gap-1'>
-      {label && !/^\d+$/.test(path[path.length - 1] ?? '') && <Text size='sm'>{label}</Text>}
+      {label && !/^\d+$/.test(key) && <Text size='sm'>{label}</Text>}
       {long ? (
         <Textarea id={id} rows={Math.min(14, Math.max(3, str.split('\n').length + 1))} value={str} onChange={e => onChange(e.target.value)} />
       ) : (
         <Input id={id} value={str} onChange={e => onChange(typeof value === 'number' ? Number(e.target.value) : e.target.value)} size='sm' />
+      )}
+      {HINTS[key] && (
+        <Text size='xs' tone='muted'>
+          {HINTS[key]}
+        </Text>
       )}
     </label>
   )

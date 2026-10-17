@@ -83,6 +83,10 @@ const home: LandingContent = {
       { title: "Demos and reviews", body: "Share a work-in-progress build with a client or a teammate without deploying." },
     ],
   },
+  // Empty until you add your own: the website hides a section with nothing in it.
+  logos: { title: "Trusted by developers at", items: [] },
+  showcase: { title: "See it in action", subtitle: "", videoUrl: "", images: [] },
+  testimonials: { title: "What developers say", items: [] },
   faq: {
     title: "Questions, answered",
     items: [

@@ -202,8 +202,13 @@ describe("landing content saved before the journey", () => {
     const { withNewSections } = await import("../../apps/api/src/modules/platform/content/content.service");
     const old = withNewSections({ kind: "landing", data: { hero: {} } }) as { data: { journey?: { stages: unknown[] } } };
     expect(old.data.journey?.stages.length).toBeGreaterThan(1);
-    const custom = { kind: "landing", data: { journey: { title: "Mine", subtitle: "", stages: [] } } };
+    expect(old.data).toMatchObject({ logos: { items: [] }, showcase: { images: [] }, testimonials: { items: [] } });
+    const custom = { kind: "landing", data: { journey: { title: "Mine", subtitle: "", stages: [] }, logos: { title: "", items: [] }, showcase: { title: "", subtitle: "", videoUrl: "", images: [] }, testimonials: { title: "", items: [] } } };
     expect(withNewSections(custom)).toBe(custom);
+    // Only what is missing is filled in: a custom journey stays.
+    const partial = withNewSections({ kind: "landing", data: { journey: { title: "Mine", subtitle: "", stages: [] } } }) as any;
+    expect(partial.data.journey.title).toBe("Mine");
+    expect(partial.data.testimonials.items).toEqual([]);
     const page = { kind: "page", data: { body: "x" } };
     expect(withNewSections(page)).toBe(page);
   });

@@ -1,9 +1,10 @@
 'use client'
 
 // The landing page: VhyxVoid as a void that API calls travel through. A
-// starfield and a wormhole in the hero, then the trip of one request told
-// stop by stop, then features, the launch sequence, use cases, FAQ and a last
-// call to action. Every word comes from Website content → Landing page; the
+// starfield and a wormhole in the hero (with customer logos, when there are
+// any), then the trip of one request told stop by stop, then features, the
+// launch sequence, the showcase (video, screenshots), use cases, testimonials,
+// FAQ and a last call to action. Every word comes from Website content → Landing page; the
 // animations are decorative, pause off screen, and respect reduced motion.
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
 import { useRef, useState } from 'react'
@@ -16,6 +17,7 @@ import { defaultEntry, type LandingContent } from '@vhyxvoid/content'
 import { featureIcon } from './icons'
 import { CountUp, useInView, useReducedMotion, useReveal } from './void/hooks'
 import { Journey } from './void/Journey'
+import { LogoStrip, Showcase, Testimonials } from './void/LandingExtras'
 import { Portal } from './void/Portal'
 import { Starfield } from './void/Starfield'
 import styles from './void/void.module.css'
@@ -104,7 +106,7 @@ function onSpot(e: ReactPointerEvent<HTMLElement>) {
 }
 
 export function LandingView({ content, signupsEnabled }: { content: LandingContent; signupsEnabled: boolean }) {
-  const { hero, stats, features, steps, diagram, useCases, faq, cta } = content
+  const { hero, stats, features, steps, diagram, useCases, logos, showcase, testimonials, faq, cta } = content
   const journey = content.journey ?? (defaultEntry('home')?.data as LandingContent | undefined)?.journey
   const primary = signupsEnabled ? hero.primaryCta : { label: 'Sign in', href: '/login' }
   const ctaAction = signupsEnabled ? cta.primaryCta : { label: 'Sign in', href: '/login' }
@@ -162,6 +164,7 @@ export function LandingView({ content, signupsEnabled }: { content: LandingConte
             ))}
           </div>
         )}
+        {logos && logos.items.length > 0 && <LogoStrip logos={logos} />}
         <a href='#journey' className={styles.scrollCue} aria-label='Scroll to how it works'>
           <span />
         </a>
@@ -230,6 +233,9 @@ export function LandingView({ content, signupsEnabled }: { content: LandingConte
         </div>
       </section>
 
+      {/* ── Showcase: video and screenshots ── */}
+      {showcase && <Showcase showcase={showcase} />}
+
       {/* ── Use cases ── */}
       {useCases && useCases.items.length > 0 && (
         <section className={styles.section}>
@@ -252,6 +258,9 @@ export function LandingView({ content, signupsEnabled }: { content: LandingConte
           </div>
         </section>
       )}
+
+      {/* ── Testimonials ── */}
+      {testimonials && testimonials.items.length > 0 && <Testimonials testimonials={testimonials} />}
 
       {/* ── FAQ ── */}
       {faq.items.length > 0 && (

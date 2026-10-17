@@ -6,6 +6,9 @@ import { z } from "zod";
 const text = (max: number) => z.string().trim().max(max);
 const link = z.object({ label: text(40), href: text(300) });
 const optionalLink = link.partial().optional();
+/** An image address: https://… or a path on the site (/media/…). */
+const imageUrl = (required: boolean) =>
+  text(500).refine((v) => (!required && v === "") || /^https:\/\/\S+$/.test(v) || /^\/[^/\s]\S*$/.test(v), required ? "Choose an image, or use an https:// address or a path on the site" : "Use an https:// address or a path on the site");
 
 export const landingSchema = z.object({
   hero: z.object({
@@ -38,6 +41,22 @@ export const landingSchema = z.object({
     .optional(),
   useCases: z
     .object({ title: text(120), items: z.array(z.object({ title: text(80), body: text(300) })).max(9) })
+    .optional(),
+  logos: z
+    .object({ title: text(120).default(""), items: z.array(z.object({ name: text(80), imageUrl: imageUrl(true), href: text(300).default("") })).max(24) })
+    .optional(),
+  showcase: z
+    .object({
+      title: text(120).default(""),
+      subtitle: text(300).default(""),
+      videoUrl: text(500)
+        .default("")
+        .refine((v) => v === "" || /^https:\/\/\S+$/.test(v), "Use an https:// address: a YouTube or Vimeo link, or a video file"),
+      images: z.array(z.object({ imageUrl: imageUrl(true), alt: text(200).default(""), caption: text(200).default("") })).max(8),
+    })
+    .optional(),
+  testimonials: z
+    .object({ title: text(120).default(""), items: z.array(z.object({ quote: text(600), name: text(80), role: text(120).default(""), avatarUrl: imageUrl(false).default("") })).max(12) })
     .optional(),
   faq: z.object({ title: text(120), items: z.array(z.object({ q: text(200), a: text(1500) })).max(20) }),
   cta: z.object({ title: text(120), subtitle: text(300).default(""), primaryCta: link }),

@@ -107,6 +107,17 @@ describe("CMS content", () => {
   it("refuses malformed landing data", () => {
     expect(landingSchema.safeParse({ hero: { title: "x" } }).success).toBe(false);
   });
+
+  it("takes images as https:// or site paths only, and video as https://", () => {
+    const base = DEFAULT_CONTENT.find((e) => e.slug === "home")!.data as Record<string, unknown>;
+    const ok = (extra: object) => landingSchema.safeParse({ ...base, ...extra }).success;
+    expect(ok({ logos: { title: "", items: [{ name: "Acme", imageUrl: "/media/x/acme.png", href: "" }] } })).toBe(true);
+    expect(ok({ logos: { title: "", items: [{ name: "Acme", imageUrl: "javascript:alert(1)", href: "" }] } })).toBe(false);
+    expect(ok({ logos: { title: "", items: [{ name: "Acme", imageUrl: "//evil.test/a.png", href: "" }] } })).toBe(false);
+    expect(ok({ testimonials: { title: "", items: [{ quote: "Great", name: "Ann", role: "", avatarUrl: "" }] } })).toBe(true);
+    expect(ok({ showcase: { title: "", subtitle: "", videoUrl: "https://youtu.be/abc", images: [] } })).toBe(true);
+    expect(ok({ showcase: { title: "", subtitle: "", videoUrl: "http://youtu.be/abc", images: [] } })).toBe(false);
+  });
 });
 
 describe("maintenance mode and sign-up policy", () => {

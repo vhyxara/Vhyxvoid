@@ -14,6 +14,12 @@ export type LandingContent = {
   journey?: { title: string; subtitle: string; stages: Array<{ node: string; title: string; body: string }> };
   diagram?: { title: string; subtitle: string; source: string };
   useCases?: { title: string; items: Array<{ title: string; body: string }> };
+  /** Customer logos under the hero; hidden while empty. */
+  logos?: { title: string; items: Array<{ name: string; imageUrl: string; href: string }> };
+  /** Product video (YouTube, Vimeo or a video file) and/or screenshots; hidden while empty. */
+  showcase?: { title: string; subtitle: string; videoUrl: string; images: Array<{ imageUrl: string; alt: string; caption: string }> };
+  /** Quotes from real customers; hidden while empty. */
+  testimonials?: { title: string; items: Array<{ quote: string; name: string; role: string; avatarUrl: string }> };
   faq: { title: string; items: Array<{ q: string; a: string }> };
   cta: { title: string; subtitle: string; primaryCta: Link };
 };
