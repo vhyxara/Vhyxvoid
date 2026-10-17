@@ -128,6 +128,10 @@ export async function getPlans(): Promise<PublicPlans | null> {
 // ── Blog ──
 
 export type BlogTaxon = { slug: string; name: string }
+/** An author profile as posts list it. */
+export type BlogAuthorRef = { slug: string; name: string; avatarUrl: string }
+/** The whole public profile (post pages, author pages). */
+export type BlogAuthorProfile = BlogAuthorRef & { title: string; bio: string; website: string; twitter: string; github: string; linkedin: string }
 
 export type BlogSummary = {
   slug: string
@@ -139,12 +143,14 @@ export type BlogSummary = {
   updatedAt: string
   readingMinutes: number
   authorName: string
+  /** The author's profile, when the post is signed with one (absent from APIs before profiles). */
+  author?: BlogAuthorRef | null
   featured: boolean
   category: BlogTaxon | null
   tags: BlogTaxon[]
 }
 
-export type BlogPost = BlogSummary & { body: string; seoTitle: string | null; seoDescription: string | null }
+export type BlogPost = Omit<BlogSummary, 'author'> & { author?: BlogAuthorProfile | null; body: string; seoTitle: string | null; seoDescription: string | null }
 
 export type BlogList = {
   items: BlogSummary[]
@@ -152,13 +158,14 @@ export type BlogList = {
   featured: BlogSummary | null
   category: (BlogTaxon & { description: string }) | null
   tag: BlogTaxon | null
+  author?: BlogAuthorProfile | null
   meta: { page: number; limit: number; total: number; totalPages: number }
 }
 
 export type BlogTaxonomy = { categories: Array<BlogTaxon & { description: string; count: number }>; tags: Array<BlogTaxon & { count: number }> }
 
 /** null: an unknown category or tag, or the API is down. */
-export async function getBlogPosts(q: { page?: number; limit?: number; category?: string; tag?: string; q?: string } = {}): Promise<BlogList | null> {
+export async function getBlogPosts(q: { page?: number; limit?: number; category?: string; tag?: string; author?: string; q?: string } = {}): Promise<BlogList | null> {
   const qs = new URLSearchParams()
 
   for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== '') qs.set(k, String(v))
@@ -201,7 +208,7 @@ export async function siteUrl(): Promise<string> {
   return `${proto}://${host}`
 }
 
-export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[]; hidden?: string[]; changelog?: { updatedAt: string } | null }
+export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[]; authors?: string[]; hidden?: string[]; changelog?: { updatedAt: string } | null }
 
 export async function getSitemap(): Promise<SitemapData> {
   return (await get<SitemapData>('/public/sitemap')) ?? { pages: [], posts: [], categories: [], tags: [], hidden: [] }

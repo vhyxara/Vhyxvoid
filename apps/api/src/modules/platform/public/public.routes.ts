@@ -58,12 +58,13 @@ export async function publicRoutes(fastify: FastifyInstance) {
   fastify.get("/sitemap", async (_request, reply) => {
     const prisma = prismaOf(fastify);
     const visible = visibleWhere();
-    const [pages, posts, categories, tags, changelog] = await Promise.all([
+    const [pages, posts, categories, tags, changelog, authors] = await Promise.all([
       prisma.contentEntry.findMany({ where: { kind: "page", status: "PUBLISHED", publishedData: { not: Prisma.DbNull } }, select: { slug: true, publishedAt: true, updatedAt: true }, orderBy: { slug: "asc" }, take: 5000 }),
       prisma.blogPost.findMany({ where: visible, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" }, take: 5000 }),
       prisma.blogCategory.findMany({ where: { posts: { some: visible } }, select: { slug: true }, orderBy: { slug: "asc" } }),
       prisma.blogTag.findMany({ where: { posts: { some: { post: visible } } }, select: { slug: true }, orderBy: { slug: "asc" } }),
       prisma.changelogEntry.findFirst({ where: changelogVisible(), orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      prisma.blogAuthor.findMany({ where: { posts: { some: visible } }, select: { slug: true }, orderBy: { slug: "asc" } }),
     ]);
     // Addresses the SEO screen hides from search engines stay out of the sitemap too.
     const hidden = new Set((await prisma.seoPage.findMany({ where: { noindex: true }, select: { path: true } })).map((p) => p.path));
@@ -80,6 +81,7 @@ export async function publicRoutes(fastify: FastifyInstance) {
       hidden: [...hidden],
       categories: categories.map((c) => c.slug).filter((s) => !hidden.has(`/blog/category/${s}`)),
       tags: tags.map((t) => t.slug),
+      authors: authors.map((a) => a.slug).filter((s) => !hidden.has(`/blog/author/${s}`)),
       // The /changelog page, when it has entries: last changed with its newest edit.
       changelog: changelog && !hidden.has("/changelog") ? { updatedAt: changelog.updatedAt } : null,
     });

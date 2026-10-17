@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 import type { BlogList, BlogPost, BlogSummary } from '@/views/marketing/publicApi'
 
@@ -10,7 +10,7 @@ vi.mock('@/views/marketing/publicApi', () => ({
   getBlogPosts: async () => ({ items: [summary({ title: 'Ship <fast> & "safe"', excerpt: 'Why & how' })], featured: null, category: null, tag: null, meta: { page: 1, limit: 20, total: 1, totalPages: 1 } })
 }))
 
-const { BlogIndexView, BlogPostView, pageHref, postJsonLd, scriptJson } = await import('./BlogViews')
+const { BlogIndexView, BlogPostView, authorLinks, pageHref, postJsonLd, scriptJson } = await import('./BlogViews')
 const { pageParam } = await import('./meta')
 const { GET: rss } = await import('@/app/blog/rss.xml/route')
 
@@ -70,7 +70,7 @@ describe('the blog list', () => {
 })
 
 describe('one post', () => {
-  const post: BlogPost = { ...summary(), body: '## Section\n\nText with <script>alert(1)</script> and [a link](https://x.test).', seoTitle: null, seoDescription: null }
+  const post: BlogPost = { ...summary(), author: null, body: '## Section\n\nText with <script>alert(1)</script> and [a link](https://x.test).', seoTitle: null, seoDescription: null }
 
   it('renders the markdown without raw HTML, with tags and related posts', () => {
     const { container } = render(<BlogPostView post={post} related={[summary({ slug: 'other', title: 'Other post' })]} site='https://example.test' />)
@@ -103,5 +103,26 @@ describe('the RSS feed', () => {
     expect(xml).toContain('<title>Ship &lt;fast&gt; &amp; &quot;safe&quot;</title>')
     expect(xml).toContain('<description>Why &amp; how</description>')
     expect(xml).toContain('<category>News</category>')
+  })
+})
+
+describe('authors', () => {
+  const ada = { slug: 'ada', name: 'Ada Lovelace', avatarUrl: '', title: 'Engineer', bio: 'Writes about tunnels.', website: 'https://ada.test', twitter: 'ada_dev', github: '', linkedin: '' }
+
+  it('signs a post with the profile: card, link to the author page and schema.org Person', () => {
+    const post: BlogPost = { ...summary(), author: ada, authorName: 'Ada Lovelace', body: 'Text.', seoTitle: null, seoDescription: null }
+    render(<BlogPostView post={post} related={[]} site='https://example.test' />)
+    const card = screen.getByRole('complementary', { name: 'About the author' })
+
+    expect(card.textContent).toContain('Writes about tunnels.')
+    expect(screen.getAllByRole('link', { name: 'Ada Lovelace' })[0].getAttribute('href')).toBe('/blog/author/ada')
+    expect(within(card).getByRole('link', { name: 'X' }).getAttribute('href')).toBe('https://x.com/ada_dev')
+    const ld = postJsonLd(post, 'https://example.test') as any
+    expect(ld.author).toMatchObject({ '@type': 'Person', name: 'Ada Lovelace', url: 'https://example.test/blog/author/ada', jobTitle: 'Engineer', sameAs: ['https://ada.test', 'https://x.com/ada_dev'] })
+  })
+
+  it('keeps the plain name for posts without a profile', () => {
+    expect((postJsonLd({ ...summary(), author: null, authorName: 'Guest', body: '', seoTitle: null, seoDescription: null }, 'https://e.test') as any).author).toEqual({ '@type': 'Person', name: 'Guest' })
+    expect(authorLinks({ website: '', twitter: '', github: 'octo', linkedin: 'https://linkedin.com/in/x' })).toEqual([{ label: 'GitHub', href: 'https://github.com/octo' }, { label: 'LinkedIn', href: 'https://linkedin.com/in/x' }])
   })
 })

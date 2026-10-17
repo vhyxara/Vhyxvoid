@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { PageHeader } from '@vhyxui/blocks'
-import { Alert, Button, Skeleton, Switch, Tabs, Text, TextareaField, TextField, toast } from '@vhyxui/react'
+import { Alert, Button, SelectField, Skeleton, Switch, Tabs, Text, TextareaField, TextField, toast } from '@vhyxui/react'
 import { useQuery } from '@tanstack/react-query'
 
 import { usePlatformDetail, usePlatformMutation } from '@/api/platform/hooks'
@@ -27,7 +27,9 @@ import { ImageField } from '@/views/media/MediaPicker'
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
-type Draft = Required<Omit<BlogPostInput, 'expectedUpdatedAt' | 'coverImageUrl' | 'category' | 'seoTitle' | 'seoDescription'>> & {
+type Draft = Required<Omit<BlogPostInput, 'expectedUpdatedAt' | 'coverImageUrl' | 'category' | 'seoTitle' | 'seoDescription' | 'authorId'>> & {
+  /** '' = signed with the name alone. */
+  authorId: string
   coverImageUrl: string
   category: string
   seoTitle: string
@@ -46,6 +48,7 @@ export function draftOf(p: BlogPostDetail): Draft {
     tags: p.tags.map(t => t.name),
     featured: p.featured,
     authorName: p.authorName,
+    authorId: p.authorId ?? '',
     seoTitle: p.seoTitle ?? '',
     seoDescription: p.seoDescription ?? ''
   }
@@ -59,7 +62,7 @@ export function changesOf(before: Draft, after: Draft): BlogPostInput {
     if (JSON.stringify(before[k]) === JSON.stringify(after[k])) continue
     const v = after[k]
 
-    ;(out as any)[k] = (k === 'coverImageUrl' || k === 'category' || k === 'seoTitle' || k === 'seoDescription') && v === '' ? null : v
+    ;(out as any)[k] = (k === 'coverImageUrl' || k === 'category' || k === 'seoTitle' || k === 'seoDescription' || k === 'authorId') && v === '' ? null : v
   }
 
   return out
@@ -81,6 +84,7 @@ export function BlogPostEditorView({ id }: { id: string }) {
   const { data: post, isLoading, error } = usePlatformDetail('blog', id, platformService.blogPost)
   const categories = useQuery({ queryKey: ['platform', 'blog', 'categories'], queryFn: platformService.blogCategories })
   const tags = useQuery({ queryKey: ['platform', 'blog', 'tags'], queryFn: platformService.blogTags })
+  const authors = useQuery({ queryKey: ['platform', 'blog', 'authors'], queryFn: platformService.blogAuthors })
   const [d, setD] = useState<Draft | null>(null)
   const [confirm, setConfirm] = useState<null | 'delete' | 'unpublish'>(null)
   const [scheduleAt, setScheduleAt] = useState('')
@@ -190,7 +194,19 @@ export function BlogPostEditorView({ id }: { id: string }) {
                 </datalist>
               </div>
               <TagInput value={d.tags} onChange={v => set('tags', v)} suggestions={(tags.data ?? []).map(t => t.name)} />
-              <TextField name='post-author' label='Author' hint='The name shown on the post.' value={d.authorName} onChange={e => set('authorName', e.target.value)} />
+              <SelectField
+                name='post-author-profile'
+                label='Author'
+                hint={(authors.data ?? []).length ? 'Posts signed by a profile show its photo and bio, and link to the author page.' : 'Add author profiles under Blog › Authors to show a photo and bio.'}
+                value={d.authorId || 'none'}
+                onValueChange={v => {
+                  const a = (authors.data ?? []).find(x => x.id === v)
+
+                  setD(x => (x ? { ...x, authorId: a?.id ?? '', ...(a ? { authorName: a.name } : {}) } : x))
+                }}
+                options={[{ value: 'none', label: 'A name only' }, ...(authors.data ?? []).map(a => ({ value: a.id, label: a.name }))]}
+              />
+              {!d.authorId && <TextField name='post-author' label='Name shown' value={d.authorName} onChange={e => set('authorName', e.target.value)} />}
               <label className='flex items-center gap-2'>
                 <Switch checked={d.featured} onCheckedChange={c => set('featured', c)} aria-label='Feature this post' />
                 <Text size='sm'>Feature at the top of the blog (the newest featured post leads)</Text>

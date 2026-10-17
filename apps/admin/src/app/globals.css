@@ -152,3 +152,10 @@ body {
 .changelog-fields { display: grid; gap: 12px; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) minmax(0, 14rem); }
 @media (max-width: 760px) { .changelog-fields { grid-template-columns: minmax(0, 1fr); } }
 .color-swatch { inline-size: 2.25rem; block-size: 2.25rem; padding: 2px; border: 1px solid var(--vhyx-color-border); border-radius: 8px; background: var(--vhyx-color-surface); cursor: pointer; }
+.author-form { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.author-form .author-wide, .author-form .image-field { grid-column: 1 / -1; }
+@media (max-width: 640px) { .author-form { grid-template-columns: minmax(0, 1fr); } }
+.author-row { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; font: inherit; color: var(--vhyx-color-accent); cursor: pointer; text-align: start; }
+.author-row img, .author-row > span[aria-hidden] { inline-size: 32px; block-size: 32px; border-radius: 50%; object-fit: cover; flex: none; }
+.author-row > span[aria-hidden] { display: grid; place-items: center; font-weight: 700; color: #fff; background: var(--vhyx-color-accent); }
+.author-row > span:last-child { display: flex; flex-direction: column; }

@@ -2,7 +2,7 @@
 // (published, publishedAt passed). Cached 60 s by browsers and proxies; the
 // website also caches them under its "cms" tag, refreshed on every change.
 //
-//   GET /posts?page&limit&category=<slug>&tag=<slug>&q=   summaries, newest first, plus the newest featured post on page 1
+//   GET /posts?page&limit&category=<slug>&tag=<slug>&author=<slug>&q=   summaries, newest first, plus the newest featured post on page 1
 //   GET /posts/:slug                                      the post and up to 3 related ones; { redirect } for an old slug
 //   GET /taxonomy                                         categories and tags that have visible posts, with counts
 import type { FastifyInstance } from "fastify";
@@ -12,6 +12,9 @@ import { NotFoundError } from "@/core/errors/error.format";
 import { successResponse } from "@/core/utils/response.util";
 import { prismaOf } from "../shared/http";
 import { summary, summarySelect, visibleWhere } from "./blog.service";
+
+/** What visitors see of an author: the profile, never ids or dates. */
+const authorProfileSelect = { slug: true, name: true, title: true, bio: true, avatarUrl: true, website: true, twitter: true, github: true, linkedin: true } as const;
 
 const slug = z.string().trim().toLowerCase().max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
@@ -26,6 +29,7 @@ export async function publicBlogRoutes(fastify: FastifyInstance) {
         limit: z.coerce.number().int().min(1).max(50).default(12),
         category: slug.optional(),
         tag: slug.optional(),
+        author: slug.optional(),
         q: z.string().trim().max(100).optional(),
       })
       .parse(request.query ?? {});
@@ -33,25 +37,28 @@ export async function publicBlogRoutes(fastify: FastifyInstance) {
       ...visibleWhere(),
       ...(q.category ? { category: { slug: q.category } } : {}),
       ...(q.tag ? { tags: { some: { tag: { slug: q.tag } } } } : {}),
+      ...(q.author ? { author: { slug: q.author } } : {}),
       ...(q.q ? { OR: [{ title: { contains: q.q, mode: "insensitive" as const } }, { excerpt: { contains: q.q, mode: "insensitive" as const } }, { body: { contains: q.q, mode: "insensitive" as const } }] } : {}),
     };
     const [rows, total, featured] = await Promise.all([
       prisma.blogPost.findMany({ where, orderBy: [{ publishedAt: "desc" }, { id: "asc" }], skip: (q.page - 1) * q.limit, take: q.limit, select: summarySelect }),
       prisma.blogPost.count({ where }),
       // The newest featured post leads the first page of the unfiltered list.
-      q.page === 1 && !q.category && !q.tag && !q.q ? prisma.blogPost.findFirst({ where: { ...visibleWhere(), featured: true }, orderBy: { publishedAt: "desc" }, select: summarySelect }) : null,
+      q.page === 1 && !q.category && !q.tag && !q.author && !q.q ? prisma.blogPost.findFirst({ where: { ...visibleWhere(), featured: true }, orderBy: { publishedAt: "desc" }, select: summarySelect }) : null,
     ]);
-    const [category, tag] = await Promise.all([
+    const [category, tag, author] = await Promise.all([
       q.category ? prisma.blogCategory.findUnique({ where: { slug: q.category }, select: { slug: true, name: true, description: true } }) : null,
       q.tag ? prisma.blogTag.findUnique({ where: { slug: q.tag }, select: { slug: true, name: true } }) : null,
+      q.author ? prisma.blogAuthor.findUnique({ where: { slug: q.author }, select: authorProfileSelect }) : null,
     ]);
-    if ((q.category && !category) || (q.tag && !tag)) throw new NotFoundError(q.category ? "Category not found" : "Tag not found");
+    if ((q.category && !category) || (q.tag && !tag) || (q.author && !author)) throw new NotFoundError(q.category ? "Category not found" : q.tag ? "Tag not found" : "Author not found");
     cache(reply);
     return successResponse(reply, "Success", 200, {
       items: rows.map(summary),
       featured: featured ? summary(featured) : null,
       category,
       tag,
+      author,
       meta: { page: q.page, limit: q.limit, total, totalPages: Math.max(1, Math.ceil(total / q.limit)) },
     });
   });
@@ -60,7 +67,7 @@ export async function publicBlogRoutes(fastify: FastifyInstance) {
     const parsed = slug.safeParse(request.params.slug);
     if (!parsed.success) throw new NotFoundError("Post not found");
     const now = new Date();
-    const post = await prisma.blogPost.findFirst({ where: { ...visibleWhere(now), slug: parsed.data }, select: { ...summarySelect, id: true, body: true, seoTitle: true, seoDescription: true, categoryId: true } });
+    const post = await prisma.blogPost.findFirst({ where: { ...visibleWhere(now), slug: parsed.data }, select: { ...summarySelect, id: true, body: true, seoTitle: true, seoDescription: true, categoryId: true, author: { select: authorProfileSelect } } });
     if (!post) {
       // An old address of a post that was renamed.
       const moved = await prisma.blogPost.findFirst({ where: { ...visibleWhere(now), previousSlugs: { has: parsed.data } }, select: { slug: true } });
@@ -84,7 +91,7 @@ export async function publicBlogRoutes(fastify: FastifyInstance) {
     });
     cache(reply);
     return successResponse(reply, "Success", 200, {
-      post: { ...summary(post), body: post.body, seoTitle: post.seoTitle, seoDescription: post.seoDescription },
+      post: { ...summary(post), author: post.author, body: post.body, seoTitle: post.seoTitle, seoDescription: post.seoDescription },
       related: post.categoryId || tagSlugs.length ? related.map(summary) : [],
     });
   });

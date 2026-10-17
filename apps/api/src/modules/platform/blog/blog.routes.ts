@@ -12,6 +12,7 @@
 //   PATCH  /categories/:id | /tags/:id  rename, new slug, description (blog.update)
 //   DELETE /categories/:id | /tags/:id  posts keep going, without it (blog.delete)
 //   POST   /tags/:id/merge            { into } moves its posts to another tag, then deletes it (blog.update)
+//   /authors                           author profiles (blog.authors.routes.ts)
 //
 // Posts name their category and tags by name; missing ones are created
 // (blog.service.ts categoryFor / tagsFor).
@@ -22,6 +23,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/core/errors/err
 import { successResponse } from "@/core/utils/response.util";
 import { getAdminContext } from "@/modules/identity/infrastructure/middleware/AdminRoute.middleware";
 import { audit, page, pageQuerySchema, prismaOf, skipTake } from "../shared/http";
+import { adminBlogAuthorRoutes } from "./blog.authors.routes";
 import { blogChanged, categoryFor, findPostOr404, postState, readingMinutes, releaseOldSlug, slugify, tagsFor, uniquePostSlug } from "./blog.service";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -44,6 +46,8 @@ const postFields = z.object({
   tags: z.array(text(40).min(1)).max(10, "At most 10 tags"),
   featured: z.boolean(),
   authorName: text(80),
+  /** An author profile (BlogAuthor); their name is copied to authorName. null: the name alone. */
+  authorId: z.string().uuid().nullable(),
   seoTitle: text(120).nullable(),
   seoDescription: text(300).nullable(),
 });
@@ -65,6 +69,14 @@ function adminName(a: { firstName?: string | null; lastName?: string | null; ema
 
 export async function adminBlogRoutes(fastify: FastifyInstance) {
   const prisma = prismaOf(fastify);
+  await fastify.register(adminBlogAuthorRoutes, { prefix: "/authors" });
+
+  /** The profile a post is signed with, or a 400 for an unknown one. */
+  const authorOf = async (id: string) => {
+    const a = await prisma.blogAuthor.findUnique({ where: { id }, select: { id: true, name: true } });
+    if (!a) throw new ValidationError("That author no longer exists. Pick another.");
+    return a;
+  };
 
   const view = (p: Awaited<ReturnType<typeof findPostOr404>>) => ({
     ...p,
@@ -108,6 +120,7 @@ export async function adminBlogRoutes(fastify: FastifyInstance) {
     const b = postBody.parse(request.body ?? {});
     const admin = getAdminContext(request);
     const me = await prisma.adminUser.findUnique({ where: { id: admin.id }, select: { firstName: true, lastName: true, email: true } }).catch(() => null);
+    const author = b.authorId ? await authorOf(b.authorId) : null;
     const row = await prisma.$transaction(async (tx) => {
       const slug = await uniquePostSlug(tx, b.slug || b.title, undefined, Boolean(b.slug));
       const [categoryId, tagIds] = [await categoryFor(tx, b.category), await tagsFor(tx, b.tags)];
@@ -120,7 +133,8 @@ export async function adminBlogRoutes(fastify: FastifyInstance) {
           coverImageUrl: b.coverImageUrl || null,
           coverImageAlt: b.coverImageAlt,
           featured: b.featured,
-          authorName: b.authorName ?? adminName(me ?? { email: admin.email }),
+          authorName: author?.name ?? b.authorName ?? adminName(me ?? { email: admin.email }),
+          authorId: author?.id ?? null,
           seoTitle: b.seoTitle || null,
           seoDescription: b.seoDescription || null,
           readingMinutes: readingMinutes(b.body),
@@ -142,6 +156,7 @@ export async function adminBlogRoutes(fastify: FastifyInstance) {
     const b = saveBody.parse(request.body ?? {});
     const admin = getAdminContext(request);
     const before = await findPostOr404(prisma, id);
+    const author = b.authorId ? await authorOf(b.authorId) : null;
     if (b.expectedUpdatedAt && b.expectedUpdatedAt.getTime() !== before.updatedAt.getTime()) {
       throw new ConflictError("Someone saved this post after you opened it. Reload to see their changes, then make yours again.");
     }
@@ -172,6 +187,8 @@ export async function adminBlogRoutes(fastify: FastifyInstance) {
           ...(b.coverImageAlt !== undefined ? { coverImageAlt: b.coverImageAlt } : {}),
           ...(b.featured !== undefined ? { featured: b.featured } : {}),
           ...(b.authorName !== undefined ? { authorName: b.authorName } : {}),
+          ...(b.authorId !== undefined ? { authorId: author?.id ?? null } : {}),
+          ...(author ? { authorName: author.name } : {}),
           ...(b.seoTitle !== undefined ? { seoTitle: b.seoTitle || null } : {}),
           ...(b.seoDescription !== undefined ? { seoDescription: b.seoDescription || null } : {}),
           ...(categoryId !== undefined ? { categoryId } : {}),

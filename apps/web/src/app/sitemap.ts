@@ -22,7 +22,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...data.pages.map(p => at(`/${p.slug}`, { lastModified: p.updatedAt, changeFrequency: 'monthly', priority: 0.5 })),
     ...(data.posts.length ? [at('/blog', { lastModified: data.posts[0].updatedAt, changeFrequency: 'daily', priority: 0.7 })] : []),
     ...data.posts.map(p => at(`/blog/${p.slug}`, { lastModified: p.updatedAt, changeFrequency: 'monthly', priority: 0.6 })),
-    ...data.categories.map(slug => at(`/blog/category/${slug}`, { changeFrequency: 'weekly', priority: 0.4 }))
+    ...data.categories.map(slug => at(`/blog/category/${slug}`, { changeFrequency: 'weekly', priority: 0.4 })),
+    ...(data.authors ?? []).map(slug => at(`/blog/author/${slug}`, { changeFrequency: 'weekly', priority: 0.3 }))
     // Tag pages are noindex (blog/tag/[slug]/page.tsx), so they are left out.
   ].filter(e => !hidden.has(e.url.slice(site.length) || '/'))
 }

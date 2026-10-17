@@ -1932,6 +1932,8 @@ model BlogPost {
   publishedAt      DateTime?
   featured         Boolean        @default(false)
   authorName       String         @default("")
+  /// The author\'s profile (BlogAuthor); authorName keeps their name for posts without one.
+  authorId         String?
   categoryId       String?
   seoTitle         String?
   seoDescription   String?
@@ -1944,10 +1946,12 @@ model BlogPost {
   updatedAt        DateTime       @updatedAt
 
   category BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author   BlogAuthor?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
   tags     BlogPostTag[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+  @@index([authorId])
   @@map("blog_posts")
 }
 
@@ -2115,4 +2119,24 @@ model ChangelogEntry {
 
   @@index([status, publishedAt])
   @@map("changelog_entries")
+}
+
+/// A blog author's profile, shown under their posts and at /blog/author/<slug>.
+model BlogAuthor {
+  id        String     @id @default(uuid())
+  slug      String     @unique
+  name      String
+  /// "Engineer at VhyxVoid"; shown under the name.
+  title     String     @default("")
+  bio       String     @default("")
+  avatarUrl String     @default("")
+  website   String     @default("")
+  twitter   String     @default("")
+  github    String     @default("")
+  linkedin  String     @default("")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  posts     BlogPost[]
+
+  @@map("blog_authors")
 }

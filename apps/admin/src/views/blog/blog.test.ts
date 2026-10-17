@@ -16,6 +16,7 @@ const post = {
   tags: [{ id: 't1', slug: 'js', name: 'JS' }],
   featured: false,
   authorName: 'Ada',
+  authorId: null,
   seoTitle: null,
   seoDescription: null
 } as unknown as BlogPostDetail

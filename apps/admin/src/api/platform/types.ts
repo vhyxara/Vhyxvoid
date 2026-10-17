@@ -342,6 +342,7 @@ export type BlogPostDetail = BlogPostRow & {
   seoTitle: string | null
   seoDescription: string | null
   readingMinutes: number
+  authorId: string | null
   newsletterSentAt: string | null
   category: BlogTaxon | null
   tags: BlogTaxon[]
@@ -357,12 +358,27 @@ export type BlogPostInput = {
   tags?: string[]
   featured?: boolean
   authorName?: string
+  authorId?: string | null
   seoTitle?: string | null
   seoDescription?: string | null
   expectedUpdatedAt?: string
 }
 export type BlogCategoryRow = BlogTaxon & { description: string; postCount: number; createdAt: string }
 export type BlogTagRow = BlogTaxon & { postCount: number; createdAt: string }
+export type BlogAuthor = {
+  id: string
+  slug: string
+  name: string
+  title: string
+  bio: string
+  avatarUrl: string
+  website: string
+  twitter: string
+  github: string
+  linkedin: string
+  postCount: number
+}
+export type BlogAuthorInput = Partial<Omit<BlogAuthor, 'id' | 'postCount'>>
 
 // ── SEO ──
 export type SeoIssue = { level: 'error' | 'warning' | 'info'; code: string; message: string; path?: string; fix?: 'defaults' | 'pages' | 'redirects' | 'not-found' }

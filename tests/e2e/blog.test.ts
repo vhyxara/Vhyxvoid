@@ -63,6 +63,7 @@ describe.skipIf(!url)("blog", { timeout: 30_000 }, () => {
     await prisma.blogPost.deleteMany({ where: { id: { in: created } } });
     await prisma.blogCategory.deleteMany({ where: { slug: { startsWith: tag } } });
     await prisma.blogTag.deleteMany({ where: { slug: { startsWith: tag } } });
+    await prisma.blogAuthor.deleteMany({ where: { slug: { startsWith: tag } } });
     await prisma.$disconnect();
   });
 
@@ -208,5 +209,38 @@ describe.skipIf(!url)("blog", { timeout: 30_000 }, () => {
     expect(map.categories).toContain(slugify(cat("Mapped")));
     expect(map.categories).not.toContain(slugify(cat("Unmapped")));
     expect(Array.isArray(map.pages)).toBe(true);
+  });
+
+  it("authors: profiles sign posts, renames reach their posts, /posts?author= lists theirs, deleting keeps the name", async () => {
+    const bad = await call("POST", "/admin/blog/authors", { name: "X", avatarUrl: "javascript:alert(1)" });
+    expect(bad.status).toBe(400);
+    const ada = await data("POST", "/admin/blog/authors", { name: `${tag} Ada`, title: "Engineer", bio: "Writes about tunnels.", twitter: "https://x.com/ada_dev", github: "@ada" });
+    expect(ada).toMatchObject({ slug: `${tag}-ada`, twitter: "ada_dev", github: "ada", postCount: 0 });
+    expect((await call("POST", "/admin/blog/authors", { name: "Dup", slug: ada.slug })).status).toBe(409);
+
+    const p = await post({ title: `${tag} By Ada`, authorId: ada.id });
+    expect(p).toMatchObject({ authorId: ada.id, authorName: `${tag} Ada` });
+    expect((await call("POST", "/admin/blog/posts", { title: "x", authorId: "00000000-0000-4000-8000-000000000000" })).status).toBe(400);
+    await data("POST", `/admin/blog/posts/${p.id}/publish`);
+
+    await data("PATCH", `/admin/blog/authors/${ada.id}`, { name: `${tag} Ada L` });
+    const again = await data("PATCH", `/admin/blog/authors/${ada.id}`, { bio: "Still writes." });
+    expect(again).toMatchObject({ name: `${tag} Ada L`, title: "Engineer", bio: "Still writes." });
+
+    const pub = await data("GET", `/public/blog/posts/${p.slug}`);
+    expect(pub.post.authorName).toBe(`${tag} Ada L`);
+    expect(pub.post.author).toEqual({ slug: ada.slug, name: `${tag} Ada L`, title: "Engineer", bio: "Still writes.", avatarUrl: "", website: "", twitter: "ada_dev", github: "ada", linkedin: "" });
+    const list = await data("GET", `/public/blog/posts?author=${ada.slug}`);
+    expect(list.author.name).toBe(`${tag} Ada L`);
+    expect(list.items.map((x: any) => x.slug)).toEqual([p.slug]);
+    expect((await call("GET", `/public/blog/posts?author=${tag}-nobody`)).status).toBe(404);
+    expect((await data("GET", "/public/sitemap")).authors).toContain(ada.slug);
+
+    // Back to the name only.
+    const unsigned = await data("PUT", `/admin/blog/posts/${p.id}`, { authorId: null });
+    expect(unsigned).toMatchObject({ authorId: null, authorName: `${tag} Ada L` });
+    await data("PUT", `/admin/blog/posts/${p.id}`, { authorId: ada.id });
+    await data("DELETE", `/admin/blog/authors/${ada.id}`);
+    expect(await prisma.blogPost.findUnique({ where: { id: p.id }, select: { authorId: true, authorName: true } })).toEqual({ authorId: null, authorName: `${tag} Ada L` });
   });
 });

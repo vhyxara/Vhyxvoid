@@ -7,7 +7,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import type { BlogList, BlogPost, BlogSummary, BlogTaxonomy } from '@/views/marketing/publicApi'
+import type { BlogAuthorProfile, BlogList, BlogPost, BlogSummary, BlogTaxonomy } from '@/views/marketing/publicApi'
 import { JsonLd, breadcrumbJsonLd, scriptJson } from '@/views/seo/JsonLd'
 import { PostToc, ShareBar } from './PostExtras'
 import { headingsOf, rehypeHeadingIds } from './toc'
@@ -25,11 +25,40 @@ export function pageHref(base: string, page: number, q?: string) {
   return qs.size ? `${base}?${qs}` : base
 }
 
-function Meta({ post }: { post: BlogSummary }) {
+/** An author's links, in a fixed order; handles become profile addresses. */
+export function authorLinks(a: Pick<BlogAuthorProfile, 'website' | 'twitter' | 'github' | 'linkedin'>) {
+  return [
+    a.website && { label: 'Website', href: a.website },
+    a.twitter && { label: 'X', href: `https://x.com/${a.twitter}` },
+    a.github && { label: 'GitHub', href: `https://github.com/${a.github}` },
+    a.linkedin && { label: 'LinkedIn', href: a.linkedin }
+  ].filter((l): l is { label: string; href: string } => !!l)
+}
+
+function Avatar({ author, size }: { author: { name: string; avatarUrl: string }; size: number }) {
+  return author.avatarUrl ? (
+    <img src={author.avatarUrl} alt='' className={styles.avatar} style={{ inlineSize: size, blockSize: size }} />
+  ) : (
+    <span aria-hidden className={styles.avatar} style={{ inlineSize: size, blockSize: size, fontSize: size * 0.42 }}>
+      {author.name.slice(0, 1).toUpperCase()}
+    </span>
+  )
+}
+
+function Meta({ post, linked = false }: { post: Pick<BlogSummary, 'authorName' | 'publishedAt' | 'readingMinutes'> & { author?: BlogSummary['author'] }; linked?: boolean }) {
+  const a = post.author
+
   return (
     <div className={styles.meta}>
-      {post.authorName && <span>{post.authorName}</span>}
-      {post.authorName && <span aria-hidden>·</span>}
+      {a ? (
+        <span className={styles.metaAuthor}>
+          <Avatar author={a} size={22} />
+          {linked ? <Link href={`/blog/author/${a.slug}`}>{a.name}</Link> : a.name}
+        </span>
+      ) : (
+        post.authorName && <span>{post.authorName}</span>
+      )}
+      {(a || post.authorName) && <span aria-hidden>·</span>}
       <time dateTime={post.publishedAt}>{formatPostDate(post.publishedAt)}</time>
       <span aria-hidden>·</span>
       <span>{post.readingMinutes} min read</span>
@@ -98,7 +127,8 @@ export function BlogIndexView({
   description,
   eyebrow,
   activeCategory,
-  search
+  search,
+  author
 }: {
   list: BlogList | null
   taxonomy: BlogTaxonomy
@@ -110,6 +140,8 @@ export function BlogIndexView({
   activeCategory?: string
   /** What the reader searched for (on /blog), if anything. */
   search?: string
+  /** An author's page: their photo, title and links in the header. */
+  author?: BlogAuthorProfile
 }) {
   const featured = list?.featured ?? null
   const items = (list?.items ?? []).filter(p => p.slug !== featured?.slug)
@@ -124,8 +156,22 @@ export function BlogIndexView({
               {eyebrow.label}
             </Link>
           )}
-          <h1 className={styles.title}>{title}</h1>
-          {description && <p className={styles.lead}>{description}</p>}
+          {author ? (
+            <div className={styles.authorHead}>
+              <Avatar author={author} size={88} />
+              <div>
+                <h1 className={styles.title}>{title}</h1>
+                {author.title && <p className={styles.authorTitle}>{author.title}</p>}
+                {description && <p className={styles.lead}>{description}</p>}
+                <AuthorLinks author={author} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className={styles.title}>{title}</h1>
+              {description && <p className={styles.lead}>{description}</p>}
+            </>
+          )}
           {base === '/blog' && (
             <form action='/blog' method='get' role='search' className={styles.search}>
               <input type='search' name='q' defaultValue={search} placeholder='Search posts' aria-label='Search posts' maxLength={100} />
@@ -182,13 +228,59 @@ export function postJsonLd(post: BlogPost, site: string) {
     description: post.seoDescription || post.excerpt || undefined,
     datePublished: post.publishedAt,
     dateModified: post.updatedAt,
-    author: post.authorName ? { '@type': 'Person', name: post.authorName } : undefined,
+    author: post.author
+      ? {
+          '@type': 'Person',
+          name: post.author.name,
+          url: `${site}/blog/author/${post.author.slug}`,
+          ...(post.author.avatarUrl ? { image: post.author.avatarUrl.startsWith('/') ? `${site}${post.author.avatarUrl}` : post.author.avatarUrl } : {}),
+          ...(post.author.title ? { jobTitle: post.author.title } : {}),
+          ...(authorLinks(post.author).length ? { sameAs: authorLinks(post.author).map(l => l.href) } : {})
+        }
+      : post.authorName
+        ? { '@type': 'Person', name: post.authorName }
+        : undefined,
     image,
     mainEntityOfPage: url,
     url,
     keywords: post.tags.map(t => t.name).join(', ') || undefined,
     articleSection: post.category?.name
   }
+}
+
+function AuthorLinks({ author }: { author: BlogAuthorProfile }) {
+  const links = authorLinks(author)
+
+  if (!links.length) return null
+
+  return (
+    <ul className={styles.authorLinks} aria-label={`${author.name} elsewhere`}>
+      {links.map(l => (
+        <li key={l.label}>
+          <a href={l.href} target='_blank' rel='noopener noreferrer me'>
+            {l.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Under a post: who wrote it, with a link to their other posts. */
+function AuthorCard({ author }: { author: BlogAuthorProfile }) {
+  return (
+    <aside className={styles.authorCard} aria-label='About the author'>
+      <Avatar author={author} size={64} />
+      <div>
+        <p className={styles.authorName}>
+          <Link href={`/blog/author/${author.slug}`}>{author.name}</Link>
+          {author.title && <span> · {author.title}</span>}
+        </p>
+        {author.bio && <p className={styles.authorBio}>{author.bio}</p>}
+        <AuthorLinks author={author} />
+      </div>
+    </aside>
+  )
 }
 
 export { scriptJson }
@@ -219,7 +311,7 @@ export function BlogPostView({ post, related, site }: { post: BlogPost; related:
           <header className={styles.postHeader}>
             <h1 className={styles.postTitle}>{post.title}</h1>
             {post.excerpt && <p className={styles.postExcerpt}>{post.excerpt}</p>}
-            <Meta post={post} />
+            <Meta post={post} linked />
           </header>
         </div>
         {post.coverImageUrl && <img src={post.coverImageUrl} alt={post.coverImageAlt} className={styles.postCover} />}
@@ -240,6 +332,7 @@ export function BlogPostView({ post, related, site }: { post: BlogPost; related:
             </ul>
           )}
           <ShareBar url={`${site}/blog/${post.slug}`} title={post.title} />
+          {post.author && <AuthorCard author={post.author} />}
         </div>
       </article>
       {related.length > 0 && (
