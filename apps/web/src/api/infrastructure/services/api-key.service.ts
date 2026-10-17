@@ -13,15 +13,10 @@ import type {
 } from '@/api/domain/key-management/types/api-key.types'
 import { API_KEY_ENDPOINTS } from '../endpoints/account.endpoints'
 
-const u = (template: string, accountId: string, keyId?: string) => {
-  console.log('Template before replacement:', template, 'Account ID:', accountId, 'Key ID:', keyId)
-
-  return template.replace(':accountId', accountId).replace(':keyId', keyId ?? '')
-}
+const u = (template: string, accountId: string, keyId?: string) => template.replace(':accountId', accountId).replace(':keyId', keyId ?? '')
 
 export const apiKeyService = {
   list: (accountId: string, params?: ListApiKeysParams): Promise<PaginatedResponse<ApiKey, { accountId: string }>> => {
-    console.log('Listing API keys for account:', accountId)
     const query = params ? `?${buildQuery(params).toString()}` : ''
 
     return httpClient({
@@ -42,11 +37,8 @@ export const apiKeyService = {
   revoke: (accountId: string, keyId: string, data?: RevokeApiKeyPayload): Promise<void> =>
     httpClient({ url: u(API_KEY_ENDPOINTS.REVOKE, accountId, keyId), method: 'POST', data: data ?? {} }),
 
-  rotate: (accountId: string, keyId: string): Promise<ApiKeyRotateResult> => {
-    console.log('Rotating API key with ID:', keyId, 'for account:', accountId)
-
-    return httpClient({ url: u(API_KEY_ENDPOINTS.ROTATE, accountId, keyId), method: 'POST', data: {} })
-  },
+  rotate: (accountId: string, keyId: string): Promise<ApiKeyRotateResult> =>
+    httpClient({ url: u(API_KEY_ENDPOINTS.ROTATE, accountId, keyId), method: 'POST', data: {} }),
 
   getUsage: (
     accountId: string,

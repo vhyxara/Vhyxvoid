@@ -13,7 +13,6 @@ type Props = {
 export function AccountGuard({ accountId, children, unauthorizedPage }: Props) {
   const { myLevel, isLoading } = usePermissions(accountId)
 
-  console.log('AccountGuard', myLevel, isLoading)
   if (isLoading) return null
 
   // myLevel === 0 means no membership found

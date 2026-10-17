@@ -8,7 +8,7 @@ export const loadTableSettings = (tableKey: string) => {
 
     return allSettings[tableKey] || {}
   } catch (e) {
-    console.log('Failed to load settings', e)
+    console.warn('Failed to load settings', e)
 
     return {}
   }
@@ -30,7 +30,7 @@ export const saveTableSettings = (tableKey: string, updates = {}) => {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings))
   } catch (e) {
-    console.log('Failed to save settings', e)
+    console.warn('Failed to save settings', e)
   }
 }
 
@@ -43,6 +43,6 @@ export const clearTableSettings = (tableKey: string) => {
     delete allSettings[tableKey]
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allSettings))
   } catch (e) {
-    console.log('Failed to clear settings', e)
+    console.warn('Failed to clear settings', e)
   }
 }

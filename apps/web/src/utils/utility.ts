@@ -84,8 +84,6 @@ export const handleEditorChange = (value: string): string => {
     .replace(/[ ]+/g, ' ')
     .trim() // Trim leading/trailing spaces
 
-  console.log(plainText) // Output the cleaned-up plain text
-
   return plainText
 }
 
@@ -135,7 +133,6 @@ function appendParams(searchParams: URLSearchParams, obj: any, parentKey?: strin
 export function buildQuery(params: Record<string, any>) {
   const searchParams = new URLSearchParams()
 
-  console.log('serParams type', params, typeof params)
   appendParams(searchParams, params)
 
   return searchParams

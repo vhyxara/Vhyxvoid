@@ -1,23 +1,18 @@
-// Next Imports
+import { Suspense } from 'react'
+
 import type { Metadata } from 'next'
 
-import { routeMetadata } from '@/views/seo/seo'
-
-// Component Imports
 import Login from '@/views/auth/Login'
-
-// Server Action Imports
-import { getSystemMode } from '@core/utils/serverHelpers'
+import { routeMetadata } from '@/views/seo/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   return routeMetadata('/login')
 }
 
-const LoginPage = async () => {
-  // Vars
-  const mode = await getSystemMode()
-
-  return <Login mode={mode} />
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <Login />
+    </Suspense>
+  )
 }
-
-export default LoginPage

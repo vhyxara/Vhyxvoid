@@ -1,15 +1,26 @@
 'use client'
 
-// The 404 page: an address that drifted out of the void. The site's shell
+// The 404 page (and, with other words, the error page): an address that drifted out of the void. The site's shell
 // around it (navbar, footer), a wormhole with nothing coming out, and the
 // ways back. The status is a real 404 (rendered by notFound()).
+import type { ReactNode } from 'react'
+
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { Starfield } from './Starfield'
 import styles from './void.module.css'
 
-export function VoidNotFound({ links }: { links: Array<{ label: string; href: string }> }) {
+type Props = {
+  links: Array<{ label: string; href: string }>
+  /** Defaults are the 404's; the error page passes its own. */
+  code?: string
+  title?: string
+  message?: ReactNode
+  onRetry?: () => void
+}
+
+export function VoidNotFound({ links, code = '404', title = 'Lost in the void', message, onRetry }: Props) {
   const path = usePathname()
 
   return (
@@ -23,15 +34,24 @@ export function VoidNotFound({ links }: { links: Array<{ label: string; href: st
           <span className={styles.lostCore} />
         </div>
         <p className={styles.lostCode} aria-hidden>
-          404
+          {code}
         </p>
-        <h1 className={styles.lostTitle}>Lost in the void</h1>
+        <h1 className={styles.lostTitle}>{title}</h1>
         <p className={styles.lead}>
-          Nothing answers at <code className={styles.lostPath}>{path || '/'}</code>. It may have moved, or the link has a typo.
+          {message ?? (
+            <>
+              Nothing answers at <code className={styles.lostPath}>{path || '/'}</code>. It may have moved, or the link has a typo.
+            </>
+          )}
         </p>
         <div className={styles.actions} style={{ justifyContent: 'center' }}>
-          <Link href='/' className={styles.btnPrimary}>
-            Back to home <span aria-hidden>→</span>
+          {onRetry && (
+            <button type='button' onClick={onRetry} className={styles.btnPrimary} style={{ border: 0, cursor: 'pointer', font: 'inherit' }}>
+              Try again <span aria-hidden>↻</span>
+            </button>
+          )}
+          <Link href='/' className={onRetry ? styles.btnGhost : styles.btnPrimary}>
+            Back to home {!onRetry && <span aria-hidden>→</span>}
           </Link>
           {links.map(l => (
             <Link key={l.href} href={l.href} className={styles.btnGhost}>

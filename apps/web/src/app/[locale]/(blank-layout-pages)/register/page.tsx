@@ -1,23 +1,12 @@
-// Next Imports
 import type { Metadata } from 'next'
 
-import { routeMetadata } from '@/views/seo/seo'
-
-// Component Imports
-
-// Server Action Imports
-import { getSystemMode } from '@core/utils/serverHelpers'
 import Register from '@/views/auth/Register'
+import { routeMetadata } from '@/views/seo/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   return routeMetadata('/register')
 }
 
-const RegisterPage = async () => {
-  // Vars
-  const mode = await getSystemMode()
-
-  return <Register mode={mode} />
+export default function RegisterPage() {
+  return <Register />
 }
-
-export default RegisterPage

@@ -1,10 +1,11 @@
-import { getSystemMode } from '@core/utils/serverHelpers'
+import { Suspense } from 'react'
+
 import VerifyEmailSentView from '@/views/auth/VerifyEmailSentView'
 
-const VerifyEmailSentPage = async () => {
-  const systemMode = await getSystemMode()
-
-  return <VerifyEmailSentView mode={systemMode} />
+export default function VerifyEmailSentPage() {
+  return (
+    <Suspense>
+      <VerifyEmailSentView />
+    </Suspense>
+  )
 }
-
-export default VerifyEmailSentPage

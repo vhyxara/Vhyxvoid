@@ -2,38 +2,36 @@
 
 import { useEffect, useState } from 'react'
 
-import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 import { Alert, Button, Spinner } from '@vhyxui/react'
 
-import type { SystemMode } from '@core/types'
-import { Typography } from '@/components/vhyxui-shims'
-import Logo from '@/libs/layout/shared/Logo'
 import { authService } from '@/api/infrastructure/services/auth.service'
+import { AUTH_ART, AuthShell } from './AuthShell'
+import styles from './AuthShell.module.css'
 
-type Status = 'idle' | 'loading' | 'success' | 'error'
+type Status = 'loading' | 'success' | 'error'
 
-const VerifyEmailView = ({ mode }: { mode: SystemMode }) => {
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token') ?? ''
-  const [status, setStatus] = useState<Status>('idle')
+const VerifyEmailView = () => {
+  const token = useSearchParams().get('token') ?? ''
+  const [status, setStatus] = useState<Status>('loading')
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (!token) return
+    if (!token) {
+      setStatus('error')
+      setErrorMsg('This link is incomplete. Open it straight from the email.')
 
-    setStatus('loading')
+      return
+    }
 
     authService
       .verifyEmail(token)
       .then(() => {
         setStatus('success')
-
-        // Small delay so user reads the success message before redirect
-        setTimeout(() => {
-          window.location.replace('/login?verified=1')
-        }, 2000)
+        // A moment to read the confirmation, then sign in.
+        setTimeout(() => window.location.replace('/login?verified=1'), 2000)
       })
       .catch((err: any) => {
         setStatus('error')
@@ -42,56 +40,29 @@ const VerifyEmailView = ({ mode }: { mode: SystemMode }) => {
   }, [token])
 
   return (
-    <div className='flex justify-center items-center min-bs-dvh bg-backgroundPaper p-6'>
-      <div className='flex flex-col items-center gap-6 max-is-[480px] text-center'>
-        <Link href='/' className='self-start'>
-          <Logo />
-        </Link>
-
-        <img
-          src={
-            mode === 'dark'
-              ? '/images/illustrations/auth/v2-verify-email-dark.png'
-              : '/images/illustrations/auth/v2-verify-email-light.png'
-          }
-          alt='verify email'
-          className='max-is-[320px] is-full mbe-6'
-        />
-
-        {!token && (
-          <Alert variant='danger' style={{ width: '100%' }}>
-            Invalid verification link. Please check your email and try again.
-          </Alert>
-        )}
-
-        {status === 'loading' && (
-          <div className='flex flex-col items-center gap-3'>
-            <Spinner size='md' />
-            <Typography variant='body1'>Verifying your email…</Typography>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className='flex flex-col gap-2'>
-            <Typography variant='h4'>Email verified! ✅</Typography>
-            <Typography variant='body1'>Your account is now active. Redirecting you to login…</Typography>
-          </div>
-        )}
-
-        {status === 'error' && (
-          <div className='flex flex-col gap-4 w-full'>
-            <Alert variant='danger'>{errorMsg}</Alert>
-            <Typography variant='body2'>The link may have expired. Links are valid for 24 hours.</Typography>
-            <Button asChild variant='outline' style={{ width: '100%' }}>
-              <Link href='/register'>Register again</Link>
-            </Button>
-            <Button asChild style={{ width: '100%' }}>
-              <Link href='/login'>Back to login</Link>
-            </Button>
-          </div>
-        )}
+    <AuthShell art={AUTH_ART.verify}>
+      <div className={`flex flex-col gap-4 ${styles.center}`}>
+        <span className={styles.status} data-tone={status === 'success' ? 'ok' : status === 'error' ? 'bad' : undefined} aria-hidden>
+          {status === 'loading' ? <Spinner size='md' /> : status === 'success' ? '✓' : '!'}
+        </span>
+        <div role='status'>
+          <h1 className={styles.title}>{status === 'loading' ? 'Verifying your email…' : status === 'success' ? 'Email verified' : 'That link didn’t work'}</h1>
+          {status === 'success' && <p className={styles.lead}>Your account is active. Taking you to sign in…</p>}
+        </div>
       </div>
-    </div>
+      {status === 'error' && (
+        <div className='flex flex-col gap-3'>
+          <Alert variant='danger'>{errorMsg}</Alert>
+          <p className={styles.fine}>Verification links work for 24 hours. Signing up again with the same address sends a fresh one.</p>
+          <Button asChild variant='outline' style={{ width: '100%' }}>
+            <Link href='/register'>Sign up again</Link>
+          </Button>
+          <Button asChild style={{ width: '100%' }}>
+            <Link href='/login'>Back to sign in</Link>
+          </Button>
+        </div>
+      )}
+    </AuthShell>
   )
 }
 
