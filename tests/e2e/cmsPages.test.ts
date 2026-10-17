@@ -47,7 +47,7 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
 
   beforeAll(async () => {
     prisma = new PrismaClient({ datasourceUrl: url });
-    await prisma.contentEntry.deleteMany({ where: { slug: { in: ["footer", "about", `${tag}-a`, `${tag}-b`] } } });
+    await prisma.contentEntry.deleteMany({ where: { slug: { in: ["footer", "about", "team", `${tag}-a`, `${tag}-b`] } } });
     adminId = (await prisma.adminUser.findFirst({ select: { id: true } }))?.id ?? "00000000-0000-4000-8000-000000000000";
     hook = http.createServer((r, res) => {
       let body = "";
@@ -80,7 +80,7 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
     delete process.env.WEB_REVALIDATE_SECRET;
     await f?.close();
     await new Promise<void>((r) => hook.close(() => r()));
-    await prisma.contentEntry.deleteMany({ where: { slug: { in: ["footer", "about", `${tag}-a`, `${tag}-b`] } } });
+    await prisma.contentEntry.deleteMany({ where: { slug: { in: ["footer", "about", "team", `${tag}-a`, `${tag}-b`] } } });
     await prisma.contactMessage.deleteMany({ where: { email: { endsWith: "@cms.test" } } });
     await prisma.$disconnect();
   });
@@ -113,9 +113,10 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
     expect(entry.data.columns.map((c: any) => c.title)).toEqual(["Product", "Company", "Legal"]);
     expect(entry.data.columns[2].links.find((l: any) => l.slug === "terms")).toMatchObject({ type: "page", label: "Terms of Service" });
 
-    const about = await data("POST", "/admin/content", { slug: "about", kind: "page", title: "About us", data: { body: "# About" } });
+    // "team" has no built-in page (about, contact, terms and privacy do, so they are always live).
+    const about = await data("POST", "/admin/content", { slug: "team", kind: "page", title: "Our team", data: { body: "# Team" } });
     const columns = [
-      { id: "c1", title: "Company", links: [{ id: "a", label: "About", type: "page", slug: "about" }, { id: "b", label: "Careers", type: "url", href: "https://jobs.example.com", newTab: true }, { id: "g", label: "Ghost", type: "page", slug: "no-such-page" }] },
+      { id: "c1", title: "Company", links: [{ id: "a", label: "About", type: "page", slug: "team" }, { id: "b", label: "Careers", type: "url", href: "https://jobs.example.com", newTab: true }, { id: "g", label: "Ghost", type: "page", slug: "no-such-page" }] },
       { id: "c2", title: "Legal", links: [{ id: "t", label: "Terms", type: "page", slug: "terms" }] },
     ];
     await data("PUT", `/admin/content/${entry.id}`, { data: { columns } });
@@ -124,7 +125,7 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
     await waitForHit(before + 1);
     expect(hits.at(-1)).toMatchObject({ secret: "s3cret", body: JSON.stringify({ tags: ["cms"] }) });
 
-    // "about" is still a draft and "no-such-page" doesn't exist: both left out.
+    // "team" is still a draft and "no-such-page" doesn't exist: both left out.
     let m = await menu();
     expect(m.custom).toBe(true);
     expect(m.columns).toEqual([
@@ -133,7 +134,7 @@ describe.skipIf(!url)("website CMS", { timeout: 30_000 }, () => {
     ]);
     await data("POST", `/admin/content/${about.id}/publish`, {});
     m = await menu();
-    expect(m.columns[0].links[0]).toEqual({ label: "About", href: "/about", external: false });
+    expect(m.columns[0].links[0]).toEqual({ label: "About", href: "/team", external: false });
     // Unpublishing the page takes its link out again, at once.
     await data("POST", `/admin/content/${about.id}/unpublish`, {});
     expect((await menu()).columns[0].links.map((l: any) => l.label)).toEqual(["Careers"]);

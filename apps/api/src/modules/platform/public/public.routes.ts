@@ -6,6 +6,7 @@ import { effectivePlanLimits } from "@vhyxvoid/shared";
 import { NotFoundError } from "@/core/errors/error.format";
 import { successResponse } from "@/core/utils/response.util";
 import { slugSchema } from "../content/content.schemas";
+import { DEFAULT_CONTENT } from "../content/content.defaults";
 import { prismaOf } from "../shared/http";
 import { visibleWhere } from "../blog/blog.service";
 
@@ -65,7 +66,13 @@ export async function publicRoutes(fastify: FastifyInstance) {
     const hidden = new Set((await prisma.seoPage.findMany({ where: { noindex: true }, select: { path: true } })).map((p) => p.path));
     cache(reply, 300);
     return successResponse(reply, "Success", 200, {
-      pages: pages.filter((p) => !hidden.has(`/${p.slug}`)).map((p) => ({ slug: p.slug, updatedAt: p.publishedAt ?? p.updatedAt })),
+      // Built-in pages (terms, privacy, about, contact) are live until replaced.
+      pages: [
+        ...pages,
+        ...DEFAULT_CONTENT.filter((d) => d.kind === "page" && !pages.some((p) => p.slug === d.slug)).map((d) => ({ slug: d.slug, publishedAt: null, updatedAt: null })),
+      ]
+        .filter((p) => !hidden.has(`/${p.slug}`))
+        .map((p) => ({ slug: p.slug, updatedAt: p.publishedAt ?? p.updatedAt })),
       posts: posts.filter((p) => !hidden.has(`/blog/${p.slug}`)),
       hidden: [...hidden],
       categories: categories.map((c) => c.slug).filter((s) => !hidden.has(`/blog/category/${s}`)),

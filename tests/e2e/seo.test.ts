@@ -167,6 +167,9 @@ describe.skipIf(!url)("seo", { timeout: 30_000 }, () => {
     const pub = await data("GET", "/public/seo");
     expect(pub.pages.find((x: any) => x.path === `/blog/${two.slug}`)).toMatchObject({ title: `${tag} A better title`, description: null });
     const map = await data("GET", "/public/sitemap");
+    // Built-in pages are live until someone replaces them, so they are in the sitemap and on the SEO screen.
+    expect(map.pages.map((x: any) => x.slug)).toEqual(expect.arrayContaining(["about", "contact", "terms", "privacy"]));
+    expect(rows.filter((r: any) => ["/about", "/contact"].includes(r.path)).map((r: any) => r.live)).toEqual([true, true]);
     expect(map.posts.map((x: any) => x.slug)).toContain(two.slug);
     expect(map.posts.map((x: any) => x.slug)).not.toContain(one.slug);
 

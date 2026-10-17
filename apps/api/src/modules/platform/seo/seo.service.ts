@@ -1,7 +1,7 @@
 // SEO: what the website says about each address, the redirects it answers,
 // and the audit that finds what to fix. Rules shared with the website
 // (paths, redirect matching, title template) live in @vhyxvoid/content.
-import { normalizeSitePath, pagePath, resolveRedirect, SEO_LIMITS, SITE_ROUTES, type RedirectRule } from "@vhyxvoid/content";
+import { DEFAULT_CONTENT, normalizeSitePath, pagePath, resolveRedirect, SEO_LIMITS, SITE_ROUTES, type RedirectRule } from "@vhyxvoid/content";
 
 import { ValidationError } from "@/core/errors/error.format";
 import type { PrismaClient } from "@/generated/prisma";
@@ -127,7 +127,13 @@ export async function seoRows(prisma: PrismaClient, settings: Settings): Promise
     });
   }
   for (const e of entries.filter((x) => x.kind === "page")) {
-    add({ path: pagePath(e.slug), kind: "page", label: e.title, editHref: `/content/${e.id}`, live: e.status === "PUBLISHED", own: { title: e.seoTitle || e.title, description: e.seoDescription || "", image: "" } });
+    // An unpublished entry with a built-in page behind it: the built-in one is what visitors see.
+    const builtIn = e.status !== "PUBLISHED" ? DEFAULT_CONTENT.find((d) => d.slug === e.slug && d.kind === "page") : undefined;
+    add({ path: pagePath(e.slug), kind: "page", label: e.title, editHref: `/content/${e.id}`, live: e.status === "PUBLISHED" || !!builtIn, own: { title: e.seoTitle || e.title, description: e.seoDescription || builtIn?.seoDescription || "", image: "" } });
+  }
+  // Built-in pages nobody has customised yet are live too.
+  for (const d of DEFAULT_CONTENT.filter((x) => x.kind === "page" && !entryBySlug.has(x.slug))) {
+    add({ path: pagePath(d.slug), kind: "page", label: `${d.title} (built-in)`, editHref: "/content", live: true, own: { title: d.title, description: d.seoDescription ?? "", image: "" } });
   }
   for (const p of posts) {
     const issues: Issue[] = [];

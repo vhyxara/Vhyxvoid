@@ -120,11 +120,51 @@ const legal = (title: string, intro: string): PageContent => ({
   footerGroup: "legal" as const,
 });
 
+const about: PageContent = {
+  body: `# About VhyxVoid
+
+VhyxVoid gives the server on your laptop a public HTTPS address, so webhooks, phones and teammates can reach it while you build — no deploy, no port forwarding, no firewall change.
+
+## Why we built it
+
+Every team we worked in lost hours to the same chores: redeploying to test a webhook, pasting ngrok URLs into Slack, re-registering OAuth callbacks every morning. VhyxVoid makes the address stable and the setup one line, so the time goes into the product instead.
+
+## How it works
+
+The agent on your machine opens one outbound connection to our hub. Requests to your URL travel through that connection to \`localhost\`, and the answer goes back the same way. Nothing on your machine listens to the internet.
+
+## What we care about
+
+- **Security by default.** Signed requests, scoped keys, revocation that disconnects agents within a minute, and nothing exposed you didn't start.
+- **Developer time.** Zero-config integrations for Express, Fastify and Next.js, and an inspector to replay any request.
+- **Teams.** Organizations, roles and stable URLs per service, so a whole team can share one domain.
+
+Questions or ideas? [Get in touch](/contact).
+`,
+  showInFooter: true,
+  footerGroup: "company",
+};
+
+const contact: PageContent = {
+  body: `# Contact us
+
+Questions about your account, billing, a feature you need or a partnership: send us a message and a person will reply, usually within one working day.
+
+{{contact-form}}
+
+Looking for help with a technical problem? The [documentation](/docs) and the [support page](/support) have most answers.
+`,
+  showInFooter: true,
+  footerGroup: "company",
+};
+
 export const DEFAULT_CONTENT: DefaultEntry[] = [
   { slug: "home", kind: "landing", title: "Home", seoDescription: "Expose your local server at a stable HTTPS URL in seconds.", data: home },
   { slug: "pricing", kind: "pricing", title: "Pricing", seoDescription: "Plans for individual developers and teams.", data: pricing },
   { slug: "terms", kind: "page", title: "Terms of Service", data: legal("Terms of Service", "These terms govern your use of the service.") },
   { slug: "privacy", kind: "page", title: "Privacy Policy", data: legal("Privacy Policy", "This policy explains what data we collect and why.") },
+  { slug: "about", kind: "page", title: "About us", seoDescription: "Who builds VhyxVoid and why: a stable public HTTPS address for the server on your laptop.", data: about },
+  { slug: "contact", kind: "page", title: "Contact us", seoDescription: "Send the VhyxVoid team a message: account, billing, features or partnerships.", data: contact },
 ];
 
 export function defaultEntry(slug: string): DefaultEntry | undefined {
