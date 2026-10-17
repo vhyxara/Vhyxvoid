@@ -285,3 +285,27 @@
 **Rationale:** settings already give validation, audit log and caching for free. A path-keyed table is the simplest thing that covers fixed routes, CMS pages and posts alike. Redirects belong before rendering, and the API is not on the request path.
 **Limits:** redirect hits and 404 reports need `REVALIDATE_SECRET`. On several website instances, a redirect change reaches the instance that received the revalidate call at once and the others within 60 s. The audit's length limits (60/160) are guidance, not what every engine does.
 **Status:** active
+
+---
+
+### 2026-10-17 — Website gaps: void look everywhere, media in Postgres, signed previews, consent-gated analytics
+
+**Decided by:** Claude Code (user: "build all of them in that order")
+**Context:** After the landing redesign, the other public pages still used the light app look. Images could only be linked, drafts couldn't be seen before publishing, the default footer had no About, Contact or Blog, the blog had no search, ToC or sharing, and there was no analytics.
+**Decision:**
+- **Void look**: MarketingShell always renders a dark `vhyxvoid` brand scope and overrides tokens in `.voidShell[data-brand][data-theme]`, which beats the brand selector. Content can't style itself, so CMS pages match without changes. The 404 page is rendered by the same shell.
+- **Media** is stored as bytes in Postgres (`media_assets`), processed by sharp on upload (EXIF rotation, metadata stripped, max 2400 px wide, WebP thumbnail; SVG refused). It is served through the website at `/media/<id>/<name>` with an immutable cache, so addresses are on the site's own domain. "Used in" is a LIKE on the id over posts, content, SEO overrides and settings.
+- **Draft preview** is an HMAC-signed token (pepper-derived key, 48 h), with no table. It is passed in the query because Fastify's route parameter limit is 100 characters. Anyone with the link can view it; the response is no-store and noindex, and /preview is disallowed in robots.txt.
+- **About and Contact** are built-in defaults like terms and privacy. The built-in footer's Company column takes footer-flagged pages, then Blog (only once a post is live).
+- **Blog search** is a case-insensitive `contains` over title, excerpt and body. The ToC uses one slugger for the markdown (list) and for the rendered headings (ids). Share links are plain URLs, with no third-party scripts.
+- **Analytics** is settings (group `analytics`, public). The website injects the script on the client. Cookie-setting providers (GA4, GTM) wait for consent under mode `auto`. The choice is kept in localStorage plus a `vv_consent` cookie for a year, and "Cookie settings" in the footer reopens the banner.
+**Rationale:**
+- Postgres storage needs no bucket or credentials and is backed up with everything else. Images are capped at 10 MB and resized, which bounds growth.
+- A signed token keeps previews stateless.
+- Settings give validation, audit and caching for free.
+**Limits:**
+- A media library of many thousands of large images belongs in object storage; the serving route is the seam for that.
+- Preview links can't be revoked before they expire, except by rotating the pepper.
+- Blog search is substring matching, not ranked full-text.
+- Scripts loaded by a GTM container are gated by GTM's own consent mode, not by our banner.
+**Status:** active

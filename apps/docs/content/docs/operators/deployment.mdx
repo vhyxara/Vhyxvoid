@@ -2,8 +2,8 @@
 title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
-  date: "2026-10-16"
-  commit: f5d0139
+  date: "2026-10-17"
+  commit: d29867b
   packages: {}
 sources:
   - apps/api/src/modules/platform/ai/aiModel.ts
@@ -36,7 +36,7 @@ docker build -f Dockerfile.next --build-arg APP=web \
 
 Or `docker compose -f docker-compose.yml -f docker-compose.build.yml build`. `NEXT_PUBLIC_*` values are compiled into the browser bundle, so a change to them needs a rebuild. CI builds all four images on every pull request.
 
-All images run as the unprivileged `node` user on Node 24.
+All images run as the unprivileged `node` user on Node 24. The API image includes `sharp` (with its own libvips, installed by pnpm for the build platform) to process uploads to the media library; build it on, or for, the platform it runs on (`--platform linux/amd64` or `linux/arm64`).
 
 ## Environment
 
@@ -99,7 +99,7 @@ All images run as the unprivileged `node` user on Node 24.
 | Variable | When | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_ADMIN_API_URL` | build | `https://admin.vhyxvoid.com/api/v1`: the admin API through the admin host. |
-| `NEXT_PUBLIC_SITE_URL` | build | Website origin, for "view on site" links and the search preview in the content and blog editors. |
+| `NEXT_PUBLIC_SITE_URL` | build | Website origin, for "view on site" links, draft previews and the search preview in the content and blog editors. The console also shows [media library](/operators/media) images through it (`/media/…` is forwarded to the website), so it must be an address the admin server can reach. |
 
 ## First start
 

@@ -2,8 +2,8 @@
 title: SEO
 description: Control how the website appears in search results and link previews from the admin console. Covers site-wide defaults, per-address titles and descriptions, redirects, missing addresses, and the audit.
 verified:
-  date: "2026-10-16"
-  commit: f5d0139
+  date: "2026-10-17"
+  commit: d29867b
   packages: {}
 sources:
   - packages/content/src/seo.ts
@@ -76,7 +76,7 @@ The screen previews the home page as a search result and as a shared link while 
 Pages lists every public address of the website:
 
 - the fixed pages: home, pricing, blog, support, sign-in and sign-up;
-- every CMS page, published or not;
+- every CMS page, published or not, and the built-in pages you haven't replaced (about, contact, terms, privacy), marked *built-in*;
 - every live blog post;
 - every blog category with live posts.
 
@@ -138,13 +138,13 @@ These follow the settings above, without any setup:
   - a title through the template, and a description;
   - a canonical link on the site address, without the language prefix or query string, so `/fr/pricing` and `/pricing?utm_source=x` count as `/pricing`;
   - Open Graph and Twitter card tags with a share image.
-- **Not search results**: the signed-in app, password, email-check and invitation pages are always noindex. Blog tag pages are noindex too, since they repeat the category pages.
+- **Not search results**: the signed-in app, password, email-check and invitation pages are always noindex. Blog tag pages and blog searches are noindex too, since they repeat other pages, and so are draft previews (`/preview/…`, also disallowed in robots.txt).
 - **Structured data** (schema.org):
   - `Organization` and `WebSite` on the home page;
   - `FAQPage` from the FAQ of the landing and pricing pages;
   - `BreadcrumbList` on CMS pages and blog posts;
   - `BlogPosting` on blog posts.
-- **`/sitemap.xml`**: the fixed pages, published CMS pages, live posts and categories, minus hidden addresses.
+- **`/sitemap.xml`**: the fixed pages, published CMS pages and built-in pages, live posts and categories, minus hidden addresses.
 - **`/robots.txt`**: points at the sitemap.
 - **`/manifest.webmanifest`**: the product name and colours.
 

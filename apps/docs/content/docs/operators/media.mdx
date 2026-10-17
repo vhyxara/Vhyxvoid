@@ -1,0 +1,59 @@
+---
+title: Media library
+description: Upload images in the admin console and use them in blog posts, pages and link previews. Covers how uploads are processed, where an image is used, renaming and deleting.
+verified:
+  date: "2026-10-17"
+  commit: d29867b
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/media/media.service.ts
+  - apps/api/src/modules/platform/media/media.routes.ts
+  - apps/web/src/app/media/[id]/[name]/route.ts
+  - apps/admin/src/views/media/MediaLibrary.tsx
+  - apps/admin/src/views/media/MediaPicker.tsx
+  - apps/admin/src/views/media/MediaView.tsx
+---
+
+**Media** in the console holds the images used on the website. Every image field in the console has a **Choose…** button that opens the library, among them:
+
+- a blog post's cover;
+- a page's share image on the [SEO](/operators/seo) screen;
+- the site's default share image and organization logo.
+
+The rich text editor's image button also has **Media library…**. A field still takes a typed address (`https://…` or a path on the site), so images hosted elsewhere keep working.
+
+## Uploading
+
+Drop images on the library, or click **Upload**. Several at a time work. The library accepts PNG, JPEG, WebP, GIF (animated too) and AVIF, up to 10 MB each. SVG is refused, because an SVG file can carry scripts.
+
+Each upload is processed before it is stored:
+
+- turned upright, from the camera's orientation tag;
+- stripped of its metadata (camera model, GPS position, dates);
+- scaled down to at most 2400 px wide (smaller images are left at their size);
+- given a 480 px thumbnail for the library grid.
+
+Files that aren't readable images are refused with a message. Images are stored in the database, so backups of Postgres include them and no file storage needs setting up.
+
+## On the website
+
+An image is served from the website's own domain at `/media/<id>/<file-name>`, with a long cache lifetime (its content never changes). Because the address is on the site, link previews, the sitemap and search engines see it as yours.
+
+## Details, renaming and deleting
+
+Click an image to open its details:
+
+- **Description (alt text)**: what the image shows, for screen readers and search engines. Choosing the image in a field fills its alt text in for you.
+- **File name**: part of the address. Renaming keeps the old address working, because images are found by their id.
+- **Address**: copy it to paste anywhere.
+- **Used in**: the blog posts, website content, SEO overrides and settings that point at the image, each linking to where you can change it.
+
+**Delete…** removes an image for good. When it is still used somewhere the console says where it is used and asks again; those places then show a broken image.
+
+## Who can do what
+
+| Ability | Allows |
+| --- | --- |
+| `media.read` | View the library and where each image is used |
+| `media.update` | Upload images and edit their names and alt text |
+| `media.delete` | Delete images |

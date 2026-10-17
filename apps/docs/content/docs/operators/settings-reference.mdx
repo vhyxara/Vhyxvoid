@@ -2,8 +2,8 @@
 title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
-  date: "2026-10-16"
-  commit: f5d0139
+  date: "2026-10-17"
+  commit: d29867b
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -142,3 +142,16 @@ How the website appears in search results and link previews. Edited on the SEO s
 | `seo.googleVerification` | string | `""` | yes | Google Search Console code. The content of the google-site-verification meta tag Search Console gives you (just the code). |
 | `seo.bingVerification` | string | `""` | yes | Bing Webmaster code. The content of the msvalidate.01 meta tag (just the code). |
 | `seo.yandexVerification` | string | `""` | yes | Yandex Webmaster code. The content of the yandex-verification meta tag (just the code). |
+
+## Analytics and cookies
+
+Visitor analytics on the marketing website (not the signed-in app), and the cookie consent banner.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `analytics.provider` | enum (none, plausible, umami, ga4, gtm) | `"none"` | yes | Analytics provider. Where the website's page views go. Plausible and Umami don't use cookies; Google Analytics 4 and Tag Manager do, so they load only after a visitor accepts (see Cookie consent). none: no analytics. |
+| `analytics.siteId` | string | `""` | yes | Site ID. Plausible: your site's domain (vhyxvoid.com). Umami: the website ID. Google Analytics 4: the measurement ID (G-…). Tag Manager: the container ID (GTM-…). |
+| `analytics.scriptUrl` | url | `""` | yes | Script address. For a self-hosted Plausible or Umami: the script's https:// address. Empty: the provider's own (plausible.io/js/script.js, cloud.umami.is/script.js). |
+| `consent.mode` | enum (auto, always, off) | `"auto"` | yes | Cookie consent. auto: ask only when the analytics provider sets cookies (GA4, Tag Manager). always: ask before loading any analytics. off: never ask (only if you have another legal basis). |
+| `consent.message` | text | see admin panel | yes | Consent banner text. What the banner says. Keep it short and honest about what is measured. |
+| `consent.policyUrl` | url | `"/privacy"` | yes | Privacy policy link. Linked from the banner. |

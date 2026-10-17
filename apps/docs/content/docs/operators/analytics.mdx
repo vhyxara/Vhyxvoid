@@ -1,0 +1,48 @@
+---
+title: Analytics and cookies
+description: Send the website's page views to Plausible, Umami, Google Analytics 4 or Google Tag Manager, and ask visitors for consent with a cookie banner, all from the admin console.
+verified:
+  date: "2026-10-17"
+  commit: d29867b
+  packages: {}
+sources:
+  - packages/shared/src/settings.ts
+  - apps/web/src/views/marketing/Analytics.tsx
+  - apps/web/src/views/marketing/MarketingShell.tsx
+---
+
+The **Analytics and cookies** group on the console's **Settings** screen connects the public website (landing page, pricing, pages, blog, support) to an analytics service. The signed-in app and the admin console are never measured. Nothing needs a deploy: the website picks a change up on the next request when the website refresh is set up (see [Deployment](/operators/deployment)), otherwise within a minute.
+
+## Choosing a provider
+
+| Provider | **Site ID** | Cookies |
+| --- | --- | --- |
+| Plausible | your site's domain, e.g. `vhyxvoid.com` | none |
+| Umami | the website ID | none |
+| Google Analytics 4 | the measurement ID, `G-…` | yes |
+| Google Tag Manager | the container ID, `GTM-…` | yes (and whatever the container's tags add) |
+
+**Script address** is for a self-hosted Plausible or Umami: the `https://` address of its script. Left empty, the provider's own script is used.
+
+The Site ID may hold only letters, digits, dots, dashes and underscores; anything else is refused when you save. A provider with no Site ID loads nothing. Google Analytics is set to anonymize visitors' IP addresses.
+
+## Cookie consent
+
+**Cookie consent** decides when the website asks first:
+
+- **auto** (the default): ask only for providers that set cookies (Google Analytics 4, Tag Manager). Plausible and Umami load at once.
+- **always**: ask before loading any provider.
+- **off**: never ask. Use it only when you have another legal basis for measuring visitors.
+
+When it asks, a banner at the bottom of the page shows **Consent banner text** and a link to **Privacy policy link** (`/privacy` by default), with **Accept** and **Decline**. Nothing is loaded until the visitor accepts:
+
+- **Accept** loads the provider's script.
+- **Decline** loads nothing. Declining after an earlier accept removes the Google Analytics cookies and reloads the page so its script stops.
+
+The choice is kept for a year in the visitor's browser (local storage and a first-party `vv_consent` cookie). While consent is asked for, the footer's last column has a **Cookie settings** link that opens the banner again, so visitors can change their mind. That link is added to the built-in footer and to a custom footer menu alike.
+
+The banner covers the analytics configured here. Scripts added another way (through a Tag Manager container, for example) are the container's to gate: use Tag Manager's own consent settings for them.
+
+## Who can do what
+
+These are settings, so the `settings.read` and `settings.update` abilities apply. Every change is in the admin audit log.

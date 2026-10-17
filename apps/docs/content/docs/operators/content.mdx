@@ -1,9 +1,9 @@
 ---
 title: Site content
-description: Edit the landing page, pricing, pages such as About, Contact and Privacy, and the footer menu; publish, roll back, and read contact form messages.
+description: Edit the landing page, pricing, pages such as About, Contact and Privacy, and the footer menu; preview drafts, publish, roll back, and read contact form messages.
 verified:
-  date: "2026-10-16"
-  commit: 7e8b6e1
+  date: "2026-10-17"
+  commit: d29867b
   packages: {}
 sources:
   - apps/api/src/modules/platform/content/content.schemas.ts
@@ -17,9 +17,16 @@ sources:
   - apps/web/src/app/[locale]/[...not-found]/page.tsx
   - apps/admin/src/views/content/RichTextEditor.tsx
   - apps/admin/src/views/content/FooterEditor.tsx
+  - apps/admin/src/components/ui/PreviewButton.tsx
+  - apps/api/src/modules/platform/preview/preview.routes.ts
+  - apps/web/src/app/[locale]/(public-pages)/preview/[token]/page.tsx
+  - apps/web/src/views/marketing/MarketingShell.tsx
+  - apps/web/src/app/[locale]/not-found.tsx
 ---
 
-Public pages are content entries edited under **Website content** in the console. Nothing on the marketing site needs a deploy to change. Blog posts have their own screen: see [Blog](/operators/blog).
+Public pages are content entries edited under **Website content** in the console. Nothing on the marketing site needs a deploy to change. Blog posts have their own screen: see [Blog](/operators/blog). Images come from the [media library](/operators/media).
+
+Every public page (pricing, pages, blog, support, the 404 page) shares the landing page's dark *void* look: the starfield behind the navbar, glass cards and the gradient buttons. Content can't change the colours or fonts, so new pages match automatically.
 
 ## Kinds of content
 
@@ -34,13 +41,13 @@ The landing and pricing editors are forms. Pages and the footer have their own e
 
 ## Pages
 
-**New page** asks for a title and a slug; the page is served at `/<slug>` (for example `/about`). Slugs the website already uses are refused: `login`, `register`, `pricing`, `docs`, `support`, `dashboard`, `organizations`, `api`, `p`, `blog`, the language codes and the others in `RESERVED_PAGE_SLUGS` (packages/content). The website's own pages always win over a page with the same path, so a page can never hide one.
+**New page** asks for a title and a slug; the page is served at `/<slug>` (for example `/about`). Slugs the website already uses are refused: `login`, `register`, `pricing`, `docs`, `support`, `dashboard`, `organizations`, `api`, `p`, `blog`, `media`, `preview`, the language codes and the others in `RESERVED_PAGE_SLUGS` (packages/content). The website's own pages always win over a page with the same path, so a page can never hide one.
 
 The editor works like a word processor: headings, bold, italic, strikethrough, inline code, links, bulleted and numbered lists, quotes, code blocks, tables and dividers, with undo. **Markdown** switches to the page's source, for pasting or bulk edits.
 
 Pages are stored as markdown, and the website shows them with raw HTML switched off. So a page can't run scripts or embed other sites, and colours and fonts follow the website's design rather than the page. Links can go to `https://`, `mailto:`, a path on the site (`/pricing`) or a section (`#faq`).
 
-Pages that used to live at `/p/<slug>` redirect permanently to `/<slug>`. A path with no page answers a real 404.
+Pages that used to live at `/p/<slug>` redirect permanently to `/<slug>`. A path with no page answers a real 404, with a page that shows the address and links to the home page, blog, docs and support.
 
 Each entry has a search title and description for search results and link previews. The [SEO](/operators/seo) screen shows how every page does in search, can override those per address, and lists the missing addresses visitors hit, so you can redirect them.
 
@@ -66,7 +73,13 @@ In the markdown source the form is a line holding only `{{contact-form}}`.
 
 ## Footer menu
 
-Until you publish a footer menu, the footer is built in: Product (Features, Pricing, Docs), Company (Support, and Status, GitHub and X when those settings are set) and Legal (Terms of Service, Privacy Policy).
+Until you publish a footer menu, the footer is built in:
+
+- **Product**: Features, Pricing, Docs.
+- **Company**: About and Contact, Blog (once a post is live), Support, and Status, GitHub and X when those settings are set.
+- **Legal**: Terms of Service, Privacy Policy.
+
+Published pages marked for the footer join their column. When the [cookie banner](/operators/analytics) is in use, the last column also gets **Cookie settings**.
 
 *Customize Footer menu* on the Website content screen creates the footer menu as a copy of that footer, so nothing disappears when you switch. Then:
 
@@ -79,8 +92,9 @@ A link to a page shows only while that page is published, so unpublishing or del
 ## Draft, publish, roll back
 
 - **Save draft** keeps a working copy. Visitors keep seeing the published version.
+- **Preview ↗** opens the working copy on the website, with the real layout, under a *Draft preview* banner. Unsaved changes are saved first (the button then reads *Save & preview ↗*). The preview address works for 48 hours for anyone who has it, without signing in, so you can send it to someone for review. Search engines are told not to index it, and it is never cached. The footer has no preview: publish it to see it.
 - **Publish** makes the working copy live. The website shows it on the next request when the website refresh is set up (`WEB_REVALIDATE_URL` and `WEB_REVALIDATE_SECRET` on the API, `REVALIDATE_SECRET` on the website; see [Deployment](/operators/deployment)); otherwise within a minute. Saving settings refreshes the site the same way.
-- **Unpublish** takes your version offline. Entries that ship with a built-in default (home, pricing, terms and privacy) fall back to it; any other page answers 404; the footer goes back to the built-in one.
+- **Unpublish** takes your version offline. Entries that ship with a built-in default (home, pricing, about, contact, terms and privacy) fall back to it; any other page answers 404; the footer goes back to the built-in one.
 - Every publish keeps a **revision** (with an optional note). *Restore* copies an old revision into the working copy; publish to make it live.
 - If another admin saved the same entry after you opened it, your save is refused with a message to reload; their changes are never overwritten silently. Reload, then make your change again.
 
@@ -88,8 +102,8 @@ If the API is unreachable, the website renders the built-in defaults rather than
 
 ## Who can do what
 
-`content.read` to view, `content.update` to save drafts and restore revisions, `content.publish` to publish and unpublish, `content.delete` to delete an entry. Deleting an entry that has a built-in default brings the default back. `contact.read` lists contact form messages; `contact.update` marks them read, archives and deletes them.
+`content.read` to view and preview, `content.update` to save drafts and restore revisions, `content.publish` to publish and unpublish, `content.delete` to delete an entry. Deleting an entry that has a built-in default brings the default back. `contact.read` lists contact form messages; `contact.update` marks them read, archives and deletes them.
 
 ## Starting from built-in content
 
-Until you customise them, home, pricing, terms, privacy and the footer show built-in content. The Website content screen lists these under *Built-in content you can customize*; click one to copy it into an editable entry. Have your legal team review the default terms and privacy pages before launch: they are a starting point, not legal advice.
+Until you customise them, home, pricing, about, contact, terms, privacy and the footer show built-in content. The built-in Contact page holds the contact form; About describes the product in general terms and is meant to be rewritten. The Website content screen lists these under *Built-in content you can customize*; click one to copy it into an editable entry. Have your legal team review the default terms and privacy pages before launch: they are a starting point, not legal advice. Built-in pages are in the sitemap and on the SEO screen (marked *built-in*) like your own.

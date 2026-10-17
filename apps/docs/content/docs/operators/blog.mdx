@@ -1,9 +1,9 @@
 ---
 title: Blog
-description: Write, schedule and publish blog posts; organise them with categories and tags that are created as you type; and what the website shows at /blog.
+description: Write, preview, schedule and publish blog posts; organise them with categories and tags that are created as you type; and what the website shows at /blog, including search, the table of contents and share buttons.
 verified:
-  date: "2026-10-16"
-  commit: f5d0139
+  date: "2026-10-17"
+  commit: d29867b
   packages: {}
 sources:
   - apps/api/src/modules/platform/blog/blog.routes.ts
@@ -14,6 +14,10 @@ sources:
   - apps/admin/src/views/blog/BlogTaxonomyView.tsx
   - apps/admin/src/views/blog/TagInput.tsx
   - apps/web/src/views/blog/BlogViews.tsx
+  - apps/web/src/views/blog/PostExtras.tsx
+  - apps/web/src/views/blog/toc.ts
+  - apps/web/src/app/[locale]/(public-pages)/blog/page.tsx
+  - apps/api/src/modules/platform/preview/preview.routes.ts
   - apps/web/src/app/blog/rss.xml/route.ts
   - apps/web/src/app/sitemap.ts
 ---
@@ -24,17 +28,19 @@ The blog is written under **Blog** in the console and shown on the website at `/
 
 **New post** asks for a title and opens the editor as a draft. Only admins see drafts. The editor has four tabs:
 
-- **Write**: the title and the body, in the same rich text editor as [site pages](/operators/content), plus images: **Image** takes an address (`https://…` or a path on the site such as `/images/diagram.png`) and a description for screen readers. Images are linked, not uploaded; host them on the site or a CDN.
+- **Write**: the title and the body, in the same rich text editor as [site pages](/operators/content), plus images: **Image** takes an address (`https://…` or a path on the site such as `/images/diagram.png`) and a description for screen readers, or **Media library…** picks an uploaded one (see [Media library](/operators/media)).
 - **Details**:
   - The **excerpt** is shown in the blog list and in link previews. Left empty, the start of the post is used.
   - The **category** and **tags** are described below.
   - The **author** name defaults to yours.
   - **Feature** puts the post at the top of the blog: the newest featured post leads.
-  - The **cover image** is shown on the post, in the list and in link previews. Images of 1200×630 work everywhere.
+  - The **cover image** is shown on the post, in the list and in link previews. **Choose…** picks it from the media library. Images of 1200×630 work everywhere.
 - **Address & SEO**: the address (`/blog/<slug>`, made from the title), a search title and description, and a preview of the search result.
 - **Publishing**: schedule, back to draft, delete.
 
 Reading time is worked out from the body (200 words a minute).
+
+**Preview ↗** opens the saved post on the website, as visitors will see it, under a *Draft preview* banner, whether it is a draft, scheduled or live. Unsaved changes are saved first. The preview address works for 48 hours for anyone who has it, without signing in, and is never indexed or cached.
 
 Saving sends only the fields you changed. If another admin saved the post after you opened it, your save is refused with a message to reload, so nobody's changes are lost.
 
@@ -68,8 +74,9 @@ Changing the address of a live post keeps the old one working: it redirects perm
 
 | Address | Shows |
 | --- | --- |
-| `/blog` | The featured post, then all posts, newest first, 12 per page, with category links |
-| `/blog/<slug>` | The post, with its category, tags, reading time and up to 3 related posts (same category or a shared tag) |
+| `/blog` | The featured post, then all posts, newest first, 12 per page, with category links and a search box |
+| `/blog?q=<words>` | Posts whose title, excerpt or body match, with how many match. Search results are not indexed by search engines |
+| `/blog/<slug>` | The post, with its category, tags, reading time, a table of contents, share buttons and up to 3 related posts (same category or a shared tag) |
 | `/blog/category/<slug>` | Posts in a category, with its description |
 | `/blog/tag/<slug>` | Posts with a tag. Not indexed by search engines, since these pages repeat the category pages |
 | `/blog/rss.xml` | The newest 20 posts as an RSS feed |
@@ -80,13 +87,18 @@ Post pages carry Open Graph and Twitter tags (title, description, cover image) a
 
 Post bodies are markdown shown with raw HTML switched off, like site pages: a post can't run scripts.
 
+On a post page:
+
+- **Table of contents**: shown when the post has three or more `##`/`###` headings. On wide screens it sits beside the text and highlights the section being read; on smaller ones it folds out above the text. Every heading gets an anchor (`/blog/<slug>#why-replay`), so sections can be linked to.
+- **Share**: links to share on X, LinkedIn, Reddit and Hacker News or by email, *Copy link*, and the device's own share sheet where the browser has one. No third-party script is loaded for them.
+
 Feeds, the sitemap and canonical links need the website's public address: set **Site address** on the [SEO](/operators/seo) screen (or `SITE_URL` on the website). Without either, the address of the incoming request is used. The SEO screen can also override a post's title, description and image, or hide it from search engines.
 
 ## Who can do what
 
 | Ability | Allows |
 | --- | --- |
-| `blog.read` | View posts, categories and tags |
+| `blog.read` | View and preview posts, categories and tags |
 | `blog.update` | Write and edit posts; create, rename and merge categories and tags |
 | `blog.publish` | Publish, schedule and unpublish posts |
 | `blog.delete` | Delete posts, categories and tags |
