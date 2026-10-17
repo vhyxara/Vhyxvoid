@@ -543,3 +543,25 @@
 .lostPath { padding: 0.1em 0.45em; border-radius: 6px; font-size: 0.9em; color: #ddd6fe; background: rgba(139, 92, 246, 0.14); border: 1px solid rgba(167, 139, 250, 0.25); overflow-wrap: anywhere; }
 .lost .actions { margin-block-start: 2rem; }
 @media (prefers-reduced-motion: reduce) { .lostRing, .lostCode { animation: none; } }
+
+/* ── Draft preview (PreviewBanner) ── */
+.previewBar {
+  position: sticky;
+  inset-block-start: 64px;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 0.9rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  color: #1c1300;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+  box-shadow: 0 6px 24px -8px rgba(245, 158, 11, 0.6);
+}
+.previewDot { inline-size: 0.55rem; block-size: 0.55rem; border-radius: 50%; background: #7c2d12; animation: blink 1.4s steps(2) infinite; }
+.previewLive { color: inherit; font-weight: 700; }
+.previewExpired { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: clamp(5rem, 14vw, 9rem) 1.25rem; text-align: center; color: #ecebff; --line-2: rgba(167, 139, 250, 0.32); --ink: #ecebff; --violet-2: #a78bfa; --ease: cubic-bezier(0.22, 1, 0.36, 1); }
+.previewExpired h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; }
+.previewExpired p { margin: 0 0 0.5rem; color: #a3a3c2; max-inline-size: 34rem; line-height: 1.6; }

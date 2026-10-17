@@ -101,6 +101,7 @@ export const platformService = {
   setContactStatus: (id: string, status: ContactMessage['status']) => patch<ContactMessage>(`/admin/contact-messages/${id}`, { status }),
   deleteContactMessage: (id: string) => del(`/admin/contact-messages/${id}`),
 
+  previewLink: (kind: 'content' | 'post', id: string) => post<{ token: string; path: string; expiresAt: string }>(`/admin/preview/${kind}/${id}`),
   media: list<MediaAsset>('/admin/media'),
   uploadMedia: (file: File, alt = '') =>
     httpClient<MediaAsset>({

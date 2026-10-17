@@ -5,7 +5,7 @@ import type { MetadataRoute } from 'next'
 
 import { getBootstrap, siteUrl } from '@/views/marketing/publicApi'
 
-const APP_PATHS = ['/dashboard', '/organizations', '/profile', '/invitations', '/reset-password', '/forgot-password', '/verify-email', '/api/']
+const APP_PATHS = ['/preview', '/dashboard', '/organizations', '/profile', '/invitations', '/reset-password', '/forgot-password', '/verify-email', '/api/']
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const [site, { settings }] = await Promise.all([siteUrl(), getBootstrap()])

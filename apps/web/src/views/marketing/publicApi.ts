@@ -191,3 +191,20 @@ export async function getSeo(): Promise<SeoData> {
 }
 
 export const API_BASE = API
+
+export type PreviewData =
+  | { kind: 'content'; expiresAt: string; entry: { slug: string; kind: 'landing' | 'pricing' | 'page'; title: string; status: string; seoTitle: string | null; seoDescription: string | null; data: unknown; updatedAt: string } }
+  | { kind: 'post'; expiresAt: string; state: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED'; post: BlogPost & { status: string } }
+
+/** A draft behind a preview link (admin → Preview); null when the link is wrong or expired. Never cached. */
+export async function getPreview(token: string): Promise<PreviewData | null> {
+  try {
+    const res = await fetch(`${API}/public/preview?token=${encodeURIComponent(token)}`, { cache: 'no-store', signal: AbortSignal.timeout(4000) })
+
+    if (!res.ok) return null
+
+    return ((await res.json()) as { data?: PreviewData }).data ?? null
+  } catch {
+    return null
+  }
+}

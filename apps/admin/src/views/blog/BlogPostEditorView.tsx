@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query'
 import { usePlatformDetail, usePlatformMutation } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { BlogPostDetail, BlogPostInput } from '@/api/platform/types'
+import { PreviewButton } from '@/components/ui/PreviewButton'
 import { ReasonDialog } from '@/components/ui/ReasonDialog'
 import { formatDate } from '@/components/ui/format'
 import { RichTextEditor, imageProblem } from '@/views/content/RichTextEditor'
@@ -132,6 +133,7 @@ export function BlogPostEditorView({ id }: { id: string }) {
                 </Button>
               ]
             : []),
+          <PreviewButton key='pv' kind='post' id={id} dirty={dirty && !coverProblem && !slugProblem} save={() => save.mutateAsync(changes)} />,
           <Button key='s' variant={dirty ? 'primary' : 'outline'} disabled={!dirty || !!coverProblem || !!slugProblem} loading={save.isPending} onClick={onSave}>
             Save
           </Button>,

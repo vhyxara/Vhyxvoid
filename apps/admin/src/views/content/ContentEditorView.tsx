@@ -11,6 +11,7 @@ import { Alert, Button, Skeleton, Switch, Table, Tabs, Text, TextareaField, Text
 import { usePlatformDetail, usePlatformMutation } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import { ReasonDialog } from '@/components/ui/ReasonDialog'
+import { PreviewButton } from '@/components/ui/PreviewButton'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { formatDate } from '@/components/ui/format'
 import { FooterEditor } from './FooterEditor'
@@ -85,6 +86,7 @@ export function ContentEditorView({ id }: { id: string }) {
           <Button key='v' variant='ghost' onClick={() => window.open(`${SITE}${publicPath(entry.kind, entry.slug)}`, '_blank')}>
             View live ↗
           </Button>,
+          ...(entry.kind !== 'footer' ? [<PreviewButton key='pv' kind='content' id={id} dirty={dirty} save={() => save.mutateAsync(undefined as never)} />] : []),
           <Button key='s' variant='outline' disabled={!dirty} loading={save.isPending} onClick={onSave}>
             Save draft
           </Button>,
