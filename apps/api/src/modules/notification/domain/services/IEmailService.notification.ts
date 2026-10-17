@@ -10,6 +10,8 @@ export interface SendEmailParams {
   text?: string; // plain text fallback
   from?: string; // defaults to env EMAIL_FROM
   replyTo?: string;
+  /** Extra headers, e.g. List-Unsubscribe on newsletter emails. */
+  headers?: Record<string, string>;
 }
 
 export interface IEmailService {

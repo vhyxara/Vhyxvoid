@@ -591,3 +591,31 @@ export function teamDigest(params: {
   return { subject, html, text };
 }
 
+
+/** Double opt-in: the first email after someone signs up for the newsletter. */
+export function newsletterConfirm(params: { confirmUrl: string; productName?: string }): EmailContent {
+  const name = params.productName || APP_NAME;
+  const subject = `Confirm your subscription to ${name} updates`;
+  const html = layout(
+    heading("One click to confirm") +
+      para(`Someone (hopefully you) asked to get ${escapeHtml(name)} product updates and new blog posts at this address.`) +
+      button("Yes, subscribe me", escapeHtml(params.confirmUrl)) +
+      smallNote("If it wasn't you, ignore this email: you won't hear from us again. The link works for 7 days."),
+    "Confirm your subscription",
+  );
+  const text = `Someone (hopefully you) asked to get ${name} product updates and new blog posts at this address.\n\nConfirm: ${params.confirmUrl}\n\nIf it wasn't you, ignore this email. The link works for 7 days.\n— ${name}`;
+  return { subject, html, text };
+}
+
+/** A blog post sent to newsletter subscribers. */
+export function newsletterPost(params: { title: string; excerpt: string; url: string; imageUrl?: string | null; imageAlt?: string; unsubscribeUrl: string; productName?: string }): EmailContent {
+  const name = params.productName || APP_NAME;
+  const h = escapeFields({ title: params.title, excerpt: params.excerpt, url: params.url, unsubscribeUrl: params.unsubscribeUrl, imageAlt: params.imageAlt ?? "" });
+  const image = params.imageUrl ? `<a href="${h.url}"><img src="${escapeHtml(params.imageUrl)}" alt="${h.imageAlt}" width="480" style="display:block;width:100%;max-width:480px;height:auto;border-radius:8px;margin:0 0 20px;"></a>` : "";
+  const html = layout(
+    image + heading(h.title) + para(h.excerpt) + button("Read the post", h.url) + smallNote(`You get this because you subscribed to ${escapeHtml(name)} updates. <a href="${h.unsubscribeUrl}">Unsubscribe</a>.`),
+    params.excerpt.slice(0, 120),
+  );
+  const text = `${params.title}\n\n${params.excerpt}\n\nRead the post: ${params.url}\n\nUnsubscribe: ${params.unsubscribeUrl}\n— ${name}`;
+  return { subject: params.title, html, text };
+}

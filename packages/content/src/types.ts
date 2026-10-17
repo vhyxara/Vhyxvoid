@@ -82,7 +82,7 @@ export const CONTACT_FORM_MARKER = "{{contact-form}}";
  * could never hide one, but a slug here would never be reachable.
  */
 export const RESERVED_PAGE_SLUGS = [
-  "api", "api-docs", "api-docs-host", "blog", "media", "preview", "dashboard", "docs", "en", "footer", "forgot-password", "fr", "home", "invitations", "login", "organizations", "p",
+  "api", "api-docs", "api-docs-host", "blog", "media", "newsletter", "preview", "dashboard", "docs", "en", "footer", "forgot-password", "fr", "home", "invitations", "login", "organizations", "p",
   "pricing", "profile", "register", "reset-password", "support", "verify-email", "verify-email-sent", "_next",
 ] as const;
 

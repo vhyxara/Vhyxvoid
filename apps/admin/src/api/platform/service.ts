@@ -29,6 +29,7 @@ import type {
   BlogPostRow,
   BlogTagRow,
   MediaAsset,
+  NewsletterSubscriber,
   MediaUsage,
   SeoAudit,
   SeoLimits,
@@ -144,15 +145,18 @@ export const platformService = {
   deleteBlogTag: (id: string) => del<{ id: string }>(`/admin/blog/tags/${id}`),
   mergeBlogTag: (id: string, into: string) => post<{ into: string; posts: number }>(`/admin/blog/tags/${id}/merge`, { into }),
 
+  newsletter: list<NewsletterSubscriber>('/admin/newsletter'),
+  deleteSubscriber: (id: string) => del(`/admin/newsletter/${id}`),
+  sendPostToNewsletter: (postId: string, test = false) => post<{ recipients?: number; to?: string }>(`/admin/newsletter/posts/${postId}/send`, { test }),
+
   setAdminPassword: (adminId: string, newPassword: string) => post(`/admin/identity/users/${adminId}/password`, { newPassword })
 }
 
-/** Absolute URL of an admin export, for <a href download>. Auth header is added by fetch below. */
-export async function downloadAdminAuditCsv(params: Record<string, string> = {}) {
+/** Downloads an admin CSV export (the auth header needs fetch, not a plain link). */
+async function downloadCsv(path: string, filename: string) {
   const { getAdminAccessToken } = await import('@/api/domain/auth/auth.store')
   const base = process.env.NEXT_PUBLIC_ADMIN_API_URL ?? 'http://localhost:9000/api/v1'
-  const qs = new URLSearchParams(params).toString()
-  const res = await fetch(`${base}/admin/logs/admin-audit.csv${qs ? `?${qs}` : ''}`, {
+  const res = await fetch(`${base}${path}`, {
     headers: { Authorization: `Bearer ${getAdminAccessToken()}` },
     credentials: 'include'
   })
@@ -163,10 +167,18 @@ export async function downloadAdminAuditCsv(params: Record<string, string> = {})
   const a = document.createElement('a')
 
   a.href = url
-  a.download = `admin-audit-${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }
+
+export function downloadAdminAuditCsv(params: Record<string, string> = {}) {
+  const qs = new URLSearchParams(params).toString()
+
+  return downloadCsv(`/admin/logs/admin-audit.csv${qs ? `?${qs}` : ''}`, `admin-audit-${new Date().toISOString().slice(0, 10)}.csv`)
+}
+
+export const downloadNewsletterCsv = () => downloadCsv('/admin/newsletter/export.csv', `newsletter-${new Date().toISOString().slice(0, 10)}.csv`)
 
 export type TrafficTotals = { requests: number; errors4xx: number; errors5xx: number; avgMs: number | null; errorRate: number | null }
 

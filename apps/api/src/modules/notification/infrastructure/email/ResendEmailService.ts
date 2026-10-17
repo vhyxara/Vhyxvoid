@@ -40,6 +40,7 @@ export class ResendEmailService implements IEmailService {
       html: params.html,
       text: params.text,
       replyTo: params.replyTo,
+      headers: params.headers,
     });
 
     if (result.error) {

@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query'
 import { usePlatformDetail, usePlatformMutation } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { BlogPostDetail, BlogPostInput } from '@/api/platform/types'
+import { SendToSubscribers } from '@/views/newsletter/SendToSubscribers'
 import { PreviewButton } from '@/components/ui/PreviewButton'
 import { ReasonDialog } from '@/components/ui/ReasonDialog'
 import { formatDate } from '@/components/ui/format'
@@ -249,6 +250,7 @@ export function BlogPostEditorView({ id }: { id: string }) {
             <Text size='xs' tone='muted'>
               Times are in your time zone ({Intl.DateTimeFormat().resolvedOptions().timeZone}). A past date publishes now, dated then.
             </Text>
+            <SendToSubscribers post={post} dirty={dirty} />
             <div className='flex gap-3 flex-wrap'>
               {post.status === 'PUBLISHED' && (
                 <Button variant='outline' onClick={() => setConfirm('unpublish')}>

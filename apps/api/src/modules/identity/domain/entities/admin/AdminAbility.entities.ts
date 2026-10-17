@@ -271,5 +271,8 @@ export const SYSTEM_ABILITIES = {
   MEDIA_READ: { action: 'media.read', category: 'content', description: 'View the media library and where each image is used' },
   MEDIA_UPDATE: { action: 'media.update', category: 'content', description: 'Upload images to the media library and edit their names and alt text' },
   MEDIA_DELETE: { action: 'media.delete', category: 'content', description: 'Delete images from the media library' },
+  NEWSLETTER_READ: { action: 'newsletter.read', category: 'content', description: 'View and export newsletter subscribers' },
+  NEWSLETTER_UPDATE: { action: 'newsletter.update', category: 'content', description: 'Delete newsletter subscribers' },
+  NEWSLETTER_SEND: { action: 'newsletter.send', category: 'content', description: 'Email a live blog post to newsletter subscribers' },
   SEO_UPDATE: { action: 'seo.update', category: 'content', description: 'Change SEO: page overrides, redirects, and dismiss missing addresses' },
 };

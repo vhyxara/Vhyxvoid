@@ -279,3 +279,97 @@
 .consentAccept { color: #fff; border: 0; background: linear-gradient(90deg, #7c3aed, #a855f7); }
 .consentActions button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .consent { animation: none; } }
+
+/* ── Newsletter (band above the footer, confirm and unsubscribe pages) ── */
+.newsletter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem 2rem;
+  max-inline-size: 72rem;
+  margin: 4rem auto 0;
+  margin-inline: max(16px, calc((100% - 72rem) / 2));
+  padding: 1.75rem 2rem;
+  border-radius: 20px;
+  background: linear-gradient(120deg, rgba(139, 92, 246, 0.16), rgba(34, 211, 238, 0.08)), rgba(13, 11, 30, 0.7);
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  box-shadow: 0 0 60px -30px rgba(139, 92, 246, 0.9);
+}
+.newsletterText h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f4f3ff;
+}
+.newsletterText p {
+  margin: 0;
+  color: rgba(236, 235, 255, 0.72);
+  font-size: 0.95rem;
+}
+.newsletterForm {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  flex: 1 1 22rem;
+  max-inline-size: 30rem;
+}
+.newsletterForm input[type='email'] {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  height: 2.6rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  color: #f4f3ff;
+  background: rgba(4, 4, 11, 0.6);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  font: inherit;
+}
+.newsletterForm input[type='email']:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+.newsletterForm input[aria-invalid] {
+  border-color: #f87171;
+}
+.newsletterError {
+  flex-basis: 100%;
+  margin: 0;
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+.newsletterDone {
+  margin: 0;
+  color: #c4b5fd;
+}
+.newsletterPage {
+  max-inline-size: 36rem;
+  margin: 6rem auto 2rem;
+  padding-inline: 16px;
+  text-align: center;
+}
+.newsletterPage h1 {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  margin: 0 0 0.75rem;
+  color: #f4f3ff;
+}
+.newsletterPage p {
+  color: rgba(236, 235, 255, 0.75);
+  margin: 0 0 1.5rem;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}

@@ -30,7 +30,7 @@ export interface SettingDefinition {
   validate?: (value: unknown) => string | undefined;
 }
 
-export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics";
+export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics" | "newsletter";
 
 export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: string }> = {
   general: { label: "General", description: "Product name and public links." },
@@ -44,6 +44,7 @@ export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: 
   features: { label: "Features", description: "Turn product features on or off." },
   seo: { label: "SEO", description: "How the website appears in search results and link previews. Edited on the SEO screen." },
   analytics: { label: "Analytics and cookies", description: "Visitor analytics on the marketing website (not the signed-in app), and the cookie consent banner." },
+  newsletter: { label: "Newsletter", description: "The email sign-up form on the website. Subscribers are listed under Newsletter." },
 };
 
 // ── Plan limit overrides ──────────────────────────────────────────────────────
@@ -217,6 +218,9 @@ export const SETTING_DEFINITIONS = {
   "consent.mode": { group: "analytics", label: "Cookie consent", description: "auto: ask only when the analytics provider sets cookies (GA4, Tag Manager). always: ask before loading any analytics. off: never ask (only if you have another legal basis).", type: "enum", options: ["auto", "always", "off"], default: "auto", public: true },
   "consent.message": { group: "analytics", label: "Consent banner text", description: "What the banner says. Keep it short and honest about what is measured.", type: "text", default: "We use cookies to understand how visitors use this site, so we can improve it. Nothing is shared for advertising.", public: true, maxLength: 400 },
   "consent.policyUrl": { group: "analytics", label: "Privacy policy link", description: "Linked from the banner.", type: "url", default: "/privacy", public: true },
+  "newsletter.enabled": { group: "newsletter", label: "Newsletter sign-up", description: "Show the sign-up form in the website footer and under blog posts. New subscribers confirm by email before they get anything. Off: the form is hidden and sign-ups are refused; existing subscribers stay.", type: "boolean", default: true, public: true },
+  "newsletter.title": { group: "newsletter", label: "Form title", description: "The heading above the sign-up form.", type: "string", default: "Get product updates", public: true, maxLength: 80 },
+  "newsletter.description": { group: "newsletter", label: "Form text", description: "One line under the heading: what subscribers get and how often.", type: "string", default: "New features and posts, about once a month. Unsubscribe any time.", public: true, maxLength: 200 },
 
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },

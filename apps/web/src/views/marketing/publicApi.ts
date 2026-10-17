@@ -50,6 +50,9 @@ export type PublicSettings = Record<string, unknown> & {
   'consent.mode'?: 'auto' | 'always' | 'off'
   'consent.message'?: string
   'consent.policyUrl'?: string
+  'newsletter.enabled'?: boolean
+  'newsletter.title'?: string
+  'newsletter.description'?: string
 }
 
 export type Bootstrap = {

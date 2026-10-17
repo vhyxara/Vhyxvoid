@@ -1422,7 +1422,7 @@ model ApiCollection {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  account Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
   runs     ApiTestRun[]
   monitors ApiMonitor[]
 
@@ -1766,17 +1766,17 @@ model TeamFolder {
 }
 
 model TeamDoc {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   accountId   String
   folderId    String?
   title       String
-  body        String    @default("")
+  body        String   @default("")
   /// Bumped on every save; a stale save is refused (409).
-  version     Int       @default(1)
+  version     Int      @default(1)
   createdById String?
   updatedById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   account  Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
   versions TeamDocVersion[]
@@ -1918,28 +1918,30 @@ model AiDraft {
 /// A blog post (admin panel → Blog). Visible on the website when PUBLISHED and
 /// publishedAt has passed (a future publishedAt is a scheduled post).
 model BlogPost {
-  id             String         @id @default(uuid())
-  slug           String         @unique
+  id               String         @id @default(uuid())
+  slug             String         @unique
   /// Slugs this post had before; links to them redirect to the current one.
-  previousSlugs  String[]       @default([])
-  title          String
-  excerpt        String         @default("")
+  previousSlugs    String[]       @default([])
+  title            String
+  excerpt          String         @default("")
   /// Markdown, rendered on the website with raw HTML off.
-  body           String         @default("")
-  coverImageUrl  String?
-  coverImageAlt  String         @default("")
-  status         BlogPostStatus @default(DRAFT)
-  publishedAt    DateTime?
-  featured       Boolean        @default(false)
-  authorName     String         @default("")
-  categoryId     String?
-  seoTitle       String?
-  seoDescription String?
-  readingMinutes Int            @default(1)
-  createdById    String?
-  updatedById    String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  body             String         @default("")
+  coverImageUrl    String?
+  coverImageAlt    String         @default("")
+  status           BlogPostStatus @default(DRAFT)
+  publishedAt      DateTime?
+  featured         Boolean        @default(false)
+  authorName       String         @default("")
+  categoryId       String?
+  seoTitle         String?
+  seoDescription   String?
+  readingMinutes   Int            @default(1)
+  /// When the post was emailed to newsletter subscribers; at most once.
+  newsletterSentAt DateTime?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   category BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   tags     BlogPostTag[]
@@ -1989,7 +1991,6 @@ model BlogPostTag {
   @@map("blog_post_tags")
 }
 
-
 /// SEO set by an admin for one address of the website (SEO screen → Pages).
 /// Empty fields keep what the page itself says (its content, post or code).
 model SeoPage {
@@ -2029,12 +2030,12 @@ model SeoRedirect {
 /// Addresses visitors asked for that don't exist, reported by the website,
 /// so an admin can redirect them (SEO screen → Not found).
 model SeoNotFound {
-  id        String   @id @default(uuid())
-  path      String   @unique
-  hits      Int      @default(1)
-  referrer  String?
-  firstAt   DateTime @default(now())
-  lastAt    DateTime @default(now())
+  id       String   @id @default(uuid())
+  path     String   @unique
+  hits     Int      @default(1)
+  referrer String?
+  firstAt  DateTime @default(now())
+  lastAt   DateTime @default(now())
 
   @@index([lastAt])
   @@index([hits])
@@ -2061,4 +2062,31 @@ model MediaAsset {
 
   @@index([createdAt])
   @@map("media_assets")
+}
+
+enum NewsletterStatus {
+  PENDING
+  CONFIRMED
+  UNSUBSCRIBED
+}
+
+/// Newsletter sign-ups from the website. Double opt-in: PENDING until the
+/// emailed link is opened. Links carry signed tokens (newsletter.service.ts),
+/// so no token is stored.
+model NewsletterSubscriber {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  status            NewsletterStatus @default(PENDING)
+  /// Where the form was: "footer", "blog", "post:<slug>".
+  source            String           @default("")
+  ip                String?
+  confirmedAt       DateTime?
+  unsubscribedAt    DateTime?
+  /// Last confirmation email, to throttle repeats.
+  lastConfirmSentAt DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@map("newsletter_subscribers")
 }

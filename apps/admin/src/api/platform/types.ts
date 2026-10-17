@@ -294,6 +294,16 @@ export type ContactMessage = {
   updatedAt: string
 }
 
+export type NewsletterSubscriber = {
+  id: string
+  email: string
+  status: 'PENDING' | 'CONFIRMED' | 'UNSUBSCRIBED'
+  source: string
+  confirmedAt: string | null
+  unsubscribedAt: string | null
+  createdAt: string
+}
+
 export type BlogState = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED'
 export type BlogTaxon = { id: string; slug: string; name: string }
 export type BlogPostRow = {
@@ -318,6 +328,7 @@ export type BlogPostDetail = BlogPostRow & {
   seoTitle: string | null
   seoDescription: string | null
   readingMinutes: number
+  newsletterSentAt: string | null
   category: BlogTaxon | null
   tags: BlogTaxon[]
 }

@@ -16,6 +16,7 @@ import { routing } from '@/i18n/routing'
 import type { Bootstrap } from './publicApi'
 import { SiteBackdrop } from './void/SiteBackdrop'
 import { Analytics, COOKIE_SETTINGS_HASH, needsConsent } from './Analytics'
+import { NewsletterBand } from './Newsletter'
 import styles from './marketing.module.css'
 
 function Brand({ name }: { name: string }) {
@@ -144,6 +145,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
         }}
       >
         {children}
+        <NewsletterBand settings={s} />
       </MarketingLayout>
     </div>
   )
