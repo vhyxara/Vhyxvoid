@@ -2,8 +2,8 @@
 title: Billing
 description: Your plan, upgrading through Stripe, managing a subscription, invoices, and what happens when a payment fails.
 verified:
-  date: "2026-10-07"
-  commit: "2e92d55"
+  date: "2026-10-17"
+  commit: "9993387"
   packages:
     "@vhyxvoid/agent": "1.1.0"
 sources:
@@ -33,7 +33,7 @@ The **Billing** link is in the sidebar for **owners**, of an organization or of 
 
 Without a paid subscription the card has an **Upgrade** button (unless VhyxVoid is in free mode, above). If upgrades are paused for a while, it says "Upgrades are temporarily unavailable." instead.
 
-1. Choose **Upgrade** and pick **Pro** or **Enterprise**. The dialog shows each plan's monthly price and, when there is one, the length of the free trial a new subscription starts with (only an account's first subscription gets a trial).
+1. Choose **Upgrade** and pick **Pro** or **Enterprise**, and **Monthly** or **Yearly** when the plan can be billed yearly. The dialog shows each plan's price and, when there is one, the length of the free trial a new subscription starts with (only an account's first subscription gets a trial).
 2. Choose **Continue to checkout**. You are sent to Stripe's payment page; VhyxVoid never sees your card details.
 3. After paying you come back to **Billing** with a banner: "Plan upgraded successfully. Welcome to your new plan!"
 

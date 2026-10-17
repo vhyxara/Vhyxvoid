@@ -3,7 +3,7 @@ title: Settings reference
 description: Every runtime setting an admin can change, its type, default and effect.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
   - packages/shared/src/settings.ts
@@ -68,7 +68,7 @@ Checkout and trial policy. Prices themselves live in Stripe.
 | `billing.mode` | enum (free, paid) | `"free"` | yes | Billing mode. free: everyone uses the product without paying (launch / early access); upgrades and pricing tiers are hidden. paid: plans can be bought through Stripe. Existing subscriptions keep working in either mode. |
 | `billing.defaultPlan` | enum (FREE, PRO, ENTERPRISE) | `"FREE"` | yes | Plan for accounts that don't pay. The plan every account without a paid subscription gets. Raise it to PRO during a launch to be generous; edit each plan's limits under Plan limits. |
 | `billing.freeModeMessage` | string | see admin panel | yes | Free mode message. Shown on the pricing and billing pages while billing mode is free. |
-| `billing.stripePrices` | json | `{}` | no | Stripe price IDs. The recurring Stripe price for each paid plan, e.g. \{"PRO": "price_123", "ENTERPRISE": "price_456"\}. Overrides the STRIPE_*_PRICE_ID environment variables. Create prices in the Stripe dashboard. |
+| `billing.stripePrices` | json | `{}` | no | Stripe price IDs. The recurring Stripe price for each paid plan, monthly and (optionally) yearly, e.g. \{"PRO": "price_123", "PRO_YEARLY": "price_456"\}. Overrides the STRIPE_*_PRICE_ID environment variables. A plan with a yearly price can be bought yearly. Create prices in the Stripe dashboard. |
 | `billing.checkoutEnabled` | boolean | `true` | yes | Allow upgrades. When off, the upgrade buttons are hidden and checkout is refused. |
 | `billing.trialDays` | number 0–90 | `14` | yes | Trial length (days). Free trial on an account's first paid subscription only. 0 disables trials. |
 | `billing.usageNotices` | boolean | `true` | no | Usage emails. Tell an account's owners and admins (in-app and email) when it reaches 80% and 100% of its plan's monthly requests, once per month each. The monthly limit is soft: nothing is blocked. |
@@ -100,6 +100,8 @@ Where users get help.
 | Key | Type | Default | Public | What it does |
 | --- | --- | --- | --- | --- |
 | `support.email` | email | `"support@vhyxvoid.com"` | yes | Support email. Shown on the website and in emails. |
+| `support.securityContact` | string | `""` | yes | Security contact. Where security researchers report vulnerabilities, published in /.well-known/security.txt: an email address or an https:// page. Empty: the support email. |
+| `support.securityPolicyUrl` | url | `""` | yes | Security policy. Optional: a page describing how you handle vulnerability reports (scope, safe harbour), linked from security.txt. |
 | `support.docsUrl` | url | `"/docs"` | yes | Documentation URL. Where 'Docs' links go. |
 | `support.captchaSiteKey` | string | `""` | yes | Captcha site key. Cloudflare Turnstile site key for the contact form. The form shows the check when this is set; the API requires it when its TURNSTILE_SECRET_KEY is set. Set both, from the same Turnstile widget. |
 | `support.contactForm` | boolean | `true` | yes | Contact form. Pages with a contact form block accept messages, which arrive in the admin panel under Messages and by email to the support email. Off: the form says to email the support address instead. |
@@ -155,3 +157,32 @@ Visitor analytics on the marketing website (not the signed-in app), and the cook
 | `consent.mode` | enum (auto, always, off) | `"auto"` | yes | Cookie consent. auto: ask only when the analytics provider sets cookies (GA4, Tag Manager). always: ask before loading any analytics. off: never ask (only if you have another legal basis). |
 | `consent.message` | text | see admin panel | yes | Consent banner text. What the banner says. Keep it short and honest about what is measured. |
 | `consent.policyUrl` | url | `"/privacy"` | yes | Privacy policy link. Linked from the banner. |
+
+## Newsletter
+
+The email sign-up form on the website. Subscribers are listed under Newsletter.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `newsletter.enabled` | boolean | `true` | yes | Newsletter sign-up. Show the sign-up form in the website footer and under blog posts. New subscribers confirm by email before they get anything. Off: the form is hidden and sign-ups are refused; existing subscribers stay. |
+| `newsletter.title` | string | `"Get product updates"` | yes | Form title. The heading above the sign-up form. |
+| `newsletter.description` | string | see admin panel | yes | Form text. One line under the heading: what subscribers get and how often. |
+
+## Brand
+
+Logo, browser icon and accent colour of the website and the dashboard.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `brand.logoUrl` | image | `""` | yes | Logo. Shown in the website's navbar and footer and in the dashboard, next to the product name. A square or wide image with a transparent background, at least 64 px tall. Empty: the built-in logo. |
+| `brand.logoOnly` | boolean | `false` | yes | Logo only. Hide the product name next to the logo, for a logo that already contains the name. |
+| `brand.faviconUrl` | image | `""` | yes | Browser icon (favicon). The icon in browser tabs, bookmarks and on phones' home screens. A square PNG, 512×512 or larger. Empty: the built-in icon. |
+| `brand.accentColor` | color | `""` | yes | Accent colour. The colour of buttons, links and highlights on the website and in the dashboard, e.g. #7c3aed. Pick one that reads well on dark backgrounds. Empty: the built-in violet. |
+
+## Emails
+
+The words of the emails people get. Edited on the Emails screen.
+
+| Key | Type | Default | Public | What it does |
+| --- | --- | --- | --- | --- |
+| `emails.overrides` | json | `{}` | no | Email wording. Your wording for emails such as Verify email address and Reset password: subject, heading, text, button and note per email, with \{\{variables\}\}. An empty field uses the built-in wording. Edited on the Emails screen. |

@@ -1,0 +1,44 @@
+---
+title: Changelog
+description: Write release notes in the admin console and publish them on the website at /changelog, with an RSS feed.
+verified:
+  date: "2026-10-17"
+  commit: "9993387"
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/changelog/changelog.routes.ts
+  - apps/admin/src/views/changelog/ChangelogView.tsx
+  - apps/web/src/views/changelog/ChangelogView.tsx
+  - apps/web/src/app/changelog/rss.xml/route.ts
+---
+
+**Changelog** in the console holds the release notes shown on the website at `/changelog`, newest first, as a timeline.
+
+## Writing an entry
+
+**New entry** opens the editor:
+
+- **Version**: optional, e.g. `1.8.0`. Shown as `v1.8.0` and used for the entry's link (`/changelog#v1-8-0`); entries without one are linked by date.
+- **Title**.
+- **Date**: empty means the day you publish. A later date waits: the entry appears on that day.
+- **Labels**: *New*, *Improved*, *Fixed* and *Security*, shown as coloured tags.
+- **Release notes**: the rich text editor used for site pages, with lists, links, code and images.
+
+**Save draft** keeps it hidden; **Publish** shows it. A published entry can be edited, unpublished or deleted; publishing it again keeps its date.
+
+## On the website
+
+| Address | Shows |
+| --- | --- |
+| `/changelog` | All published entries, 20 per page, with their date, version, labels and notes |
+| `/changelog/rss.xml` | The newest 20 entries as an RSS feed |
+
+Once an entry is published, the built-in footer adds **Changelog** to its Product column, and the page is added to the sitemap. If newsletter sign-up is on, the page links to it. `/changelog` is listed on the [SEO](/operators/seo) screen like the other fixed pages.
+
+## Who can do what
+
+| Ability | Allows |
+| --- | --- |
+| `changelog.read` | View entries |
+| `changelog.update` | Write, edit, publish and unpublish entries |
+| `changelog.delete` | Delete entries |

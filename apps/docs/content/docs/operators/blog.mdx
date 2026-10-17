@@ -3,9 +3,11 @@ title: Blog
 description: Write, preview, schedule and publish blog posts; organise them with categories and tags that are created as you type; and what the website shows at /blog, including search, the table of contents and share buttons.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
+  - apps/api/src/modules/platform/blog/blog.authors.routes.ts
+  - apps/admin/src/views/blog/BlogAuthorsView.tsx
   - apps/api/src/modules/platform/blog/blog.routes.ts
   - apps/api/src/modules/platform/blog/blog.public.routes.ts
   - apps/api/src/modules/platform/blog/blog.service.ts
@@ -32,17 +34,23 @@ The blog is written under **Blog** in the console and shown on the website at `/
 - **Details**:
   - The **excerpt** is shown in the blog list and in link previews. Left empty, the start of the post is used.
   - The **category** and **tags** are described below.
-  - The **author** name defaults to yours.
+  - The **author**: a profile from **Blog › Authors** (photo, title, bio and links under the post, and an author page), or just a name, which defaults to yours.
   - **Feature** puts the post at the top of the blog: the newest featured post leads.
   - The **cover image** is shown on the post, in the list and in link previews. **Choose…** picks it from the media library. Images of 1200×630 work everywhere.
 - **Address & SEO**: the address (`/blog/<slug>`, made from the title), a search title and description, and a preview of the search result.
-- **Publishing**: schedule, back to draft, delete.
+- **Publishing**: schedule, back to draft, delete, and emailing the post to [newsletter](/operators/newsletter) subscribers.
 
 Reading time is worked out from the body (200 words a minute).
 
 **Preview ↗** opens the saved post on the website, as visitors will see it, under a *Draft preview* banner, whether it is a draft, scheduled or live. Unsaved changes are saved first. The preview address works for 48 hours for anyone who has it, without signing in, and is never indexed or cached.
 
 Saving sends only the fields you changed. If another admin saved the post after you opened it, your save is refused with a message to reload, so nobody's changes are lost.
+
+## Authors
+
+**Blog › Authors** holds author profiles: name, title (e.g. *Engineer at VhyxVoid*), bio, photo from the media library, and website, X, GitHub and LinkedIn (a pasted profile address becomes the handle). A post signed by a profile shows the photo in its byline, ends with an author card, and links to `/blog/author/<slug>`, which lists their posts under their profile.
+
+Renaming an author renames them on their posts. Deleting one keeps their posts, signed with the name only, and their author page goes away.
 
 ## Categories and tags
 
@@ -78,12 +86,13 @@ Changing the address of a live post keeps the old one working: it redirects perm
 | `/blog?q=<words>` | Posts whose title, excerpt or body match, with how many match. Search results are not indexed by search engines |
 | `/blog/<slug>` | The post, with its category, tags, reading time, a table of contents, share buttons and up to 3 related posts (same category or a shared tag) |
 | `/blog/category/<slug>` | Posts in a category, with its description |
+| `/blog/author/<slug>` | An author's profile and their posts |
 | `/blog/tag/<slug>` | Posts with a tag. Not indexed by search engines, since these pages repeat the category pages |
 | `/blog/rss.xml` | The newest 20 posts as an RSS feed |
 | `/sitemap.xml` | The site's pages, published CMS pages, posts and categories, for search engines |
 | `/robots.txt` | Points search engines at the sitemap and keeps them out of the signed-in app |
 
-Post pages carry Open Graph and Twitter tags (title, description, cover image) and schema.org `BlogPosting` data, so search results and link previews show the date, author and image.
+Post pages carry Open Graph and Twitter tags (title, description, cover image) and schema.org `BlogPosting` data, so search results and link previews show the date, author and image. A post signed by a profile names the author as a `Person` with their page, title and profile links.
 
 Post bodies are markdown shown with raw HTML switched off, like site pages: a post can't run scripts.
 

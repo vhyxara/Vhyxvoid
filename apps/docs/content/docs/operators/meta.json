@@ -1,4 +1,4 @@
 {
   "title": "Operators",
-  "pages": ["index", "deployment", "admin-console", "settings-reference", "content", "blog", "media", "seo", "analytics", "plans-and-billing", "runbook"]
+  "pages": ["index", "deployment", "admin-console", "settings-reference", "content", "blog", "changelog", "newsletter", "media", "seo", "analytics", "emails", "plans-and-billing", "runbook"]
 }

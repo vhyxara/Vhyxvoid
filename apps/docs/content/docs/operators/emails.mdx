@@ -1,0 +1,42 @@
+---
+title: Emails
+description: Change the words of the emails people get (verify address, reset password, invitations, trial and payment notices, newsletter confirmation) from the admin console.
+verified:
+  date: "2026-10-17"
+  commit: "9993387"
+  packages: {}
+sources:
+  - packages/shared/src/emails.ts
+  - apps/api/src/modules/notification/infrastructure/email/templates/index.ts
+  - apps/api/src/modules/platform/emails/emails.routes.ts
+  - apps/admin/src/views/emails/EmailsView.tsx
+---
+
+**Emails** in the console changes the wording of these emails:
+
+| Email | Sent when |
+| --- | --- |
+| Verify email address | Someone signs up |
+| Finish signing up | Someone signs up again with an address that was never verified |
+| Reset password | Someone asks to reset a forgotten password |
+| Password changed | A password was changed (a security notice) |
+| Team invitation | Someone is invited to an organization |
+| Trial ending | A few days before a trial ends |
+| Payment failed | A subscription payment fails and the grace period starts |
+| Newsletter: confirm subscription | Someone signs up for the [newsletter](/operators/newsletter) |
+
+Other emails (alerts, the team digest, payment receipts) keep their built-in wording.
+
+## Editing
+
+Each email has five fields: **Subject**, **Heading**, **Text**, **Button** and **Small print**. An empty field uses the built-in wording, which is shown greyed out in it, so you can change only what you need. In the text, a blank line starts a new paragraph and `**bold**` makes words bold. The design (logo, colours, layout) stays the same.
+
+**Variables** are filled in when the email is sent: `{{firstName}}`, `{{productName}}`, `{{accountName}}` and others, depending on the email. The screen lists the ones each email has (click one to copy it), and refuses a variable the email doesn't have. The button always links to the email's own link (`{{url}}`).
+
+The preview on the right shows the email with sample values as you type. **Send me a test** sends it to your address. **Save** applies it to emails sent from then on: at once on the API process that saved it, within 30 seconds on others. **Use built-in wording** goes back to the original.
+
+An email nobody changed is sent exactly as before. Everything typed is escaped, so the wording can't add links or HTML of its own.
+
+## Who can do what
+
+Wording is stored in the setting `emails.overrides`: viewing needs `settings.read`, saving and test emails `settings.update`. Every change is in the admin audit log.

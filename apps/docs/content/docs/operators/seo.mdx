@@ -3,9 +3,11 @@ title: SEO
 description: Control how the website appears in search results and link previews from the admin console. Covers site-wide defaults, per-address titles and descriptions, redirects, missing addresses, and the audit.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
+  - apps/web/src/i18n/routing.ts
+  - apps/web/src/views/seo/securityTxt.ts
   - packages/content/src/seo.ts
   - packages/shared/src/settings.ts
   - apps/api/src/modules/platform/seo/seo.service.ts
@@ -75,7 +77,7 @@ The screen previews the home page as a search result and as a shared link while 
 
 Pages lists every public address of the website:
 
-- the fixed pages: home, pricing, blog, support, sign-in and sign-up;
+- the fixed pages: home, pricing, blog, changelog, support, sign-in and sign-up;
 - every CMS page, published or not, and the built-in pages you haven't replaced (about, contact, terms, privacy), marked *built-in*;
 - every live blog post;
 - every blog category with live posts.
@@ -144,8 +146,10 @@ These follow the settings above, without any setup:
   - `FAQPage` from the FAQ of the landing and pricing pages;
   - `BreadcrumbList` on CMS pages and blog posts;
   - `BlogPosting` on blog posts.
-- **`/sitemap.xml`**: the fixed pages, published CMS pages and built-in pages, live posts and categories, minus hidden addresses.
+- **`/sitemap.xml`**: the fixed pages, published CMS pages and built-in pages, live posts, categories and author pages, the changelog, minus hidden addresses.
 - **`/robots.txt`**: points at the sitemap.
+- **`/.well-known/security.txt`**: where to report a vulnerability, from **Settings › Support** (*Security contact*, else the support email; *Security policy*).
+- **One language**: pages say `lang="en"`. Addresses from when the site also had French (`/fr/…`) redirect permanently to the English page.
 - **`/manifest.webmanifest`**: the product name and colours.
 
 ## Who can do what

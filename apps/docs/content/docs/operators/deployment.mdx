@@ -3,9 +3,10 @@ title: Deployment
 description: Build the images, configure the environment, put admin behind Cloudflare Access, and go live.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
+  - packages/shared/src/emails.ts
   - apps/api/src/modules/platform/ai/aiModel.ts
   - apps/api/src/modules/platform/ai/ai.routes.ts
   - docker-compose.yml
@@ -57,6 +58,8 @@ All images run as the unprivileged `node` user on Node 24. The API image include
 | `APP_NAME`, `SUPPORT_EMAIL`, `ADMIN_FEEDBACK_EMAIL` | no | Email copy and recipients. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | for paid mode | Stripe API and webhook signature. Without them the API still runs (free mode); billing endpoints answer 503. |
 | `STRIPE_PRO_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID` | no | Fallback price IDs. Prefer setting prices in the console (Plans & pricing). |
+| `STRIPE_PRO_YEARLY_PRICE_ID`, `STRIPE_ENTERPRISE_YEARLY_PRICE_ID` | no | Fallback yearly price IDs; with one, the plan can be bought yearly. |
+| `NEWSLETTER_SEND_INTERVAL_MS` | no | Pause between newsletter emails when a post is sent to subscribers (default 600). Lower it if your email provider allows more per second. |
 | `HUB_INTERNAL_URL`, `HUB_INTERNAL_SECRET` | for the admin console | Where the API reaches the hub's internal endpoints (`http://hub:9001`) and the shared secret. Without them the console cannot list or disconnect live tunnels. Load tests and try-it on shared [API docs](/dashboard/api-docs) also send through `HUB_INTERNAL_URL`. |
 | `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_FIRST_NAME`, `SUPER_ADMIN_LAST_NAME` | first run | The first admin, created by the seed. |
 | `ANTHROPIC_API_KEY` | for AI assist | Anthropic API key for [AI assist](/dashboard/ai-assist). Without it, AI assist reports that it isn't set up and everything else works. |
@@ -90,6 +93,7 @@ All images run as the unprivileged `node` user on Node 24. The API image include
 | Variable | When | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL_LIVE` | build | Public API base URL used by the browser. |
+| `NEXT_PUBLIC_STRIPE_PRO_PRICE_LABEL`, `NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_LABEL`, `…_YEARLY_PRICE_LABEL` | build | Optional: the prices shown in the dashboard's upgrade dialog (e.g. `$12 / month`, `$120 / year`). |
 | `API_INTERNAL_URL` | runtime | API base URL used for server rendering (inside Compose: `http://api:9000/api/v1`). Falls back to the public one. |
 | `SITE_URL` | runtime | The website's public address (`https://www.vhyxvoid.com`), for the RSS feed, sitemap and canonical links, when the **Site address** setting on the [SEO](/operators/seo) screen is empty. Neither set: the address of the incoming request is used. |
 | `REVALIDATE_SECRET` | runtime | Turns on `POST /api/revalidate`, which the API calls after a content change (same value as the API's `WEB_REVALIDATE_SECRET`). Unset: the route answers 404 and pages refresh within 60 seconds. Also authenticates the website's reports to the API of missing addresses and redirect use ([SEO](/operators/seo)); unset, those aren't reported. |

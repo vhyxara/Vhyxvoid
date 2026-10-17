@@ -3,9 +3,10 @@ title: Site content
 description: Edit the landing page, pricing, pages such as About, Contact and Privacy, and the footer menu; preview drafts, publish, roll back, and read contact form messages.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
+  - apps/web/src/views/marketing/void/LandingExtras.tsx
   - apps/api/src/modules/platform/content/content.schemas.ts
   - apps/api/src/modules/platform/content/content.service.ts
   - apps/api/src/modules/platform/content/revalidate.ts
@@ -32,8 +33,8 @@ Every public page (pricing, pages, blog, support, the 404 page) shares the landi
 
 | Kind | Slug | What it renders |
 | --- | --- | --- |
-| Landing page | `home` | The home page: hero (with an animated wormhole and the terminal sample), stats, the journey of a request (the stops a request passes on its way to your app, played one by one), features, steps, an optional sequence diagram, use cases, FAQ, closing call to action. Landing content saved before the journey existed shows the built-in journey; the editor fills it in, ready to change, and publishing makes it yours. |
-| Pricing page | `pricing` | Plan cards and FAQ. Plan *limits* in the comparison table come live from the plan settings, so they never disagree with what is enforced. |
+| Landing page | `home` | The home page: hero (with an animated wormhole and the terminal sample), stats, the journey of a request (the stops a request passes on its way to your app, played one by one), features, steps, an optional sequence diagram, use cases, FAQ, closing call to action, and three sections you fill in when you have something to show (hidden while empty): **logos** of customers under the hero, a **showcase** (a YouTube or Vimeo link or a video file, and/or screenshots with captions) and **testimonials** (quote, name, role, optional photo). Images come from the media library. Landing content saved before a section existed gets it when opened in the editor; the journey shows the built-in one until you publish. |
+| Pricing page | `pricing` | Plan cards and FAQ. Plan *limits* in the comparison table come live from the plan settings, so they never disagree with what is enforced. Each plan can have a yearly price and period, and the page has a badge for the yearly switch ("2 months free"): see [Plans and billing](/operators/plans-and-billing). |
 | Page | anything else, e.g. `about`, `contact`, `legal/privacy` | A page at `/<slug>`, written in the rich text editor. |
 | Footer menu | `footer` | The footer of every page: columns of links, in order. |
 
@@ -41,7 +42,7 @@ The landing and pricing editors are forms. Pages and the footer have their own e
 
 ## Pages
 
-**New page** asks for a title and a slug; the page is served at `/<slug>` (for example `/about`). Slugs the website already uses are refused: `login`, `register`, `pricing`, `docs`, `support`, `dashboard`, `organizations`, `api`, `p`, `blog`, `media`, `preview`, the language codes and the others in `RESERVED_PAGE_SLUGS` (packages/content). The website's own pages always win over a page with the same path, so a page can never hide one.
+**New page** asks for a title and a slug; the page is served at `/<slug>` (for example `/about`). Slugs the website already uses are refused: `login`, `register`, `pricing`, `docs`, `support`, `dashboard`, `organizations`, `api`, `p`, `blog`, `changelog`, `media`, `newsletter`, `preview`, the language codes and the others in `RESERVED_PAGE_SLUGS` (packages/content). The website's own pages always win over a page with the same path, so a page can never hide one.
 
 The editor works like a word processor: headings, bold, italic, strikethrough, inline code, links, bulleted and numbered lists, quotes, code blocks, tables and dividers, with undo. **Markdown** switches to the page's source, for pasting or bulk edits.
 
@@ -75,7 +76,7 @@ In the markdown source the form is a line holding only `{{contact-form}}`.
 
 Until you publish a footer menu, the footer is built in:
 
-- **Product**: Features, Pricing, Docs.
+- **Product**: Features, Pricing, Docs, and Changelog once an entry is published (see [Changelog](/operators/changelog)).
 - **Company**: About and Contact, Blog (once a post is live), Support, and Status, GitHub and X when those settings are set.
 - **Legal**: Terms of Service, Privacy Policy.
 

@@ -309,3 +309,37 @@
 - Blog search is substring matching, not ranked full-text.
 - Scripts loaded by a GTM container are gated by GTM's own consent mode, not by our banner.
 **Status:** active
+
+---
+
+### 2026-10-17 — Website round two: newsletter, changelog, landing proof, yearly billing, brand, authors, one language, emails
+
+**Decided by:** Claude Code (user: "build all of them in that order and remove french translation, we only keep single language only or comment out french and multi language for future add")
+**Decision:**
+- **Newsletter** is our own table (`newsletter_subscribers`) with double opt-in, not a mailing-service integration.
+  - Confirm and unsubscribe links are HMAC-signed (no token column). Confirm links last 7 days; unsubscribe links never expire.
+  - Sign-up answers never reveal whether an address is known. Confirmation emails are throttled per address.
+  - A post is emailed at most once (`newsletterSentAt`, claimed atomically), one email at a time in the background, with RFC 8058 one-click unsubscribe through the website.
+- **Changelog** is a table of entries (version, labels, markdown, date), shown at `/changelog` with RSS. A future date waits, like a scheduled post.
+- **Landing proof** (logos, showcase, testimonials) ships empty and hidden while empty. Nothing made up appears on the site.
+  - Videos only play from YouTube (nocookie) or Vimeo (dnt), or as a direct file.
+  - Images are https or site paths.
+- **Yearly billing** extends `billing.stripePrices` with `<PLAN>_YEARLY`, so there is no new setting.
+  - The pricing switch shows only when a yearly price is both written on the page and buyable.
+  - `/public/plans` says which plans can be bought yearly, without IDs.
+- **Brand** adds two setting types, `image` and `color`, so only a validated value can reach the page.
+  - The accent colour is one inline rule. It sets the site's accent variables and VhyxUI's accent tokens (`!important`, the admin's choice), with shades from `color-mix`.
+  - The favicon moved to `public/` because Next always adds `app/favicon.ico`.
+- **Authors** are profiles (`blog_authors`). Posts keep `authorName` as the signature when there's no profile, or after the profile is deleted.
+- **One language.** `LOCALES = ['en']`, with French commented out and its messages kept. `RETIRED_LOCALES = ['fr']` redirects `/fr/…` to English with a 308. The `[locale]` segment and next-intl stay, so a language can come back by editing one file.
+- **Email wording.** Eight emails have editable subject, heading, text, button and note, with `{{variables}}` checked per email (`emails.overrides`).
+  - An unedited email is byte-for-byte what the code builds.
+  - The API keeps the overrides in memory, refreshed every 30 s and at once on save.
+- **Polish.**
+  - A "Skip to content" link is the first Tab stop on the website and the dashboard.
+  - `/.well-known/security.txt` comes from the support settings.
+**Limits:**
+- A newsletter send interrupted by a restart isn't resumed.
+- The accent colour covers buttons, links and the main violet, not every decorative gradient.
+- The dashboard upgrade dialog's price labels come from build-time env, not the pricing page.
+**Status:** active

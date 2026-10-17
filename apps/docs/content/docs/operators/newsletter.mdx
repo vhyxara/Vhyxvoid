@@ -1,0 +1,60 @@
+---
+title: Newsletter
+description: Collect email sign-ups on the website with double opt-in, see and export subscribers, and email a blog post to them.
+verified:
+  date: "2026-10-17"
+  commit: "9993387"
+  packages: {}
+sources:
+  - apps/api/src/modules/platform/newsletter/newsletter.routes.ts
+  - apps/web/src/views/marketing/Newsletter.tsx
+  - apps/web/src/app/api/newsletter/unsubscribe/route.ts
+  - apps/admin/src/views/newsletter/NewsletterView.tsx
+  - apps/admin/src/views/newsletter/SendToSubscribers.tsx
+  - packages/shared/src/settings.ts
+---
+
+Every public page of the website ends with a sign-up band above the footer: a title, a line of text and an email field. Its words are **Settings › Newsletter** (*Form title*, *Form text*); *Newsletter sign-up* switches it off, which hides the band and refuses new sign-ups (existing subscribers stay).
+
+## Double opt-in
+
+Signing up doesn't subscribe anyone yet. The address gets an email with a confirmation link, and only a confirmed address receives anything:
+
+1. A visitor types their address and clicks **Subscribe**. The band says to check the inbox.
+2. The email ("Confirm your subscription…", wording editable on the [Emails](/operators/emails) screen) links to `/newsletter/confirm`. The link works for 7 days.
+3. Opening it confirms the subscription.
+
+Protections:
+
+- The answer is the same whether or not the address is already subscribed, so the form can't be used to find out who is.
+- At most one confirmation email per address every 10 minutes, and 5 sign-ups per 10 minutes per visitor, so nobody can flood someone's inbox.
+- A hidden field catches bots.
+
+## Unsubscribing
+
+Every newsletter email has an **Unsubscribe** link to `/newsletter/unsubscribe`, which asks for one click (so a link preview can't unsubscribe anyone). The emails also carry the standard one-click unsubscribe headers, so Gmail, Apple Mail and others show their own *Unsubscribe* button. Links in emails are signed, so they can't be guessed.
+
+## Subscribers
+
+**Newsletter** in the console lists every address with its status (*Subscribed*, *Not confirmed*, *Unsubscribed*), where on the site they signed up and when, with counts at the top.
+
+- **Export subscribers (CSV)** downloads the confirmed addresses, for example to move them to a mailing service. Exports are in the admin audit log.
+- **Delete** removes an address for good, for requests to erase someone's data. To only stop the emails, they can unsubscribe.
+
+## Emailing a post
+
+In a blog post's **Publishing** tab, **Email to subscribers** sends the post's title, excerpt and cover image, with a button to read it, to every confirmed subscriber:
+
+- **Send me a test** sends it to your own address first.
+- **Email N subscribers…** asks for confirmation, then sends. A post can be sent once; the tab then shows when.
+- Only a live post can be sent, with no unsaved changes.
+
+Emails go out one at a time in the background (under two a second, to stay within the email provider's limits; `NEWSLETTER_SEND_INTERVAL_MS` on the API changes the pause). If the API restarts while sending, the rest of that send is not resumed.
+
+## Who can do what
+
+| Ability | Allows |
+| --- | --- |
+| `newsletter.read` | View and export subscribers |
+| `newsletter.update` | Delete subscribers |
+| `newsletter.send` | Email a live blog post to subscribers |

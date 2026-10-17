@@ -3,7 +3,7 @@ title: Admin console
 description: A tour of every screen in the operations console and who can use it.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
   - apps/admin/src/views/tunnels/TunnelsView.tsx
@@ -53,7 +53,7 @@ The console lives at `admin.vhyxvoid.com`. The search box in the top bar jumps t
 
 **Plans & pricing**: free or paid mode, the default plan, each plan's limits and the Stripe price of each paid plan (see [plans and billing](/operators/plans-and-billing)).
 
-**Settings**, **Website content**, **Messages**, **Blog**, **Media** and **SEO** are covered in the [settings reference](/operators/settings-reference), [site content](/operators/content), [blog](/operators/blog), [media library](/operators/media) and [SEO](/operators/seo). Analytics and the cookie banner are a group on Settings: see [analytics](/operators/analytics).
+**Settings**, **Website content**, **Messages**, **Blog** (with **Authors**), **Changelog**, **Media**, **SEO**, **Newsletter** and **Emails** are covered in the [settings reference](/operators/settings-reference), [site content](/operators/content), [blog](/operators/blog), [changelog](/operators/changelog), [media library](/operators/media), [SEO](/operators/seo), [newsletter](/operators/newsletter) and [emails](/operators/emails). **Settings › Brand** sets the logo, browser icon and accent colour of the website and the dashboard. Analytics and the cookie banner are a group on Settings: see [analytics](/operators/analytics).
 
 ## Admins, roles and abilities
 
@@ -113,3 +113,9 @@ To give a support engineer read-only access, create a role with the `*.read` abi
 | `media.read` | View the media library and where each image is used |
 | `media.update` | Upload images to the media library and edit their names and alt text |
 | `media.delete` | Delete images from the media library |
+| `newsletter.read` | View and export newsletter subscribers |
+| `newsletter.update` | Delete newsletter subscribers |
+| `newsletter.send` | Email a live blog post to newsletter subscribers |
+| `changelog.read` | View changelog entries |
+| `changelog.update` | Write, edit, publish and unpublish changelog entries |
+| `changelog.delete` | Delete changelog entries |

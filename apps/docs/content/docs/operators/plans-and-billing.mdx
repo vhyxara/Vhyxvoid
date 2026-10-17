@@ -3,9 +3,10 @@ title: Plans and billing
 description: How plan limits are decided, how to change them for everyone or for one account, and how checkout and trials work.
 verified:
   date: "2026-10-17"
-  commit: d29867b
+  commit: "9993387"
   packages: {}
 sources:
+  - apps/web/src/views/marketing/PricingView.tsx
   - packages/shared/src/settings.ts
   - packages/shared/src/planLimits.ts
   - packages/shared/src/alerts.ts
@@ -46,7 +47,9 @@ The API, the hub and the public pricing table all read the same effective values
 
 Users upgrade from **Billing** in their workspace (paid mode only). The browser sends the plan name only; the API maps it to the plan's Stripe price and only accepts return URLs on your own site.
 
-**Prices.** Create a product with a monthly price for each paid plan in the Stripe dashboard and paste the price IDs (`price_…`) into **Plans & pricing → Payments**. *Save and check* looks the price up in Stripe and shows its amount, interval and whether it is active, so a typo shows up immediately. The `STRIPE_PRO_PRICE_ID` / `STRIPE_ENTERPRISE_PRICE_ID` environment variables still work as a fallback. To change a price, create a new price in Stripe and paste its ID; existing subscribers stay on the price they bought until you migrate them in Stripe. The price *shown* on the pricing page is text you edit under **Website content → Pricing page**; keep the two the same.
+**Prices.** Create a product with a monthly price for each paid plan in the Stripe dashboard and paste the price IDs (`price_…`) into **Plans & pricing → Payments**. To also sell a plan yearly, add a yearly price to the product and paste it under *Billed yearly*. *Save and check* looks the price up in Stripe and shows its amount, interval and whether it is active, so a typo shows up immediately. The `STRIPE_PRO_PRICE_ID` / `STRIPE_ENTERPRISE_PRICE_ID` (and `STRIPE_PRO_YEARLY_PRICE_ID` / `STRIPE_ENTERPRISE_YEARLY_PRICE_ID`) environment variables still work as a fallback. To change a price, create a new price in Stripe and paste its ID; existing subscribers stay on the price they bought until you migrate them in Stripe. The price *shown* on the pricing page is text you edit under **Website content → Pricing page**; keep the two the same.
+
+**Monthly or yearly.** When a plan has a yearly Stripe price and a yearly price on the pricing page (*yearly price* and *yearly period* of the plan, e.g. `$10` and `per month, billed yearly`), the pricing page shows a **Monthly / Yearly** switch with the page's *yearly badge*, and the dashboard's upgrade dialog lets the owner choose too. A yearly subscription is the same plan, billed once a year. The setup check warns when a yearly price in Stripe isn't billed yearly.
 
 If paid mode is on but something is missing (Stripe keys, a price, an archived price), the screen lists exactly what.
 
