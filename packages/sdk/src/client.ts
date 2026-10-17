@@ -23,6 +23,8 @@ export interface ClientConfig {
   timeout?: number;
   /** Called before every request — useful for auth token injection */
   onRequest?: (req: RequestInit & { url: string }) => void | Promise<void>;
+  /** The fetch to send requests with, instead of the global one: a proxy agent, custom DNS, or a stub in tests. */
+  fetch?: typeof fetch;
 }
 
 export interface ClientResponse<T = unknown> {
@@ -48,6 +50,7 @@ export class VhyxvoidClient {
   private readonly defaultHeaders: Record<string, string>;
   private readonly timeout: number;
   private readonly onRequest?: ClientConfig["onRequest"];
+  private readonly fetchImpl: typeof fetch;
 
   constructor(config: ClientConfig = {}) {
     const accountSlug =
@@ -75,6 +78,7 @@ export class VhyxvoidClient {
     };
     this.timeout = config.timeout ?? 30_000;
     this.onRequest = config.onRequest;
+    this.fetchImpl = config.fetch ?? ((input, init) => fetch(input, init));
   }
 
   // ── Core ────────────────────────────────────────────────────────────────────
@@ -105,7 +109,7 @@ export class VhyxvoidClient {
 
     await this.onRequest?.({ url, ...init });
 
-    const res = await fetch(url, init);
+    const res = await this.fetchImpl(url, init);
 
     // Parse response. This client talks HTTP directly to the tunnel
     // subdomain (not the WS sdk:response path), so it already receives

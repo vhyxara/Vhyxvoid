@@ -28,13 +28,15 @@
 // Exit code 0 only if every step passed.
 
 import { spawn } from "node:child_process";
-import { createServer } from "node:http";
+import http, { createServer } from "node:http";
 import { createHash, randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import https from "node:https";
+import dns from "node:dns";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const req = createRequire(path.join(root, "packages/agent/package.json"));
@@ -1008,14 +1010,35 @@ await step("SDK createClient reaches the tunnel", async () => {
   const sdk = await import(path.join(root, "packages/sdk/dist/index.js"));
   const createClient = sdk.createClient ?? sdk.default?.createClient;
   assert(createClient, "createClient not exported");
-  // fetch can't override Host, so the tunnel host must resolve. Locally,
-  // E2E_WRITE_HOSTS=1 maps it to 127.0.0.1 in /etc/hosts.
+  // The client calls the tunnel by its hostname (<label>.<HUB_DOMAIN>). When
+  // that name doesn't resolve (a local hub on a made-up domain), the client
+  // gets a fetch that sends to the hub's own address with the tunnel's Host
+  // header: global fetch can't set Host, node:http can. E2E_WRITE_HOSTS=1
+  // still maps the name in /etc/hosts instead, for real-DNS runs.
+  const tunnelHost = s.host.split(":")[0];
   if (process.env.E2E_WRITE_HOSTS === "1") {
-    const line = `127.0.0.1 ${s.host.split(":")[0]}\n`;
+    const line = `127.0.0.1 ${tunnelHost}\n`;
     if (!fs.readFileSync("/etc/hosts", "utf8").includes(line)) fs.appendFileSync("/etc/hosts", line);
   }
   const u = new URL(HUB);
-  const client = createClient({ baseUrl: `${u.protocol}//${s.host.split(":")[0]}:${u.port || (u.protocol === "https:" ? 443 : 80)}`, timeout: 10_000 });
+  const port = u.port || (u.protocol === "https:" ? "443" : "80");
+  const resolves = await dns.promises.lookup(tunnelHost).then(() => true, () => false);
+  const viaHub = async (url, init = {}) => {
+    const target = new URL(url);
+    const lib = u.protocol === "https:" ? https : http;
+    return new Promise((resolve, reject) => {
+      const req = lib.request({ host: u.hostname, port, path: target.pathname + target.search, method: init.method ?? "GET", headers: { ...init.headers, host: target.host } }, (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve(new Response(res.statusCode === 204 ? null : Buffer.concat(chunks), { status: res.statusCode, headers: Object.entries(res.headers).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v === undefined ? [] : [[k, String(v)]])) })));
+      });
+      req.on("error", reject);
+      init.signal?.addEventListener("abort", () => req.destroy(new Error("timeout")));
+      if (init.body) req.write(init.body);
+      req.end();
+    });
+  };
+  const client = createClient({ baseUrl: `${u.protocol}//${tunnelHost}:${port}`, timeout: 10_000, ...(resolves ? {} : { fetch: viaHub }) });
   const r = await client.get("/echo?from=sdk");
   const body = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
   assert(r.status === 200 && body?.query === "?from=sdk", `status ${r.status} ${JSON.stringify(body).slice(0, 200)}`);
