@@ -63,6 +63,8 @@ export type Bootstrap = {
   footerMenu?: FooterMenu
   /** How many posts the blog shows (absent from APIs before the blog). */
   blog?: { posts: number }
+  /** How many changelog entries are live (absent from APIs before the changelog). */
+  changelog?: { entries: number }
 }
 
 export const CMS_TAG = 'cms'
@@ -163,6 +165,14 @@ export async function getBlogPost(slug: string): Promise<{ post: BlogPost; relat
   return get(`/public/blog/posts/${encodeURIComponent(slug)}`)
 }
 
+export type ChangelogKind = 'new' | 'improved' | 'fixed' | 'security'
+export type ChangelogEntry = { id: string; version: string; title: string; body: string; kinds: ChangelogKind[]; publishedAt: string; updatedAt: string }
+export type ChangelogList = { items: ChangelogEntry[]; total: number; page: number; pages: number }
+
+export async function getChangelog(page = 1, limit = 20): Promise<ChangelogList | null> {
+  return get<ChangelogList>(`/public/changelog?page=${page}&limit=${limit}`)
+}
+
 export async function getBlogTaxonomy(): Promise<BlogTaxonomy> {
   return (await get<BlogTaxonomy>('/public/blog/taxonomy')) ?? { categories: [], tags: [] }
 }
@@ -185,7 +195,7 @@ export async function siteUrl(): Promise<string> {
   return `${proto}://${host}`
 }
 
-export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[]; hidden?: string[] }
+export type SitemapData = { pages: Array<{ slug: string; updatedAt: string }>; posts: Array<{ slug: string; updatedAt: string }>; categories: string[]; tags: string[]; hidden?: string[]; changelog?: { updatedAt: string } | null }
 
 export async function getSitemap(): Promise<SitemapData> {
   return (await get<SitemapData>('/public/sitemap')) ?? { pages: [], posts: [], categories: [], tags: [], hidden: [] }

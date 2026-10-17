@@ -14,6 +14,7 @@ export const SITE_ROUTES: ReadonlyArray<{ path: string; label: string; title: st
   { path: "/", label: "Home", title: "", description: "", content: "home" },
   { path: "/pricing", label: "Pricing", title: "Pricing", description: "Plans and prices: start free and upgrade when you need more tunnels, requests and team members.", content: "pricing" },
   { path: "/blog", label: "Blog", title: "Blog", description: "News, guides and updates from the team." },
+  { path: "/changelog", label: "Changelog", title: "Changelog", description: "What's new: every release, with its new features, improvements and fixes." },
   { path: "/support", label: "Support", title: "Support", description: "Get help: documentation, the status page and how to reach the team." },
   { path: "/login", label: "Sign in", title: "Sign in", description: "Sign in to your account." },
   { path: "/register", label: "Create an account", title: "Create an account", description: "Create a free account and share your localhost in seconds." },

@@ -128,7 +128,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
           columns: withCookieSettings(bootstrap.footerMenu
             ? footerColumns(bootstrap.footerMenu)
             : [
-                { title: 'Product', links: [{ label: 'Features', href: '/#features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Docs', href: docs }, ...group('product')] },
+                { title: 'Product', links: [{ label: 'Features', href: '/#features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Docs', href: docs }, ...(bootstrap.changelog?.entries ? [{ label: 'Changelog', href: '/changelog' }] : []), ...group('product')] },
                 {
                   title: 'Company',
                   links: [

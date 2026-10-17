@@ -29,6 +29,8 @@ import type {
   BlogPostRow,
   BlogTagRow,
   MediaAsset,
+  ChangelogEntry,
+  ChangelogInput,
   NewsletterSubscriber,
   MediaUsage,
   SeoAudit,
@@ -148,6 +150,11 @@ export const platformService = {
   newsletter: list<NewsletterSubscriber>('/admin/newsletter'),
   deleteSubscriber: (id: string) => del(`/admin/newsletter/${id}`),
   sendPostToNewsletter: (postId: string, test = false) => post<{ recipients?: number; to?: string }>(`/admin/newsletter/posts/${postId}/send`, { test }),
+
+  changelog: list<ChangelogEntry>('/admin/changelog'),
+  createChangelog: (body: ChangelogInput & { title: string }) => post<ChangelogEntry>('/admin/changelog', body),
+  updateChangelog: (id: string, body: ChangelogInput) => patch<ChangelogEntry>(`/admin/changelog/${id}`, body),
+  deleteChangelog: (id: string) => del(`/admin/changelog/${id}`),
 
   setAdminPassword: (adminId: string, newPassword: string) => post(`/admin/identity/users/${adminId}/password`, { newPassword })
 }

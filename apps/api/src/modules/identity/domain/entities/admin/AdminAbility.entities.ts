@@ -274,5 +274,8 @@ export const SYSTEM_ABILITIES = {
   NEWSLETTER_READ: { action: 'newsletter.read', category: 'content', description: 'View and export newsletter subscribers' },
   NEWSLETTER_UPDATE: { action: 'newsletter.update', category: 'content', description: 'Delete newsletter subscribers' },
   NEWSLETTER_SEND: { action: 'newsletter.send', category: 'content', description: 'Email a live blog post to newsletter subscribers' },
+  CHANGELOG_READ: { action: 'changelog.read', category: 'content', description: 'View changelog entries' },
+  CHANGELOG_UPDATE: { action: 'changelog.update', category: 'content', description: 'Write, edit, publish and unpublish changelog entries' },
+  CHANGELOG_DELETE: { action: 'changelog.delete', category: 'content', description: 'Delete changelog entries' },
   SEO_UPDATE: { action: 'seo.update', category: 'content', description: 'Change SEO: page overrides, redirects, and dismiss missing addresses' },
 };

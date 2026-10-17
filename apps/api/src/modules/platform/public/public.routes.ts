@@ -9,6 +9,7 @@ import { slugSchema } from "../content/content.schemas";
 import { DEFAULT_CONTENT } from "../content/content.defaults";
 import { prismaOf } from "../shared/http";
 import { visibleWhere } from "../blog/blog.service";
+import { changelogVisible } from "../changelog/changelog.routes";
 
 const serializeLimits = (o: object) => JSON.parse(JSON.stringify(o, (_k, v) => (v === Infinity ? null : v)));
 
@@ -23,14 +24,15 @@ export async function publicRoutes(fastify: FastifyInstance) {
    */
   fastify.get("/bootstrap", async (_request, reply) => {
     cache(reply);
-    const [settings, footer, footerMenu, blogPosts] = await Promise.all([
+    const [settings, footer, footerMenu, blogPosts, changelogEntries] = await Promise.all([
       fastify.platformSettings.publicValues(),
       fastify.platformContent.footerLinks(),
       fastify.platformContent.footerMenu(),
       // The navbar shows "Blog" once there is something to read.
       prismaOf(fastify).blogPost.count({ where: visibleWhere() }).catch(() => 0),
+      prismaOf(fastify).changelogEntry.count({ where: changelogVisible() }).catch(() => 0),
     ]);
-    return successResponse(reply, "Success", 200, { settings, footer, footerMenu, blog: { posts: blogPosts } });
+    return successResponse(reply, "Success", 200, { settings, footer, footerMenu, blog: { posts: blogPosts }, changelog: { entries: changelogEntries } });
   });
 
   fastify.get("/settings", async (_request, reply) => {
@@ -56,11 +58,12 @@ export async function publicRoutes(fastify: FastifyInstance) {
   fastify.get("/sitemap", async (_request, reply) => {
     const prisma = prismaOf(fastify);
     const visible = visibleWhere();
-    const [pages, posts, categories, tags] = await Promise.all([
+    const [pages, posts, categories, tags, changelog] = await Promise.all([
       prisma.contentEntry.findMany({ where: { kind: "page", status: "PUBLISHED", publishedData: { not: Prisma.DbNull } }, select: { slug: true, publishedAt: true, updatedAt: true }, orderBy: { slug: "asc" }, take: 5000 }),
       prisma.blogPost.findMany({ where: visible, select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" }, take: 5000 }),
       prisma.blogCategory.findMany({ where: { posts: { some: visible } }, select: { slug: true }, orderBy: { slug: "asc" } }),
       prisma.blogTag.findMany({ where: { posts: { some: { post: visible } } }, select: { slug: true }, orderBy: { slug: "asc" } }),
+      prisma.changelogEntry.findFirst({ where: changelogVisible(), orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     // Addresses the SEO screen hides from search engines stay out of the sitemap too.
     const hidden = new Set((await prisma.seoPage.findMany({ where: { noindex: true }, select: { path: true } })).map((p) => p.path));
@@ -77,6 +80,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
       hidden: [...hidden],
       categories: categories.map((c) => c.slug).filter((s) => !hidden.has(`/blog/category/${s}`)),
       tags: tags.map((t) => t.slug),
+      // The /changelog page, when it has entries: last changed with its newest edit.
+      changelog: changelog && !hidden.has("/changelog") ? { updatedAt: changelog.updatedAt } : null,
     });
   });
 

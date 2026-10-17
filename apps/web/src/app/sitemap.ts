@@ -17,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     at('/', { changeFrequency: 'weekly', priority: 1 }),
     at('/pricing', { changeFrequency: 'weekly', priority: 0.8 }),
     at('/support', { changeFrequency: 'monthly', priority: 0.5 }),
+    ...(data.changelog ? [at('/changelog', { lastModified: data.changelog.updatedAt, changeFrequency: 'weekly', priority: 0.6 })] : []),
     at('/register', { changeFrequency: 'yearly', priority: 0.3 }),
     ...data.pages.map(p => at(`/${p.slug}`, { lastModified: p.updatedAt, changeFrequency: 'monthly', priority: 0.5 })),
     ...(data.posts.length ? [at('/blog', { lastModified: data.posts[0].updatedAt, changeFrequency: 'daily', priority: 0.7 })] : []),

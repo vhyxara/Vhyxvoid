@@ -304,6 +304,20 @@ export type NewsletterSubscriber = {
   createdAt: string
 }
 
+export type ChangelogKind = 'new' | 'improved' | 'fixed' | 'security'
+export type ChangelogEntry = {
+  id: string
+  version: string
+  title: string
+  body: string
+  kinds: ChangelogKind[]
+  status: 'DRAFT' | 'PUBLISHED'
+  publishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+export type ChangelogInput = Partial<Pick<ChangelogEntry, 'version' | 'title' | 'body' | 'kinds' | 'status'>> & { publishedAt?: string | null }
+
 export type BlogState = 'DRAFT' | 'SCHEDULED' | 'PUBLISHED'
 export type BlogTaxon = { id: string; slug: string; name: string }
 export type BlogPostRow = {

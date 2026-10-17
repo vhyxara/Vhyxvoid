@@ -142,7 +142,7 @@ export class ContentService {
       const v = this.settings ? await this.settings.get(k).catch(() => "") : "";
       return typeof v === "string" ? v : "";
     };
-    const [docs, status, github, twitter, pages, posts] = await Promise.all([
+    const [docs, status, github, twitter, pages, posts, changelog] = await Promise.all([
       setting("support.docsUrl"),
       setting("general.statusPageUrl"),
       setting("general.githubUrl"),
@@ -150,11 +150,13 @@ export class ContentService {
       this.footerLinks(),
       // "Blog" appears once there is something to read.
       this.prisma.blogPost.count({ where: { status: "PUBLISHED", publishedAt: { lte: new Date() } } }).catch(() => 0),
+      // "Changelog" too, once there is an entry.
+      this.prisma.changelogEntry.count({ where: { status: "PUBLISHED", publishedAt: { lte: new Date() } } }).catch(() => 0),
     ]);
     const group = (g: string) => pages.filter((p) => p.group === g).map((p) => ({ label: p.title, href: pagePath(p.slug), external: false }));
     const ext = (label: string, href: string) => (href ? [{ label, href, external: true }] : []);
     return [
-      { title: "Product", links: [{ label: "Features", href: "/#features", external: false }, { label: "Pricing", href: "/pricing", external: false }, { label: "Docs", href: docs || "/docs", external: false }, ...group("product")] },
+      { title: "Product", links: [{ label: "Features", href: "/#features", external: false }, { label: "Pricing", href: "/pricing", external: false }, { label: "Docs", href: docs || "/docs", external: false }, ...(changelog ? [{ label: "Changelog", href: "/changelog", external: false }] : []), ...group("product")] },
       { title: "Company", links: [...group("company"), ...(posts ? [{ label: "Blog", href: "/blog", external: false }] : []), { label: "Support", href: "/support", external: false }, ...ext("Status", status), ...ext("GitHub", github), ...ext("X / Twitter", twitter)] },
       { title: "Legal", links: group("legal") },
     ];

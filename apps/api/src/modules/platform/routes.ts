@@ -15,6 +15,7 @@ import { publicSeoRoutes } from "./seo/seo.public.routes";
 import { adminMediaRoutes, publicMediaRoutes } from "./media/media.routes";
 import { adminPreviewRoutes, publicPreviewRoutes } from "./preview/preview.routes";
 import { adminNewsletterRoutes, publicNewsletterRoutes } from "./newsletter/newsletter.routes";
+import { adminChangelogRoutes, publicChangelogRoutes } from "./changelog/changelog.routes";
 import { publicRoutes } from "./public/public.routes";
 import { inspectorRoutes } from "./inspector/inspector.routes";
 import { tunnelAccessRoutes } from "./tunnel-access/tunnelAccess.routes";
@@ -87,6 +88,8 @@ export async function registerPlatformRoutes(server: FastifyInstance) {
   await server.register(publicPreviewRoutes, { prefix: "/api/v1/public/preview" });
   await server.register(adminNewsletterRoutes, { prefix: "/api/v1/admin/newsletter" });
   await server.register(publicNewsletterRoutes, { prefix: "/api/v1/public/newsletter" });
+  await server.register(adminChangelogRoutes, { prefix: "/api/v1/admin/changelog" });
+  await server.register(publicChangelogRoutes, { prefix: "/api/v1/public/changelog" });
   await server.register(inspectorRoutes, { prefix: "/api/v1/inspector", hub });
   await server.register(tunnelAccessRoutes, { prefix: "/api/v1/tunnel-access", hub });
   await server.register(inboxRoutes, { prefix: "/api/v1/inbox", hub });

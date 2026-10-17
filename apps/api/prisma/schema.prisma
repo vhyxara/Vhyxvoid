@@ -2090,3 +2090,29 @@ model NewsletterSubscriber {
   @@index([status, createdAt])
   @@map("newsletter_subscribers")
 }
+
+enum ChangelogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Release notes for the website's /changelog. Kinds are the labels shown on
+/// the entry (new, improved, fixed, security).
+model ChangelogEntry {
+  id          String          @id @default(uuid())
+  /// "1.8.0"; optional.
+  version     String          @default("")
+  title       String
+  /// Markdown, rendered with raw HTML off.
+  body        String          @default("")
+  kinds       String[]        @default([])
+  status      ChangelogStatus @default(DRAFT)
+  /// The date shown on the entry; set when published, can be changed.
+  publishedAt DateTime?
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status, publishedAt])
+  @@map("changelog_entries")
+}
