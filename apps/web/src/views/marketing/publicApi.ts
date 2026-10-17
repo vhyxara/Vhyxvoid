@@ -44,6 +44,12 @@ export type PublicSettings = Record<string, unknown> & {
   'seo.googleVerification'?: string
   'seo.bingVerification'?: string
   'seo.yandexVerification'?: string
+  'analytics.provider'?: 'none' | 'plausible' | 'umami' | 'ga4' | 'gtm'
+  'analytics.siteId'?: string
+  'analytics.scriptUrl'?: string
+  'consent.mode'?: 'auto' | 'always' | 'off'
+  'consent.message'?: string
+  'consent.policyUrl'?: string
 }
 
 export type Bootstrap = {

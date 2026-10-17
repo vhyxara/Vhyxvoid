@@ -250,3 +250,32 @@
 .voidShell .prose blockquote { margin-inline: 0; padding-inline-start: 1rem; border-inline-start: 3px solid #8b5cf6; color: #a3a3c2; }
 .voidShell .prose pre { background: rgba(7, 7, 18, 0.85); border: 1px solid rgba(167, 139, 250, 0.2); }
 .voidShell .contactForm { padding: 1.5rem; border-radius: 18px; border: 1px solid rgba(167, 139, 250, 0.2); background: rgba(17, 15, 38, 0.6); backdrop-filter: blur(10px); }
+
+/* ── Cookie consent (Analytics) ── */
+.consent {
+  position: fixed;
+  z-index: 60;
+  inset-inline: 16px;
+  inset-block-end: 16px;
+  max-inline-size: 26rem;
+  margin-inline-start: auto;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  color: #ecebff;
+  background: rgba(13, 11, 30, 0.92);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px -20px rgba(139, 92, 246, 0.8);
+  backdrop-filter: blur(14px);
+  animation: consentIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes consentIn { from { opacity: 0; transform: translateY(12px); } }
+.consentTitle { margin: 0 0 0.25rem; font-weight: 700; }
+.consentText { margin: 0 0 0.9rem; font-size: 0.9rem; line-height: 1.55; color: #c9c8e6; }
+.consentText a { color: #c4b5fd; }
+.consentActions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.consentActions button { padding: 0.5rem 1rem; border-radius: 999px; font: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+.consentGhost { color: #ecebff; background: transparent; border: 1px solid rgba(167, 139, 250, 0.35); }
+.consentGhost:hover { background: rgba(139, 92, 246, 0.14); }
+.consentAccept { color: #fff; border: 0; background: linear-gradient(90deg, #7c3aed, #a855f7); }
+.consentActions button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .consent { animation: none; } }

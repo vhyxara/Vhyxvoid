@@ -15,6 +15,7 @@ import { routing } from '@/i18n/routing'
 
 import type { Bootstrap } from './publicApi'
 import { SiteBackdrop } from './void/SiteBackdrop'
+import { Analytics, COOKIE_SETTINGS_HASH, needsConsent } from './Analytics'
 import styles from './marketing.module.css'
 
 function Brand({ name }: { name: string }) {
@@ -44,6 +45,14 @@ export function footerColumns(menu: FooterMenu) {
     .map(c => ({ title: c.title, links: c.links.map(l => (l.external ? { label: l.label, href: l.href, external: true } : { label: l.label, href: l.href })) }))
 }
 
+/** Adds "Cookie settings" to the last footer column (Legal), when visitors are asked about cookies. */
+export function withCookieSettings<C extends { title: string; links: Array<{ label: string; href: string; external?: boolean }> }>(columns: C[], on: boolean): C[] {
+  if (!on || !columns.length) return columns
+  const last = columns[columns.length - 1]
+
+  return [...columns.slice(0, -1), { ...last, links: [...last.links, { label: 'Cookie settings', href: COOKIE_SETTINGS_HASH }] }]
+}
+
 /** The landing page (/, or /fr…), which brings its own starfield. */
 export function isLandingPath(pathname: string) {
   const parts = pathname.split('/').filter(Boolean)
@@ -60,6 +69,8 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
   const external = (label: string, href?: string) => (href ? [{ label, href, external: true }] : [])
 
   const landing = isLandingPath(usePathname() ?? '')
+  // When visitors are asked about cookies, the footer lets them change their answer.
+  const cookieLink = needsConsent(s['analytics.provider'] ?? 'none', s['consent.mode']) && !!s['analytics.siteId']
 
   // The marketing site is the void: dark whatever the site theme (the theme
   // tokens are scoped by [data-theme], so this subtree opts in). The mobile
@@ -80,6 +91,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
   return (
     <div data-theme='dark' data-brand='vhyxvoid' className={styles.voidShell}>
       {!landing && <SiteBackdrop />}
+      <Analytics settings={s} />
       <AnnouncementBanner settings={s} />
       <MarketingLayout
         navbar={{
@@ -112,7 +124,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
           linkAs: Link as any,
           // The footer menu edited in the admin panel; an API from before it
           // sends none, and then the footer is built as it used to be.
-          columns: bootstrap.footerMenu
+          columns: withCookieSettings(bootstrap.footerMenu
             ? footerColumns(bootstrap.footerMenu)
             : [
                 { title: 'Product', links: [{ label: 'Features', href: '/#features' }, { label: 'Pricing', href: '/pricing' }, { label: 'Docs', href: docs }, ...group('product')] },
@@ -127,7 +139,7 @@ export function MarketingShell({ bootstrap, children }: { bootstrap: Bootstrap; 
                   ]
                 },
                 { title: 'Legal', links: group('legal') }
-              ],
+              ], cookieLink),
           legal: `© ${new Date().getFullYear()} ${name}. All rights reserved.`
         }}
       >

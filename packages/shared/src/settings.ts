@@ -30,7 +30,7 @@ export interface SettingDefinition {
   validate?: (value: unknown) => string | undefined;
 }
 
-export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo";
+export type SettingGroup = "general" | "maintenance" | "announcement" | "auth" | "billing" | "plans" | "tunnels" | "support" | "features" | "seo" | "analytics";
 
 export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: string }> = {
   general: { label: "General", description: "Product name and public links." },
@@ -43,6 +43,7 @@ export const SETTING_GROUPS: Record<SettingGroup, { label: string; description: 
   support: { label: "Support", description: "Where users get help." },
   features: { label: "Features", description: "Turn product features on or off." },
   seo: { label: "SEO", description: "How the website appears in search results and link previews. Edited on the SEO screen." },
+  analytics: { label: "Analytics and cookies", description: "Visitor analytics on the marketing website (not the signed-in app), and the cookie consent banner." },
 };
 
 // ── Plan limit overrides ──────────────────────────────────────────────────────
@@ -209,6 +210,13 @@ export const SETTING_DEFINITIONS = {
   "seo.googleVerification": { group: "seo", label: "Google Search Console code", description: "The content of the google-site-verification meta tag Search Console gives you (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
   "seo.bingVerification": { group: "seo", label: "Bing Webmaster code", description: "The content of the msvalidate.01 meta tag (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
   "seo.yandexVerification": { group: "seo", label: "Yandex Webmaster code", description: "The content of the yandex-verification meta tag (just the code).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9_-]*$/.test(String(v)) ? undefined : "Only the code, not the whole tag") },
+
+  "analytics.provider": { group: "analytics", label: "Analytics provider", description: "Where the website's page views go. Plausible and Umami don't use cookies; Google Analytics 4 and Tag Manager do, so they load only after a visitor accepts (see Cookie consent). none: no analytics.", type: "enum", options: ["none", "plausible", "umami", "ga4", "gtm"], default: "none", public: true },
+  "analytics.siteId": { group: "analytics", label: "Site ID", description: "Plausible: your site's domain (vhyxvoid.com). Umami: the website ID. Google Analytics 4: the measurement ID (G-…). Tag Manager: the container ID (GTM-…).", type: "string", default: "", public: true, maxLength: 100, validate: (v) => (/^[A-Za-z0-9._-]*$/.test(String(v)) ? undefined : "Letters, digits, dots, dashes and underscores only") },
+  "analytics.scriptUrl": { group: "analytics", label: "Script address", description: "For a self-hosted Plausible or Umami: the script's https:// address. Empty: the provider's own (plausible.io/js/script.js, cloud.umami.is/script.js).", type: "url", default: "", public: true, maxLength: 300, validate: (v) => (v === "" || /^https:\/\//.test(String(v)) ? undefined : "An https:// address") },
+  "consent.mode": { group: "analytics", label: "Cookie consent", description: "auto: ask only when the analytics provider sets cookies (GA4, Tag Manager). always: ask before loading any analytics. off: never ask (only if you have another legal basis).", type: "enum", options: ["auto", "always", "off"], default: "auto", public: true },
+  "consent.message": { group: "analytics", label: "Consent banner text", description: "What the banner says. Keep it short and honest about what is measured.", type: "text", default: "We use cookies to understand how visitors use this site, so we can improve it. Nothing is shared for advertising.", public: true, maxLength: 400 },
+  "consent.policyUrl": { group: "analytics", label: "Privacy policy link", description: "Linked from the banner.", type: "url", default: "/privacy", public: true },
 
   "features.requestInspector": { group: "features", label: "Request inspector", description: "The hub keeps recent requests of each tunnel (bodies cut at 16 KB, credentials hidden, 24 h) so users can inspect and replay them. How many per tunnel is the plan limit inspectorRequests.", type: "boolean", default: true, public: true },
   "features.webhookInbox": { group: "features", label: "Webhook inbox", description: "Tunnels with their inbox on keep write requests (webhooks) that arrive while the agent is offline and deliver them when it reconnects. How many per tunnel is the plan limit inboxRequests.", type: "boolean", default: true, public: true },
