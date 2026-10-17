@@ -2,8 +2,8 @@
 title: HTTP client
 description: createClient and VhyxvoidClient, the default way to call your tunnelled server from Node.js.
 verified:
-  date: "2026-10-06"
-  commit: "77c2542"
+  date: "2026-10-17"
+  commit: "f1aab41"
   packages:
     "@vhyxvoid/sdk": "1.1.0"
 sources:
@@ -12,7 +12,7 @@ sources:
   - packages/sdk/package.json
 ---
 
-`createClient` builds a client that sends HTTP requests to your tunnel URL. It uses Node's built-in `fetch`, needs no API key, and adds nothing to the request except the headers you configure and `Content-Type: application/json`.
+`createClient` builds a client that sends HTTP requests to your tunnel URL. It uses Node's built-in `fetch` (or the `fetch` you pass, for a proxy agent or custom DNS), needs no API key, and adds nothing to the request except the headers you configure and `Content-Type: application/json`.
 
 <Callout type="warn" title="Node.js only">
   Use it from Node.js. It can't be bundled for a browser; call the tunnel URL with `fetch` there. See [Limitations](/limitations#the-sdk-is-nodejs-only).
@@ -108,6 +108,7 @@ class VhyxvoidClient {
 | `headers?` | `Record<string, string>` | Headers added to every request. |
 | `timeout?` | `number` | Request timeout in milliseconds. Default: `30000`. This is the client's own limit, measured by your process, and it is separate from the hub's request timeout (see [Tunnel request timeout](/reference/environment-variables#tunnel-request-timeout)). A slow route fails at 30 seconds here even if the hub would still be waiting, so raise it for slow endpoints. |
 | `onRequest?` | `(req: RequestInit & { url: string; }) => void \| Promise<void>` | Called before every request, with the request that is about to be sent. It can change `req.headers`, for example to add a token. |
+| `fetch?` | `{ (input: RequestInfo \| URL, init?: RequestInit): Promise<Response>; (input: string \| URL \| Request, init?: RequestInit): Promise<Response>; }` | The fetch to send requests with, instead of the global one: a proxy agent, custom DNS, or a stub in tests. |
 
 ### ClientResponse
 

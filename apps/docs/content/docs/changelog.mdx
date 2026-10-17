@@ -2,8 +2,8 @@
 title: Changelog
 description: What changed in VhyxVoid, newest first.
 verified:
-  date: "2026-10-07"
-  commit: "a682df5"
+  date: "2026-10-17"
+  commit: "f1aab41"
   packages: {}
 sources:
   - apps/docs/content/docs/changelog.mdx
@@ -36,6 +36,10 @@ sources:
 - [Platform commands](/cli/platform): `vhyxvoid whoami`, `spec check` and `spec push` (breaking changes fail the build), `collection push`, `test --collection` to run a stored collection, and `ai mock` / `ai tests`.
 - [GitHub Actions](/integrations/github-actions#api-spec-checks-on-pull-requests) for API spec checks on pull requests (with a comment), publishing on merge, and API tests with a JUnit report.
 - A [VS Code extension](/integrations/vscode): spec problems and breaking changes in the editor, check on save, publish, run collections and AI drafts.
+
+**SDK**
+
+- `createClient` takes a `fetch` option: send through a proxy agent, custom DNS or a test stub instead of the global `fetch`. See [HTTP client](/sdk/http-client).
 
 **Security**
 
