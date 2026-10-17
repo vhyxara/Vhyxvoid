@@ -29,6 +29,9 @@ export type PricingPlanContent = {
   name: string;
   price: string;
   period: string;
+  /** Shown when visitors switch the pricing page to yearly; empty: the plan isn't sold yearly. */
+  yearlyPrice?: string;
+  yearlyPeriod?: string;
   description: string;
   highlighted: boolean;
   ctaLabel: string;
@@ -39,6 +42,8 @@ export type PricingPlanContent = {
 export type PricingContent = {
   title: string;
   subtitle: string;
+  /** Next to the Yearly switch, e.g. "2 months free". */
+  yearlyBadge?: string;
   plans: PricingPlanContent[];
   faq: Array<{ q: string; a: string }>;
 };

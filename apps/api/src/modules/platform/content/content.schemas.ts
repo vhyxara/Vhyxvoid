@@ -65,6 +65,7 @@ export const landingSchema = z.object({
 export const pricingSchema = z.object({
   title: text(120),
   subtitle: text(300).default(""),
+  yearlyBadge: text(40).default(""),
   plans: z
     .array(
       z.object({
@@ -72,6 +73,8 @@ export const pricingSchema = z.object({
         name: text(40),
         price: text(20),
         period: text(30).default(""),
+        yearlyPrice: text(20).default(""),
+        yearlyPeriod: text(40).default(""),
         description: text(200).default(""),
         highlighted: z.boolean().default(false),
         ctaLabel: text(40),

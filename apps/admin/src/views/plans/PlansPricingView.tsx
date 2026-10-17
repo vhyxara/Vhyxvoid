@@ -49,8 +49,11 @@ function ModeTile({ active, title, body, onClick }: { active: boolean; title: st
   )
 }
 
+type PriceKey = 'PRO' | 'ENTERPRISE' | 'PRO_YEARLY' | 'ENTERPRISE_YEARLY'
+const PRICE_KEYS: PriceKey[] = ['PRO', 'ENTERPRISE', 'PRO_YEARLY', 'ENTERPRISE_YEARLY']
+
 function PriceStatus({ l }: { l: StripePriceLookup }) {
-  if (!l.id) return <Text size='sm' tone='muted'>Not set: this plan cannot be bought.</Text>
+  if (!l.id) return <Text size='sm' tone='muted'>{l.plan.endsWith('_YEARLY') ? 'Not set: this plan is sold monthly only.' : 'Not set: this plan cannot be bought.'}</Text>
   if (l.error) return <Text size='sm' tone='danger'>{l.error}</Text>
   if (!l.price) return null
 
@@ -75,7 +78,7 @@ export function PlansPricingView() {
 
   const [message, setMessage] = useState('')
   const [trialDays, setTrialDays] = useState<number | null>(14)
-  const [prices, setPrices] = useState<{ PRO: string; ENTERPRISE: string }>({ PRO: '', ENTERPRISE: '' })
+  const [prices, setPrices] = useState<Record<PriceKey, string>>({ PRO: '', ENTERPRISE: '', PRO_YEARLY: '', ENTERPRISE_YEARLY: '' })
   const [saving, setSaving] = useState<string | null>(null)
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export function PlansPricingView() {
     setTrialDays(Number(value('billing.trialDays') ?? 0))
     const stored = (value('billing.stripePrices') ?? {}) as Record<string, string>
 
-    setPrices({ PRO: stored.PRO ?? '', ENTERPRISE: stored.ENTERPRISE ?? '' })
+    setPrices(Object.fromEntries(PRICE_KEYS.map(k => [k, stored[k] ?? ''])) as Record<PriceKey, string>)
   }, [settings.data])
 
   const save = async (label: string, changes: Record<string, unknown>) => {
@@ -177,7 +180,7 @@ export function PlansPricingView() {
 
       <SettingsSection
         title='Payments (Stripe)'
-        description='Prices live in Stripe. Create a product with a monthly price for each paid plan in the Stripe dashboard, then paste the price IDs here.'
+        description='Prices live in Stripe. Create a product for each paid plan with a monthly price (and, to sell it yearly, a yearly one) in the Stripe dashboard, then paste the price IDs here.'
       >
         <div className='flex flex-col gap-4'>
           <div className='flex flex-wrap gap-2 items-center'>
@@ -199,34 +202,45 @@ export function PlansPricingView() {
             )}
           </div>
 
-          {(['PRO', 'ENTERPRISE'] as const).map(plan => {
-            const lookup = s?.prices.find(p => p.plan === plan)
+          {(['PRO', 'ENTERPRISE'] as const).map(plan => (
+            <Card key={plan} className='p-4'>
+              <div className='flex flex-col gap-3'>
+                <Text weight='semibold'>{plan} prices</Text>
+                {([plan, `${plan}_YEARLY`] as PriceKey[]).map(key => {
+                  const lookup = s?.prices.find(p => p.plan === key)
+                  const yearly = key.endsWith('_YEARLY')
 
-            return (
-              <Card key={plan} className='p-4'>
-                <div className='flex flex-col gap-2'>
-                  <Text weight='semibold'>{plan} price</Text>
-                  <div className='flex flex-wrap gap-2 items-center'>
-                    <Input
-                      aria-label={`${plan} Stripe price ID`}
-                      placeholder={lookup?.source === 'environment' ? `${lookup.id} (environment)` : 'price_…'}
-                      value={prices[plan]}
-                      onChange={e => setPrices(p => ({ ...p, [plan]: e.target.value.trim() }))}
-                      style={{ minInlineSize: 280 }}
-                    />
-                    <Button
-                      size='sm'
-                      loading={saving === plan}
-                      onClick={() => save(plan, { 'billing.stripePrices': { ...((value('billing.stripePrices') as object) ?? {}), [plan]: prices[plan] } })}
-                    >
-                      Save and check
-                    </Button>
-                  </div>
-                  {lookup ? <PriceStatus l={lookup} /> : null}
-                </div>
-              </Card>
-            )
-          })}
+                  return (
+                    <div key={key} className='flex flex-col gap-1'>
+                      <Text size='sm' weight='medium'>
+                        {yearly ? 'Billed yearly (optional)' : 'Billed monthly'}
+                      </Text>
+                      <div className='flex flex-wrap gap-2 items-center'>
+                        <Input
+                          aria-label={`${plan} ${yearly ? 'yearly' : 'monthly'} Stripe price ID`}
+                          placeholder={lookup?.source === 'environment' ? `${lookup.id} (environment)` : 'price_…'}
+                          value={prices[key]}
+                          onChange={e => setPrices(p => ({ ...p, [key]: e.target.value.trim() }))}
+                          style={{ minInlineSize: 280 }}
+                        />
+                        <Button
+                          size='sm'
+                          loading={saving === key}
+                          onClick={() => save(key, { 'billing.stripePrices': { ...((value('billing.stripePrices') as object) ?? {}), [key]: prices[key] } })}
+                        >
+                          Save and check
+                        </Button>
+                      </div>
+                      {lookup ? <PriceStatus l={lookup} /> : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          ))}
+          <Text size='sm' tone='muted'>
+            With a yearly price, the pricing page and the upgrade dialog offer Monthly / Yearly. Set the yearly prices shown to visitors in Website content → Pricing page.
+          </Text>
 
           <div className='flex flex-wrap gap-6 items-end'>
             <div className='flex items-center gap-2'>
@@ -261,8 +275,8 @@ export function PlansPricingView() {
 
       <SettingsSection title='Pricing page' description='What visitors read. Limits on the page come from the plan limits above automatically.'>
         <Text>
-          Plan names, displayed prices and feature bullets are edited in <Link href='/content'>Website content → Pricing page</Link>. Keep the displayed
-          price the same as the Stripe price.
+          Plan names, displayed prices (monthly and yearly) and feature bullets are edited in <Link href='/content'>Website content → Pricing page</Link>. Keep the
+          displayed prices the same as the Stripe prices.
         </Text>
       </SettingsSection>
     </div>

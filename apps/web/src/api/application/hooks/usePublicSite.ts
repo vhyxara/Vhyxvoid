@@ -20,6 +20,8 @@ export type PublicPlans = {
   freeModeMessage?: string
   checkoutEnabled: boolean
   trialDays: number
+  /** Which plans can be bought yearly (a yearly Stripe price is set). */
+  yearly?: { PRO: boolean; ENTERPRISE: boolean }
   plans: Array<{ plan: 'FREE' | 'PRO' | 'ENTERPRISE'; limits: Record<string, unknown> }>
 }
 

@@ -101,8 +101,8 @@ export class StripeServiceImpl implements IStripeService {
 
   async resolvePlan(stripePriceId: string): Promise<Plan> {
     const prices = await currentStripePrices();
-    if (prices.PRO === stripePriceId) return Plan.PRO;
-    if (prices.ENTERPRISE === stripePriceId) return Plan.ENTERPRISE;
+    if (prices.PRO === stripePriceId || prices.PRO_YEARLY === stripePriceId) return Plan.PRO;
+    if (prices.ENTERPRISE === stripePriceId || prices.ENTERPRISE_YEARLY === stripePriceId) return Plan.ENTERPRISE;
     return Plan.FREE;
   }
 

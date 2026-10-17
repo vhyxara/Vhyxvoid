@@ -209,6 +209,9 @@ describe("landing content saved before the journey", () => {
     const partial = withNewSections({ kind: "landing", data: { journey: { title: "Mine", subtitle: "", stages: [] } } }) as any;
     expect(partial.data.journey.title).toBe("Mine");
     expect(partial.data.testimonials.items).toEqual([]);
+    const pricing = withNewSections({ kind: "pricing", data: { title: "P", plans: [{ plan: "PRO", price: "$12" }] } }) as any;
+    expect(pricing.data).toMatchObject({ yearlyBadge: "", plans: [{ plan: "PRO", price: "$12", yearlyPrice: "", yearlyPeriod: "" }] });
+    expect(withNewSections({ kind: "pricing", data: pricing.data })).toEqual({ kind: "pricing", data: pricing.data });
     const page = { kind: "page", data: { body: "x" } };
     expect(withNewSections(page)).toBe(page);
   });

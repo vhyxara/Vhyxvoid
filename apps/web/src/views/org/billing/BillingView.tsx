@@ -69,13 +69,18 @@ const PLANS = UPGRADE_PLANS
 
 function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: () => void; accountId: string }) {
   const [selected, setSelected] = useState<UpgradePlan['plan']>(PLANS[0].plan)
+  const [interval, setBilling] = useState<'month' | 'year'>('month')
   const publicPlans = usePublicPlans()
   const checkout = useCreateCheckout(accountId)
+  // Yearly billing for the plans that have a yearly Stripe price.
+  const yearlyFor = (plan: UpgradePlan['plan']) => !!publicPlans.data?.yearly?.[plan]
+  const billedYearly = interval === 'year' && yearlyFor(selected)
 
   const handleCheckout = () => {
     checkout.mutate(
       {
         plan: selected,
+        interval: billedYearly ? 'year' : 'month',
         successUrl: `${window.location.origin}/organizations/${accountId}/billing?success=1`,
         cancelUrl: `${window.location.origin}/organizations/${accountId}/billing`
       },
@@ -97,6 +102,15 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
           <Dialog.Title>Upgrade plan</Dialog.Title>
 
           <div className='flex flex-col gap-4'>
+            {PLANS.some(p => yearlyFor(p.plan)) && (
+              <div className='flex gap-2' role='radiogroup' aria-label='Billing period'>
+                {(['month', 'year'] as const).map(i => (
+                  <Button key={i} size='sm' variant={interval === i ? 'primary' : 'outline'} role='radio' aria-checked={interval === i} onClick={() => setBilling(i)}>
+                    {i === 'month' ? 'Monthly' : 'Yearly'}
+                  </Button>
+                ))}
+              </div>
+            )}
             {/* Plan cards */}
             <div className='flex flex-col gap-3'>
               {PLANS.map(plan => {
@@ -120,7 +134,7 @@ function UpgradeDialog({ open, onClose, accountId }: { open: boolean; onClose: (
                     <div className='flex justify-between items-center mb-1'>
                       <Typography style={{ fontWeight: 600 }}>{plan.label}</Typography>
                       <Typography variant='body2' style={{ color: 'var(--vhyx-color-text-subtle)' }}>
-                        {plan.price}
+                        {interval === 'year' && yearlyFor(plan.plan) ? plan.yearlyPrice : plan.price}
                       </Typography>
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 'var(--vhyx-space-4)' }}>

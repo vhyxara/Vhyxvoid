@@ -318,6 +318,17 @@ export class ContentService {
   }
 }
 
+/**
+ * Pricing saved before yearly billing gets the yearly fields, empty (a plan
+ * without a yearly price isn't offered yearly), so the editor shows them.
+ */
+function withYearlyFields<T extends { kind: string; data: unknown }>(row: T): T {
+  const data = row.data as { yearlyBadge?: unknown; plans?: Array<Record<string, unknown>> } | null;
+  if (!data || typeof data !== "object" || !Array.isArray(data.plans)) return row;
+  if ("yearlyBadge" in data && data.plans.every((p) => "yearlyPrice" in p && "yearlyPeriod" in p)) return row;
+  return { ...row, data: { ...data, yearlyBadge: data.yearlyBadge ?? "", plans: data.plans.map((p) => ({ ...p, yearlyPrice: p.yearlyPrice ?? "", yearlyPeriod: p.yearlyPeriod ?? "" })) } };
+}
+
 /** Landing sections added after the first release; entries saved before them don't have them. */
 const NEW_LANDING_SECTIONS = ["journey", "logos", "showcase", "testimonials"] as const;
 
@@ -329,6 +340,7 @@ const NEW_LANDING_SECTIONS = ["journey", "logos", "showcase", "testimonials"] as
  */
 export function withNewSections<T extends { kind: string; data: unknown }>(row: T): T {
   const data = row.data as Record<string, unknown> | null;
+  if (row.kind === "pricing") return withYearlyFields(row);
   if (row.kind !== "landing" || !data || typeof data !== "object") return row;
   const missing = NEW_LANDING_SECTIONS.filter((k) => !(k in data));
   if (!missing.length) return row;

@@ -10,6 +10,8 @@ export type UpgradePlan = {
   id: 'pro' | 'enterprise'
   label: string
   price: string
+  /** The price label when billed yearly (shown when the plan can be bought yearly). */
+  yearlyPrice: string
   plan: 'PRO' | 'ENTERPRISE'
   limits: { maxAgents: number; maxMembers: number; maxApiKeys: number; publicPathRateLimitPerMinute: number }
   extras: string[]
@@ -22,6 +24,7 @@ export const UPGRADE_PLANS: UpgradePlan[] = [
     id: 'pro',
     label: 'Pro',
     price: process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_LABEL ?? '$29 / month',
+    yearlyPrice: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_LABEL ?? 'Billed yearly',
     plan: 'PRO',
     limits: { maxAgents: 5, maxMembers: 10, maxApiKeys: 20, publicPathRateLimitPerMinute: 3_000 },
     extras: ['PROD keys and key rotation', 'Priority support']
@@ -30,6 +33,7 @@ export const UPGRADE_PLANS: UpgradePlan[] = [
     id: 'enterprise',
     label: 'Enterprise',
     price: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_LABEL ?? '$99 / month',
+    yearlyPrice: process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_YEARLY_PRICE_LABEL ?? 'Billed yearly',
     plan: 'ENTERPRISE',
     limits: { maxAgents: Infinity, maxMembers: Infinity, maxApiKeys: Infinity, publicPathRateLimitPerMinute: Infinity },
     extras: ['PROD keys and key rotation', 'Priority support']

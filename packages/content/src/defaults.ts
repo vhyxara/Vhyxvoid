@@ -106,10 +106,11 @@ const home: LandingContent = {
 const pricing: PricingContent = {
   title: "Simple pricing that scales with your team",
   subtitle: "Start free. Upgrade when you need more tunnels, teammates and production keys.",
+  yearlyBadge: "2 months free",
   plans: [
-    { plan: "FREE", name: "Free", price: "$0", period: "forever", description: "For individual developers.", highlighted: false, ctaLabel: "Start for free", ctaHref: "/register", features: ["1 concurrent agent", "10,000 requests / month", "3 API keys", "Community support"] },
-    { plan: "PRO", name: "Pro", price: "$12", period: "per month", description: "For professionals and small teams.", highlighted: true, ctaLabel: "Start free trial", ctaHref: "/register?plan=pro", features: ["5 concurrent agents", "50,000 requests / month", "Up to 10 members", "Production keys and key rotation", "Priority support"] },
-    { plan: "ENTERPRISE", name: "Enterprise", price: "Custom", period: "", description: "For organizations with scale and compliance needs.", highlighted: false, ctaLabel: "Contact sales", ctaHref: "/support", features: ["Unlimited agents and members", "Unlimited requests", "Custom limits", "Dedicated support"] },
+    { plan: "FREE", name: "Free", price: "$0", period: "forever", yearlyPrice: "", yearlyPeriod: "", description: "For individual developers.", highlighted: false, ctaLabel: "Start for free", ctaHref: "/register", features: ["1 concurrent agent", "10,000 requests / month", "3 API keys", "Community support"] },
+    { plan: "PRO", name: "Pro", price: "$12", period: "per month", yearlyPrice: "$10", yearlyPeriod: "per month, billed yearly", description: "For professionals and small teams.", highlighted: true, ctaLabel: "Start free trial", ctaHref: "/register?plan=pro", features: ["5 concurrent agents", "50,000 requests / month", "Up to 10 members", "Production keys and key rotation", "Priority support"] },
+    { plan: "ENTERPRISE", name: "Enterprise", price: "Custom", period: "", yearlyPrice: "", yearlyPeriod: "", description: "For organizations with scale and compliance needs.", highlighted: false, ctaLabel: "Contact sales", ctaHref: "/support", features: ["Unlimited agents and members", "Unlimited requests", "Custom limits", "Dedicated support"] },
   ],
   faq: [
     { q: "What counts as a request?", a: "Every HTTP request that reaches your agent through a tunnel or the SDK. Monthly totals are shown in the dashboard." },

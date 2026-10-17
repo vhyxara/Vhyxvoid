@@ -57,6 +57,8 @@ export type InvoicesResult = {
 export type CreateCheckoutPayload = {
   /** The server maps the plan to its configured Stripe price. */
   plan: 'PRO' | 'ENTERPRISE'
+  /** month (default) or year, when the plan has a yearly price. */
+  interval?: 'month' | 'year'
   successUrl: string
   cancelUrl: string
 }

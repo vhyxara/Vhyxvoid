@@ -26,6 +26,8 @@ const ownUrl = (field: string) =>
 const checkoutBodySchema = z
   .object({
     plan: z.enum(["PRO", "ENTERPRISE"]).optional(),
+    /** Billed monthly (default) or yearly, when the plan has a yearly price. */
+    interval: z.enum(["month", "year"]).default("month"),
     priceId: z.string().min(1).optional(),
     successUrl: ownUrl("successUrl"),
     cancelUrl: ownUrl("cancelUrl"),
@@ -38,11 +40,12 @@ const portalBodySchema = z.object({
 });
 
 /** Only the configured Stripe prices can be bought (audit M16). */
-async function resolvePriceId(body: { plan?: "PRO" | "ENTERPRISE"; priceId?: string }): Promise<string> {
+export async function resolvePriceId(body: { plan?: "PRO" | "ENTERPRISE"; interval?: "month" | "year"; priceId?: string }): Promise<string> {
   const prices = await currentStripePrices();
   if (body.plan) {
-    const id = prices[body.plan];
-    if (!id) throw new ValidationError(`The ${body.plan} plan is not available`);
+    const yearly = body.interval === "year";
+    const id = prices[yearly ? (`${body.plan}_YEARLY` as const) : body.plan];
+    if (!id) throw new ValidationError(yearly ? `The ${body.plan} plan can't be billed yearly` : `The ${body.plan} plan is not available`);
     return id;
   }
   if (!body.priceId || !Object.values(prices).includes(body.priceId)) throw new ValidationError("Unknown price");

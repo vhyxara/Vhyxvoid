@@ -145,11 +145,15 @@ export function applyLimitOverrides(base: PlanLimits, ...layers: Array<PlanLimit
   return out;
 }
 
-/** `billing.stripePrices`: `{ PRO?: "price_…", ENTERPRISE?: "price_…" }`; empty string clears one. */
+/** The Stripe prices that can be set: each paid plan, billed monthly or yearly. */
+export const STRIPE_PRICE_KEYS = ["PRO", "ENTERPRISE", "PRO_YEARLY", "ENTERPRISE_YEARLY"] as const;
+export type StripePriceKey = (typeof STRIPE_PRICE_KEYS)[number];
+
+/** `billing.stripePrices`: `{ PRO?: "price_…", PRO_YEARLY?: "price_…", … }`; empty string clears one. */
 export function validateStripePrices(value: unknown): string | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "Must be an object like {\"PRO\": \"price_123\"}";
   for (const [plan, id] of Object.entries(value as Record<string, unknown>)) {
-    if (plan !== "PRO" && plan !== "ENTERPRISE") return `Unknown plan "${plan}" (use PRO or ENTERPRISE)`;
+    if (!(STRIPE_PRICE_KEYS as readonly string[]).includes(plan)) return `Unknown price "${plan}" (use ${STRIPE_PRICE_KEYS.join(", ")})`;
     if (typeof id !== "string" || (id !== "" && !/^price_[A-Za-z0-9]+$/.test(id))) return `${plan}: a Stripe price ID looks like price_1Abc…`;
   }
   return undefined;
@@ -180,7 +184,7 @@ export const SETTING_DEFINITIONS = {
   "billing.mode": { group: "billing", label: "Billing mode", description: "free: everyone uses the product without paying (launch / early access); upgrades and pricing tiers are hidden. paid: plans can be bought through Stripe. Existing subscriptions keep working in either mode.", type: "enum", default: "free", public: true, options: ["free", "paid"] },
   "billing.defaultPlan": { group: "billing", label: "Plan for accounts that don't pay", description: "The plan every account without a paid subscription gets. Raise it to PRO during a launch to be generous; edit each plan's limits under Plan limits.", type: "enum", default: "FREE", public: true, options: ["FREE", "PRO", "ENTERPRISE"] },
   "billing.freeModeMessage": { group: "billing", label: "Free mode message", description: "Shown on the pricing and billing pages while billing mode is free.", type: "string", default: "Free during early access. No credit card needed.", public: true, maxLength: 160 },
-  "billing.stripePrices": { group: "billing", label: "Stripe price IDs", description: "The recurring Stripe price for each paid plan, e.g. {\"PRO\": \"price_123\", \"ENTERPRISE\": \"price_456\"}. Overrides the STRIPE_*_PRICE_ID environment variables. Create prices in the Stripe dashboard.", type: "json", default: {}, public: false, validate: validateStripePrices },
+  "billing.stripePrices": { group: "billing", label: "Stripe price IDs", description: "The recurring Stripe price for each paid plan, monthly and (optionally) yearly, e.g. {\"PRO\": \"price_123\", \"PRO_YEARLY\": \"price_456\"}. Overrides the STRIPE_*_PRICE_ID environment variables. A plan with a yearly price can be bought yearly. Create prices in the Stripe dashboard.", type: "json", default: {}, public: false, validate: validateStripePrices },
   "billing.checkoutEnabled": { group: "billing", label: "Allow upgrades", description: "When off, the upgrade buttons are hidden and checkout is refused.", type: "boolean", default: true, public: true },
   "billing.trialDays": { group: "billing", label: "Trial length (days)", description: "Free trial on an account's first paid subscription only. 0 disables trials.", type: "number", default: 14, public: true, min: 0, max: 90 },
   "billing.usageNotices": { group: "billing", label: "Usage emails", description: "Tell an account's owners and admins (in-app and email) when it reaches 80% and 100% of its plan's monthly requests, once per month each. The monthly limit is soft: nothing is blocked.", type: "boolean", default: true, public: false },
@@ -247,7 +251,7 @@ type ValueOf<D> = D extends { type: "boolean" }
       : D extends { type: "json" }
         ? unknown
         : string;
-export type StripePricesSetting = Partial<Record<"PRO" | "ENTERPRISE", string>>;
+export type StripePricesSetting = Partial<Record<StripePriceKey, string>>;
 export type SettingValue<K extends SettingKey> = K extends "plans.overrides"
   ? PlanOverridesSetting
   : K extends "billing.stripePrices"
@@ -427,17 +431,20 @@ export async function currentDefaultPlan(): Promise<Plan> {
   return value in PLAN_LIMITS ? (value as Plan) : Plan.FREE;
 }
 
+/** The environment variable behind each price: STRIPE_PRO_PRICE_ID, STRIPE_PRO_YEARLY_PRICE_ID… */
+export const stripePriceEnv = (key: StripePriceKey) => `STRIPE_${key}_PRICE_ID`;
+
 /**
- * The Stripe price of each paid plan: the admin setting first, then the
- * STRIPE_*_PRICE_ID environment variables.
+ * The Stripe price of each paid plan, monthly and yearly: the admin setting
+ * first, then the STRIPE_*_PRICE_ID environment variables.
  */
 export async function currentStripePrices(env: Record<string, string | undefined> = process.env): Promise<StripePricesSetting> {
   const stored = (await readSetting("billing.stripePrices")) ?? {};
   const out: StripePricesSetting = {};
-  const pro = stored.PRO || env.STRIPE_PRO_PRICE_ID;
-  const ent = stored.ENTERPRISE || env.STRIPE_ENTERPRISE_PRICE_ID;
-  if (pro) out.PRO = pro;
-  if (ent) out.ENTERPRISE = ent;
+  for (const key of STRIPE_PRICE_KEYS) {
+    const id = stored[key] || env[stripePriceEnv(key)];
+    if (id) out[key] = id;
+  }
   return out;
 }
 

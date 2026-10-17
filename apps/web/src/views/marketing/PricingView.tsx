@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 import Link from 'next/link'
 
 import { FAQ, PricingTable } from '@vhyxui/blocks'
@@ -40,6 +42,24 @@ function show(v: unknown) {
   if (typeof v === 'number') return v.toLocaleString()
 
   return String(v ?? '—')
+}
+
+/**
+ * Whether the pricing page offers a Monthly / Yearly switch: some plan has a
+ * yearly price on the page and, when the API says, can be bought yearly.
+ */
+export function offersYearly(content: PricingContent, plans: PublicPlans | null) {
+  const priced = content.plans.filter(p => p.yearlyPrice?.trim())
+
+  if (!priced.length) return false
+  if (!plans?.yearly) return true
+
+  return priced.some(p => p.plan !== 'FREE' && plans.yearly?.[p.plan])
+}
+
+/** A plan's price as shown for the chosen billing; plans without a yearly price keep theirs. */
+export function shownPrice(p: PricingContent['plans'][number], yearly: boolean) {
+  return yearly && p.yearlyPrice?.trim() ? { price: p.yearlyPrice, period: p.yearlyPeriod ?? '' } : { price: p.price, period: p.period }
 }
 
 /** Launch mode: one free plan, no prices, nothing to buy. */
@@ -95,6 +115,8 @@ export function PricingView({ content, plans, signupsEnabled }: { content: Prici
   if (plans?.mode === 'free') return <FreeModePricing plans={plans} signupsEnabled={signupsEnabled} faq={content.faq} />
 
   const trial = plans?.trialDays ?? 0
+  const switchable = offersYearly(content, plans)
+  const [yearly, setYearly] = useState(false)
 
   return (
     <>
@@ -109,13 +131,23 @@ export function PricingView({ content, plans, signupsEnabled }: { content: Prici
             {trial > 0 ? ` Paid plans start with a ${trial}-day free trial.` : ''}
           </p>
         </div>
-        <div className={styles.inner} style={{ position: 'relative', marginBlockStart: '3rem' }}>
+        {switchable && (
+          <div className={styles.billingSwitch} role='radiogroup' aria-label='Billing period'>
+            <button type='button' role='radio' aria-checked={!yearly} onClick={() => setYearly(false)}>
+              Monthly
+            </button>
+            <button type='button' role='radio' aria-checked={yearly} onClick={() => setYearly(true)}>
+              Yearly
+              {content.yearlyBadge && <span className={styles.billingBadge}>{content.yearlyBadge}</span>}
+            </button>
+          </div>
+        )}
+        <div className={styles.inner} style={{ position: 'relative', marginBlockStart: switchable ? '2rem' : '3rem' }}>
           <PricingTable
             linkAs={Link as any}
             plans={content.plans.map(p => ({
               name: p.name,
-              price: p.price,
-              period: p.period,
+              ...shownPrice(p, switchable && yearly),
               description: p.description,
               features: p.features,
               highlighted: p.highlighted,

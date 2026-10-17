@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { successResponse } from "@/core/utils/response.util";
-import { currentDefaultPlan, currentStripePrices, effectivePlanLimits, Plan } from "@vhyxvoid/shared";
+import { currentDefaultPlan, currentStripePrices, effectivePlanLimits, Plan, STRIPE_PRICE_KEYS } from "@vhyxvoid/shared";
 import { orderBy, page, pageQuerySchema, prismaOf, rangeQuerySchema, since, skipTake } from "../shared/http";
 
 const stripeDashboard = (path: string) => {
@@ -33,7 +33,7 @@ export async function adminBillingRoutes(fastify: FastifyInstance) {
     ]);
     const stripe = fastify.stripeService;
     const lookups = await Promise.all(
-      (["PRO", "ENTERPRISE"] as const).map(async (plan) => {
+      STRIPE_PRICE_KEYS.map(async (plan) => {
         const id = prices[plan] ?? null;
         const source = !id ? null : stored?.[plan] ? "admin" : "environment";
         if (!id || !stripe.configured) return { plan, id, source, price: null, error: id ? "Stripe keys are not set" : null };
@@ -48,9 +48,12 @@ export async function adminBillingRoutes(fastify: FastifyInstance) {
     if (mode === "paid") {
       if (!stripe.configured) problems.push("Billing mode is paid but STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET are not set.");
       for (const l of lookups) {
-        if (!l.id) problems.push(`No Stripe price for ${l.plan}: it cannot be bought.`);
-        else if (l.error) problems.push(`${l.plan}: ${l.error}`);
+        // Yearly prices are optional: without one, the plan is sold monthly only.
+        if (!l.id) {
+          if (!l.plan.endsWith("_YEARLY")) problems.push(`No Stripe price for ${l.plan}: it cannot be bought.`);
+        } else if (l.error) problems.push(`${l.plan}: ${l.error}`);
         else if (l.price && !l.price.active) problems.push(`${l.plan}: the Stripe price is archived.`);
+        else if (l.price && l.plan.endsWith("_YEARLY") && l.price.interval !== "year") problems.push(`${l.plan}: this Stripe price isn't billed yearly.`);
       }
     }
     return successResponse(reply, "Success", 200, {

@@ -248,7 +248,7 @@ export type ContentDetail = ContentRow & {
 }
 
 export type StripePriceLookup = {
-  plan: 'PRO' | 'ENTERPRISE'
+  plan: 'PRO' | 'ENTERPRISE' | 'PRO_YEARLY' | 'ENTERPRISE_YEARLY'
   id: string | null
   source: 'admin' | 'environment' | null
   price: { id: string; active: boolean; unitAmount: number | null; currency: string; interval: string | null; productName: string | null } | null

@@ -1,6 +1,6 @@
 // /api/v1/public — unauthenticated, cacheable reads for the website and apps.
 import type { FastifyInstance } from "fastify";
-import { Plan } from "@vhyxvoid/shared";
+import { Plan, currentStripePrices } from "@vhyxvoid/shared";
 import { Prisma } from "@/generated/prisma";
 import { effectivePlanLimits } from "@vhyxvoid/shared";
 import { NotFoundError } from "@/core/errors/error.format";
@@ -90,12 +90,13 @@ export async function publicRoutes(fastify: FastifyInstance) {
     cache(reply, 60);
     const overrides = await fastify.platformSettings.get("plans.overrides");
     const get = fastify.platformSettings.get.bind(fastify.platformSettings);
-    const [mode, defaultPlan, freeModeMessage, checkoutEnabled, trialDays] = await Promise.all([
+    const [mode, defaultPlan, freeModeMessage, checkoutEnabled, trialDays, prices] = await Promise.all([
       get("billing.mode"),
       get("billing.defaultPlan"),
       get("billing.freeModeMessage"),
       get("billing.checkoutEnabled"),
       get("billing.trialDays"),
+      currentStripePrices(),
     ]);
     return successResponse(reply, "Success", 200, {
       mode,
@@ -104,6 +105,8 @@ export async function publicRoutes(fastify: FastifyInstance) {
       // Buying is possible only in paid mode with upgrades switched on.
       checkoutEnabled: mode === "paid" && checkoutEnabled,
       trialDays,
+      // Which plans can be bought yearly (a yearly Stripe price is set); the IDs stay private.
+      yearly: { PRO: !!prices.PRO_YEARLY, ENTERPRISE: !!prices.ENTERPRISE_YEARLY },
       plans: [Plan.FREE, Plan.PRO, Plan.ENTERPRISE].map((plan) => ({ plan, limits: serializeLimits(effectivePlanLimits(plan, overrides)) })),
     });
   });

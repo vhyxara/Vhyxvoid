@@ -57,6 +57,25 @@ describe("billing.stripePrices", () => {
     expect(await currentStripePrices(env)).toEqual({ PRO: "price_admin1", ENTERPRISE: "price_envent" });
   });
 
+  it("takes yearly prices too, from the setting or STRIPE_<PLAN>_YEARLY_PRICE_ID", async () => {
+    useSettings({ "billing.stripePrices": { PRO_YEARLY: "price_proyear" } });
+    expect(await currentStripePrices({ ...env, STRIPE_ENTERPRISE_YEARLY_PRICE_ID: "price_entyear" })).toEqual({ PRO: "price_envpro", ENTERPRISE: "price_envent", PRO_YEARLY: "price_proyear", ENTERPRISE_YEARLY: "price_entyear" });
+    expect(validateSettingValue("billing.stripePrices", { PRO_YEARLY: "price_1Abc" }).ok).toBe(true);
+    expect(validateSettingValue("billing.stripePrices", { PRO_MONTHLY: "price_1Abc" }).ok).toBe(false);
+  });
+
+  it("checkout picks the monthly or yearly price, and refuses yearly without one", async () => {
+    const { resolvePriceId } = await import("../../apps/api/src/modules/billing/presentation/http/billing.routes");
+    useSettings({ "billing.stripePrices": { PRO: "price_m", PRO_YEARLY: "price_y" } });
+    expect(await resolvePriceId({ plan: "PRO" })).toBe("price_m");
+    expect(await resolvePriceId({ plan: "PRO", interval: "year" })).toBe("price_y");
+    expect(await resolvePriceId({ priceId: "price_y" })).toBe("price_y");
+    await expect(resolvePriceId({ plan: "ENTERPRISE", interval: "year" })).rejects.toThrow(/can't be billed yearly/);
+    // A yearly subscription is the same plan.
+    const stripe = buildStripeService({ STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: "whsec_x" });
+    expect(await stripe.resolvePlan("price_y")).toBe("PRO");
+  });
+
   it("validates shape and IDs", () => {
     expect(validateSettingValue("billing.stripePrices", { PRO: "price_1Abc" }).ok).toBe(true);
     expect(validateSettingValue("billing.stripePrices", { PRO: "" }).ok).toBe(true);
