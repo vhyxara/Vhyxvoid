@@ -13,6 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 import { platformKeys, usePlatformMutation, useSettings } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { SeoLimits, SeoPageRow } from '@/api/platform/types'
+import { ImageField } from '@/views/media/MediaPicker'
 import { Counter, SEO_AREAS, SerpPreview, SocialPreview, fullTitle, shareImage, siteOrigin } from './previews'
 
 const KIND: Record<SeoPageRow['kind'], string> = { route: 'Site page', page: 'Page', post: 'Blog post', category: 'Category' }
@@ -67,12 +68,12 @@ function EditDialog({ row, limits, onClose }: { row: SeoPageRow; limits: SeoLimi
               <Counter value={shownTitle} max={limits.title} />
               <TextareaField name='seo-description' label='Description' placeholder={row.own.description || 'No description of its own'} rows={3} maxLength={320} value={description} onChange={e => setDescription(e.target.value)} />
               <Counter value={shownDescription} max={limits.description} min={limits.descriptionMin} />
-              <TextField
+              <ImageField
                 name='seo-image'
                 label='Share image'
-                placeholder={row.own.image || 'https://… or /images/… (1200×630)'}
+                placeholder={row.own.image || 'https://… or choose from the library (1200×630)'}
                 value={imageUrl}
-                onChange={e => setImageUrl(e.target.value)}
+                onChange={setImageUrl}
                 error={badImage ? 'Use an https:// URL or a path starting with /' : undefined}
               />
               <label className='flex items-center gap-2'>

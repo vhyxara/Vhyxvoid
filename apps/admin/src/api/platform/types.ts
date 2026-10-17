@@ -362,3 +362,20 @@ export type SeoPageRow = {
 export type SeoLimits = { title: number; description: number; descriptionMin: number }
 export type SeoRedirectRow = { id: string; fromPath: string; toUrl: string; permanent: boolean; hits: number; lastHitAt: string | null; note: string; createdAt: string; updatedAt: string }
 export type SeoNotFoundRow = { id: string; path: string; hits: number; referrer: string | null; firstAt: string; lastAt: string }
+
+// ── Media library ──
+export type MediaAsset = {
+  id: string
+  filename: string
+  mime: string
+  size: number
+  width: number
+  height: number
+  alt: string
+  /** The image's address on the website: /media/<id>/<filename>. */
+  url: string
+  thumbUrl: string
+  createdAt: string
+  updatedAt: string
+}
+export type MediaUsage = Array<{ kind: string; label: string; href: string }>

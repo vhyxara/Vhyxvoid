@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { platformKeys, useSettings } from '@/api/platform/hooks'
 import { platformService } from '@/api/platform/service'
 import type { SettingView } from '@/api/platform/types'
+import { ImageField } from '@/views/media/MediaPicker'
 import { SettingInput } from '@/views/settings/SettingsView'
 import { Panel, SerpPreview, SocialPreview, fullTitle, shareImage, siteOrigin } from './previews'
 
@@ -69,7 +70,13 @@ export function SeoDefaults() {
         </Text>
       </div>
       <div className='seo-field-input'>
-        <SettingInput s={s} value={value(s.key)} onChange={v => setDraft(d => ({ ...d, [s.key]: v }))} />
+        {s.key === 'seo.defaultImage' || s.key === 'seo.organizationLogo' ? (
+          <div style={{ inlineSize: '100%' }}>
+            <ImageField name={s.key} label={s.label} value={String(value(s.key) ?? '')} onChange={v => setDraft(d => ({ ...d, [s.key]: v }))} />
+          </div>
+        ) : (
+          <SettingInput s={s} value={value(s.key)} onChange={v => setDraft(d => ({ ...d, [s.key]: v }))} />
+        )}
         {!s.isDefault && !(s.key in draft) && (
           <Button size='xs' variant='link' onClick={() => save({ [s.key]: null })}>
             Reset to default

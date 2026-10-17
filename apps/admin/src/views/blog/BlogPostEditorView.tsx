@@ -21,6 +21,7 @@ import { formatDate } from '@/components/ui/format'
 import { RichTextEditor, imageProblem } from '@/views/content/RichTextEditor'
 import { StateBadge } from './BlogPostsView'
 import { TagInput } from './TagInput'
+import { ImageField } from '@/views/media/MediaPicker'
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 
@@ -193,7 +194,15 @@ export function BlogPostEditorView({ id }: { id: string }) {
               </label>
             </div>
             <div className='flex flex-col gap-3'>
-              <TextField name='post-cover' label='Cover image' placeholder='https://… or /images/…' hint='Shown on the post and in the blog list; used for link previews. 1200×630 works everywhere.' value={d.coverImageUrl} onChange={e => set('coverImageUrl', e.target.value)} error={coverProblem ?? undefined} />
+              <ImageField
+                name='post-cover'
+                label='Cover image'
+                hint='Shown on the post and in the blog list; used for link previews. 1200×630 works everywhere.'
+                value={d.coverImageUrl}
+                onChange={v => set('coverImageUrl', v)}
+                onPickAlt={alt => !d.coverImageAlt && set('coverImageAlt', alt)}
+                error={coverProblem ?? undefined}
+              />
               <TextField name='post-cover-alt' label='Cover description (alt text)' value={d.coverImageAlt} onChange={e => set('coverImageAlt', e.target.value)} />
               {d.coverImageUrl && !coverProblem ? <img src={d.coverImageUrl} alt={d.coverImageAlt} className='blog-cover-preview' /> : <div className='blog-cover-preview blog-thumb-empty'>No cover image</div>}
             </div>

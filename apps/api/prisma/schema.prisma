@@ -2040,3 +2040,25 @@ model SeoNotFound {
   @@index([hits])
   @@map("seo_not_found")
 }
+
+/// An image in the media library (admin → Media). Stored processed: turned
+/// upright, metadata (EXIF, GPS) stripped, at most 2400 px wide, plus a
+/// small thumbnail for the library grid. Served by the website at
+/// /media/<id>/<filename>; never changes once stored (a new upload is a new id).
+model MediaAsset {
+  id          String   @id @default(uuid())
+  filename    String
+  mime        String
+  size        Int
+  width       Int
+  height      Int
+  alt         String   @default("")
+  data        Bytes
+  thumb       Bytes
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@map("media_assets")
+}

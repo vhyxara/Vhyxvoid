@@ -28,6 +28,8 @@ import type {
   BlogPostInput,
   BlogPostRow,
   BlogTagRow,
+  MediaAsset,
+  MediaUsage,
   SeoAudit,
   SeoLimits,
   SeoNotFoundRow,
@@ -98,6 +100,19 @@ export const platformService = {
   contactMessages: list<ContactMessage>('/admin/contact-messages'),
   setContactStatus: (id: string, status: ContactMessage['status']) => patch<ContactMessage>(`/admin/contact-messages/${id}`, { status }),
   deleteContactMessage: (id: string) => del(`/admin/contact-messages/${id}`),
+
+  media: list<MediaAsset>('/admin/media'),
+  uploadMedia: (file: File, alt = '') =>
+    httpClient<MediaAsset>({
+      url: '/admin/media',
+      method: 'POST',
+      data: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-filename': encodeURIComponent(file.name), 'x-alt': encodeURIComponent(alt) },
+      timeoutMs: 120_000
+    }),
+  updateMedia: (id: string, body: { alt?: string; filename?: string }) => patch<MediaAsset>(`/admin/media/${id}`, body),
+  mediaUsage: (id: string) => get<MediaUsage>(`/admin/media/${id}/usage`),
+  deleteMedia: (id: string, force = false) => httpClient<{ id: string }>({ url: `/admin/media/${id}`, method: 'DELETE', params: { force: force || undefined } }),
 
   seoAudit: () => get<SeoAudit>('/admin/seo/audit'),
   seoPages: () => get<{ items: SeoPageRow[]; limits: SeoLimits }>('/admin/seo/pages'),

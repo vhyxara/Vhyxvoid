@@ -268,5 +268,8 @@ export const SYSTEM_ABILITIES = {
   BLOG_PUBLISH: { action: 'blog.publish', category: 'content', description: 'Publish, schedule and unpublish blog posts' },
   BLOG_DELETE: { action: 'blog.delete', category: 'content', description: 'Delete blog posts, categories and tags' },
   SEO_READ: { action: 'seo.read', category: 'content', description: 'View SEO: the audit, page overrides, redirects and missing addresses' },
+  MEDIA_READ: { action: 'media.read', category: 'content', description: 'View the media library and where each image is used' },
+  MEDIA_UPDATE: { action: 'media.update', category: 'content', description: 'Upload images to the media library and edit their names and alt text' },
+  MEDIA_DELETE: { action: 'media.delete', category: 'content', description: 'Delete images from the media library' },
   SEO_UPDATE: { action: 'seo.update', category: 'content', description: 'Change SEO: page overrides, redirects, and dismiss missing addresses' },
 };

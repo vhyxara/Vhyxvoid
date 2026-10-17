@@ -28,6 +28,7 @@ import {
   SunIcon,
   GlobeIcon,
   HashIcon,
+  ImagesIcon,
   TagIcon,
   UserLockIcon,
   UsersIcon
@@ -66,6 +67,7 @@ const NAV: Array<{ label: string; items: Array<{ label: string; href: string; ic
       { label: 'Website content', href: '/content', icon: <FileTextIcon /> },
       { label: 'Blog', href: '/blog', icon: <BookOpenIcon /> },
       { label: 'Categories & tags', href: '/blog/taxonomy', icon: <HashIcon /> },
+      { label: 'Media', href: '/media', icon: <ImagesIcon /> },
       { label: 'SEO', href: '/seo', icon: <SearchCheckIcon /> },
       { label: 'Messages', href: '/messages', icon: <MessageSquareIcon /> },
       { label: 'Settings', href: '/settings', icon: <SettingsIcon /> },

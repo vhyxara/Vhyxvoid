@@ -16,6 +16,7 @@ import { Markdown } from '@tiptap/markdown'
 import { TableKit } from '@tiptap/extension-table'
 import Image from '@tiptap/extension-image'
 
+import { MediaPickerDialog } from '@/views/media/MediaPicker'
 import { Button, Text, TextareaField, TextField } from '@vhyxui/react'
 
 /** Same as packages/content's CONTACT_FORM_MARKER (admin doesn't depend on that package). */
@@ -128,6 +129,7 @@ function LinkBar({ editor, onClose }: { editor: Editor; onClose: () => void }) {
 function ImageBar({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const [src, setSrc] = useState('')
   const [alt, setAlt] = useState('')
+  const [picking, setPicking] = useState(false)
   const problem = src ? imageProblem(src) : null
 
   const apply = () => {
@@ -153,9 +155,20 @@ function ImageBar({ editor, onClose }: { editor: Editor; onClose: () => void }) 
           }
         }}
       />
+      <Button size='sm' variant='outline' onClick={() => setPicking(true)}>
+        Media library…
+      </Button>
       <Button size='sm' onClick={apply} disabled={!src.trim() || !!problem}>
         Insert image
       </Button>
+      <MediaPickerDialog
+        open={picking}
+        onClose={() => setPicking(false)}
+        onPick={a => {
+          setSrc(a.url)
+          if (!alt.trim()) setAlt(a.alt)
+        }}
+      />
       <Button size='sm' variant='ghost' onClick={onClose}>
         Cancel
       </Button>
