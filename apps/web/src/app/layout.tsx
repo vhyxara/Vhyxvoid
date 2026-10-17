@@ -72,6 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       id='__next'
+      lang='en'
       dir='ltr'
       data-brand='vhyxvoid'
       data-theme={systemMode}

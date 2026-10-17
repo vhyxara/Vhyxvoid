@@ -3,12 +3,12 @@ import type { NextRequest } from 'next/server'
 
 import createMiddleware from 'next-intl/middleware'
 
-import { routing } from '@/i18n/routing'
+import { RETIRED_LOCALES, routing } from '@/i18n/routing'
 import { redirectFor, redirectRules, reportRedirectHit } from '@/views/seo/redirects'
 
 // ── Route classification ───────────────────────────────────────────────────
 // With localePrefix: 'as-needed', default locale (en) has NO prefix.
-// Non-default locales (fr) have prefix: /fr/dashboard
+// Non-default locales (none at the moment; see i18n/routing.ts) have a prefix: /fr/dashboard
 // Both forms must be matched.
 // const BARE_REWRITE_PATHS = ['/verify-email', '/verify-email-sent', '/reset-password', '/invitations/accept']
 
@@ -168,8 +168,19 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // 0a. A language the site no longer serves (/fr/pricing): the same page in English, for good.
+  const first = pathname.split('/')[1]
+
+  if (RETIRED_LOCALES.includes(first)) {
+    const url = request.nextUrl.clone()
+
+    url.pathname = pathname.slice(first.length + 1) || '/'
+
+    return NextResponse.redirect(url, 308)
+  }
+
   // 0b. Redirects set on the admin SEO screen (old addresses, moved pages).
-  const seg = pathname.split('/')[1]
+  const seg = first
   const locale = (routing.locales as readonly string[]).includes(seg) ? seg : undefined
   const moved = redirectFor(await redirectRules(), pathname, request.nextUrl.search, locale)
 
